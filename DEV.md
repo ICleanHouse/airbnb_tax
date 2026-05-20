@@ -51,7 +51,7 @@ Use this baseline stack unless the architecture document is intentionally update
 This repository contains the first application scaffold:
 
 - `backend/`: Django project, Django REST Framework APIs, domain apps, service-layer workflows, initial migrations, and tests.
-- `frontend/`: Next.js responsive web/PWA dashboard shell.
+- `frontend/`: Next.js responsive web/PWA with a public landing page. Authenticated dashboards are not built yet.
 - `docker-compose.yml`: PostgreSQL, Redis, backend, Celery worker, and frontend local stack.
 - `.env.example`: local environment defaults.
 
@@ -137,17 +137,61 @@ celery -A config worker --loglevel=info
 From `frontend/`:
 
 ```powershell
-npm install
-npm run dev
+npm.cmd install
+npm.cmd run dev -- --hostname 127.0.0.1
 ```
 
 Run frontend checks:
 
 ```powershell
-npm run typecheck
-npm run lint
-npm run build
+npm.cmd run typecheck
+npm.cmd run lint
+npm.cmd run build
 ```
+
+PowerShell may block `npm.ps1` with an execution policy error. Use `npm.cmd` commands on Windows to avoid changing execution policy.
+
+Do not run `npm.cmd run build` while `npm.cmd run dev` is running. Both write to `frontend/.next`, and running them together can produce missing generated files such as `.next/server/app/page.js`. If the frontend shows a stale Next.js runtime error, stop the dev server, remove `.next`, and restart:
+
+```powershell
+cd C:\Users\35987\Desktop\airbnb_tax\frontend
+Remove-Item -Recurse -Force .next
+npm.cmd run dev -- --hostname 127.0.0.1
+```
+
+## Current Frontend Behavior
+
+The root page at `http://127.0.0.1:3000` is a public landing page for the marketplace, not a logged-in dashboard.
+
+Current landing page behavior:
+
+- Audience toggle for hosts and cleaners.
+- Search-style lead form with city, month, and property/capacity inputs.
+- Local confirmation message after submitting the form.
+- Launch-market, trust, cleaner-profile, and early-access sections.
+
+The landing page does not yet save lead/search data to the Django backend.
+
+## Current Backend Behavior
+
+The backend has initial domain models, migrations, admin registrations, serializers, viewsets, and service functions.
+
+Implemented service-level behavior:
+
+- Publish draft cleaning jobs.
+- Allow verified cleaners to apply to open jobs.
+- Allow hosts/admins to accept one application.
+- Reject competing applications after assignment.
+- Mark assigned jobs completed.
+- Allow two-way reviews only after completion.
+- Update cleaner rating summaries after reviews.
+
+Provider integrations are not complete yet:
+
+- Google Calendar sync is a placeholder.
+- iCal parsing is a placeholder.
+- Email/SMS dispatch is a placeholder.
+- Object storage is planned for future file/photo/document uploads.
 
 ## Git Setup Note
 

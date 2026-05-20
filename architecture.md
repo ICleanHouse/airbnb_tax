@@ -8,6 +8,8 @@ The v1 architecture should start as a modular Django backend with a Next.js PWA 
 
 The app calendar is the source of truth. External calendars, including Google Calendar and iCal feeds from Airbnb or booking platforms, sync into or out of the application.
 
+The current first screen is a public landing page for the service. Authenticated host, cleaner, and admin workspaces should be built as separate app routes after authentication is introduced.
+
 ## Architecture Style
 
 Use a modular monolith for v1:
@@ -16,7 +18,7 @@ Use a modular monolith for v1:
 - One primary PostgreSQL database.
 - Redis for cache, locks, and Celery broker/result needs.
 - Celery workers for asynchronous sync and notification work.
-- One Next.js frontend serving hosts, cleaners, and admins with role-specific experiences.
+- One Next.js frontend serving the public landing page and, later, authenticated host, cleaner, and admin experiences.
 
 The code should be organized around business domains, not technical layers alone. Domain modules should communicate through explicit service functions and events rather than reaching into each other's internals.
 
@@ -30,6 +32,13 @@ Current implementation modules:
 - `apps.calendars`: conflict checks and placeholder background sync tasks.
 - `apps.feedback`: two-way reviews and cleaner reputation updates.
 - `apps.notifications`: in-app notification records and provider dispatch placeholders.
+
+Current frontend implementation:
+
+- `frontend/app/page.tsx`: public landing page with Airbnb-inspired structure, hero imagery, search-style lead form, launch markets, trust messaging, and host/cleaner calls to action.
+- `frontend/app/globals.css`: public landing page styling.
+- The landing page is interactive locally but does not yet persist lead/search data to the backend.
+- The previous dashboard-like first screen should be treated as superseded; operational dashboards should move behind auth in future routes such as `/app`, `/host`, `/cleaner`, or `/admin`.
 
 ## Product Domains
 
@@ -179,20 +188,22 @@ Use explicit audit logging for important marketplace decisions, including verifi
 
 Use REST APIs through Django REST Framework.
 
-Expected resource groups:
+Current API route groups:
 
-- `/auth/`
-- `/users/`
-- `/hosts/`
-- `/cleaners/`
-- `/properties/`
-- `/calendar/`
-- `/reservations/`
-- `/jobs/`
-- `/applications/`
-- `/assignments/`
-- `/reviews/`
-- `/notifications/`
+- `/api/health/`
+- `/api/accounts/users/`
+- `/api/accounts/hosts/`
+- `/api/accounts/cleaners/`
+- `/api/properties/properties/`
+- `/api/properties/calendar-connections/`
+- `/api/properties/reservations/`
+- `/api/marketplace/batches/`
+- `/api/marketplace/jobs/`
+- `/api/marketplace/applications/`
+- `/api/marketplace/assignments/`
+- `/api/feedback/reviews/`
+- `/api/notifications/notifications/`
+- `/api/calendars/conflicts/`
 - `/admin/`
 
 The exact routes can evolve, but APIs should preserve domain boundaries and avoid leaking internal model structure unnecessarily.
@@ -210,6 +221,11 @@ Use Celery for work that should not block HTTP requests:
 - Cleanup or retry of failed integration jobs.
 
 Background tasks should be idempotent where possible and safe to retry.
+
+Current background task state:
+
+- Celery app wiring exists in `backend/config/celery.py`.
+- Notification dispatch, iCal sync, and Google Calendar sync tasks are placeholders until providers and OAuth/feed behavior are selected.
 
 ## Future Microservice Boundaries
 

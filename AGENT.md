@@ -7,6 +7,7 @@ Help build and maintain a Bulgarian-market marketplace that connects short-term 
 The product direction for v1 is:
 
 - Responsive web/PWA.
+- Public landing page first, with marketplace operations behind authenticated app screens later.
 - Django REST Framework backend.
 - React/Next.js frontend.
 - PostgreSQL, Redis, and Celery.
@@ -22,6 +23,7 @@ The product direction for v1 is:
 
 - Treat `BUSINESS.md` as the source of truth for business strategy, target users, marketplace assumptions, monetization hypotheses, and open business questions.
 - Preserve the service-ready modular architecture described in `architecture.md`.
+- Keep the unauthenticated `/` frontend experience as a public marketing/lead-generation landing page, not an internal dashboard.
 - Keep changes scoped to the user request.
 - Do not introduce unrelated refactors.
 - Do not add payment processing, payouts, wallets, invoices, or platform fees unless the user explicitly asks for that change.
@@ -69,6 +71,7 @@ When code exists:
 - Make background jobs idempotent where possible.
 - Handle external calendar and notification failures explicitly.
 - Keep secrets out of source control.
+- Do not run `npm run build` while `npm run dev` is running against the same `frontend/.next` directory; stop dev or clear `.next` first to avoid stale Next.js runtime errors.
 
 ## Marketplace Rules To Preserve
 
@@ -79,6 +82,16 @@ When code exists:
 - A cleaning job can have only one accepted cleaner assignment.
 - Reviews are two-way and only allowed after job completion.
 - Admins must be able to inspect marketplace history for disputes and moderation.
+
+## Current Implementation State
+
+- Backend exists under `backend/` as a Django/DRF modular monolith.
+- Frontend exists under `frontend/` as a Next.js app.
+- The public landing page lives at `frontend/app/page.tsx`.
+- The current landing page uses local UI state only; search/lead actions are not yet persisted to the backend.
+- Backend domain apps include accounts, properties, marketplace, calendars, feedback, and notifications.
+- Marketplace services currently cover publishing jobs, verified cleaner applications, accepting applications, completing jobs, and submitting reviews.
+- Google Calendar, iCal parsing, email/SMS providers, and object storage are placeholder boundaries, not finished integrations.
 
 ## Before Making Changes
 

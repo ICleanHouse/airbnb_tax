@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Host Cleaner Marketplace",
-  description: "Marketplace for Bulgarian short-term rental hosts and verified cleaners.",
+  title: "Host Cleaners Bulgaria",
+  description: "Verified turnover cleaners for Bulgarian short-term rental hosts.",
   applicationName: "Host Cleaner Marketplace",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f766e",
+  themeColor: "#ff385c",
 };
 
 export default function RootLayout({
@@ -22,4 +22,3 @@ export default function RootLayout({
     </html>
   );
 }
-

@@ -8,6 +8,8 @@ The core idea is simple: hosts need reliable turnover cleaning around guest rese
 
 The first version is not a payment platform. It helps both sides find each other, agree on the work, coordinate the schedule, and build trust.
 
+The public website should first explain the service and collect early host/cleaner interest. The logged-in marketplace tools should come after the landing page and authentication flow.
+
 ## Target Market
 
 The initial market is Bulgaria, with support for Bulgarian and English and pricing displayed in EUR.
@@ -87,6 +89,13 @@ For the marketplace:
 - Create trust through verification, reviews, admin oversight, and transparent job history.
 - Start simple, then add deeper operational tools only after the main coordination problem is proven.
 
+For public website visitors:
+
+- Quickly understand that the service is for Airbnb/short-term rental turnover cleaning in Bulgaria.
+- Choose whether they are a host or cleaner.
+- Indicate city, timing, and rough demand/capacity.
+- Move toward early access without seeing an internal operations dashboard first.
+
 ## Marketplace Model
 
 The MVP marketplace flow should remain:
@@ -135,6 +144,12 @@ Suggested launch approach:
 - Use manual admin review early to understand quality issues before automating too much.
 - Track where jobs are posted but not filled, then recruit supply in those areas.
 
+Current public-site direction:
+
+- The first page is a landing page inspired by modern marketplace design patterns.
+- It should feel trustworthy, clean, and service-focused, with a white/coral visual direction rather than an internal admin dashboard.
+- The dashboard and operational tools should be introduced after login, not as the first public impression.
+
 Potential early regions:
 
 - Sofia.
@@ -167,6 +182,10 @@ Primary MVP success signal:
 
 Secondary signals:
 
+- Landing page visits and visitor-to-lead conversion.
+- Host versus cleaner audience selection.
+- Cities selected in the lead/search form.
+- Month/timeframe selected in the lead/search form.
 - Number of verified cleaners and agencies.
 - Number of properties added.
 - Number of connected or imported calendars.
@@ -221,6 +240,8 @@ Operations:
 - Initial market is Bulgaria.
 - Currency is EUR.
 - UI should support Bulgarian and English.
+- Public first page should be a landing page for the service, not a logged-in dashboard.
+- Visual direction should be marketplace-friendly and inspired by Airbnb-style clarity, without copying Airbnb branding.
 - The first target host segment is small and mid-sized hosts with roughly 1-20 properties.
 - Cleaner supply should include verified individual cleaners and agency partnerships.
 - The marketplace should be available across Bulgaria while building practical local supply clusters.
@@ -231,4 +252,3 @@ Operations:
 - Ads are a possible non-intrusive later experiment, not a required v1 feature.
 - Subscription or other monetization models may be explored later.
 - No in-app payments are included in v1.
-

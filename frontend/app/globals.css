@@ -1,10 +1,11 @@
 :root {
   --background: #ffffff;
   --surface: #ffffff;
-  --surface-soft: #f7f7f7;
+  --surface-soft: #c2c2c2;
   --text: #222222;
   --muted: #6a6a6a;
   --line: #dddddd;
+  --header-highlight: #e6e6e6;
   --brand: #ff385c;
   --brand-strong: #e21d48;
   --ink: #111111;
@@ -127,7 +128,45 @@ img {
 }
 
 .text-link:hover {
-  background: var(--surface-soft);
+  background: var(--header-highlight);
+}
+
+.language-picker {
+  position: relative;
+  display: inline-flex;
+  width: 58px;
+  height: 42px;
+  align-items: center;
+}
+
+.language-picker select {
+  width: 100%;
+  height: 100%;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  outline: 0;
+  padding: 0 20px 0 13px;
+}
+
+.language-picker::after {
+  position: absolute;
+  right: 11px;
+  color: var(--muted);
+  content: "v";
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.language-picker select:hover,
+.language-picker select:focus {
+  background: var(--header-highlight);
 }
 
 .menu-button {
@@ -626,7 +665,58 @@ img {
   cursor: pointer;
 }
 
+.login-choice-actions {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-choice-button {
+  display: inline-flex;
+  min-height: 52px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 18px;
+}
+
+.login-submit {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.login-submit:hover,
+.login-submit:focus {
+  background: var(--header-highlight);
+}
+
+.auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  background: var(--line);
+  content: "";
+}
+
+.auth-divider span {
+  line-height: 1;
+}
+
 .auth-submit:disabled,
+.auth-choice-button:disabled,
 .cookie-actions button:disabled {
   cursor: wait;
   opacity: 0.75;
@@ -775,7 +865,7 @@ img {
     padding: 12px;
   }
 
-  .text-link {
+  .site-nav .text-link {
     display: none;
   }
 

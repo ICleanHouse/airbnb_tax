@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { LogIn } from "lucide-react";
+import { LogIn, UserPlus } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 
 export default function LoginPage() {
@@ -41,7 +41,6 @@ export default function LoginPage() {
           <strong>Host Cleaners</strong>
         </Link>
         <div className="auth-heading">
-          <p className="eyebrow">Account access</p>
           <h1>Log in</h1>
           <p>Use the email and password from your signup request.</p>
         </div>
@@ -68,15 +67,20 @@ export default function LoginPage() {
             />
           </label>
           {error ? <p className="form-error">{error}</p> : null}
-          <button className="primary-link auth-submit" type="submit" disabled={submitting}>
-            <LogIn size={18} aria-hidden />
-            {submitting ? "Logging in" : "Log in"}
-          </button>
+          <div className="login-choice-actions">
+            <button className="primary-link auth-choice-button" type="submit" disabled={submitting}>
+              <LogIn size={18} aria-hidden />
+              {submitting ? "Signing in" : "Sign in"}
+            </button>
+            <div className="auth-divider">
+              <span>OR</span>
+            </div>
+            <Link className="auth-choice-button login-submit" href="/signup">
+              <UserPlus size={18} aria-hidden />
+              Create an account
+            </Link>
+          </div>
         </form>
-
-        <p className="auth-switch">
-          Need an account? <Link href="/signup">Sign up</Link>
-        </p>
       </section>
     </main>
   );

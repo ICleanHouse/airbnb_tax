@@ -13,14 +13,26 @@
 # - Redis 7 for Celery broker/result backend, cache, locks, and temporary state
 # - Docker 24+ and Docker Compose for the full local stack
 #
-# Frontend libraries are managed in frontend/package.json:
+# Frontend libraries (managed in frontend/package.json):
 #
-# - Next.js 15
-# - React 19
-# - lucide-react
-# - TypeScript
-# - ESLint
-# - eslint-config-next
+# - Next.js 15.5+
+# - React 19.2+
+# - lucide-react 0.468+
+# - TypeScript 5.9+
+# - ESLint 9.39+
+# - eslint-config-next 15.5+
+#
+# Backend Python libraries (managed in backend/requirements.txt):
+#
+# - Django 6.0+
+# - djangorestframework 3.17+
+# - psycopg 3.2+ (PostgreSQL driver, Docker only)
+# - celery 5.4+ (async task queue, Docker only)
+# - redis 5.2+ (broker/cache client, Docker only)
+# - django-cors-headers 4.6+
+# - gunicorn 23.0+ (production WSGI server, Docker only)
+# - icalendar 6.3+ (iCal / Airbnb calendar parsing)
+# - python-dotenv 1.2+ (auto-load .env in development)
 #
 # Infrastructure/config files:
 #
@@ -30,4 +42,3 @@
 # - frontend/package.json for frontend Node packages
 
 -r backend/requirements.txt
-

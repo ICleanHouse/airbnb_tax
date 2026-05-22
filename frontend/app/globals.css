@@ -2498,3 +2498,212 @@ img {
     width: calc(100% - 28px);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ICS IMPORT — host dashboard
+   ═══════════════════════════════════════════════════════════ */
+
+/* Button group in the jobs section header */
+.host-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Wider modal variant for the event checklist */
+.host-modal--wide {
+  width: min(760px, 100%);
+}
+
+/* Subtitle line under modal title */
+.host-modal-subtitle {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* File drop zone */
+.host-ics-file-label span:first-child {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.host-ics-drop-zone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 110px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: #fafafa;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 20px;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.host-ics-drop-zone:hover {
+  border-color: var(--brand);
+  background: rgba(255, 56, 92, 0.03);
+  color: var(--text);
+}
+
+.host-ics-drop-icon {
+  color: var(--brand);
+  opacity: 0.7;
+}
+
+.host-ics-file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+/* Select-all row */
+.host-ics-select-all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.host-ics-toggle-all {
+  border: 0;
+  background: transparent;
+  color: var(--brand);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0;
+}
+
+.host-ics-toggle-all:hover {
+  text-decoration: underline;
+}
+
+.host-muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Event list */
+.host-ics-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px;
+}
+
+.host-ics-event {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  user-select: none;
+}
+
+.host-ics-event:hover {
+  background: #fafafa;
+  border-color: #bbb;
+}
+
+.host-ics-event.selected {
+  background: rgba(0, 132, 137, 0.05);
+  border-color: rgba(0, 132, 137, 0.3);
+}
+
+.host-ics-event input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--teal);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.host-ics-event-info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.host-ics-event-summary {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.host-ics-event-dates {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.host-ics-event-nights {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.host-ics-event-clean {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Done / success state */
+.host-ics-done {
+  display: grid;
+  gap: 8px;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.host-ics-done-count {
+  margin: 0;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+@media (max-width: 620px) {
+  .host-section-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .host-ics-event {
+    grid-template-columns: auto 1fr;
+  }
+
+  .host-ics-event-clean {
+    grid-column: 2;
+  }
+}

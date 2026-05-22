@@ -151,6 +151,9 @@ CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
 
+# Base URL of the frontend — used to build links in outbound emails.
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.local")
 
 # Email backend — defaults to console (prints to stdout) for local development.

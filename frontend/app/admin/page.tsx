@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
   Home as HomeIcon,
@@ -37,11 +38,16 @@ const STATUS_FILTER_LABELS: Record<Filter, string> = {
 };
 
 export default function AdminPage() {
+  const searchParams = useSearchParams();
+  const initialFilter = (["pending", "approved", "all"].includes(searchParams.get("filter") ?? "")
+    ? searchParams.get("filter")
+    : "pending") as Filter;
+
   const [me, setMe] = useState<CurrentUser | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
   const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [filter, setFilter] = useState<Filter>("pending");
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const [actioning, setActioning] = useState<number | null>(null);
   const [actionError, setActionError] = useState("");
   const [fetchError, setFetchError] = useState("");

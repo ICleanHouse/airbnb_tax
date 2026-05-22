@@ -76,6 +76,9 @@ def send_admin_new_account_email(self, user_id: int) -> None:
     full_name = new_user.get_full_name().strip() or "—"
     role_display = new_user.get_role_display()
 
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
+    approve_link = f"{frontend_url}/admin?filter=pending"
+
     subject = f"[Marketplace] New account awaiting approval — {full_name}"
     message = (
         "A new account has been created and is awaiting your approval.\n\n"
@@ -83,7 +86,7 @@ def send_admin_new_account_email(self, user_id: int) -> None:
         f"Email:  {new_user.email or '—'}\n"
         f"Phone:  {new_user.phone_number or '—'}\n"
         f"Role:   {role_display}\n\n"
-        "Log in to the admin panel to review this account.\n"
+        f"Review this account here:\n{approve_link}\n"
     )
 
     try:

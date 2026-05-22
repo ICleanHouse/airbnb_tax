@@ -12,9 +12,18 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { Upload } from "lucide-react";
 import { apiFetch, CurrentUser } from "../../lib/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
+
+interface IcsEvent {
+  uid: string;
+  summary: string;
+  checkin: string;   // "YYYY-MM-DD"
+  checkout: string;  // "YYYY-MM-DD" — the day cleaning happens
+  nights: number;
+}
 
 interface Property {
   id: number;
@@ -132,6 +141,19 @@ export default function HostDashboard() {
   const [savingJob,    setSavingJob]    = useState(false);
   const [jobError,     setJobError]     = useState("");
 
+  // ── ICS import ─────────────────────────────────────────────────────────────
+  const [showIcsModal,   setShowIcsModal]   = useState(false);
+  const [icsStep,        setIcsStep]        = useState<1 | 2>(1);
+  const [icsPropId,      setIcsPropId]      = useState("");
+  const [icsFile,        setIcsFile]        = useState<File | null>(null);
+  const [icsEvents,      setIcsEvents]      = useState<IcsEvent[]>([]);
+  const [icsSelected,    setIcsSelected]    = useState<Set<string>>(new Set());
+  const [icsStartTime,   setIcsStartTime]   = useState("10:00");
+  const [icsParsing,     setIcsParsing]     = useState(false);
+  const [icsImporting,   setIcsImporting]   = useState(false);
+  const [icsError,       setIcsError]       = useState("");
+  const [icsImportDone,  setIcsImportDone]  = useState<{ created: number; skipped: number } | null>(null);
+
   // ── Auth check ─────────────────────────────────────────────────────────────
   useEffect(() => {
     apiFetch("/api/accounts/me/")
@@ -248,6 +270,91 @@ export default function HostDashboard() {
       const updated = await res.json() as CleaningJob;
       setJobs((prev) => prev.map((j) => (j.id === id ? updated : j)));
     }
+  }
+
+  // ── ICS import handlers ────────────────────────────────────────────────────
+  function openIcsModal() {
+    setIcsStep(1);
+    setIcsPropId(properties.length === 1 ? String(properties[0].id) : "");
+    setIcsFile(null);
+    setIcsEvents([]);
+    setIcsSelected(new Set());
+    setIcsStartTime("10:00");
+    setIcsError("");
+    setIcsImportDone(null);
+    setShowIcsModal(true);
+  }
+
+  async function parseIcs() {
+    if (!icsFile) { setIcsError("Please select an .ics file."); return; }
+    setIcsParsing(true);
+    setIcsError("");
+    try {
+      const formData = new FormData();
+      formData.append("ics_file", icsFile);
+      const res = await apiFetch("/api/properties/parse-ics/", { method: "POST", body: formData });
+      const data = await res.json() as IcsEvent[] | { detail: string };
+      if (!res.ok) {
+        setIcsError((data as { detail: string }).detail ?? "Failed to parse file.");
+        return;
+      }
+      const events = data as IcsEvent[];
+      if (events.length === 0) {
+        setIcsError("No reservations found in this file. Blocked dates are excluded automatically.");
+        return;
+      }
+      setIcsEvents(events);
+      setIcsSelected(new Set(events.map((e) => e.uid)));
+      setIcsStep(2);
+    } finally {
+      setIcsParsing(false);
+    }
+  }
+
+  async function importIcsJobs() {
+    if (!icsPropId) { setIcsError("Please select a property."); return; }
+    const toCreate = icsEvents.filter((e) => icsSelected.has(e.uid));
+    if (toCreate.length === 0) { setIcsError("Select at least one event to import."); return; }
+
+    const prop = properties.find((p) => p.id === parseInt(icsPropId));
+    const durationMs = (prop?.default_cleaning_duration_minutes ?? 120) * 60 * 1000;
+
+    setIcsImporting(true);
+    setIcsError("");
+    let created = 0;
+    let skipped = 0;
+
+    for (const ev of toCreate) {
+      const startDate = new Date(`${ev.checkout}T${icsStartTime}:00`);
+      const endDate   = new Date(startDate.getTime() + durationMs);
+      const res = await apiFetch("/api/marketplace/jobs/", {
+        method: "POST",
+        body: JSON.stringify({
+          property_id: parseInt(icsPropId),
+          title: `Checkout cleaning – ${ev.summary}`,
+          scheduled_start: startDate.toISOString(),
+          scheduled_end:   endDate.toISOString(),
+          description: `Imported from Airbnb calendar.\nCheckout: ${ev.checkout}  |  Check-in was: ${ev.checkin} (${ev.nights} night${ev.nights !== 1 ? "s" : ""})`,
+        }),
+      });
+      if (res.ok) {
+        const newJob = await res.json() as CleaningJob;
+        setJobs((prev) => [...prev, newJob].sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start)));
+        created++;
+      } else {
+        skipped++;
+      }
+    }
+    setIcsImportDone({ created, skipped });
+    setIcsImporting(false);
+  }
+
+  function toggleIcsEvent(uid: string) {
+    setIcsSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
   }
 
   // ── Logout ─────────────────────────────────────────────────────────────────
@@ -473,14 +580,24 @@ export default function HostDashboard() {
                 <h1 className="host-section-title">Jobs &amp; Calendar</h1>
               </div>
               {isApproved && properties.length > 0 && (
-                <button
-                  className="primary-link"
-                  type="button"
-                  onClick={() => { setJobError(""); openJobForm(); }}
-                >
-                  <Plus size={16} aria-hidden />
-                  Post a job
-                </button>
+                <div className="host-section-actions">
+                  <button
+                    className="secondary-link"
+                    type="button"
+                    onClick={openIcsModal}
+                  >
+                    <Upload size={16} aria-hidden />
+                    Import ICS
+                  </button>
+                  <button
+                    className="primary-link"
+                    type="button"
+                    onClick={() => { setJobError(""); openJobForm(); }}
+                  >
+                    <Plus size={16} aria-hidden />
+                    Post a job
+                  </button>
+                </div>
               )}
             </div>
 
@@ -722,6 +839,177 @@ export default function HostDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══ ICS IMPORT MODAL ══ */}
+      {showIcsModal && (
+        <div
+          className="host-modal-backdrop"
+          onClick={() => setShowIcsModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Import Airbnb calendar"
+        >
+          <div className="host-modal host-modal--wide" onClick={(e) => e.stopPropagation()}>
+            <div className="host-modal-header">
+              <div>
+                <h2>Import from Airbnb</h2>
+                <p className="host-modal-subtitle">
+                  {icsStep === 1
+                    ? "Upload your Airbnb .ics file to create cleaning jobs automatically."
+                    : `Found ${icsEvents.length} reservation${icsEvents.length !== 1 ? "s" : ""}. Select the ones to import.`}
+                </p>
+              </div>
+              <button type="button" className="host-modal-close" onClick={() => setShowIcsModal(false)} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* ── Step 1: Upload ── */}
+            {icsStep === 1 && (
+              <div className="host-form">
+                <label>
+                  <span>Property *</span>
+                  <select
+                    required
+                    value={icsPropId}
+                    onChange={(e) => setIcsPropId(e.target.value)}
+                  >
+                    <option value="">Select a property…</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} — {p.city}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="host-ics-file-label">
+                  <span>Airbnb calendar file (.ics) *</span>
+                  <div className="host-ics-drop-zone">
+                    <Upload size={28} className="host-ics-drop-icon" aria-hidden />
+                    <span>{icsFile ? icsFile.name : "Click to choose file or drop here"}</span>
+                    <input
+                      type="file"
+                      accept=".ics,text/calendar"
+                      className="host-ics-file-input"
+                      onChange={(e) => setIcsFile(e.target.files?.[0] ?? null)}
+                    />
+                  </div>
+                </label>
+                <p className="host-form-hint">
+                  In Airbnb → Calendar → Export calendar → download the .ics file and upload it here.
+                </p>
+                {icsError && <p className="form-error">{icsError}</p>}
+                <div className="host-form-actions">
+                  <button className="secondary-link" type="button" onClick={() => setShowIcsModal(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="primary-link auth-submit"
+                    type="button"
+                    disabled={icsParsing || !icsFile || !icsPropId}
+                    onClick={() => void parseIcs()}
+                  >
+                    {icsParsing ? "Reading file…" : "Continue"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Step 2: Review events ── */}
+            {icsStep === 2 && (
+              <div className="host-form">
+                {icsImportDone ? (
+                  <div className="host-ics-done">
+                    <p className="host-ics-done-count">
+                      ✅ {icsImportDone.created} job{icsImportDone.created !== 1 ? "s" : ""} created as draft
+                      {icsImportDone.skipped > 0 && ` · ${icsImportDone.skipped} skipped`}
+                    </p>
+                    <p className="host-form-hint">Publish each job to make it visible to cleaners.</p>
+                    <div className="host-form-actions">
+                      <button className="primary-link" type="button" onClick={() => setShowIcsModal(false)}>
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <label>
+                      <span>Cleaning start time on checkout day</span>
+                      <input
+                        type="time"
+                        value={icsStartTime}
+                        onChange={(e) => setIcsStartTime(e.target.value)}
+                        style={{ maxWidth: "140px" }}
+                      />
+                    </label>
+
+                    <div className="host-ics-select-all">
+                      <button
+                        type="button"
+                        className="host-ics-toggle-all"
+                        onClick={() => setIcsSelected(
+                          icsSelected.size === icsEvents.length
+                            ? new Set()
+                            : new Set(icsEvents.map((e) => e.uid))
+                        )}
+                      >
+                        {icsSelected.size === icsEvents.length ? "Deselect all" : "Select all"}
+                      </button>
+                      <span className="host-muted">{icsSelected.size} of {icsEvents.length} selected</span>
+                    </div>
+
+                    <ul className="host-ics-events">
+                      {icsEvents.map((ev) => (
+                        <li
+                          key={ev.uid}
+                          className={`host-ics-event${icsSelected.has(ev.uid) ? " selected" : ""}`}
+                          onClick={() => toggleIcsEvent(ev.uid)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={icsSelected.has(ev.uid)}
+                            onChange={() => toggleIcsEvent(ev.uid)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <div className="host-ics-event-info">
+                            <strong className="host-ics-event-summary">{ev.summary}</strong>
+                            <span className="host-ics-event-dates">
+                              Check-in {ev.checkin} → Checkout <strong>{ev.checkout}</strong>
+                              <span className="host-ics-event-nights">· {ev.nights} night{ev.nights !== 1 ? "s" : ""}</span>
+                            </span>
+                          </div>
+                          <span className="host-ics-event-clean">
+                            🧹 {ev.checkout} {icsStartTime}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {icsError && <p className="form-error">{icsError}</p>}
+                    <div className="host-form-actions">
+                      <button
+                        className="secondary-link"
+                        type="button"
+                        onClick={() => { setIcsStep(1); setIcsError(""); }}
+                      >
+                        Back
+                      </button>
+                      <button
+                        className="primary-link auth-submit"
+                        type="button"
+                        disabled={icsImporting || icsSelected.size === 0}
+                        onClick={() => void importIcsJobs()}
+                      >
+                        {icsImporting
+                          ? `Creating jobs…`
+                          : `Create ${icsSelected.size} job${icsSelected.size !== 1 ? "s" : ""}`}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

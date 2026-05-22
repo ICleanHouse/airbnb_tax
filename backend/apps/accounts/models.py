@@ -183,7 +183,7 @@ class AgencyInvitation(TimeStampedModel):
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
-                check=~models.Q(email="") | ~models.Q(phone_number=""),
+                condition=~models.Q(email="") | ~models.Q(phone_number=""),
                 name="agency_invitation_has_contact",
             )
         ]

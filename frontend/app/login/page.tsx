@@ -25,7 +25,7 @@ export default function LoginPage() {
         setError("Check your email and password and try again.");
         return;
       }
-      window.location.href = "/app";
+      window.location.href = "/";
     } finally {
       setSubmitting(false);
     }

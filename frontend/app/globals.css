@@ -131,6 +131,29 @@ img {
   background: var(--header-highlight);
 }
 
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  background: var(--header-highlight);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 13px;
+  white-space: nowrap;
+}
+
+.user-chip-dot {
+  color: var(--muted);
+}
+
+.logout-trigger {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 .language-picker {
   position: relative;
   display: inline-flex;

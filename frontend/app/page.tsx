@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   Home as HomeIcon,
+  LayoutDashboard,
   MapPin,
   Menu,
   Search,
@@ -16,6 +17,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { apiFetch, CurrentUser, roleLabel } from "../lib/api";
 
 type Audience = "host" | "cleaner";
 type Language = "BG" | "EN";
@@ -78,6 +80,20 @@ export default function Home() {
   const [leadMessage, setLeadMessage] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+
+  useEffect(() => {
+    apiFetch("/api/accounts/me/")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: CurrentUser | null) => setCurrentUser(data))
+      .finally(() => setLoadingAuth(false));
+  }, []);
+
+  async function handleLogout() {
+    await apiFetch("/api/accounts/logout/", { method: "POST" });
+    setCurrentUser(null);
+  }
 
   async function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -120,9 +136,32 @@ export default function Home() {
         </nav>
 
         <div className="header-actions">
-          <a className="text-link login-link" href="/login">
-            Log in
-          </a>
+          {!loadingAuth && (
+            currentUser ? (
+              <>
+                <a className="text-link" href="/app">
+                  <LayoutDashboard size={15} aria-hidden />
+                  Dashboard
+                </a>
+                <span className="user-chip">
+                  {currentUser.first_name || currentUser.email.split("@")[0]}
+                  <span className="user-chip-dot" aria-hidden>·</span>
+                  {roleLabel(currentUser.role)}
+                </span>
+                <button
+                  className="text-link logout-trigger"
+                  type="button"
+                  onClick={handleLogout}
+                >
+                  Log out
+                </button>
+              </>
+            ) : (
+              <a className="text-link login-link" href="/login">
+                Log in
+              </a>
+            )
+          )}
           <label className="language-picker" aria-label="Language">
             <select
               value={language}

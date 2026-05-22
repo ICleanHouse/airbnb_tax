@@ -20,6 +20,7 @@ from apps.accounts.models import (
     HostProfile,
 )
 from apps.accounts.permissions import IsPlatformAdmin
+from apps.notifications.tasks import send_admin_new_account_email
 from apps.accounts.serializers import (
     AgencyInvitationSerializer,
     AgencyInviteSerializer,
@@ -46,6 +47,7 @@ class SignupView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         login(request, user)
+        send_admin_new_account_email.delay(user.id)
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 

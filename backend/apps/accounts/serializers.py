@@ -163,6 +163,8 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "display_name",
             "bio",
             "service_areas",
+            "sex",
+            "profile_image",
             "average_rating",
             "completed_jobs_count",
             "is_verified",

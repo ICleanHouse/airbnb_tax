@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Briefcase,
   CalendarDays,
@@ -11,6 +12,7 @@ import {
   ClipboardList,
   Home as HomeIcon,
   LogOut,
+  Plus,
   RefreshCcw,
   Send,
   Star,
@@ -22,14 +24,15 @@ import { apiFetch, CurrentUser } from "../../lib/api";
 type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "disputed";
 type ApplicationStatus = "pending" | "accepted" | "rejected" | "withdrawn";
 type VerificationStatus = "pending" | "verified" | "rejected" | "suspended";
+type CleanerSex = "male" | "female" | "prefer_not_to_say";
 
 interface CleanerProfile {
   id: number;
-  kind: "individual" | "agency";
   verification_status: VerificationStatus;
-  display_name: string;
   bio: string;
   service_areas: string[];
+  sex: CleanerSex;
+  profile_image: string;
   average_rating: string;
   completed_jobs_count: number;
   is_verified: boolean;
@@ -113,6 +116,18 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const CLEANER_CITY_OPTIONS = [
+  "Sofia",
+  "Plovdiv",
+  "Varna",
+  "Burgas",
+  "Bansko",
+  "Ruse",
+  "Stara Zagora",
+];
+const DEFAULT_PROFILE_IMAGE = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f3f4f6"/><stop offset="100%" stop-color="#e5e7eb"/></linearGradient></defs><rect width="240" height="240" fill="url(#g)"/><circle cx="120" cy="88" r="40" fill="#cbd5e1"/><path d="M40 214c8-40 38-62 80-62s72 22 80 62H40z" fill="#cbd5e1"/></svg>',
+)}`;
 
 function firstWeekday(year: number, month: number) {
   return (new Date(year, month, 1).getDay() + 6) % 7;
@@ -236,9 +251,11 @@ export default function CleanerDashboard() {
   const [calMonth, setCalMonth] = useState(now.getMonth());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
-  const [profileKind, setProfileKind] = useState<"individual" | "agency">("individual");
-  const [profileName, setProfileName] = useState("");
-  const [profileAreas, setProfileAreas] = useState("");
+  const [profileFirstName, setProfileFirstName] = useState("");
+  const [profileLastName, setProfileLastName] = useState("");
+  const [profileAreaSelected, setProfileAreaSelected] = useState("");
+  const [profileSex, setProfileSex] = useState<CleanerSex>("prefer_not_to_say");
+  const [profileImage, setProfileImage] = useState("");
   const [profileBio, setProfileBio] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
@@ -268,10 +285,16 @@ export default function CleanerDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, calYear, calMonth]);
 
+  useEffect(() => {
+    setProfileFirstName(me?.first_name || "");
+    setProfileLastName(me?.last_name || "");
+  }, [me]);
+
   function syncProfileForm(nextProfile: CleanerProfile) {
-    setProfileKind(nextProfile.kind);
-    setProfileName(nextProfile.display_name);
-    setProfileAreas(nextProfile.service_areas.join(", "));
+    const firstArea = nextProfile.service_areas[0] || "";
+    setProfileAreaSelected(firstArea);
+    setProfileSex(nextProfile.sex || "prefer_not_to_say");
+    setProfileImage(nextProfile.profile_image || "");
     setProfileBio(nextProfile.bio);
   }
 
@@ -390,23 +413,53 @@ export default function CleanerDashboard() {
     }
   }
 
+  function onProfileImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setProfileImage(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function submitProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!profile) return;
+    if (!profile || !me) return;
+    if (!profileFirstName.trim() || !profileLastName.trim()) {
+      setProfileError("First name and last name are required.");
+      return;
+    }
+    if (!profileAreaSelected) {
+      setProfileError("Select a service area from the dropdown list.");
+      return;
+    }
     setSavingProfile(true);
     setProfileError("");
     setProfileSaved(false);
-    const serviceAreas = profileAreas
-      .split(",")
-      .map((area) => area.trim())
-      .filter(Boolean);
+    const serviceAreas = [profileAreaSelected];
     try {
+      const userRes = await apiFetch(`/api/accounts/users/${me.id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          first_name: profileFirstName.trim(),
+          last_name: profileLastName.trim(),
+        }),
+      });
+      if (!userRes.ok) {
+        setProfileError(messageFromResponse(await userRes.json(), "Could not save name details."));
+        return;
+      }
+      setMe((await userRes.json()) as CurrentUser);
+
       const res = await apiFetch(`/api/accounts/cleaners/${profile.id}/`, {
         method: "PATCH",
         body: JSON.stringify({
-          kind: profileKind,
-          display_name: profileName,
           service_areas: serviceAreas,
+          sex: profileSex,
+          profile_image: profileImage,
           bio: profileBio,
         }),
       });
@@ -499,7 +552,8 @@ export default function CleanerDashboard() {
 
   const canApply = Boolean(me?.is_approved && profile?.is_verified);
   const pendingApplications = applications.filter((application) => application.status === "pending").length;
-  const displayName = profile?.display_name || me?.first_name || me?.email.split("@")[0] || "Cleaner";
+  const fullName = `${me?.first_name || ""} ${me?.last_name || ""}`.trim();
+  const displayName = fullName || me?.email.split("@")[0] || "Cleaner";
 
   if (loadingMe) {
     return <main className="host-page cleaner-page"><p className="host-loading">Loading...</p></main>;
@@ -988,8 +1042,7 @@ export default function CleanerDashboard() {
           <div className="host-section">
             <div className="host-section-header">
               <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Cleaner onboarding</p>
-                <h1 className="host-section-title">Profile</h1>
+                <h1 className="host-section-title">Cleaner Profile</h1>
               </div>
               {profile && (
                 <span className={`cleaner-application-chip cleaner-verification-${profile.verification_status}`}>
@@ -1006,26 +1059,44 @@ export default function CleanerDashboard() {
             ) : (
               <div className="cleaner-profile-layout">
                 <form className="host-form cleaner-profile-form" onSubmit={(event) => void submitProfile(event)}>
+                  <label className="cleaner-avatar-uploader">
+                    <input type="file" accept="image/*" onChange={onProfileImageChange} />
+                    <span className="cleaner-avatar-frame">
+                      <Image src={profileImage || DEFAULT_PROFILE_IMAGE} alt="Profile" width={112} height={112} unoptimized />
+                      <span className="cleaner-avatar-overlay">
+                        <Plus size={18} aria-hidden />
+                      </span>
+                    </span>
+                  </label>
                   <div className="form-grid">
                     <label>
-                      <span>Profile type</span>
-                      <select value={profileKind} onChange={(event) => setProfileKind(event.target.value as "individual" | "agency")}>
-                        <option value="individual">Individual cleaner</option>
-                        <option value="agency">Small team / agency</option>
-                      </select>
+                      <span>First name</span>
+                      <input value={profileFirstName} onChange={(event) => setProfileFirstName(event.target.value)} />
                     </label>
                     <label>
-                      <span>Display name</span>
-                      <input value={profileName} onChange={(event) => setProfileName(event.target.value)} />
+                      <span>Last name</span>
+                      <input value={profileLastName} onChange={(event) => setProfileLastName(event.target.value)} />
                     </label>
                   </div>
-                  <label>
-                    <span>Service areas</span>
-                    <input
-                      value={profileAreas}
-                      onChange={(event) => setProfileAreas(event.target.value)}
-                      placeholder="Sofia, Plovdiv, Bansko"
-                    />
+                  <label className="cleaner-city-picker">
+                    <span>Service area</span>
+                    <select
+                      value={profileAreaSelected}
+                      onChange={(event) => setProfileAreaSelected(event.target.value)}
+                    >
+                      <option value="" disabled>Select a city</option>
+                      {CLEANER_CITY_OPTIONS.map((city) => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="cleaner-sex-picker">
+                    <span>Sex</span>
+                    <select value={profileSex} onChange={(event) => setProfileSex(event.target.value as CleanerSex)}>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="prefer_not_to_say">Prefer not to say</option>
+                    </select>
                   </label>
                   <label>
                     <span>Bio</span>

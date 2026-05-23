@@ -134,6 +134,11 @@ class CleanerProfile(TimeStampedModel):
         REJECTED = "rejected", "Rejected"
         SUSPENDED = "suspended", "Suspended"
 
+    class Sex(models.TextChoices):
+        MALE = "male", "Male"
+        FEMALE = "female", "Female"
+        PREFER_NOT_TO_SAY = "prefer_not_to_say", "Prefer not to say"
+
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -148,6 +153,12 @@ class CleanerProfile(TimeStampedModel):
     display_name = models.CharField(max_length=255, blank=True)
     bio = models.TextField(blank=True)
     service_areas = models.JSONField(default=list, blank=True)
+    sex = models.CharField(
+        max_length=32,
+        choices=Sex.choices,
+        default=Sex.PREFER_NOT_TO_SAY,
+    )
+    profile_image = models.TextField(blank=True)
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
     completed_jobs_count = models.PositiveIntegerField(default=0)
 

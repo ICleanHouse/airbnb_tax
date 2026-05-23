@@ -1628,6 +1628,14 @@ img {
   margin: 16px 24px 0;
 }
 
+.cleaner-page .host-pending-banner,
+.cleaner-page .host-section,
+.cleaner-page-error {
+  width: min(1240px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .cleaner-verification-banner {
   background: rgba(0, 132, 137, 0.1);
   border-bottom-color: rgba(0, 132, 137, 0.22);
@@ -1864,6 +1872,73 @@ img {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
+}
+
+.cleaner-avatar-uploader {
+  display: inline-grid;
+  justify-self: start;
+  cursor: pointer;
+}
+
+.cleaner-avatar-uploader input {
+  display: none;
+}
+
+.cleaner-avatar-frame {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.cleaner-avatar-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cleaner-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: rgba(17, 17, 17, 0.5);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.cleaner-avatar-uploader:hover .cleaner-avatar-overlay,
+.cleaner-avatar-uploader:focus-within .cleaner-avatar-overlay {
+  opacity: 1;
+}
+
+.cleaner-city-picker {
+  gap: 10px;
+}
+
+.cleaner-city-picker select {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+  padding: 0 13px;
+}
+
+.cleaner-city-picker select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.14);
+  outline: 0;
+}
+
+.cleaner-sex-picker {
+  width: min(240px, 100%);
 }
 
 .cleaner-profile-summary {

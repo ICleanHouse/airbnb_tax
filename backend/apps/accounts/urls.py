@@ -7,6 +7,7 @@ from apps.accounts.views import (
     AgencyMembershipViewSet,
     AgencyProfileViewSet,
     CleanerProfileViewSet,
+    ConfirmEmailView,
     CookieConsentView,
     HostProfileViewSet,
     LoginView,
@@ -27,6 +28,7 @@ router.register("agency-memberships", AgencyMembershipViewSet, basename="agency-
 
 urlpatterns = [
     path("signup/", SignupView.as_view(), name="account-signup"),
+    path("confirm-email/<str:uidb64>/<str:token>/", ConfirmEmailView.as_view(), name="account-confirm-email"),
     path("login/", LoginView.as_view(), name="account-login"),
     path("logout/", LogoutView.as_view(), name="account-logout"),
     path("me/", MeView.as_view(), name="account-me"),

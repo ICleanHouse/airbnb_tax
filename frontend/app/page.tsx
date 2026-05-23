@@ -81,13 +81,21 @@ export default function Home() {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [loadingAuth, setLoadingAuth] = useState(true);
 
   useEffect(() => {
-    apiFetch("/api/accounts/me/")
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+
+    apiFetch("/api/accounts/me/", { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: CurrentUser | null) => setCurrentUser(data))
-      .finally(() => setLoadingAuth(false));
+      .catch(() => null)
+      .finally(() => window.clearTimeout(timeoutId));
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []);
 
   async function handleLogout() {
@@ -136,48 +144,46 @@ export default function Home() {
         </nav>
 
         <div className="header-actions">
-          {!loadingAuth && (
-            currentUser ? (
-              <>
-                {currentUser.is_platform_admin ? (
-                  <a className="text-link" href="/admin">
-                    <AdminIcon size={15} aria-hidden />
-                    Admin panel
-                  </a>
-                ) : currentUser.role === "host" ? (
-                  <a className="text-link" href="/host">
-                    <LayoutDashboard size={15} aria-hidden />
-                    Dashboard
-                  </a>
-                ) : currentUser.role === "cleaner" ? (
-                  <a className="text-link" href="/cleaner">
-                    <LayoutDashboard size={15} aria-hidden />
-                    Dashboard
-                  </a>
-                ) : (
-                  <a className="text-link" href="/app">
-                    <LayoutDashboard size={15} aria-hidden />
-                    Dashboard
-                  </a>
-                )}
-                <span className="user-chip">
-                  {currentUser.first_name || currentUser.email.split("@")[0]}
-                  <span className="user-chip-dot" aria-hidden>·</span>
-                  {currentUser.is_platform_admin ? "Admin" : roleLabel(currentUser.role)}
-                </span>
-                <button
-                  className="text-link logout-trigger"
-                  type="button"
-                  onClick={handleLogout}
-                >
-                  Log out
-                </button>
-              </>
-            ) : (
-              <a className="text-link login-link" href="/login">
-                Log in
-              </a>
-            )
+          {currentUser ? (
+            <>
+              {currentUser.is_platform_admin ? (
+                <a className="text-link" href="/admin">
+                  <AdminIcon size={15} aria-hidden />
+                  Admin panel
+                </a>
+              ) : currentUser.role === "host" ? (
+                <a className="text-link" href="/host">
+                  <LayoutDashboard size={15} aria-hidden />
+                  Dashboard
+                </a>
+              ) : currentUser.role === "cleaner" ? (
+                <a className="text-link" href="/cleaner">
+                  <LayoutDashboard size={15} aria-hidden />
+                  Dashboard
+                </a>
+              ) : (
+                <a className="text-link" href="/app">
+                  <LayoutDashboard size={15} aria-hidden />
+                  Dashboard
+                </a>
+              )}
+              <span className="user-chip">
+                {currentUser.first_name || currentUser.email.split("@")[0]}
+                <span className="user-chip-dot" aria-hidden>·</span>
+                {currentUser.is_platform_admin ? "Admin" : roleLabel(currentUser.role)}
+              </span>
+              <button
+                className="text-link logout-trigger"
+                type="button"
+                onClick={handleLogout}
+              >
+                Log out
+              </button>
+            </>
+          ) : (
+            <a className="text-link login-link" href="/login">
+              Log in
+            </a>
           )}
           <label className="language-picker" aria-label="Language">
             <select

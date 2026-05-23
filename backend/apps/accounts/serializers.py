@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
+import re
 from rest_framework import serializers
 
 from apps.accounts.models import (
@@ -75,16 +76,12 @@ class SignupSerializer(serializers.Serializer):
         (User.Role.AGENCY, "Agency"),
     ]
 
-    name = serializers.CharField(max_length=255)
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
-    phone_number = serializers.CharField(max_length=32, allow_blank=True, required=False)
-    city = serializers.CharField(max_length=120, allow_blank=True, required=False)
-    preferred_language = serializers.ChoiceField(
-        choices=User.Language.choices,
-        default=User.Language.BULGARIAN,
-    )
     role = serializers.ChoiceField(choices=ROLE_CHOICES)
     password = serializers.CharField(write_only=True, min_length=8)
+    password_confirm = serializers.CharField(write_only=True, min_length=8)
 
     def validate_email(self, value):
         email = value.strip().lower()
@@ -92,13 +89,33 @@ class SignupSerializer(serializers.Serializer):
             raise serializers.ValidationError("An account with this email already exists.")
         return email
 
+    def validate(self, attrs):
+        password = attrs.get("password", "")
+        password_confirm = attrs.get("password_confirm", "")
+
+        if password != password_confirm:
+            raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+
+        if len(password) < 8:
+            raise serializers.ValidationError({"password": "Password must be at least 8 characters long."})
+        if not re.search(r"[a-z]", password):
+            raise serializers.ValidationError({"password": "Password must include at least one lowercase letter."})
+        if not re.search(r"[A-Z]", password):
+            raise serializers.ValidationError({"password": "Password must include at least one uppercase letter."})
+        if not re.search(r"\d", password):
+            raise serializers.ValidationError({"password": "Password must include at least one number."})
+        if not re.search(r"[^A-Za-z0-9]", password):
+            raise serializers.ValidationError({"password": "Password must include at least one special symbol."})
+
+        return attrs
+
     def create(self, validated_data):
-        name = validated_data.pop("name").strip()
-        city = validated_data.pop("city", "").strip()
+        first_name = validated_data.pop("first_name").strip()
+        last_name = validated_data.pop("last_name").strip()
         password = validated_data.pop("password")
+        validated_data.pop("password_confirm", None)
         email = validated_data.pop("email")
 
-        first_name, _, last_name = name.partition(" ")
         user = User(
             username=email,
             email=email,
@@ -111,11 +128,13 @@ class SignupSerializer(serializers.Serializer):
         user.save()
 
         if user.is_host:
-            HostProfile.objects.create(user=user, city=city)
+            HostProfile.objects.create(user=user)
         elif user.is_cleaner:
-            CleanerProfile.objects.create(user=user, display_name=name)
+            display_name = f"{first_name} {last_name}".strip()
+            CleanerProfile.objects.create(user=user, display_name=display_name)
         elif user.is_agency:
-            AgencyProfile.objects.create(user=user, company_name=name, city=city)
+            company_name = f"{first_name} {last_name}".strip()
+            AgencyProfile.objects.create(user=user, company_name=company_name)
 
         return user
 

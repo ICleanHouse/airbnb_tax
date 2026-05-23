@@ -1,8 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login, logout
+from django.conf import settings
 from django.db.models import Count, Q
+from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.decorators import method_decorator
+from django.utils.http import urlsafe_base64_decode
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -20,7 +23,8 @@ from apps.accounts.models import (
     HostProfile,
 )
 from apps.accounts.permissions import IsPlatformAdmin
-from apps.notifications.tasks import send_admin_new_account_email
+from apps.accounts.tokens import email_verification_token
+from apps.notifications.tasks import send_account_confirmation_email, send_admin_new_account_email
 from apps.accounts.serializers import (
     AgencyInvitationSerializer,
     AgencyInviteSerializer,
@@ -47,8 +51,30 @@ class SignupView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         login(request, user)
+        send_account_confirmation_email.delay(user.id)
         send_admin_new_account_email.delay(user.id)
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+class ConfirmEmailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, uidb64, token):
+        try:
+            user_id = urlsafe_base64_decode(uidb64).decode()
+            user = User.objects.get(pk=user_id)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({"detail": "Invalid confirmation link."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not email_verification_token.check_token(user, token):
+            return Response({"detail": "Invalid or expired confirmation link."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user.email_verified_at is None:
+            user.email_verified_at = timezone.now()
+            user.save(update_fields=["email_verified_at"])
+
+        redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?email_confirmed=1"
+        return redirect(redirect_url)
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")

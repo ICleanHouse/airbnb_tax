@@ -69,6 +69,7 @@ frontend/
     app/            Generic workspace (auto-redirects hosts → /host, admins → /admin)
     admin/          Admin approval panel (list / approve / reject, URL filter param)
     host/           Host dashboard (properties, jobs, calendar, ICS import)
+    cleaner/        Cleaner dashboard (calendar, profile, open jobs, applications, assignments)
     components/     CookieConsentBanner
   lib/
     api.ts          apiFetch wrapper — CSRF + Content-Type, FormData-safe
@@ -92,7 +93,7 @@ Copy-Item .env.example .env
 
 ### Environment variables
 
-`python-dotenv` loads `.env` automatically at startup from `manage.py`, `wsgi.py`, and `asgi.py` using `override=False` — shell environment variables take precedence.
+`python-dotenv` loads `.env` automatically at startup from `settings.py`, `manage.py`, `wsgi.py`, and `asgi.py` using `override=False` where applicable — shell environment variables take precedence.
 
 Key variables and their defaults:
 
@@ -111,6 +112,7 @@ Key variables and their defaults:
 | `EMAIL_HOST_PASSWORD` | *(empty)* | SMTP password or Gmail App Password |
 | `DEFAULT_FROM_EMAIL` | `noreply@example.local` | Sender address for outbound emails |
 | `FRONTEND_URL` | `http://localhost:3000` | Base URL used to build links in outbound emails |
+| `BACKEND_URL` | `http://localhost:8000` | Base URL used for email confirmation links |
 | `FRONTEND_TRUSTED_ORIGINS` | `http://localhost:3000,...` | CSRF trusted origins |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | API base URL for the frontend |
 
@@ -122,11 +124,11 @@ The local `.env` should have `DATABASE_URL` **commented out** so Django falls ba
 # DATABASE_URL=postgres://airbnb_cleaners:airbnb_cleaners@db:5432/airbnb_cleaners
 ```
 
-Docker Compose passes `DATABASE_URL` via `env_file:` pointing to `.env`, where the Docker hostname `db` is valid inside the container network.
+Docker Compose can use the Docker hostname `db`, but manual PowerShell runs cannot. Use SQLite locally or point PostgreSQL to `localhost`.
 
 ### Email in local development
 
-By default Django prints emails to the console (`console.EmailBackend`). To receive real emails during local dev, add to `.env`:
+`.env.example` is set up for Gmail SMTP. To receive real emails during local dev, use:
 
 ```dotenv
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
@@ -137,9 +139,10 @@ EMAIL_HOST_USER=your@gmail.com
 EMAIL_HOST_PASSWORD=your-gmail-app-password
 DEFAULT_FROM_EMAIL=your@gmail.com
 FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:8000
 ```
 
-Use a Gmail **App Password** (not your account password). Generate one at Google Account → Security → App passwords. Restart the backend after changing `.env`.
+Use a Gmail **App Password** (not your account password). Generate one at Google Account -> Security -> App passwords. Restart both the backend and Celery after changing `.env`.
 
 ## Docker Development
 
@@ -183,13 +186,13 @@ python manage.py test
 python -m compileall .
 ```
 
-Run a Celery worker after Redis is available and dependencies are installed:
+Run a Celery worker after Redis is available and dependencies are installed. On Windows, use `--pool=solo`:
 
 ```powershell
-celery -A config worker --loglevel=info
+python -m celery -A config worker --loglevel=info --pool=solo
 ```
 
-**Celery is optional for local dev.** When `celery` is not installed, tasks fall back to a `_FakeTask` stub in `apps/notifications/tasks.py` that runs synchronously. All `.delay()` and `.apply()` calls work without a broker.
+Signup email delivery requires Redis and the Celery worker when Celery is installed. The `_FakeTask` fallback only applies when Celery is not installed.
 
 ## Frontend Local Commands
 
@@ -224,11 +227,11 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 |---|---|---|---|
 | `/` | No | All | ✅ Live |
 | `/login` | No | All | ✅ Live |
-| `/signup` | No | All | ✅ Live |
+| `/signup` | No | All | ✅ Live — custom validation + email confirmation |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role | ✅ Live |
 | `/host` | Yes | `host` role | ✅ Live |
-| `/cleaner` | Yes | `cleaner` role | ⬜ Not built yet |
+| `/cleaner` | Yes | `cleaner` role | ✅ Live |
 | `/agency` | Yes | `agency` role | ⬜ Not built yet |
 
 ### Key frontend files
@@ -272,6 +275,22 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
     3. Confirm: creates one Draft cleaning job per selected checkout date via `POST /api/marketplace/jobs/`.
 - Pending hosts see a gold warning banner but can still view the UI.
 
+### Signup page (`/signup`)
+
+- Role tiles for Property owner, Cleaner, and Agency.
+- Host/cleaner signup uses first name and last name; agency signup uses agency name.
+- UI-only Google and Apple buttons are present but not connected to OAuth.
+- Client-side field errors use red input outlines and inline messages.
+- Email validation checks the local part and dot-separated domain labels.
+- Password validation requires 8+ characters, uppercase, lowercase, number, and special character, with a live checklist.
+
+### Cleaner dashboard (`/cleaner`)
+
+- Calendar view with open jobs, applications, and assignments.
+- Open jobs list with apply action gated by account approval and cleaner verification.
+- Applications and assigned jobs views.
+- Profile form with first/last name, service-area dropdown, sex dropdown, bio, verification status, and profile picture upload preview.
+
 ### CSS conventions
 
 All pages use plain CSS in `frontend/app/globals.css`. No external CSS libraries.
@@ -312,6 +331,7 @@ Implemented service-level behavior:
 - Signup, login, logout, and current-user APIs using Django sessions.
 - Pending, approved, rejected, and suspended account status.
 - Admin approval, rejection, and suspension actions.
+- **Email confirmation on new account signup** — `send_account_confirmation_email` sends the new user a confirmation link that sets `email_verified_at`.
 - **Admin email notification on new account signup** — `send_admin_new_account_email` Celery task sends email to all `role=admin` or `is_staff=True` users with a direct link to the pending-tab admin panel. Retries up to 3 times on SMTP failure.
 - Agency profile, invitation, membership, and member assignment APIs.
 - Cookie consent records for essential, analytics, and marketing choices.
@@ -334,9 +354,9 @@ Placeholder integrations (not complete):
 
 ## Email Configuration
 
-Email dispatch uses Django's configurable mail backend. In local dev, emails are printed to the Django console by default. To send real emails, set `EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend` and add SMTP credentials in `.env`.
+Email dispatch uses Django's configurable mail backend. `.env.example` is set for Gmail SMTP; set `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, and `DEFAULT_FROM_EMAIL` in `.env`.
 
-The `send_admin_new_account_email` task reads `settings.FRONTEND_URL` to build the approval link included in the notification email.
+The `send_admin_new_account_email` task reads `settings.FRONTEND_URL` to build the approval link. The `send_account_confirmation_email` task reads `settings.BACKEND_URL` to build the confirmation link.
 
 When `celery` is not installed locally, the task runs synchronously via the `_FakeTask` fallback stub in `apps/notifications/tasks.py`.
 
@@ -358,7 +378,7 @@ When code exists, test coverage should focus on:
 - Calendar conflict detection.
 - iCal parsing (blocked-date filtering, date normalization, sorting).
 - Google Calendar and iCal sync behavior.
-- Notification triggers, especially `send_admin_new_account_email`.
+- Notification triggers, especially `send_account_confirmation_email` and `send_admin_new_account_email`.
 - Review eligibility and two-way review constraints.
 - Admin moderation actions.
 - Email task retry behavior on SMTP failure.

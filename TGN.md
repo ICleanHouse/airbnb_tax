@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-05-22
+**Last updated:** 2026-05-24
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -109,7 +109,9 @@ AuditLog ──[references]────────► (any entity — polymorph
 - `pending` users can log in and view dashboards but cannot post jobs, apply, or accept assignments.
 - `approved` → `suspended` by admin action.
 - `rejected` is terminal for marketplace access.
+- A confirmation email is sent to the new user on signup.
 - Admin email is sent to all `role=admin` or `is_staff=True` users on every `pending` creation.
+- Email confirmation sets `email_verified_at`; admin approval still controls marketplace rights.
 
 ### 2b. Cleaner Verification Status
 
@@ -229,6 +231,7 @@ notifications ◄─────────── accounts
 ```
 settings.py ──► loaded by all apps at startup
 celery.py   ──► wires Celery to Django settings
+settings.py ──► calls load_dotenv() during settings import
 manage.py   ──► calls load_dotenv() before Django setup
 wsgi.py     ──► calls load_dotenv() before Django setup
 asgi.py     ──► calls load_dotenv() before Django setup
@@ -257,7 +260,8 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
   auth: no
   reads: none
   writes: POST /api/accounts/signup/
-  next: /app (on success) ──► triggers send_admin_new_account_email
+  next: /app (on success) ──► triggers send_account_confirmation_email
+                          └──► triggers send_admin_new_account_email
 
 /app
   auth: required
@@ -285,11 +289,17 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
   NOT YET: GET /api/marketplace/applications/       (per-job applications)
            POST /api/marketplace/applications/{id}/accept/
 
-/cleaner  [NOT BUILT]             [role: cleaner only]
-  planned reads: GET /api/accounts/me/
-                 GET /api/marketplace/jobs/?status=open
-                 GET /api/marketplace/applications/?mine=true
-  planned writes: POST /api/marketplace/applications/
+/cleaner                         [role: cleaner only]
+  reads: GET /api/accounts/me/
+         GET /api/accounts/cleaners/
+         GET /api/marketplace/jobs/
+         GET /api/marketplace/applications/
+         GET /api/marketplace/assignments/
+         GET /api/marketplace/calendar/
+  writes: PATCH /api/accounts/users/{id}/
+          PATCH /api/accounts/cleaners/{id}/
+          POST /api/marketplace/applications/
+          POST /api/marketplace/jobs/{id}/complete/
 
 /agency   [NOT BUILT]             [role: agency only]
   planned reads: GET /api/accounts/me/
@@ -310,6 +320,7 @@ Full API surface with implementation state.
 | Method | Route | Auth | Status |
 |---|---|---|---|
 | POST | `/api/accounts/signup/` | None | ✅ |
+| GET | `/api/accounts/confirm-email/{uidb64}/{token}/` | None | ✅ |
 | POST | `/api/accounts/login/` | None | ✅ |
 | POST | `/api/accounts/logout/` | Required | ✅ |
 | GET | `/api/accounts/me/` | Required | ✅ |
@@ -366,6 +377,11 @@ Domain events and the Celery tasks or side effects they trigger.
 
 ```
 EVENT: account.created (signup)
+  ├──► TASK: send_account_confirmation_email       ✅ implemented
+              │  sends: HTML welcome email with confirmation button
+              │  confirm_link = BACKEND_URL/api/accounts/confirm-email/{uidb64}/{token}/
+              │  side effect: email_verified_at set after link click
+              │  redirects: FRONTEND_URL/login?email_confirmed=1
   └──► TASK: send_admin_new_account_email          ✅ implemented
               │  reads: User.objects.filter(role=admin OR is_staff=True)
               │  sends: email with name, role, approve_link
@@ -414,6 +430,7 @@ SCHEDULED: google.calendar.sync                    ⬜ placeholder (OAuth not st
 | Task | Module | Status | Retry |
 |---|---|---|---|
 | `send_admin_new_account_email` | `apps.notifications.tasks` | ✅ | 3× / 60s |
+| `send_account_confirmation_email` | `apps.notifications.tasks` | ✅ | 3× / 60s |
 | `dispatch_notification` | `apps.notifications.tasks` | ⬜ placeholder | — |
 | `poll_ical_feed` | `apps.calendars.tasks` | ⬜ placeholder | — |
 | `sync_google_calendar` | `apps.calendars.tasks` | ⬜ placeholder | — |
@@ -436,16 +453,16 @@ id, email, phone_number, first_name, last_name,
 role: [host | cleaner | agency | admin],
 account_status: [pending | approved | rejected | suspended],
 is_active, is_staff,
-approved_at, approved_by,
+approved_at, approved_by, email_verified_at,
 language_preference: [bg | en]
 ```
 
 ### CleanerProfile
 ```
-user (1:1), bio, service_areas[], verification_status: [unverified | verified],
-verified_at, verified_by,
-rating_average, rating_count,
-work_preferences, available_from
+user (1:1), kind, display_name, bio, service_areas[],
+verification_status: [pending | verified | rejected | suspended],
+sex: [male | female | prefer_not_to_say],
+profile_image, average_rating, completed_jobs_count
 ```
 
 ### AgencyProfile
@@ -556,6 +573,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 |---|---|
 | Auth (signup/login/logout/me) | ✅ Complete |
 | Account approval states + admin actions | ✅ Complete |
+| User confirmation email on signup (Celery + SMTP) | ✅ Complete |
 | Admin email on signup (Celery + SMTP) | ✅ Complete |
 | Host/Cleaner/Agency profiles | ✅ Complete |
 | Agency invitations + memberships | ✅ Complete |
@@ -594,7 +612,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Cookie consent banner | ✅ Complete |
 | `apiFetch` — CSRF, Content-Type, FormData-safe | ✅ Complete |
 | Host dashboard — applications review panel | ⬜ Not built |
-| Cleaner dashboard `/cleaner` | ⬜ Not built |
+| Cleaner dashboard `/cleaner` | ✅ Complete |
 | Agency dashboard `/agency` | ⬜ Not built |
 | Real cleaner search on landing page | ⬜ Not built |
 | Cleaner verification in admin panel | ⬜ Not built |
@@ -617,7 +635,7 @@ Rules that must never be broken regardless of task scope.
 | R8 | Never call `fetch` directly — use `apiFetch` | Frontend convention |
 | R9 | Never commit `.env` | `.gitignore` |
 | R10 | `trailingSlash: true` + dual API rewrite — do not simplify | `frontend/next.config.mjs` |
-| R11 | `load_dotenv(override=False)` — shell env wins | `manage.py`, `wsgi.py`, `asgi.py` |
+| R11 | `.env` is loaded for local manual runs; shell env wins where `override=False` is used | `settings.py`, `manage.py`, `wsgi.py`, `asgi.py` |
 | R12 | `DATABASE_URL` commented out in local `.env` | `.env` (Docker hostname `db` is invalid locally) |
 | R13 | All Celery tasks must be idempotent and retryable | `apps/notifications/tasks.py` convention |
 | R14 | Public `/` is marketing only — never a dashboard | Frontend routing |

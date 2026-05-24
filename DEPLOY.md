@@ -21,7 +21,7 @@ If PowerShell cannot find `docker` immediately after install, the helper script 
 
 ## 2. Configure the production environment
 
-Edit `.env.production` before exposing the app publicly.
+Edit `.env.production` before exposing the app publicly. For current local/manual development, use `.env`; `.env.production` is only for the production Compose stack.
 
 For LAN testing, the local defaults use:
 
@@ -29,6 +29,7 @@ For LAN testing, the local defaults use:
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.14,backend
 FRONTEND_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1,http://192.168.1.14
 FRONTEND_URL=http://192.168.1.14
+BACKEND_URL=http://192.168.1.14
 ```
 
 When you know the router public IP, add it:
@@ -37,9 +38,24 @@ When you know the router public IP, add it:
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.14,backend,<public-ip>
 FRONTEND_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1,http://192.168.1.14,http://<public-ip>
 FRONTEND_URL=http://<public-ip>
+BACKEND_URL=http://<public-ip>
 ```
 
 Keep `SESSION_COOKIE_SECURE=false` and `CSRF_COOKIE_SECURE=false` while serving raw-IP HTTP. Change them to `true` only after HTTPS is working through a real domain.
+
+For real email delivery, configure Gmail SMTP with a Google App Password:
+
+```dotenv
+DEFAULT_FROM_EMAIL=your-gmail-address@gmail.com
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=true
+EMAIL_HOST_USER=your-gmail-address@gmail.com
+EMAIL_HOST_PASSWORD=your-google-app-password
+```
+
+`BACKEND_URL` is used in user email confirmation links. `FRONTEND_URL` is used for frontend redirects and admin approval links.
 
 ## 3. Open Windows Firewall
 

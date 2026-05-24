@@ -32,12 +32,12 @@ Future extraction into microservices should be possible without rewriting core b
 
 ### Backend — `backend/apps/`
 
-- `apps.accounts`: users, host profiles, cleaner profiles, agency profiles, agency invitations, agency memberships, cookie consent, verification state, and role permissions. On every new signup an email notification is dispatched to all admin accounts via Celery.
+- `apps.accounts`: users, host profiles, cleaner profiles, agency profiles, agency invitations, agency memberships, cookie consent, email verification state, and role permissions. On every new signup, confirmation email and admin notification tasks are dispatched via Celery.
 - `apps.properties`: host properties, external calendar connections, reservations, and iCal file parsing (`POST /api/properties/parse-ics/`).
 - `apps.marketplace`: cleaning batches, jobs, applications, assignments, and marketplace workflow services.
 - `apps.calendars`: conflict checks and placeholder background sync tasks.
 - `apps.feedback`: two-way reviews and cleaner reputation updates.
-- `apps.notifications`: in-app notification records, Gmail/SMTP email dispatch via Django's mail backend, and Celery task for admin signup alerts.
+- `apps.notifications`: in-app notification records, Gmail/SMTP email dispatch via Django's mail backend, new-user confirmation email, and Celery task for admin signup alerts.
 
 ### Backend — `backend/config/`
 
@@ -47,6 +47,7 @@ Future extraction into microservices should be possible without rewriting core b
   - `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`: SMTP credentials.
   - `DEFAULT_FROM_EMAIL`: sender address for outbound emails.
   - `FRONTEND_URL`: base URL of the frontend, used to build links in outbound emails (e.g. approval links).
+  - `BACKEND_URL`: base URL used to build email confirmation links.
   - `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`: Redis connection strings.
 - `celery.py`: Celery application wiring.
 - `manage.py`, `wsgi.py`, `asgi.py`: all load `.env` via `python-dotenv` before Django starts.
@@ -55,20 +56,20 @@ Future extraction into microservices should be possible without rewriting core b
 
 - `frontend/lib/api.ts`: shared HTTP client. All pages use `apiFetch` — it injects `Content-Type: application/json` for string bodies only (not FormData), reads the Django `csrftoken` cookie, and sets `X-CSRFToken` on state-changing requests. Never call `fetch` directly.
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
-- `frontend/app/page.tsx`: public landing page. Auth-aware header shows role-correct dashboard link (`/admin` for admins, `/host` for hosts, `/app` for cleaners/agencies). Search form uses local state only — not yet connected to backend.
+- `frontend/app/page.tsx`: public landing page. Auth-aware header shows role-correct dashboard link (`/admin` for admins, `/host` for hosts, `/cleaner` for cleaners, `/app` fallback). Search form uses local state only — not yet connected to backend.
 - `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
-- `frontend/app/signup/page.tsx`: role-based signup for host / cleaner / agency — redirects to `/app` on success.
+- `frontend/app/signup/page.tsx`: role-based signup for host / cleaner / agency with custom field validation, live password checklist, UI-only Google/Apple buttons, and redirect to `/app` on success.
 - `frontend/app/app/page.tsx`: generic authenticated workspace. Automatically redirects hosts to `/host` and admins to `/admin`. For cleaners and agencies shows account status.
 - `frontend/app/admin/page.tsx`: admin account approval panel. Lists all accounts, filters by pending / approved / all. Supports `?filter=pending` URL param to pre-select a tab (used in approval email links). Approve and reject actions call `POST /api/accounts/users/{id}/approve/` and `/reject/`. Accessible to `admin` role only.
 - `frontend/app/host/page.tsx`: host dashboard with two sections toggled in the topbar:
   - **Properties** — lists host properties as cards with job counts. "Add property" modal POSTs to `POST /api/properties/properties/`.
   - **Jobs & Calendar** — custom month calendar grid with coloured status dots per day. "Post a job" modal POSTs to `POST /api/marketplace/jobs/` (saved as Draft). Publish button calls `POST /api/marketplace/jobs/{id}/publish/` to transition Draft → Open. **"Import ICS"** button opens a two-step modal: upload an Airbnb `.ics` file → review parsed reservations → bulk-create draft cleaning jobs (one per selected checkout date) via repeated `POST /api/marketplace/jobs/`.
+- `frontend/app/cleaner/page.tsx`: cleaner dashboard with calendar, open jobs, applications, assigned jobs, profile edit form, service-area dropdown, sex dropdown, and profile picture upload preview.
 - `frontend/app/components/CookieConsentBanner.tsx`: consent-first GDPR cookie banner.
 - `frontend/app/globals.css`: single CSS file for all routes using plain CSS variables and named component classes. No CSS library.
 
 ### Not yet built
 
-- `/cleaner` — cleaner dashboard (profile, browse open jobs, apply for jobs).
 - `/agency` — agency dashboard (manage members, view jobs).
 - Applications review panel inside the host dashboard (host sees applications per job, accepts one).
 - Cleaner verification flow in the admin panel.
@@ -90,7 +91,7 @@ Responsibilities:
 - Agency profiles, agency invitations, and agency-cleaner memberships.
 - Cookie consent records for essential, analytics, and marketing choices.
 - Permissions and role-based API access.
-- Admin email notification on new account signup.
+- Email confirmation and admin email notification on new account signup.
 
 Rules:
 
@@ -98,7 +99,7 @@ Rules:
 - Property owners are stored with the `host` role value and presented in the UI as "Property owner".
 - Cleaners who work for an agency remain separate users with their own cleaner profile and calendar.
 - Agencies invite cleaners into their group; cleaners accept invitations from their own account.
-- Email/SMS code verification is planned but not delivered by providers in v1.
+- Email confirmation is implemented for signup. SMS code verification remains planned.
 
 ### Hosts and Properties
 
@@ -200,6 +201,7 @@ Responsibilities:
 
 Implemented notification triggers:
 
+- **New account signup** → `send_account_confirmation_email` Celery task sends the new user an HTML email with a confirmation button. The link marks `email_verified_at` and redirects to `FRONTEND_URL/login?email_confirmed=1`.
 - **New account signup** → `send_admin_new_account_email` Celery task sends an email to all `role=admin` or `is_staff=True` users with a direct link to the admin approval panel (`FRONTEND_URL/admin?filter=pending`).
 
 Planned notification triggers:
@@ -267,7 +269,8 @@ REST APIs through Django REST Framework.
 | Route | Notes |
 |---|---|
 | `GET /api/health/` | Health check |
-| `POST /api/accounts/signup/` | Creates user + auto-login. Fires admin email notification. |
+| `POST /api/accounts/signup/` | Creates user + auto-login. Fires user confirmation email and admin email notification. |
+| `GET /api/accounts/confirm-email/{uidb64}/{token}/` | Confirms user email and redirects to frontend login. |
 | `POST /api/accounts/login/` | Session login |
 | `POST /api/accounts/logout/` | Session logout |
 | `GET /api/accounts/me/` | Current authenticated user |
@@ -306,6 +309,7 @@ Celery tasks for work that should not block HTTP requests:
 | Task | Status |
 |---|---|
 | `send_admin_new_account_email` | ✅ Implemented — emails all admins on signup with approval link |
+| `send_account_confirmation_email` | ✅ Implemented — emails new users a confirmation link |
 | `dispatch_notification` | Placeholder — provider integration pending |
 | iCal feed polling | Placeholder — provider/schedule pending |
 | Google Calendar sync | Placeholder — OAuth flow pending |
@@ -314,7 +318,7 @@ Celery tasks for work that should not block HTTP requests:
 | Review prompt scheduling | Placeholder |
 | Retry of failed integration jobs | Placeholder |
 
-Background tasks are idempotent where possible and safe to retry. `send_admin_new_account_email` retries up to 3 times with 60-second delays on SMTP failure.
+Background tasks are idempotent where possible and safe to retry. Signup email tasks retry up to 3 times with 60-second delays on SMTP failure.
 
 The Celery fallback stub in `apps/notifications/tasks.py` allows all tasks to run synchronously in local dev and tests when Celery is not installed.
 
@@ -366,13 +370,14 @@ The system is GDPR-conscious from the start. Store only necessary personal data,
 | `CELERY_BROKER_URL` | `redis://localhost:6379/0` | Celery broker |
 | `CELERY_RESULT_BACKEND` | `redis://localhost:6379/1` | Celery results |
 | `DEFAULT_FROM_EMAIL` | `noreply@example.local` | Outbound email sender address |
-| `EMAIL_BACKEND` | `console.EmailBackend` | Django email backend class |
-| `EMAIL_HOST` | *(empty)* | SMTP server hostname |
+| `EMAIL_BACKEND` | `console.EmailBackend` | Django email backend class; `.env.example` uses Gmail SMTP |
+| `EMAIL_HOST` | *(empty)* | SMTP server hostname, e.g. `smtp.gmail.com` |
 | `EMAIL_PORT` | `587` | SMTP port |
 | `EMAIL_USE_TLS` | `true` | Enable STARTTLS |
 | `EMAIL_HOST_USER` | *(empty)* | SMTP username |
 | `EMAIL_HOST_PASSWORD` | *(empty)* | SMTP password / app password |
 | `FRONTEND_URL` | `http://localhost:3000` | Base URL for links in outbound emails |
+| `BACKEND_URL` | `http://localhost:8000` | Base URL for email confirmation links |
 | `FRONTEND_TRUSTED_ORIGINS` | `http://localhost:3000,...` | CSRF trusted origins |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | API base URL for frontend |
 

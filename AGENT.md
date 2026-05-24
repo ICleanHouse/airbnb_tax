@@ -114,6 +114,11 @@ When code exists:
   - Email includes name, email, phone, role, and a direct link to the admin panel with `?filter=pending`.
   - Retries up to 3 times with 60-second delays on SMTP failure.
   - Falls back to synchronous execution when Celery is not installed (via `_FakeTask` stub in `apps/notifications/tasks.py`).
+- User email confirmation on signup — `send_account_confirmation_email` Celery task:
+  - Sends an HTML welcome email with image and confirmation button.
+  - Confirmation link calls `/api/accounts/confirm-email/{uidb64}/{token}/`.
+  - Marks `email_verified_at` and redirects to `/login?email_confirmed=1`.
+  - Uses `BACKEND_URL` for the confirmation link.
 
 **Properties (`apps/properties`)**
 
@@ -140,6 +145,7 @@ When code exists:
 - In-app notification records.
 - Email dispatch via Django's configurable mail backend (`EMAIL_BACKEND` in settings).
 - `send_admin_new_account_email` task: ✅ implemented and tested.
+- `send_account_confirmation_email` task: ✅ implemented.
 - Other notification triggers: placeholder — not yet wired.
 
 **Feedback (`apps/feedback`)**
@@ -156,8 +162,8 @@ When code exists:
 
 **Configuration (`config/`)**
 
-- `settings.py`: loads env via python-dotenv; DATABASE_URL absent → SQLite, present → PostgreSQL; full email backend config block; `FRONTEND_URL` for outbound email links.
-- `manage.py`, `wsgi.py`, `asgi.py`: all call `load_dotenv(path, override=False)` before Django setup so `.env` is available from the first import.
+- `settings.py`: loads env via python-dotenv; DATABASE_URL absent → SQLite, present → PostgreSQL; full email backend config block; `FRONTEND_URL` for frontend links; `BACKEND_URL` for email confirmation links.
+- `settings.py`, `manage.py`, `wsgi.py`, `asgi.py`: load `.env` with `python-dotenv` so manual backend and Celery runs see local environment values.
 - `celery.py`: Celery app wiring.
 
 ### Frontend — what exists
@@ -167,7 +173,7 @@ When code exists:
 - Sets `Content-Type: application/json` only when `body` is a `string` — not for `FormData`.
 - Reads `csrftoken` cookie and adds `X-CSRFToken` header on POST/PUT/PATCH/DELETE.
 - Returns raw `Response` — callers check `.ok` and call `.json()`.
-- `CurrentUser` interface includes: `id`, `email`, `role`, `account_status`, `full_name`, `is_platform_admin`.
+- `CurrentUser` interface includes: `id`, `username`, `email`, `first_name`, `last_name`, `phone_number`, `preferred_language`, `role`, `account_status`, `is_approved`, `is_platform_admin`.
 
 **`frontend/next.config.mjs`** — critical config:
 
@@ -180,7 +186,7 @@ When code exists:
 
 **`frontend/app/login/page.tsx`** — session login, redirects to `/` after success.
 
-**`frontend/app/signup/page.tsx`** — role-based signup (host / cleaner / agency), redirects to `/app` after success.
+**`frontend/app/signup/page.tsx`** — role-based signup (host / cleaner / agency), redirects to `/app` after success. Includes custom field errors, email validation, live password checklist, agency-name mode, and UI-only Google/Apple buttons.
 
 **`frontend/app/app/page.tsx`** — generic workspace:
 
@@ -205,16 +211,22 @@ When code exists:
   - Calls `POST /api/properties/parse-ics/` with `FormData` (multipart).
   - Creates one Draft job per selected event checkout date via `POST /api/marketplace/jobs/`.
 
+**`frontend/app/cleaner/page.tsx`** — cleaner dashboard:
+
+- Calendar view, open jobs, applications, assigned jobs, and profile sections.
+- Profile form supports first/last name, service-area dropdown, sex dropdown, bio, and profile picture upload preview.
+- Cleaner applications call `POST /api/marketplace/applications/`.
+- Assigned jobs can be marked complete through `POST /api/marketplace/jobs/{id}/complete/`.
+
 ### What is NOT built yet (next priorities)
 
-1. **`/cleaner` dashboard** — cleaner profile view, browse open jobs, apply for a job (`POST /api/marketplace/applications/`).
-2. **Applications panel in host dashboard** — host sees applications per job, calls `POST /api/marketplace/applications/{id}/accept/`.
-3. **`/agency` dashboard** — agency manages members, views assigned jobs.
-4. **Cleaner verification** — admin marks cleaner as verified before they can apply.
-5. **Real search on landing page** — connect to `GET /api/accounts/cleaners/` with location filter.
-6. **Google Calendar sync** — OAuth flow and feed polling (backend placeholders exist).
-7. **iCal export** — generate `.ics` for host and cleaner calendars.
-8. **Additional notification triggers** — application submitted, application accepted/rejected, assignment created, upcoming reminder, review prompt.
+1. **Applications panel in host dashboard** — host sees applications per job, calls `POST /api/marketplace/applications/{id}/accept/`.
+2. **`/agency` dashboard** — agency manages members, views assigned jobs.
+3. **Cleaner verification** — admin marks cleaner as verified before they can apply.
+4. **Real search on landing page** — connect to `GET /api/accounts/cleaners/` with location filter.
+5. **Google Calendar sync** — OAuth flow and feed polling (backend placeholders exist).
+6. **iCal export** — generate `.ics` for host and cleaner calendars.
+7. **Additional notification triggers** — application submitted, application accepted/rejected, assignment created, upcoming reminder, review prompt.
 
 ## Before Making Changes
 

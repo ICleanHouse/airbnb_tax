@@ -42,7 +42,7 @@ Default URLs:
 - Backend health check: `http://localhost:8000/api/health/`
 - Django admin: `http://localhost:8000/admin/`
 
-> **Local dev without Docker**: comment out `DATABASE_URL` in `.env` — Django falls back to SQLite automatically. Celery is optional; tasks run synchronously without it.
+> **Local dev without Docker**: comment out `DATABASE_URL` in `.env` — Django falls back to SQLite automatically. Use `localhost` Redis URLs (`redis://localhost:6379/...`) when running Django and Celery from PowerShell.
 
 ## Host From This Machine
 
@@ -55,15 +55,15 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 ### Backend
 
 - Django project and domain apps (`accounts`, `properties`, `marketplace`, `calendars`, `feedback`, `notifications`).
-- Session-cookie signup, login, logout, and current-user APIs with CSRF enforcement.
+- Session-cookie signup, login, logout, current-user APIs, and email confirmation links with CSRF enforcement.
 - Account approval states (pending / approved / rejected / suspended) and admin approve/reject/suspend actions.
-- **Admin email notification on signup** — Celery task emails all admin/staff accounts with a direct approval link. Retries 3× on SMTP failure. Synchronous fallback when Celery is not installed.
+- **Signup email notifications** — Celery sends a confirmation email to the new user and emails all admin/staff accounts with a direct approval link. Tasks retry 3× on SMTP failure.
 - Agency profiles, invitations, memberships, and delegated cleaner assignments.
 - Cookie consent records for optional analytics and marketing cookies.
 - Property management: CRUD, external calendar connections, reservations.
 - **Airbnb ICS parsing** — `POST /api/properties/parse-ics/` accepts a multipart-uploaded `.ics` file, filters blocked-date placeholders, returns parsed reservation list.
 - Marketplace service functions: publish jobs, submit applications, accept applications, complete jobs, two-way reviews.
-- Notification records; email via configurable Django mail backend (console by default, SMTP in production).
+- Notification records; email via configurable Django mail backend. `.env.example` is configured for Gmail SMTP with a Google App Password.
 - Calendar conflict API; Google Calendar sync and iCal export are planned.
 
 ### Frontend (Next.js App Router)
@@ -72,11 +72,11 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 |---|---|---|
 | `/` | ✅ Done | Public landing page — auth-aware header with role-based dashboard link |
 | `/login` | ✅ Done | Session login |
-| `/signup` | ✅ Done | Role-based signup (host / cleaner / agency) |
+| `/signup` | ✅ Done | Role-based signup with custom field validation, password checklist, UI-only Google/Apple buttons |
 | `/app` | ✅ Done | Generic workspace — auto-redirects hosts → `/host`, admins → `/admin` |
 | `/admin` | ✅ Done | Admin approval dashboard — list / filter / approve / reject; reads `?filter=pending` URL param |
 | `/host` | ✅ Done | Host dashboard — property CRUD, job posting, month calendar, publish jobs, **ICS import** |
-| `/cleaner` | ⬜ Not built | Cleaner dashboard — profile, browse open jobs, apply |
+| `/cleaner` | ✅ Done | Cleaner dashboard — calendar, profile, open jobs, applications, assignments |
 | `/agency` | ⬜ Not built | Agency dashboard — manage members, view assigned jobs |
 
 ### Shared infrastructure
@@ -87,7 +87,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 
 ## Email Configuration
 
-Emails are printed to the Django console by default. To send real emails, add to `.env`:
+Copy `.env.example` to `.env`, then fill in Gmail SMTP values. Use a Google App Password, not your regular Gmail password:
 
 ```dotenv
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
@@ -98,6 +98,9 @@ EMAIL_HOST_USER=your@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
 DEFAULT_FROM_EMAIL=your@gmail.com
 FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:8000
 ```
+
+`BACKEND_URL` is used in the confirmation button sent to new users.
 
 See `DEV.md` for full environment variable reference.

@@ -14,7 +14,8 @@ erDiagram
       string password
       string role
       string account_status
-      string name
+      string first_name
+      string last_name
       string phone
       string preferred_language
       datetime approved_at
@@ -33,8 +34,10 @@ erDiagram
       int user_id FK
       string type
       string verification_status
-      string area
-      string description
+      json service_areas
+      string bio
+      string sex
+      string profile_image
       decimal average_rating
       int completed_jobs_count
     }
@@ -146,11 +149,13 @@ erDiagram
 1. **User Registration & Approval**
    - Users sign up as Property Owner (`host`), Cleaner, Agency, or Admin.
    - New public signups start as `pending`.
+   - Signup sends a confirmation email to the new user's inbox.
+   - The confirmation link sets `email_verified_at`.
    - Pending users can log in and complete onboarding, but cannot post jobs, apply, accept assignments, or assign agency work.
    - Admins approve, reject, or suspend users.
-2. **Future Email/SMS Verification**
-   - User records store future email and phone verification timestamps.
-   - Code delivery and expiry through email or SMS are planned for a later provider integration.
+2. **Email/SMS Verification**
+   - Email confirmation is implemented through a signed link sent at signup.
+   - Phone/SMS verification remains planned for a later provider integration.
 3. **Property Management (Property Owner)**
    - Approved property owners add/manage properties.
 4. **Job Posting**

@@ -78,6 +78,7 @@ frontend/
     app/            Generic workspace — auto-redirects hosts → /host, admins → /admin
     admin/          Admin approval panel (list / approve / reject, ?filter=pending URL param)
     host/           Host dashboard (properties, jobs, month calendar, ICS import)
+    cleaner/        Cleaner dashboard (calendar, profile, open jobs, applications, assignments)
     components/     CookieConsentBanner
   lib/
     api.ts          apiFetch wrapper — CSRF + Content-Type, FormData-safe, CurrentUser type
@@ -93,23 +94,26 @@ docker-compose.yml
 |---|---|---|---|
 | `/` | No | All | ✅ Live |
 | `/login` | No | All | ✅ Live |
-| `/signup` | No | All | ✅ Live |
+| `/signup` | No | All | ✅ Live — custom validation + email confirmation |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role only | ✅ Live — reads `?filter=pending` URL param |
 | `/host` | Yes | `host` role only | ✅ Live — ICS import + calendar + jobs |
-| `/cleaner` | Yes | `cleaner` role only | ⬜ Not built yet |
+| `/cleaner` | Yes | `cleaner` role only | ✅ Live |
 | `/agency` | Yes | `agency` role only | ⬜ Not built yet |
 
 ## Implemented Features (this session)
 
 - **Admin email on signup**: `send_admin_new_account_email` Celery task fires on every new account. Emails all admin/staff users with a direct link to `/admin?filter=pending`. Retries 3× on SMTP failure. Synchronous fallback (`_FakeTask`) when Celery not installed.
-- **SMTP email config**: `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` all configurable via `.env`. Console backend by default.
-- **`FRONTEND_URL` setting**: used to build clickable links in outbound emails.
-- **python-dotenv auto-load**: `manage.py`, `wsgi.py`, `asgi.py` all call `load_dotenv(path, override=False)` before Django setup.
+- **User confirmation email on signup**: `send_account_confirmation_email` sends an HTML welcome email with confirmation button. The link marks `email_verified_at` and redirects to `/login?email_confirmed=1`.
+- **SMTP email config**: `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` all configurable via `.env`. `.env.example` uses Gmail SMTP placeholders.
+- **`FRONTEND_URL` / `BACKEND_URL` settings**: frontend URL builds admin links; backend URL builds email confirmation links.
+- **python-dotenv auto-load**: `settings.py`, `manage.py`, `wsgi.py`, `asgi.py` load `.env` for local manual runs.
 - **Admin panel URL filter**: reads `?filter=pending` via `useSearchParams()` — pre-selects the pending tab when following email approval links.
 - **ICS file import**: `POST /api/properties/parse-ics/` parses uploaded Airbnb `.ics` files, filters blocked-date placeholders, returns reservation list. Host dashboard two-step modal: upload → review → bulk-create Draft jobs.
 - **`apiFetch` FormData fix**: `Content-Type: application/json` only set for string bodies, not `FormData`.
 - **`is_platform_admin` in CurrentUser**: added to `frontend/lib/api.ts` interface.
+- **Signup UX**: first/last name for host/cleaner, agency-name field for agencies, custom per-field errors, email domain validation, live password checklist, UI-only Google/Apple buttons.
+- **Cleaner dashboard**: calendar, open jobs, applications, assignments, profile form with service area, sex, bio, and profile image upload preview.
 
 ## CSS Design System (globals.css)
 

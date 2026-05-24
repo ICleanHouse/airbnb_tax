@@ -1,6 +1,6 @@
 # Current Progress Handoff
 
-Updated: 2026-05-23, after Docker production stack startup.
+Updated: 2026-05-24, after local signup/email confirmation work.
 
 ## User Goal
 
@@ -22,6 +22,33 @@ Host this project on this Windows machine and expose it to outside traffic throu
 - Added missing frontend API helper: `frontend/lib/api.ts`.
 - Wrapped the admin page `useSearchParams` usage in `Suspense` so Next production builds do not fail on that route.
 - Updated `.gitignore` to ignore `.env.production` and `.env.production.local` for future secret handling.
+- Added user email confirmation on signup:
+  - `send_account_confirmation_email` Celery task.
+  - `GET /api/accounts/confirm-email/<uidb64>/<token>/` endpoint.
+  - `BACKEND_URL` setting for confirmation links.
+- Added Gmail SMTP template values to `.env.example`.
+- Added `.env` loading from `settings.py` so manual Django and Celery runs read local environment values.
+- Updated signup UI with custom field errors, email validation, live password checklist, agency-name mode, and UI-only Google/Apple buttons.
+- Added cleaner dashboard/profile updates: calendar, profile picture upload preview, service-area dropdown, sex dropdown, applications, assignments, and open jobs.
+
+## Current Local Development Notes
+
+- Ignore `.env.production` unless production Docker hosting is resumed.
+- Use `.env` for local/manual PowerShell runs.
+- For local SQLite, remove or comment out `DATABASE_URL`.
+- For local Redis, use:
+
+```dotenv
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/1
+```
+
+- Celery must be running for signup emails when Celery is installed:
+
+```powershell
+cd C:\Users\35987\Desktop\airbnb_tax\backend
+python -m celery -A config worker --loglevel=info --pool=solo
+```
 
 ## Verified
 
@@ -97,6 +124,7 @@ powershell -ExecutionPolicy Bypass -File .\deploy\open-firewall.ps1
    - add `<public-ip>` to `DJANGO_ALLOWED_HOSTS`
    - add `http://<public-ip>` to `FRONTEND_TRUSTED_ORIGINS`
    - set `FRONTEND_URL=http://<public-ip>`
+   - set `BACKEND_URL=http://<public-ip>`
 
 5. Restart the production stack after `.env.production` changes:
 

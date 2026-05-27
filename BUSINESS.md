@@ -2,7 +2,7 @@
 
 ## Restart Handoff
 
-Machine hosting work is paused for a required Windows restart so Docker Desktop can run. See `CURRENT_PROGRESS.md` for the deployment resume point.
+See `CURRENT_PROGRESS.md` for the current deployment and signup-flow resume point.
 
 ## Business Concept
 
@@ -151,7 +151,8 @@ Trust should come from:
 Signup and verification direction:
 
 - V1 uses email confirmation and admin approval after signup. Pending users can log in, complete onboarding, and wait for approval.
-- Email confirmation is implemented through a confirmation link sent during signup. SMS code verification remains a future step.
+- Email confirmation is implemented through a 6-digit Resend code before account creation. SMS code verification remains a future step.
+- Cleaner signup currently collects birth date for 18+ validation, sex, education, own-car status, smoker status, and driving-license details/categories.
 - V1 web authentication uses secure Django session cookies with CSRF protection. JWT or OAuth can be revisited if native mobile apps, third-party API clients, or social sign-in become near-term requirements.
 - Google and Apple signup buttons may appear in the UI as placeholders, but OAuth is not connected yet.
 
@@ -270,6 +271,7 @@ Operations:
 - How much admin work is required to verify supply and handle disputes?
 - What support process is needed when a cleaner cancels close to check-in time?
 - How much admin work is required to approve all signup categories after email confirmation is complete?
+- What manual review process should be used for cleaner personal details collected during signup?
 - What verification details should agencies provide before they can invite cleaners and accept jobs?
 
 ## Business Decisions Locked So Far
@@ -285,7 +287,7 @@ Operations:
 - Agencies have their own user accounts; cleaners who work for agencies remain separate cleaner users with their own calendars.
 - New users start pending and need admin approval before posting jobs, applying, or assigning agency work.
 - V1 authentication uses Django session cookies with CSRF protection.
-- New users receive an email confirmation link during signup.
+- New users confirm email through a 6-digit Resend code before account creation.
 - Cookie consent is consent-first: only essential cookies are enabled before opt-in.
 - The marketplace should be available across Bulgaria while building practical local supply clusters.
 - The main trust promise is verified and reviewed cleaners/agencies.

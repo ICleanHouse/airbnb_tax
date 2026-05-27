@@ -1,5 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
+from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 import re
 from rest_framework import serializers
 
@@ -10,10 +12,40 @@ from apps.accounts.models import (
     CleanerProfile,
     CookieConsent,
     HostProfile,
+    SignupEmailVerification,
+    hash_signup_email_code,
 )
 
 
 User = get_user_model()
+
+BULGARIAN_DRIVING_LICENSE_CATEGORIES = {
+    "AM",
+    "A1",
+    "A2",
+    "A",
+    "B1",
+    "B",
+    "BE",
+    "C1",
+    "C1E",
+    "C",
+    "CE",
+    "D1",
+    "D1E",
+    "D",
+    "DE",
+    "Tкт",
+    "Tтм",
+}
+
+
+def age_from_birth_date(birth_date):
+    today = timezone.localdate()
+    years = today.year - birth_date.year
+    if (today.month, today.day) < (birth_date.month, birth_date.day):
+        years -= 1
+    return years
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -82,6 +114,24 @@ class SignupSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=ROLE_CHOICES)
     password = serializers.CharField(write_only=True, min_length=8)
     password_confirm = serializers.CharField(write_only=True, min_length=8)
+    email_verification_token = serializers.UUIDField(write_only=True)
+    city = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    service_areas = serializers.ListField(
+        child=serializers.CharField(max_length=160),
+        required=False,
+        allow_empty=True,
+    )
+    birth_date = serializers.DateField(required=False)
+    sex = serializers.ChoiceField(choices=CleanerProfile.Sex.choices, required=False)
+    education = serializers.ChoiceField(choices=CleanerProfile.Education.choices, required=False, allow_blank=True)
+    has_driving_license = serializers.BooleanField(required=False)
+    driving_license_categories = serializers.ListField(
+        child=serializers.CharField(max_length=8),
+        required=False,
+        allow_empty=True,
+    )
+    has_own_car = serializers.BooleanField(required=False)
+    smoker = serializers.BooleanField(required=False, allow_null=True)
 
     def validate_email(self, value):
         email = value.strip().lower()
@@ -107,6 +157,43 @@ class SignupSerializer(serializers.Serializer):
         if not re.search(r"[^A-Za-z0-9]", password):
             raise serializers.ValidationError({"password": "Password must include at least one special symbol."})
 
+        email = attrs.get("email")
+        token = attrs.get("email_verification_token")
+        verification = (
+            SignupEmailVerification.objects.filter(
+                email__iexact=email,
+                token=token,
+                verified_at__isnull=False,
+            )
+            .order_by("-verified_at")
+            .first()
+        )
+        if verification is None:
+            raise serializers.ValidationError({"email_verification_token": "Confirm your email before creating the account."})
+        attrs["email_verification"] = verification
+
+        if attrs.get("role") == User.Role.CLEANER:
+            birth_date = attrs.get("birth_date")
+            if birth_date is None:
+                raise serializers.ValidationError({"birth_date": "Birth date is required."})
+            if age_from_birth_date(birth_date) < 18:
+                raise serializers.ValidationError({"birth_date": "You must be at least 18 years old to sign up as a cleaner."})
+            if not attrs.get("sex"):
+                raise serializers.ValidationError({"sex": "Sex is required."})
+            if "has_driving_license" not in attrs:
+                raise serializers.ValidationError({"has_driving_license": "Driving license answer is required."})
+            if "has_own_car" not in attrs:
+                raise serializers.ValidationError({"has_own_car": "Own car answer is required."})
+
+            categories = attrs.get("driving_license_categories", [])
+            invalid_categories = [category for category in categories if category not in BULGARIAN_DRIVING_LICENSE_CATEGORIES]
+            if invalid_categories:
+                raise serializers.ValidationError({"driving_license_categories": "Choose valid Bulgarian driving license categories."})
+            if attrs.get("has_driving_license") and not categories:
+                raise serializers.ValidationError({"driving_license_categories": "Choose at least one driving license category."})
+            if not attrs.get("has_driving_license"):
+                attrs["driving_license_categories"] = []
+
         return attrs
 
     def create(self, validated_data):
@@ -114,6 +201,18 @@ class SignupSerializer(serializers.Serializer):
         last_name = validated_data.pop("last_name").strip()
         password = validated_data.pop("password")
         validated_data.pop("password_confirm", None)
+        validated_data.pop("email_verification_token", None)
+        validated_data.pop("email_verification", None)
+        city = validated_data.pop("city", "").strip()
+        service_areas = validated_data.pop("service_areas", [])
+        birth_date = validated_data.pop("birth_date", None)
+        age = age_from_birth_date(birth_date) if birth_date else None
+        sex = validated_data.pop("sex", CleanerProfile.Sex.PREFER_NOT_TO_SAY)
+        education = validated_data.pop("education", "")
+        has_driving_license = validated_data.pop("has_driving_license", None)
+        driving_license_categories = validated_data.pop("driving_license_categories", [])
+        has_own_car = validated_data.pop("has_own_car", None)
+        smoker = validated_data.pop("smoker", None)
         email = validated_data.pop("email")
 
         user = User(
@@ -122,21 +221,79 @@ class SignupSerializer(serializers.Serializer):
             first_name=first_name,
             last_name=last_name,
             account_status=User.AccountStatus.PENDING,
+            email_verified_at=timezone.now(),
             **validated_data,
         )
         user.set_password(password)
         user.save()
 
         if user.is_host:
-            HostProfile.objects.create(user=user)
+            HostProfile.objects.create(user=user, city=city)
         elif user.is_cleaner:
             display_name = f"{first_name} {last_name}".strip()
-            CleanerProfile.objects.create(user=user, display_name=display_name)
+            CleanerProfile.objects.create(
+                user=user,
+                display_name=display_name,
+                service_areas=service_areas,
+                age=age,
+                birth_date=birth_date,
+                sex=sex,
+                education=education,
+                has_driving_license=has_driving_license,
+                driving_license_categories=driving_license_categories,
+                has_own_car=has_own_car,
+                smoker=smoker,
+            )
         elif user.is_agency:
             company_name = f"{first_name} {last_name}".strip()
-            AgencyProfile.objects.create(user=user, company_name=company_name)
+            AgencyProfile.objects.create(user=user, company_name=company_name, city=city, service_areas=service_areas)
 
         return user
+
+
+class SignupEmailCodeRequestSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        email = value.strip().lower()
+        if User.objects.filter(email__iexact=email).exists() or User.objects.filter(username__iexact=email).exists():
+            raise serializers.ValidationError("An account with this email already exists.")
+        return email
+
+
+class SignupEmailCodeVerifySerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.RegexField(regex=r"^\d{6}$", error_messages={"invalid": "Enter the 6-digit code."})
+
+    def validate(self, attrs):
+        email = attrs["email"].strip().lower()
+        code = attrs["code"]
+        verification = SignupEmailVerification.objects.filter(email__iexact=email).order_by("-created_at").first()
+
+        if verification is None:
+            raise serializers.ValidationError({"code": "Request a new confirmation code."})
+        if verification.is_verified:
+            attrs["verification"] = verification
+            attrs["email"] = email
+            return attrs
+        if verification.is_expired:
+            raise serializers.ValidationError({"code": "This code has expired. Request a new one."})
+        if verification.attempts >= 5:
+            raise serializers.ValidationError({"code": "Too many attempts. Request a new code."})
+
+        verification.attempts += 1
+        verification.save(update_fields=["attempts", "updated_at"])
+
+        if not constant_time_compare(verification.code_hash, hash_signup_email_code(code)):
+            raise serializers.ValidationError({"code": "The confirmation code is incorrect."})
+
+        verification.verified_at = timezone.now()
+        verification.save(update_fields=["verified_at", "updated_at"])
+        attrs["verification"] = verification
+        attrs["email"] = email
+        return attrs
 
 
 class LoginSerializer(serializers.Serializer):
@@ -183,6 +340,13 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "bio",
             "service_areas",
             "sex",
+            "age",
+            "birth_date",
+            "education",
+            "has_driving_license",
+            "driving_license_categories",
+            "has_own_car",
+            "smoker",
             "profile_image",
             "average_rating",
             "completed_jobs_count",

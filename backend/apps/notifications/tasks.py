@@ -183,3 +183,79 @@ def send_account_confirmation_email(self, user_id: int) -> None:
     except Exception as exc:
         raise self.retry(exc=exc)
 
+
+def _send_resend_email(*, api_key: str, from_email: str, to_email: str, subject: str, text: str, html: str) -> None:
+    import json
+    from urllib import error, request
+
+    payload = json.dumps(
+        {
+            "from": from_email,
+            "to": [to_email],
+            "subject": subject,
+            "text": text,
+            "html": html,
+        }
+    ).encode("utf-8")
+    resend_request = request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "airbnb-tax-app/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with request.urlopen(resend_request, timeout=15) as response:
+            if response.status >= 400:
+                raise RuntimeError(f"Resend returned HTTP {response.status}")
+    except error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Resend returned HTTP {exc.code}: {detail}") from exc
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_signup_email_code(self, verification_id: int, code: str) -> None:
+    from django.conf import settings
+    from django.core.exceptions import ImproperlyConfigured
+    from django.template.loader import render_to_string
+
+    from apps.accounts.models import SignupEmailVerification
+
+    try:
+        verification = SignupEmailVerification.objects.get(id=verification_id)
+    except SignupEmailVerification.DoesNotExist:
+        return
+
+    if verification.is_expired or verification.is_verified:
+        return
+
+    subject = "Your Host Cleaners confirmation code"
+    text_body = (
+        "Use this 6-digit code to confirm your Host Cleaners email address:\n\n"
+        f"{code}\n\n"
+        "This code expires in 10 minutes. If you did not request it, you can ignore this email."
+    )
+    html_body = render_to_string("notifications/signup_code_email.html", {"code": code})
+
+    try:
+        api_key = getattr(settings, "EMAIL_RESEND_APIKEY", "")
+        from_email = getattr(settings, "EMAIL_RESEND_FROM_EMAIL", "")
+        if not api_key:
+            raise ImproperlyConfigured("EMAIL_RESEND_APIKEY is required for signup email confirmation.")
+        if not from_email:
+            raise ImproperlyConfigured("EMAIL_RESEND_FROM_EMAIL is required for signup email confirmation.")
+
+        _send_resend_email(
+            api_key=api_key,
+            from_email=from_email,
+            to_email=verification.email,
+            subject=subject,
+            text=text_body,
+            html=html_body,
+        )
+    except Exception as exc:
+        raise self.retry(exc=exc)
+

@@ -21,10 +21,11 @@ from apps.accounts.models import (
     CleanerProfile,
     CookieConsent,
     HostProfile,
+    SignupEmailVerification,
 )
 from apps.accounts.permissions import IsPlatformAdmin
 from apps.accounts.tokens import email_verification_token
-from apps.notifications.tasks import send_account_confirmation_email, send_admin_new_account_email
+from apps.notifications.tasks import send_admin_new_account_email, send_signup_email_code
 from apps.accounts.serializers import (
     AgencyInvitationSerializer,
     AgencyInviteSerializer,
@@ -34,6 +35,8 @@ from apps.accounts.serializers import (
     CookieConsentSerializer,
     HostProfileSerializer,
     LoginSerializer,
+    SignupEmailCodeRequestSerializer,
+    SignupEmailCodeVerifySerializer,
     SignupSerializer,
     UserSerializer,
 )
@@ -51,9 +54,31 @@ class SignupView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         login(request, user)
-        send_account_confirmation_email.delay(user.id)
         send_admin_new_account_email.delay(user.id)
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class SignupEmailCodeRequestView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = SignupEmailCodeRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        verification, code = SignupEmailVerification.create_for_email(serializer.validated_data["email"])
+        send_signup_email_code.delay(verification.id, code)
+        return Response({"email": verification.email, "expires_at": verification.expires_at}, status=status.HTTP_201_CREATED)
+
+
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class SignupEmailCodeVerifyView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = SignupEmailCodeVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        verification = serializer.validated_data["verification"]
+        return Response({"email": verification.email, "email_verification_token": str(verification.token)})
 
 
 class ConfirmEmailView(APIView):

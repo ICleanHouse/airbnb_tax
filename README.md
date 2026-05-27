@@ -2,7 +2,7 @@
 
 ## Restart Handoff
 
-Docker Desktop requires a Windows restart before the production stack can be built and started. See `CURRENT_PROGRESS.md` for the exact resume point, completed deployment work, and next commands.
+See `CURRENT_PROGRESS.md` for the current resume point, completed deployment work, and active signup-flow notes.
 
 Marketplace for Bulgarian short-term rental hosts, verified cleaners, and cleaning agencies.
 
@@ -55,15 +55,15 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 ### Backend
 
 - Django project and domain apps (`accounts`, `properties`, `marketplace`, `calendars`, `feedback`, `notifications`).
-- Session-cookie signup, login, logout, current-user APIs, and email confirmation links with CSRF enforcement.
+- Session-cookie signup, login, logout, current-user APIs, and email-code confirmation with CSRF enforcement.
 - Account approval states (pending / approved / rejected / suspended) and admin approve/reject/suspend actions.
-- **Signup email notifications** — Celery sends a confirmation email to the new user and emails all admin/staff accounts with a direct approval link. Tasks retry 3× on SMTP failure.
+- **Signup email confirmation** — Celery sends a 6-digit confirmation code through Resend only. Admin/staff accounts still receive a direct approval link after account creation.
 - Agency profiles, invitations, memberships, and delegated cleaner assignments.
 - Cookie consent records for optional analytics and marketing cookies.
 - Property management: CRUD, external calendar connections, reservations.
 - **Airbnb ICS parsing** — `POST /api/properties/parse-ics/` accepts a multipart-uploaded `.ics` file, filters blocked-date placeholders, returns parsed reservation list.
 - Marketplace service functions: publish jobs, submit applications, accept applications, complete jobs, two-way reviews.
-- Notification records; email via configurable Django mail backend. `.env.example` is configured for Gmail SMTP with a Google App Password.
+- Notification records; signup email codes are sent through Resend only and require `EMAIL_RESEND_APIKEY` plus `EMAIL_RESEND_FROM_EMAIL`.
 - Calendar conflict API; Google Calendar sync and iCal export are planned.
 
 ### Frontend (Next.js App Router)
@@ -72,7 +72,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 |---|---|---|
 | `/` | ✅ Done | Public landing page — auth-aware header with role-based dashboard link |
 | `/login` | ✅ Done | Session login |
-| `/signup` | 🟨 In progress | Multi-step signup started (`/signup` -> `/signup/role` -> `/signup/location`) with custom validation and password checklist. **Cleaner signup is not finished yet.** |
+| `/signup` | 🟨 In progress | Multi-step signup started (`/signup` -> `/signup/confirm-email` -> `/signup/role` -> `/signup/location` -> cleaner-only `/signup/personal-info`) with custom validation, Resend email code confirmation, role selection, service-area selection, cleaner personal details, and final account creation. |
 | `/app` | ✅ Done | Generic workspace — auto-redirects hosts → `/host`, admins → `/admin` |
 | `/admin` | ✅ Done | Admin approval dashboard — list / filter / approve / reject; reads `?filter=pending` URL param |
 | `/host` | ✅ Done | Host dashboard — property CRUD, job posting, month calendar, publish jobs, **ICS import** |
@@ -85,22 +85,25 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - `frontend/next.config.mjs` — `trailingSlash: true` + dual rewrite rules for Django `APPEND_SLASH` compatibility.
 - `frontend/app/globals.css` — CSS design tokens and shared component classes (see `DEV.md` for full reference).
 
+### Cleaner signup details
+
+- Signup email confirmation uses a 6-digit code delivered through Resend only.
+- The email HTML is rendered from `backend/apps/notifications/templates/notifications/signup_code_email.html`.
+- Cleaner personal info currently captures birth date with 18+ validation, sex, optional education, own-car answer, optional smoker answer, driving-license answer, and Bulgarian license categories when applicable.
+- Date of birth uses a compact dropdown-style calendar; driving-license categories appear directly under the Driving license field.
+- Google and Apple buttons are UI-only placeholders; OAuth is not connected yet.
+
 ## Email Configuration
 
-Copy `.env.example` to `.env`, then fill in Gmail SMTP values. Use a Google App Password, not your regular Gmail password:
+Copy `.env.example` to `.env`, then fill in Resend values. Signup email-code delivery uses Resend only:
 
 ```dotenv
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=true
-EMAIL_HOST_USER=your@gmail.com
-EMAIL_HOST_PASSWORD=your-app-password
-DEFAULT_FROM_EMAIL=your@gmail.com
+EMAIL_RESEND_APIKEY=re_...
+EMAIL_RESEND_FROM_EMAIL=you@your-verified-domain.com
 FRONTEND_URL=http://localhost:3000
 BACKEND_URL=http://localhost:8000
 ```
 
-`BACKEND_URL` is used in the confirmation button sent to new users.
+Use a Resend verified sender/domain for `EMAIL_RESEND_FROM_EMAIL`.
 
 See `DEV.md` for full environment variable reference.

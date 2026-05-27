@@ -2,7 +2,7 @@
 
 ## Restart Handoff
 
-Before continuing deployment, read `CURRENT_PROGRESS.md`. Docker Desktop requires a Windows restart and the production stack has not been built or started yet.
+Before continuing deployment or signup-flow work, read `CURRENT_PROGRESS.md` for the current resume point.
 
 Bulgarian-market marketplace connecting short-term rental hosts with verified cleaners. MVP covers job posting, cleaner applications, assignment, calendar coordination, notifications, and two-way reviews. No in-app payments in v1.
 
@@ -94,7 +94,7 @@ docker-compose.yml
 |---|---|---|---|
 | `/` | No | All | ✅ Live |
 | `/login` | No | All | ✅ Live |
-| `/signup` | No | All | 🟨 In progress — multi-step flow started (`/signup` -> `/signup/role` -> `/signup/location`). **Cleaner signup is not finished yet.** |
+| `/signup` | No | All | 🟨 In progress — multi-step flow started (`/signup` -> `/signup/confirm-email` -> `/signup/role` -> `/signup/location` -> cleaner-only `/signup/personal-info`) with email-code verification and final account creation. |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role only | ✅ Live — reads `?filter=pending` URL param |
 | `/host` | Yes | `host` role only | ✅ Live — ICS import + calendar + jobs |
@@ -104,15 +104,16 @@ docker-compose.yml
 ## Implemented Features (this session)
 
 - **Admin email on signup**: `send_admin_new_account_email` Celery task fires on every new account. Emails all admin/staff users with a direct link to `/admin?filter=pending`. Retries 3× on SMTP failure. Synchronous fallback (`_FakeTask`) when Celery not installed.
-- **User confirmation email on signup**: `send_account_confirmation_email` sends an HTML welcome email with confirmation button. The link marks `email_verified_at` and redirects to `/login?email_confirmed=1`.
-- **SMTP email config**: `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` all configurable via `.env`. `.env.example` uses Gmail SMTP placeholders.
-- **`FRONTEND_URL` / `BACKEND_URL` settings**: frontend URL builds admin links; backend URL builds email confirmation links.
+- **User email-code confirmation before signup**: `send_signup_email_code` sends a 6-digit code through Resend only. `POST /api/accounts/signup/verify-email-code/` returns the token required by final signup.
+- **Signup email template**: the code email HTML is rendered from `backend/apps/notifications/templates/notifications/signup_code_email.html`.
+- **Email config**: `EMAIL_RESEND_APIKEY` and `EMAIL_RESEND_FROM_EMAIL` are required for signup confirmation. `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` are for non-signup emails.
+- **`FRONTEND_URL` / `BACKEND_URL` settings**: frontend URL builds admin links; backend URL remains for legacy confirmation links.
 - **python-dotenv auto-load**: `settings.py`, `manage.py`, `wsgi.py`, `asgi.py` load `.env` for local manual runs.
 - **Admin panel URL filter**: reads `?filter=pending` via `useSearchParams()` — pre-selects the pending tab when following email approval links.
 - **ICS file import**: `POST /api/properties/parse-ics/` parses uploaded Airbnb `.ics` files, filters blocked-date placeholders, returns reservation list. Host dashboard two-step modal: upload → review → bulk-create Draft jobs.
 - **`apiFetch` FormData fix**: `Content-Type: application/json` only set for string bodies, not `FormData`.
 - **`is_platform_admin` in CurrentUser**: added to `frontend/lib/api.ts` interface.
-- **Signup UX (in progress)**: multi-step flow started with custom field errors, email validation, live password checklist, role step, and location step. **Cleaner signup is not finished yet.**
+- **Signup UX (in progress)**: multi-step flow started with custom field errors, email validation, Resend 6-digit email-code step, live password checklist, role step, location/service-area step, cleaner personal-info step, and final account creation. The cleaner personal-info step uses a compact birth-date dropdown, 18+ validation, and driving-license categories directly under the Driving license selector.
 - **Cleaner dashboard**: calendar, open jobs, applications, assignments, profile form with service area, sex, bio, and profile image upload preview.
 
 ## CSS Design System (globals.css)

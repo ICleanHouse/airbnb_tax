@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { Apple, UserRoundCheck, UserPlus } from "lucide-react";
+import { apiFetch } from "../../lib/api";
 
 type SignupField = "first_name" | "last_name" | "email" | "password" | "password_confirm" | "form";
 type SignupFieldErrors = Partial<Record<SignupField, string>>;
@@ -73,7 +74,7 @@ export default function SignupPage() {
     });
   }
 
-  function submitSignup(event: FormEvent<HTMLFormElement>) {
+  async function submitSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors: SignupFieldErrors = {};
 
@@ -109,7 +110,36 @@ export default function SignupPage() {
       password_confirm: confirmPassword,
     };
     sessionStorage.setItem("signup_draft", JSON.stringify(payload));
-    window.location.href = "/signup/role";
+    try {
+      const response = await apiFetch("/api/accounts/signup/email-code/", {
+        method: "POST",
+        body: JSON.stringify({
+          first_name: payload.first_name,
+          last_name: payload.last_name,
+          email: payload.email,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const nextErrors: SignupFieldErrors = {};
+        if (Array.isArray(data.email)) {
+          nextErrors.email = data.email[0];
+        } else if (typeof data.email === "string") {
+          nextErrors.email = data.email;
+        } else if (typeof data.detail === "string") {
+          nextErrors.form = data.detail;
+        } else {
+          nextErrors.form = "Could not send the confirmation code. Try again.";
+        }
+        setFieldErrors(nextErrors);
+        setSubmitting(false);
+        return;
+      }
+      window.location.href = "/signup/confirm-email";
+    } catch {
+      setFieldErrors({ form: "Could not send the confirmation code. Check your connection and try again." });
+      setSubmitting(false);
+    }
   }
 
   const passwordChecks = [
@@ -243,9 +273,15 @@ export default function SignupPage() {
           </div>
 
           {fieldErrors.form ? <p className="form-error">{fieldErrors.form}</p> : null}
+          {submitting ? (
+            <div className="signup-loading-status" role="status" aria-live="polite">
+              <span className="signup-loading-spinner" aria-hidden />
+              <span>Sending confirmation code...</span>
+            </div>
+          ) : null}
           <button className="primary-link auth-submit" type="submit" disabled={submitting}>
             <UserRoundCheck size={18} aria-hidden />
-            {submitting ? "Creating account" : "Create account"}
+            {submitting ? "Sending code" : "Create account"}
           </button>
         </form>
 

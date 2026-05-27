@@ -2,7 +2,7 @@
 
 ## Restart Handoff
 
-Production hosting changes have been added, but Docker Desktop needs a Windows restart before build/start verification. See `CURRENT_PROGRESS.md`.
+See `CURRENT_PROGRESS.md` for the current production-hosting and signup-flow resume point.
 
 ## Overview
 
@@ -32,22 +32,23 @@ Future extraction into microservices should be possible without rewriting core b
 
 ### Backend — `backend/apps/`
 
-- `apps.accounts`: users, host profiles, cleaner profiles, agency profiles, agency invitations, agency memberships, cookie consent, email verification state, and role permissions. On every new signup, confirmation email and admin notification tasks are dispatched via Celery.
+- `apps.accounts`: users, host profiles, cleaner profiles, agency profiles, agency invitations, agency memberships, cookie consent, signup email-code verification state, and role permissions. New account creation requires a verified signup email token; admin notification tasks are dispatched via Celery after signup.
 - `apps.properties`: host properties, external calendar connections, reservations, and iCal file parsing (`POST /api/properties/parse-ics/`).
 - `apps.marketplace`: cleaning batches, jobs, applications, assignments, and marketplace workflow services.
 - `apps.calendars`: conflict checks and placeholder background sync tasks.
 - `apps.feedback`: two-way reviews and cleaner reputation updates.
-- `apps.notifications`: in-app notification records, Gmail/SMTP email dispatch via Django's mail backend, new-user confirmation email, and Celery task for admin signup alerts.
+- `apps.notifications`: in-app notification records, Resend-only signup-code email delivery, Django mail-backend admin emails, and Celery task for admin signup alerts.
 
 ### Backend — `backend/config/`
 
 - `settings.py`: Django settings. Environment variables are loaded automatically from `.env` at startup via `python-dotenv`. Key settings include:
   - `DATABASE_URL`: absent → SQLite (local); present → PostgreSQL (Docker/production).
-  - `EMAIL_BACKEND`: `console.EmailBackend` by default; switch to `smtp.EmailBackend` in production.
-  - `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`: SMTP credentials.
+  - `EMAIL_BACKEND`: Django mail backend for non-signup emails.
+  - `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`: optional SMTP credentials for non-signup emails.
   - `DEFAULT_FROM_EMAIL`: sender address for outbound emails.
   - `FRONTEND_URL`: base URL of the frontend, used to build links in outbound emails (e.g. approval links).
-  - `BACKEND_URL`: base URL used to build email confirmation links.
+  - `BACKEND_URL`: base URL used by legacy email-confirmation links.
+  - `EMAIL_RESEND_APIKEY`, `EMAIL_RESEND_FROM_EMAIL`: Resend signup-code delivery settings.
   - `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`: Redis connection strings.
 - `celery.py`: Celery application wiring.
 - `manage.py`, `wsgi.py`, `asgi.py`: all load `.env` via `python-dotenv` before Django starts.
@@ -58,7 +59,7 @@ Future extraction into microservices should be possible without rewriting core b
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
 - `frontend/app/page.tsx`: public landing page. Auth-aware header shows role-correct dashboard link (`/admin` for admins, `/host` for hosts, `/cleaner` for cleaners, `/app` fallback). Search form uses local state only — not yet connected to backend.
 - `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
-- `frontend/app/signup/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`: signup flow is being migrated to multi-step onboarding (`/signup` -> `/signup/role` -> `/signup/location`) with custom validation, role selection, and location selection. Cleaner signup is still not finished end-to-end.
+- `frontend/app/signup/page.tsx`, `frontend/app/signup/confirm-email/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`, `frontend/app/signup/personal-info/page.tsx`: signup flow is being migrated to multi-step onboarding (`/signup` -> `/signup/confirm-email` -> `/signup/role` -> `/signup/location` -> cleaner-only `/signup/personal-info`) with custom validation, Resend 6-digit email-code verification, role selection, service-area selection, cleaner personal details, and final account creation. The cleaner personal-info step includes a compact dropdown birth-date calendar, 18+ validation, and driving-license categories directly under the Driving license selector.
 - `frontend/app/app/page.tsx`: generic authenticated workspace. Automatically redirects hosts to `/host` and admins to `/admin`. For cleaners and agencies shows account status.
 - `frontend/app/admin/page.tsx`: admin account approval panel. Lists all accounts, filters by pending / approved / all. Supports `?filter=pending` URL param to pre-select a tab (used in approval email links). Approve and reject actions call `POST /api/accounts/users/{id}/approve/` and `/reject/`. Accessible to `admin` role only.
 - `frontend/app/host/page.tsx`: host dashboard with two sections toggled in the topbar:
@@ -91,7 +92,7 @@ Responsibilities:
 - Agency profiles, agency invitations, and agency-cleaner memberships.
 - Cookie consent records for essential, analytics, and marketing choices.
 - Permissions and role-based API access.
-- Email confirmation and admin email notification on new account signup.
+- Email-code confirmation before account creation and admin email notification after new account signup.
 
 Rules:
 
@@ -99,7 +100,7 @@ Rules:
 - Property owners are stored with the `host` role value and presented in the UI as "Property owner".
 - Cleaners who work for an agency remain separate users with their own cleaner profile and calendar.
 - Agencies invite cleaners into their group; cleaners accept invitations from their own account.
-- Email confirmation is implemented for signup. SMS code verification remains planned.
+- Email-code confirmation is implemented for signup. SMS code verification remains planned.
 
 ### Hosts and Properties
 
@@ -196,12 +197,13 @@ Rules:
 Responsibilities:
 
 - In-app notifications.
-- Email notifications via Django's mail backend (SMTP in production, console in development).
+- Signup email confirmation through Resend only. Other notification email paths use Django's mail backend until they are migrated.
 - SMS notifications for urgent workflow events (placeholder).
 
 Implemented notification triggers:
 
-- **New account signup** → `send_account_confirmation_email` Celery task sends the new user an HTML email with a confirmation button. The link marks `email_verified_at` and redirects to `FRONTEND_URL/login?email_confirmed=1`.
+- **Signup email-code request** → `send_signup_email_code` Celery task sends a 6-digit code through Resend only. The server stores only a hash of the code.
+- Signup email HTML is rendered from `backend/apps/notifications/templates/notifications/signup_code_email.html`.
 - **New account signup** → `send_admin_new_account_email` Celery task sends an email to all `role=admin` or `is_staff=True` users with a direct link to the admin approval panel (`FRONTEND_URL/admin?filter=pending`).
 
 Planned notification triggers:
@@ -242,7 +244,7 @@ The implemented schema covers these concepts:
 
 - User account (role, account status, approval metadata, language preference).
 - Host profile.
-- Cleaner profile (verification status, service areas, rating summary).
+- Cleaner profile (verification status, service areas, birth date, calculated age, sex, education, driving-license details, own-car status, smoker status, rating summary).
 - Agency profile (company name, service areas, member count).
 - Agency invitation (token, expiry, status).
 - Agency membership (status, active/revoked).
@@ -269,7 +271,9 @@ REST APIs through Django REST Framework.
 | Route | Notes |
 |---|---|
 | `GET /api/health/` | Health check |
-| `POST /api/accounts/signup/` | Creates user + auto-login. Fires user confirmation email and admin email notification. |
+| `POST /api/accounts/signup/email-code/` | Sends a 6-digit signup email confirmation code. |
+| `POST /api/accounts/signup/verify-email-code/` | Verifies the 6-digit code and returns `email_verification_token`. |
+| `POST /api/accounts/signup/` | Creates user + auto-login after email-code verification. Fires admin email notification. |
 | `GET /api/accounts/confirm-email/{uidb64}/{token}/` | Confirms user email and redirects to frontend login. |
 | `POST /api/accounts/login/` | Session login |
 | `POST /api/accounts/logout/` | Session logout |
@@ -309,7 +313,8 @@ Celery tasks for work that should not block HTTP requests:
 | Task | Status |
 |---|---|
 | `send_admin_new_account_email` | ✅ Implemented — emails all admins on signup with approval link |
-| `send_account_confirmation_email` | ✅ Implemented — emails new users a confirmation link |
+| `send_signup_email_code` | ✅ Implemented — emails new users a 6-digit signup code through Resend |
+| `send_account_confirmation_email` | Legacy — link-based confirmation task retained |
 | `dispatch_notification` | Placeholder — provider integration pending |
 | iCal feed polling | Placeholder — provider/schedule pending |
 | Google Calendar sync | Placeholder — OAuth flow pending |
@@ -318,7 +323,7 @@ Celery tasks for work that should not block HTTP requests:
 | Review prompt scheduling | Placeholder |
 | Retry of failed integration jobs | Placeholder |
 
-Background tasks are idempotent where possible and safe to retry. Signup email tasks retry up to 3 times with 60-second delays on SMTP failure.
+Background tasks are idempotent where possible and safe to retry. Signup email tasks retry up to 3 times with 60-second delays on Resend/API failure.
 
 The Celery fallback stub in `apps/notifications/tasks.py` allows all tasks to run synchronously in local dev and tests when Celery is not installed.
 
@@ -370,14 +375,16 @@ The system is GDPR-conscious from the start. Store only necessary personal data,
 | `CELERY_BROKER_URL` | `redis://localhost:6379/0` | Celery broker |
 | `CELERY_RESULT_BACKEND` | `redis://localhost:6379/1` | Celery results |
 | `DEFAULT_FROM_EMAIL` | `noreply@example.local` | Outbound email sender address |
-| `EMAIL_BACKEND` | `console.EmailBackend` | Django email backend class; `.env.example` uses Gmail SMTP |
-| `EMAIL_HOST` | *(empty)* | SMTP server hostname, e.g. `smtp.gmail.com` |
-| `EMAIL_PORT` | `587` | SMTP port |
+| `EMAIL_BACKEND` | `console.EmailBackend` | Django email backend class for non-signup emails |
+| `EMAIL_HOST` | *(empty)* | Optional SMTP hostname for non-signup emails |
+| `EMAIL_PORT` | `587` | Optional SMTP port |
 | `EMAIL_USE_TLS` | `true` | Enable STARTTLS |
-| `EMAIL_HOST_USER` | *(empty)* | SMTP username |
-| `EMAIL_HOST_PASSWORD` | *(empty)* | SMTP password / app password |
+| `EMAIL_HOST_USER` | *(empty)* | Optional SMTP username |
+| `EMAIL_HOST_PASSWORD` | *(empty)* | Optional SMTP password |
+| `EMAIL_RESEND_APIKEY` | *(empty)* | Required Resend API key for signup email-code delivery |
+| `EMAIL_RESEND_FROM_EMAIL` | *(empty)* | Required verified Resend sender address for signup codes |
 | `FRONTEND_URL` | `http://localhost:3000` | Base URL for links in outbound emails |
-| `BACKEND_URL` | `http://localhost:8000` | Base URL for email confirmation links |
+| `BACKEND_URL` | `http://localhost:8000` | Base URL for legacy email confirmation links |
 | `FRONTEND_TRUSTED_ORIGINS` | `http://localhost:3000,...` | CSRF trusted origins |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | API base URL for frontend |
 

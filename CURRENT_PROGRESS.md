@@ -1,10 +1,10 @@
 # Current Progress Handoff
 
-Updated: 2026-05-27, after multi-step signup UI refactor updates.
+Updated: 2026-05-27, after cleaner signup email confirmation and personal-info step updates.
 
 ## User Goal
 
-Host this project on this Windows machine and expose it to outside traffic through router port forwarding. Runtime target is Docker Desktop. Public access target is raw public IP over HTTP on port `80`, with port `443` reserved for future HTTPS/domain work.
+Current work is focused on completing the cleaner signup flow. The production-hosting work remains available in the repo, but local development is currently using `.env`, manual Django/Next/Celery commands, Redis, and SQLite unless `DATABASE_URL` is explicitly enabled.
 
 ## Implemented In Repo
 
@@ -22,23 +22,31 @@ Host this project on this Windows machine and expose it to outside traffic throu
 - Added missing frontend API helper: `frontend/lib/api.ts`.
 - Wrapped the admin page `useSearchParams` usage in `Suspense` so Next production builds do not fail on that route.
 - Updated `.gitignore` to ignore `.env.production` and `.env.production.local` for future secret handling.
-- Added user email confirmation on signup:
-  - `send_account_confirmation_email` Celery task.
-  - `GET /api/accounts/confirm-email/<uidb64>/<token>/` endpoint.
-  - `BACKEND_URL` setting for confirmation links.
-- Added Gmail SMTP template values to `.env.example`.
+- Added user email-code confirmation before signup:
+  - `SignupEmailVerification` stores hashed 6-digit codes and verification tokens.
+  - `POST /api/accounts/signup/email-code/` sends a code.
+  - `POST /api/accounts/signup/verify-email-code/` verifies the code and returns `email_verification_token`.
+  - `send_signup_email_code` Celery task sends codes through Resend only.
+  - Signup email HTML is rendered from `backend/apps/notifications/templates/notifications/signup_code_email.html`.
+  - `.env.example` now includes `EMAIL_RESEND_APIKEY` and `EMAIL_RESEND_FROM_EMAIL`.
 - Added `.env` loading from `settings.py` so manual Django and Celery runs read local environment values.
 - Updated signup UI into a multi-step flow in progress:
   - `/signup` (credentials + validation + password checklist)
+  - `/signup/confirm-email` (6-digit email code confirmation)
   - `/signup/role` (role selection step)
   - `/signup/location` (city + district selection step)
-  - Cleaner signup is still not finished end-to-end.
+  - `/signup/personal-info` (cleaner-only birth date/18+ check, sex, education, own car, smoker, driving license/categories, final account creation)
+- Updated cleaner personal-info UI:
+  - Birth date uses a compact dropdown-style calendar.
+  - Date of birth matches normal field width.
+  - Driving license categories appear directly under the Driving license field and use a wider layout.
 - Added cleaner dashboard/profile updates: calendar, profile picture upload preview, service-area dropdown, sex dropdown, applications, assignments, and open jobs.
 
 ## Current Local Development Notes
 
 - Ignore `.env.production` unless production Docker hosting is resumed.
 - Use `.env` for local/manual PowerShell runs.
+- `.env.example` is only a committed template; it is not used at runtime.
 - For local SQLite, remove or comment out `DATABASE_URL`.
 - For local Redis, use:
 
@@ -53,6 +61,8 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
 cd C:\Users\35987\Desktop\airbnb_tax\backend
 python -m celery -A config worker --loglevel=info --pool=solo
 ```
+
+- Restart both Django and Celery after changes to notification tasks, templates, or `.env`.
 
 ## Verified
 
@@ -102,6 +112,7 @@ Invoke-WebRequest http://localhost/
 
 ## Remaining Blockers
 
+- Cleaner signup is not fully finished; the current final step collects required personal info, but broader onboarding/verification work is still pending.
 - Windows Firewall rule creation requires an Administrator PowerShell session and was not applied from this non-admin shell.
 - Router forwarding was not configured yet.
 - Public IP was not added to `.env.production` yet.

@@ -2,7 +2,7 @@
 
 ## Restart Handoff
 
-Docker Desktop requires a Windows restart before continuing. See `CURRENT_PROGRESS.md` first after reboot, then resume at step 4 in this guide once Docker reports ready.
+See `CURRENT_PROGRESS.md` for the current production-hosting and local-development resume point.
 
 This deployment runs the app with Docker Compose and exposes only the reverse proxy on host ports `80` and `443`.
 
@@ -43,19 +43,14 @@ BACKEND_URL=http://<public-ip>
 
 Keep `SESSION_COOKIE_SECURE=false` and `CSRF_COOKIE_SECURE=false` while serving raw-IP HTTP. Change them to `true` only after HTTPS is working through a real domain.
 
-For real email delivery, configure Gmail SMTP with a Google App Password:
+For signup email-code delivery, configure Resend. Do not use Gmail or SMTP for signup confirmation:
 
 ```dotenv
-DEFAULT_FROM_EMAIL=your-gmail-address@gmail.com
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=true
-EMAIL_HOST_USER=your-gmail-address@gmail.com
-EMAIL_HOST_PASSWORD=your-google-app-password
+EMAIL_RESEND_APIKEY=re_...
+EMAIL_RESEND_FROM_EMAIL=you@your-verified-domain.com
 ```
 
-`BACKEND_URL` is used in user email confirmation links. `FRONTEND_URL` is used for frontend redirects and admin approval links.
+`FRONTEND_URL` is used for frontend redirects and admin approval links. `BACKEND_URL` remains available for legacy backend links. Django's configurable mail backend may still be used by non-signup notification paths until those are migrated.
 
 ## 3. Open Windows Firewall
 

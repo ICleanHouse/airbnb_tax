@@ -2,7 +2,7 @@
 
 ## Restart Handoff
 
-Before doing more deployment work, read `CURRENT_PROGRESS.md`. Docker Desktop requires a Windows restart, and container build/start verification has not run yet.
+Before doing more deployment or signup-flow work, read `CURRENT_PROGRESS.md` for the current resume point.
 
 ## Mission
 
@@ -24,7 +24,7 @@ The product direction for v1 is:
 - Single cleaning and monthly batch posting.
 - Bulk cleaning job creation from Airbnb iCal calendar imports.
 - Google Calendar sync and iCal import/export.
-- Email notifications via Django's mail backend (SMTP in production).
+- Signup email confirmation via Resend only. Other notification email paths still use Django's mail backend until migrated.
 - Two-way reviews.
 - No in-app payments in v1.
 
@@ -112,13 +112,13 @@ When code exists:
 - Admin email notification on new account signup — `send_admin_new_account_email` Celery task:
   - Sends to all `role=admin` or `is_staff=True` users (excluding blank emails and inactive accounts).
   - Email includes name, email, phone, role, and a direct link to the admin panel with `?filter=pending`.
-  - Retries up to 3 times with 60-second delays on SMTP failure.
+  - Retries up to 3 times with 60-second delays on mail-backend failure.
   - Falls back to synchronous execution when Celery is not installed (via `_FakeTask` stub in `apps/notifications/tasks.py`).
-- User email confirmation on signup — `send_account_confirmation_email` Celery task:
-  - Sends an HTML welcome email with image and confirmation button.
-  - Confirmation link calls `/api/accounts/confirm-email/{uidb64}/{token}/`.
-  - Marks `email_verified_at` and redirects to `/login?email_confirmed=1`.
-  - Uses `BACKEND_URL` for the confirmation link.
+- User email-code confirmation before signup — `send_signup_email_code` Celery task:
+  - Sends a 6-digit code through Resend only.
+  - The server stores only the code hash in `SignupEmailVerification`.
+  - `POST /api/accounts/signup/verify-email-code/` returns `email_verification_token`.
+  - Final signup requires `email_verification_token` and sets `email_verified_at`.
 
 **Properties (`apps/properties`)**
 
@@ -143,9 +143,10 @@ When code exists:
 **Notifications (`apps/notifications`)**
 
 - In-app notification records.
-- Email dispatch via Django's configurable mail backend (`EMAIL_BACKEND` in settings).
+- Email dispatch via Resend only for signup codes and Django's configurable mail backend (`EMAIL_BACKEND` in settings) for admin emails.
 - `send_admin_new_account_email` task: ✅ implemented and tested.
-- `send_account_confirmation_email` task: ✅ implemented.
+- `send_signup_email_code` task: ✅ implemented and tested.
+- `send_account_confirmation_email` task: legacy link-based task retained.
 - Other notification triggers: placeholder — not yet wired.
 
 **Feedback (`apps/feedback`)**
@@ -162,7 +163,7 @@ When code exists:
 
 **Configuration (`config/`)**
 
-- `settings.py`: loads env via python-dotenv; DATABASE_URL absent → SQLite, present → PostgreSQL; full email backend config block; `FRONTEND_URL` for frontend links; `BACKEND_URL` for email confirmation links.
+- `settings.py`: loads env via python-dotenv; DATABASE_URL absent → SQLite, present → PostgreSQL; email backend config block; Resend signup-code settings; `FRONTEND_URL` for frontend links; `BACKEND_URL` for legacy email confirmation links.
 - `settings.py`, `manage.py`, `wsgi.py`, `asgi.py`: load `.env` with `python-dotenv` so manual backend and Celery runs see local environment values.
 - `celery.py`: Celery app wiring.
 
@@ -186,7 +187,7 @@ When code exists:
 
 **`frontend/app/login/page.tsx`** — session login, redirects to `/` after success.
 
-**`frontend/app/signup/*`** — signup flow is being refactored into steps (`/signup`, `/signup/role`, `/signup/location`) with custom field errors, email validation, live password checklist, role selection, and location selection. Cleaner signup is still not finished end-to-end.
+**`frontend/app/signup/*`** — signup flow is being refactored into steps (`/signup`, `/signup/confirm-email`, `/signup/role`, `/signup/location`, cleaner-only `/signup/personal-info`) with custom field errors, email validation, Resend 6-digit email-code confirmation, live password checklist, role selection, service-area selection, cleaner personal details, and final account creation. Google and Apple buttons are UI-only placeholders.
 
 **`frontend/app/app/page.tsx`** — generic workspace:
 
@@ -217,6 +218,13 @@ When code exists:
 - Profile form supports first/last name, service-area dropdown, sex dropdown, bio, and profile picture upload preview.
 - Cleaner applications call `POST /api/marketplace/applications/`.
 - Assigned jobs can be marked complete through `POST /api/marketplace/jobs/{id}/complete/`.
+
+### Cleaner signup personal-info state
+
+- Birth date uses a compact dropdown-style calendar and must prove the cleaner is at least 18.
+- Required fields: birth date, sex, own car, driving license.
+- Optional fields: education and smoker status.
+- If Driving license is `Yes`, Bulgarian license categories appear directly under the selector.
 
 ### What is NOT built yet (next priorities)
 

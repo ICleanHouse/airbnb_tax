@@ -9,9 +9,10 @@ enable Celery eager mode only for the test process.
 from django.core import mail
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.accounts.models import User
+from apps.accounts.models import SignupEmailVerification, User
 
 
 def _make_user(**kwargs) -> User:
@@ -159,6 +160,7 @@ class SendAdminNewAccountEmailTaskTests(TestCase):
 
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    EMAIL_RESEND_APIKEY="",
     CELERY_TASK_ALWAYS_EAGER=True,
     CELERY_TASK_EAGER_PROPAGATES=True,
 )
@@ -175,17 +177,21 @@ class SignupEmailTriggerTests(TestCase):
 
     def test_signup_triggers_admin_email(self):
         _make_user(email="admin@example.com", role=User.Role.ADMIN)
+        email = "newhost@example.com"
+        verification, _code = SignupEmailVerification.create_for_email(email)
+        verification.verified_at = timezone.now()
+        verification.save(update_fields=["verified_at"])
 
         response = self.client.post(
             reverse("account-signup"),
             {
-                "name": "New Host",
-                "email": "newhost@example.com",
-                "phone_number": "+359888000999",
-                "city": "Plovdiv",
-                "preferred_language": User.Language.ENGLISH,
+                "first_name": "New",
+                "last_name": "Host",
+                "email": email,
                 "role": User.Role.HOST,
-                "password": "password123",
+                "password": "Password123!",
+                "password_confirm": "Password123!",
+                "email_verification_token": str(verification.token),
             },
             format="json",
         )
@@ -193,20 +199,24 @@ class SignupEmailTriggerTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("admin@example.com", mail.outbox[0].recipients())
-        self.assertIn("newhost@example.com", mail.outbox[0].body)
+        self.assertIn(email, mail.outbox[0].body)
 
     def test_signup_does_not_fail_when_no_admins(self):
         """Signup must succeed even if there are no admin emails to notify."""
+        email = "solohost@example.com"
+        verification, _code = SignupEmailVerification.create_for_email(email)
+        verification.verified_at = timezone.now()
+        verification.save(update_fields=["verified_at"])
         response = self.client.post(
             reverse("account-signup"),
             {
-                "name": "Solo Host",
-                "email": "solohost@example.com",
-                "phone_number": "+359888111222",
-                "city": "Varna",
-                "preferred_language": User.Language.BULGARIAN,
+                "first_name": "Solo",
+                "last_name": "Host",
+                "email": email,
                 "role": User.Role.HOST,
-                "password": "password123",
+                "password": "Password123!",
+                "password_confirm": "Password123!",
+                "email_verification_token": str(verification.token),
             },
             format="json",
         )

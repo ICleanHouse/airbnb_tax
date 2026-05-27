@@ -1,4 +1,7 @@
 from datetime import timedelta
+import hashlib
+import secrets
+import uuid
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, UserManager
@@ -10,6 +13,14 @@ from apps.core.models import TimeStampedModel
 
 def default_invitation_expires_at():
     return timezone.now() + timedelta(days=14)
+
+
+def default_signup_code_expires_at():
+    return timezone.now() + timedelta(minutes=10)
+
+
+def hash_signup_email_code(code: str) -> str:
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
 
 
 class PlatformUserManager(UserManager):
@@ -139,6 +150,12 @@ class CleanerProfile(TimeStampedModel):
         FEMALE = "female", "Female"
         PREFER_NOT_TO_SAY = "prefer_not_to_say", "Prefer not to say"
 
+    class Education(models.TextChoices):
+        NONE = "none", "No education"
+        PRIMARY = "primary", "Primary education"
+        HIGH_SCHOOL = "high_school", "High school"
+        HIGHER = "higher", "Higher education"
+
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -158,6 +175,13 @@ class CleanerProfile(TimeStampedModel):
         choices=Sex.choices,
         default=Sex.PREFER_NOT_TO_SAY,
     )
+    age = models.PositiveSmallIntegerField(null=True, blank=True)
+    birth_date = models.DateField(null=True, blank=True)
+    education = models.CharField(max_length=32, choices=Education.choices, blank=True)
+    has_driving_license = models.BooleanField(null=True, blank=True)
+    driving_license_categories = models.JSONField(default=list, blank=True)
+    has_own_car = models.BooleanField(null=True, blank=True)
+    smoker = models.BooleanField(null=True, blank=True)
     profile_image = models.TextField(blank=True)
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
     completed_jobs_count = models.PositiveIntegerField(default=0)
@@ -286,6 +310,38 @@ class AgencyMembership(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.cleaner} at {self.agency}"
+
+
+class SignupEmailVerification(TimeStampedModel):
+    email = models.EmailField(db_index=True)
+    code_hash = models.CharField(max_length=64)
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    expires_at = models.DateTimeField(default=default_signup_code_expires_at)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @classmethod
+    def create_for_email(cls, email: str) -> tuple["SignupEmailVerification", str]:
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        verification = cls.objects.create(
+            email=email.strip().lower(),
+            code_hash=hash_signup_email_code(code),
+        )
+        return verification, code
+
+    @property
+    def is_expired(self) -> bool:
+        return self.expires_at <= timezone.now()
+
+    @property
+    def is_verified(self) -> bool:
+        return self.verified_at is not None
+
+    def __str__(self) -> str:
+        return f"Signup email verification for {self.email}"
 
 
 class CookieConsent(TimeStampedModel):

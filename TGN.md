@@ -2,14 +2,14 @@
 
 ## Restart Handoff
 
-Deployment work is paused for a required Windows restart so Docker Desktop can run. Read `CURRENT_PROGRESS.md` before continuing.
+Read `CURRENT_PROGRESS.md` before continuing deployment or signup-flow work.
 
 This document is a machine-readable knowledge graph of the entire project.
 It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-05-24
+**Last updated:** 2026-05-27
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -109,7 +109,7 @@ AuditLog ──[references]────────► (any entity — polymorph
 - `pending` users can log in and view dashboards but cannot post jobs, apply, or accept assignments.
 - `approved` → `suspended` by admin action.
 - `rejected` is terminal for marketplace access.
-- A confirmation email is sent to the new user on signup.
+- A 6-digit email confirmation code is sent before account creation; final signup requires the verified token.
 - Admin email is sent to all `role=admin` or `is_staff=True` users on every `pending` creation.
 - Email confirmation sets `email_verified_at`; admin approval still controls marketplace rights.
 
@@ -259,9 +259,33 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
 /signup
   auth: no
   reads: none
+  writes: POST /api/accounts/signup/email-code/
+  next: /signup/confirm-email
+
+/signup/confirm-email
+  auth: no
+  reads: sessionStorage signup draft
+  writes: POST /api/accounts/signup/verify-email-code/
+  next: /signup/role
+
+/signup/role
+  auth: no
+  reads: sessionStorage signup draft + email_verification_token
+  next: /signup/location
+
+/signup/location
+  auth: no
+  reads: sessionStorage signup draft + role + email_verification_token
+  writes: sessionStorage city + service_areas
+  next: cleaner → /signup/personal-info
+        host/agency → /app after POST /api/accounts/signup/
+
+/signup/personal-info
+  auth: no
+  reads: sessionStorage signup draft + role + email_verification_token + city + service_areas
+  validates: birth_date 18+, sex, own car, driving license, license categories when applicable
   writes: POST /api/accounts/signup/
-  next: /app (on success) ──► triggers send_account_confirmation_email
-                          └──► triggers send_admin_new_account_email
+  next: /app (on success) ──► triggers send_admin_new_account_email
 
 /app
   auth: required
@@ -319,8 +343,10 @@ Full API surface with implementation state.
 
 | Method | Route | Auth | Status |
 |---|---|---|---|
+| POST | `/api/accounts/signup/email-code/` | None | ✅ |
+| POST | `/api/accounts/signup/verify-email-code/` | None | ✅ |
 | POST | `/api/accounts/signup/` | None | ✅ |
-| GET | `/api/accounts/confirm-email/{uidb64}/{token}/` | None | ✅ |
+| GET | `/api/accounts/confirm-email/{uidb64}/{token}/` | None | Legacy |
 | POST | `/api/accounts/login/` | None | ✅ |
 | POST | `/api/accounts/logout/` | Required | ✅ |
 | GET | `/api/accounts/me/` | Required | ✅ |
@@ -376,17 +402,18 @@ Full API surface with implementation state.
 Domain events and the Celery tasks or side effects they trigger.
 
 ```
+EVENT: signup.email_code_requested
+  └──► TASK: send_signup_email_code                ✅ implemented
+              │  sends: 6-digit code through Resend only
+              │  stores: hashed code only
+              └──► SIDE EFFECT: verify endpoint returns email_verification_token
+
 EVENT: account.created (signup)
-  ├──► TASK: send_account_confirmation_email       ✅ implemented
-              │  sends: HTML welcome email with confirmation button
-              │  confirm_link = BACKEND_URL/api/accounts/confirm-email/{uidb64}/{token}/
-              │  side effect: email_verified_at set after link click
-              │  redirects: FRONTEND_URL/login?email_confirmed=1
   └──► TASK: send_admin_new_account_email          ✅ implemented
               │  reads: User.objects.filter(role=admin OR is_staff=True)
               │  sends: email with name, role, approve_link
               │  approve_link = FRONTEND_URL/admin?filter=pending
-              │  retries: 3× with 60s delay on SMTP failure
+              │  retries: 3× with 60s delay on mail-backend failure
               └──► SIDE EFFECT: admin redirected to /admin?filter=pending (via email link)
 
 EVENT: account.approved                            ⬜ planned
@@ -430,7 +457,8 @@ SCHEDULED: google.calendar.sync                    ⬜ placeholder (OAuth not st
 | Task | Module | Status | Retry |
 |---|---|---|---|
 | `send_admin_new_account_email` | `apps.notifications.tasks` | ✅ | 3× / 60s |
-| `send_account_confirmation_email` | `apps.notifications.tasks` | ✅ | 3× / 60s |
+| `send_signup_email_code` | `apps.notifications.tasks` | ✅ | 3× / 60s |
+| `send_account_confirmation_email` | `apps.notifications.tasks` | Legacy | 3× / 60s |
 | `dispatch_notification` | `apps.notifications.tasks` | ⬜ placeholder | — |
 | `poll_ical_feed` | `apps.calendars.tasks` | ⬜ placeholder | — |
 | `sync_google_calendar` | `apps.calendars.tasks` | ⬜ placeholder | — |
@@ -462,8 +490,17 @@ language_preference: [bg | en]
 user (1:1), kind, display_name, bio, service_areas[],
 verification_status: [pending | verified | rejected | suspended],
 sex: [male | female | prefer_not_to_say],
+birth_date, age (calculated), education, has_driving_license, driving_license_categories[],
+has_own_car, smoker,
 profile_image, average_rating, completed_jobs_count
 ```
+
+Cleaner signup personal-info rules:
+- Birth date is required and must prove age 18+.
+- Sex, own-car answer, and driving-license answer are required.
+- Education and smoker status are optional.
+- Bulgarian driving-license categories are required when `has_driving_license=true`.
+- The frontend shows birth date as a compact dropdown calendar and places categories directly below Driving license.
 
 ### AgencyProfile
 ```
@@ -536,12 +573,12 @@ metadata (JSON), created_at
 [Django backend :8000]
         │              │              │
         ▼              ▼              ▼
-[PostgreSQL :5432] [Redis :6379] [SMTP (Gmail)]
+[PostgreSQL :5432] [Redis :6379] [Resend API]
                         │
                         ▼
                [Celery worker]
                         │
-                        └──► [SMTP (Gmail)]   (email dispatch)
+                        └──► [Resend API]     (signup email confirmation)
                         └──► [iCal feeds]     (planned)
                         └──► [Google OAuth]   (planned)
                         └──► [SMS provider]   (planned)
@@ -573,8 +610,8 @@ Quick reference: what is fully done, what is partial, what is missing.
 |---|---|
 | Auth (signup/login/logout/me) | ✅ Complete |
 | Account approval states + admin actions | ✅ Complete |
-| User confirmation email on signup (Celery + SMTP) | ✅ Complete |
-| Admin email on signup (Celery + SMTP) | ✅ Complete |
+| Signup email-code confirmation (Celery + Resend) | ✅ Complete |
+| Admin email on signup (Celery + mail backend) | ✅ Complete |
 | Host/Cleaner/Agency profiles | ✅ Complete |
 | Agency invitations + memberships | ✅ Complete |
 | Cookie consent | ✅ Complete |
@@ -603,7 +640,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 |---|---|
 | Public landing page `/` | ✅ Complete |
 | Login `/login` | ✅ Complete |
-| Signup `/signup` | ✅ Complete |
+| Signup `/signup` through cleaner personal info | 🟨 In progress |
 | Generic workspace `/app` | ✅ Complete |
 | Admin approval panel `/admin` + URL filter | ✅ Complete |
 | Host dashboard `/host` — properties section | ✅ Complete |

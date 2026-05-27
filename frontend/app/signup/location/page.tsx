@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { UserPlus } from "lucide-react";
+import { apiFetch } from "../../../lib/api";
 
 type CityConfig = {
   value: string;
@@ -386,14 +387,19 @@ export default function SignupLocationPage() {
   const [districtSearch, setDistrictSearch] = useState("");
   const [draggedZone, setDraggedZone] = useState<string | null>(null);
   const [dragSource, setDragSource] = useState<"available" | "selected" | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [signupRole, setSignupRole] = useState("");
 
   useEffect(() => {
     const rawDraft = sessionStorage.getItem("signup_draft");
     const rawRole = sessionStorage.getItem("signup_role");
-    if (!rawDraft || !rawRole) {
+    const emailVerificationToken = sessionStorage.getItem("signup_email_verification_token");
+    if (!rawDraft || !rawRole || !emailVerificationToken) {
       window.location.href = "/signup";
       return;
     }
+    setSignupRole(rawRole);
 
     const storedCity = sessionStorage.getItem("signup_city") ?? "";
     const validCity = cities.some((item) => item.value === storedCity) ? storedCity : "";
@@ -411,8 +417,14 @@ export default function SignupLocationPage() {
   }, []);
 
   const selectedCity = useMemo(() => cities.find((item) => item.value === city) ?? null, [city]);
-  const availableZones = selectedCity?.zones.filter((zone) => !selectedZones.has(zone)) ?? [];
-  const selectedZoneList = selectedCity?.zones.filter((zone) => selectedZones.has(zone)) ?? [];
+  const availableZones = useMemo(
+    () => selectedCity?.zones.filter((zone) => !selectedZones.has(zone)) ?? [],
+    [selectedCity, selectedZones],
+  );
+  const selectedZoneList = useMemo(
+    () => selectedCity?.zones.filter((zone) => selectedZones.has(zone)) ?? [],
+    [selectedCity, selectedZones],
+  );
   const filteredAvailableZones = useMemo(() => {
     const query = districtSearch.trim().toLocaleLowerCase();
     if (!query) return availableZones;
@@ -482,10 +494,61 @@ export default function SignupLocationPage() {
     setDragSource(null);
   }
 
-  function continueToNextStep() {
+  async function continueToNextStep() {
     if (!canContinue || !selectedCity) return;
+    const rawDraft = sessionStorage.getItem("signup_draft");
+    const rawRole = sessionStorage.getItem("signup_role");
+    const emailVerificationToken = sessionStorage.getItem("signup_email_verification_token");
+    if (!rawDraft || !rawRole || !emailVerificationToken) {
+      window.location.href = "/signup";
+      return;
+    }
+
     sessionStorage.setItem("signup_city", selectedCity.value);
+    sessionStorage.setItem("signup_city_label", selectedCity.label);
     sessionStorage.setItem("signup_zones", JSON.stringify(Array.from(selectedZones)));
+    if (rawRole === "cleaner") {
+      window.location.href = "/signup/personal-info";
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError("");
+
+    try {
+      const draft = JSON.parse(rawDraft) as Record<string, unknown>;
+      const response = await apiFetch("/api/accounts/signup/", {
+        method: "POST",
+        body: JSON.stringify({
+          first_name: draft.first_name,
+          last_name: draft.last_name,
+          email: draft.email,
+          password: draft.password,
+          password_confirm: draft.password_confirm,
+          role: rawRole,
+          email_verification_token: emailVerificationToken,
+          city: selectedCity.label,
+          service_areas: Array.from(selectedZones),
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const detail = typeof data.detail === "string" ? data.detail : "";
+        setSubmitError(detail || "Could not create the account. Check your details and try again.");
+        setSubmitting(false);
+        return;
+      }
+      sessionStorage.removeItem("signup_draft");
+      sessionStorage.removeItem("signup_email_verification_token");
+      sessionStorage.removeItem("signup_role");
+      sessionStorage.removeItem("signup_city");
+      sessionStorage.removeItem("signup_city_label");
+      sessionStorage.removeItem("signup_zones");
+      window.location.href = "/app";
+    } catch {
+      setSubmitError("Could not create the account. Check your connection and try again.");
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -500,11 +563,11 @@ export default function SignupLocationPage() {
 
         <div className="signup-progress-wrap" aria-label="Signup progress">
           <div className="signup-progress-meta">
-            <strong>Step 3 of 4</strong>
-            <span>75% complete</span>
+            <strong>{signupRole === "cleaner" ? "Step 4 of 5" : "Step 4 of 4"}</strong>
+            <span>{signupRole === "cleaner" ? "80% complete" : "100% complete"}</span>
           </div>
-          <div className="signup-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={75}>
-            <div className="signup-progress-fill signup-progress-fill-step-3" />
+          <div className="signup-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={signupRole === "cleaner" ? 80 : 100}>
+            <div className={signupRole === "cleaner" ? "signup-progress-fill signup-progress-fill-step-4-of-5" : "signup-progress-fill signup-progress-fill-step-4"} />
           </div>
         </div>
 
@@ -632,8 +695,9 @@ export default function SignupLocationPage() {
           </section>
         ) : null}
 
-        <button className="primary-link auth-submit" type="button" disabled={!canContinue} onClick={continueToNextStep}>
-          Continue
+        {submitError ? <p className="form-error">{submitError}</p> : null}
+        <button className="primary-link auth-submit" type="button" disabled={!canContinue || submitting} onClick={continueToNextStep}>
+          {submitting ? "Creating account" : signupRole === "cleaner" ? "Continue" : "Create account"}
         </button>
       </section>
     </main>

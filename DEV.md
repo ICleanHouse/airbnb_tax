@@ -2,7 +2,7 @@
 
 ## Restart Handoff
 
-Docker Desktop requires a Windows restart before the production stack can be built and started. See `CURRENT_PROGRESS.md` for the current deployment progress and resume commands.
+See `CURRENT_PROGRESS.md` for the current deployment progress, local-development notes, and signup-flow status.
 
 ## Project Purpose
 
@@ -65,7 +65,7 @@ frontend/
   app/
     page.tsx        Public landing page (auth-aware header)
     login/          Session login
-    signup/         Role-based signup
+    signup/         Multi-step signup with email code, role, location, cleaner personal info
     app/            Generic workspace (auto-redirects hosts → /host, admins → /admin)
     admin/          Admin approval panel (list / approve / reject, URL filter param)
     host/           Host dashboard (properties, jobs, calendar, ICS import)
@@ -104,15 +104,17 @@ Key variables and their defaults:
 | `DATABASE_URL` | *(absent → SQLite)* | **Comment out for local dev without Docker** |
 | `CELERY_BROKER_URL` | `redis://localhost:6379/0` | |
 | `CELERY_RESULT_BACKEND` | `redis://localhost:6379/1` | |
-| `EMAIL_BACKEND` | `django.core.mail.backends.console.EmailBackend` | Switch to `smtp.EmailBackend` in production |
-| `EMAIL_HOST` | *(empty)* | SMTP server hostname, e.g. `smtp.gmail.com` |
-| `EMAIL_PORT` | `587` | STARTTLS port |
-| `EMAIL_USE_TLS` | `true` | |
-| `EMAIL_HOST_USER` | *(empty)* | SMTP username / Gmail address |
-| `EMAIL_HOST_PASSWORD` | *(empty)* | SMTP password or Gmail App Password |
+| `EMAIL_BACKEND` | `django.core.mail.backends.console.EmailBackend` | Django mail backend for non-signup emails only |
+| `EMAIL_HOST` | *(empty)* | Optional SMTP hostname for non-signup emails |
+| `EMAIL_PORT` | `587` | Optional SMTP port |
+| `EMAIL_USE_TLS` | `true` | Optional SMTP TLS setting |
+| `EMAIL_HOST_USER` | *(empty)* | Optional SMTP username |
+| `EMAIL_HOST_PASSWORD` | *(empty)* | Optional SMTP password |
 | `DEFAULT_FROM_EMAIL` | `noreply@example.local` | Sender address for outbound emails |
+| `EMAIL_RESEND_APIKEY` | *(empty)* | Required Resend API key for signup email-code delivery |
+| `EMAIL_RESEND_FROM_EMAIL` | *(empty)* | Required verified Resend sender address for signup codes |
 | `FRONTEND_URL` | `http://localhost:3000` | Base URL used to build links in outbound emails |
-| `BACKEND_URL` | `http://localhost:8000` | Base URL used for email confirmation links |
+| `BACKEND_URL` | `http://localhost:8000` | Base URL used by legacy email-confirmation links |
 | `FRONTEND_TRUSTED_ORIGINS` | `http://localhost:3000,...` | CSRF trusted origins |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | API base URL for the frontend |
 
@@ -128,21 +130,21 @@ Docker Compose can use the Docker hostname `db`, but manual PowerShell runs cann
 
 ### Email in local development
 
-`.env.example` is set up for Gmail SMTP. To receive real emails during local dev, use:
+`.env.example` includes Resend signup-code variables. Signup confirmation codes use Resend only:
 
 ```dotenv
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USE_TLS=true
-EMAIL_HOST_USER=your@gmail.com
-EMAIL_HOST_PASSWORD=your-gmail-app-password
-DEFAULT_FROM_EMAIL=your@gmail.com
+EMAIL_RESEND_APIKEY=re_...
+EMAIL_RESEND_FROM_EMAIL=you@your-verified-domain.com
 FRONTEND_URL=http://localhost:3000
-BACKEND_URL=http://localhost:8000
 ```
 
-Use a Gmail **App Password** (not your account password). Generate one at Google Account -> Security -> App passwords. Restart both the backend and Celery after changing `.env`.
+Use a verified Resend sender/domain for `EMAIL_RESEND_FROM_EMAIL`. Restart both the backend and Celery after changing `.env`.
+
+The signup code email body is rendered from:
+
+```text
+backend/apps/notifications/templates/notifications/signup_code_email.html
+```
 
 ## Docker Development
 
@@ -227,7 +229,7 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 |---|---|---|---|
 | `/` | No | All | ✅ Live |
 | `/login` | No | All | ✅ Live |
-| `/signup` | No | All | 🟨 In progress — multi-step flow started (`/signup` -> `/signup/role` -> `/signup/location`). **Cleaner signup is not finished yet.** |
+| `/signup` | No | All | 🟨 In progress — multi-step flow started (`/signup` -> `/signup/confirm-email` -> `/signup/role` -> `/signup/location` -> cleaner-only `/signup/personal-info`). |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role | ✅ Live |
 | `/host` | Yes | `host` role | ✅ Live |
@@ -275,14 +277,17 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
     3. Confirm: creates one Draft cleaning job per selected checkout date via `POST /api/marketplace/jobs/`.
 - Pending hosts see a gold warning banner but can still view the UI.
 
-### Signup flow (`/signup`, `/signup/role`, `/signup/location`)
+### Signup flow (`/signup`, `/signup/confirm-email`, `/signup/role`, `/signup/location`, `/signup/personal-info`)
 
 - Multi-step signup UX is in progress.
 - Step 1 (`/signup`): first/last name, email, password + confirmation, custom field validation, and live password checklist.
-- Step 2 (`/signup/role`): role selection (host / cleaner / agency) with progress indicator.
-- Step 3 (`/signup/location`): city and district selection with dual-list transfer UI.
+- Step 2 (`/signup/confirm-email`): sends a Resend email containing a 6-digit code and verifies it before role selection.
+- Step 3 (`/signup/role`): role selection (host / cleaner / agency) with progress indicator.
+- Step 4 (`/signup/location`): city and district selection with dual-list transfer UI. Hosts/agencies finish here; cleaners continue to personal information.
+- Step 5 (`/signup/personal-info`): cleaner-only personal details; requires birth date proving age 18+, sex, own-car answer, and driving-license answer before final `POST /api/accounts/signup/`.
+- The personal-info step uses a compact dropdown calendar for birth date.
+- If Driving license is `Yes`, Bulgarian license categories appear directly under the Driving license selector.
 - UI-only Google and Apple buttons are present but not connected to OAuth.
-- **Cleaner signup is not finished yet** (the end-to-end final step and submission flow are still incomplete).
 
 ### Cleaner dashboard (`/cleaner`)
 
@@ -290,6 +295,7 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 - Open jobs list with apply action gated by account approval and cleaner verification.
 - Applications and assigned jobs views.
 - Profile form with first/last name, service-area dropdown, sex dropdown, bio, verification status, and profile picture upload preview.
+- Cleaner signup captures birth date, calculated age, sex, education, driving-license status/categories, own-car status, and optional smoker status.
 
 ### CSS conventions
 
@@ -331,7 +337,7 @@ Implemented service-level behavior:
 - Signup, login, logout, and current-user APIs using Django sessions.
 - Pending, approved, rejected, and suspended account status.
 - Admin approval, rejection, and suspension actions.
-- **Email confirmation on new account signup** — `send_account_confirmation_email` sends the new user a confirmation link that sets `email_verified_at`.
+- **Email-code confirmation before account creation** — `POST /api/accounts/signup/email-code/` creates a hashed 6-digit code record and `send_signup_email_code` sends it through Resend only. `POST /api/accounts/signup/verify-email-code/` returns the token required by final signup.
 - **Admin email notification on new account signup** — `send_admin_new_account_email` Celery task sends email to all `role=admin` or `is_staff=True` users with a direct link to the pending-tab admin panel. Retries up to 3 times on SMTP failure.
 - Agency profile, invitation, membership, and member assignment APIs.
 - Cookie consent records for essential, analytics, and marketing choices.
@@ -354,9 +360,9 @@ Placeholder integrations (not complete):
 
 ## Email Configuration
 
-Email dispatch uses Django's configurable mail backend. `.env.example` is set for Gmail SMTP; set `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, and `DEFAULT_FROM_EMAIL` in `.env`.
+Email dispatch uses Resend only for signup confirmation codes. Django's configurable mail backend remains available for non-signup emails.
 
-The `send_admin_new_account_email` task reads `settings.FRONTEND_URL` to build the approval link. The `send_account_confirmation_email` task reads `settings.BACKEND_URL` to build the confirmation link.
+The `send_admin_new_account_email` task reads `settings.FRONTEND_URL` to build the approval link. The `send_signup_email_code` task reads `settings.EMAIL_RESEND_APIKEY` and `settings.EMAIL_RESEND_FROM_EMAIL`.
 
 When `celery` is not installed locally, the task runs synchronously via the `_FakeTask` fallback stub in `apps/notifications/tasks.py`.
 
@@ -366,6 +372,12 @@ If Git commands fail with `detected dubious ownership`, run:
 
 ```powershell
 git config --global --add safe.directory "C:/Users/d.yordanov/OneDrive - Intelligent Systems Bulgaria Ltd/Personal/Personal Projects/AirBnbMarketplace/airbnb_tax"
+```
+
+Current local path used in this workspace:
+
+```powershell
+git config --global --add safe.directory "C:/Users/35987/Desktop/airbnb_tax"
 ```
 
 ## Testing Expectations
@@ -378,14 +390,14 @@ When code exists, test coverage should focus on:
 - Calendar conflict detection.
 - iCal parsing (blocked-date filtering, date normalization, sorting).
 - Google Calendar and iCal sync behavior.
-- Notification triggers, especially `send_account_confirmation_email` and `send_admin_new_account_email`.
+- Notification triggers, especially `send_signup_email_code` and `send_admin_new_account_email`.
 - Review eligibility and two-way review constraints.
 - Admin moderation actions.
-- Email task retry behavior on SMTP failure.
+- Email task retry behavior on Resend/API failure.
 
 Every change to business logic, data models, API permissions, migrations, or background tasks should include tests or a clear explanation for why tests were not added.
 
-Use `django.core.mail.backends.locmem.EmailBackend` with `@override_settings` in email tests. Call Celery tasks via `.apply(args=[...])` for synchronous test execution without a broker.
+Mock `_send_resend_email` in signup-code tests. Use `django.core.mail.backends.locmem.EmailBackend` only for Django mail-backend tests. Call Celery tasks via `.apply(args=[...])` for synchronous test execution without a broker.
 
 ## Documentation Expectations
 

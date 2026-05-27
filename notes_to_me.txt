@@ -1,6 +1,0 @@
-1. When an account is created - select country code for phone - then enter phone. If +359 is selected for BG validate the number by symbols count if it includes a 0 at the begining
-
-
-Google Email - hostcleaners.notifications@gmail.com
-Google Email pass - 12345*Abv
-Google App Pass - shbr yafh pphg khvp

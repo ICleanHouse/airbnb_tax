@@ -38,7 +38,8 @@ export default function SignupRolePage() {
 
   useEffect(() => {
     const rawDraft = sessionStorage.getItem("signup_draft");
-    if (!rawDraft) {
+    const emailVerificationToken = sessionStorage.getItem("signup_email_verification_token");
+    if (!rawDraft || !emailVerificationToken) {
       window.location.href = "/signup";
       return;
     }
@@ -66,11 +67,11 @@ export default function SignupRolePage() {
 
         <div className="signup-progress-wrap" aria-label="Signup progress">
           <div className="signup-progress-meta">
-            <strong>Step 2 of 4</strong>
-            <span>50% complete</span>
+            <strong>Step 3 of 4</strong>
+            <span>75% complete</span>
           </div>
-          <div className="signup-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={50}>
-            <div className="signup-progress-fill" />
+          <div className="signup-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={75}>
+            <div className="signup-progress-fill signup-progress-fill-step-3" />
           </div>
         </div>
 

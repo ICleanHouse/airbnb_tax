@@ -72,7 +72,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 |---|---|---|
 | `/` | ✅ Done | Public landing page — auth-aware header with role-based dashboard link |
 | `/login` | ✅ Done | Session login |
-| `/signup` | ✅ Done | Role-based signup with custom field validation, password checklist, UI-only Google/Apple buttons |
+| `/signup` | 🟨 In progress | Multi-step signup started (`/signup` -> `/signup/role` -> `/signup/location`) with custom validation and password checklist. **Cleaner signup is not finished yet.** |
 | `/app` | ✅ Done | Generic workspace — auto-redirects hosts → `/host`, admins → `/admin` |
 | `/admin` | ✅ Done | Admin approval dashboard — list / filter / approve / reject; reads `?filter=pending` URL param |
 | `/host` | ✅ Done | Host dashboard — property CRUD, job posting, month calendar, publish jobs, **ICS import** |

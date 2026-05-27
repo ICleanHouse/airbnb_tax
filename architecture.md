@@ -58,7 +58,7 @@ Future extraction into microservices should be possible without rewriting core b
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
 - `frontend/app/page.tsx`: public landing page. Auth-aware header shows role-correct dashboard link (`/admin` for admins, `/host` for hosts, `/cleaner` for cleaners, `/app` fallback). Search form uses local state only — not yet connected to backend.
 - `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
-- `frontend/app/signup/page.tsx`: role-based signup for host / cleaner / agency with custom field validation, live password checklist, UI-only Google/Apple buttons, and redirect to `/app` on success.
+- `frontend/app/signup/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`: signup flow is being migrated to multi-step onboarding (`/signup` -> `/signup/role` -> `/signup/location`) with custom validation, role selection, and location selection. Cleaner signup is still not finished end-to-end.
 - `frontend/app/app/page.tsx`: generic authenticated workspace. Automatically redirects hosts to `/host` and admins to `/admin`. For cleaners and agencies shows account status.
 - `frontend/app/admin/page.tsx`: admin account approval panel. Lists all accounts, filters by pending / approved / all. Supports `?filter=pending` URL param to pre-select a tab (used in approval email links). Approve and reject actions call `POST /api/accounts/users/{id}/approve/` and `/reject/`. Accessible to `admin` role only.
 - `frontend/app/host/page.tsx`: host dashboard with two sections toggled in the topbar:

@@ -1,6 +1,6 @@
 # Current Progress Handoff
 
-Updated: 2026-05-24, after local signup/email confirmation work.
+Updated: 2026-05-27, after multi-step signup UI refactor updates.
 
 ## User Goal
 
@@ -28,7 +28,11 @@ Host this project on this Windows machine and expose it to outside traffic throu
   - `BACKEND_URL` setting for confirmation links.
 - Added Gmail SMTP template values to `.env.example`.
 - Added `.env` loading from `settings.py` so manual Django and Celery runs read local environment values.
-- Updated signup UI with custom field errors, email validation, live password checklist, agency-name mode, and UI-only Google/Apple buttons.
+- Updated signup UI into a multi-step flow in progress:
+  - `/signup` (credentials + validation + password checklist)
+  - `/signup/role` (role selection step)
+  - `/signup/location` (city + district selection step)
+  - Cleaner signup is still not finished end-to-end.
 - Added cleaner dashboard/profile updates: calendar, profile picture upload preview, service-area dropdown, sex dropdown, applications, assignments, and open jobs.
 
 ## Current Local Development Notes

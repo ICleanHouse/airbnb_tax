@@ -2,38 +2,10 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { Apple, Building2, Home, Sparkles, UserRoundCheck, UserPlus } from "lucide-react";
-import { UserRole, apiFetch } from "../../lib/api";
+import { Apple, UserRoundCheck, UserPlus } from "lucide-react";
 
-type SignupRole = Extract<UserRole, "host" | "cleaner" | "agency">;
-type SignupField = "agency_name" | "first_name" | "last_name" | "email" | "password" | "password_confirm" | "form";
+type SignupField = "first_name" | "last_name" | "email" | "password" | "password_confirm" | "form";
 type SignupFieldErrors = Partial<Record<SignupField, string>>;
-
-const roles: Array<{
-  value: SignupRole;
-  label: string;
-  description: string;
-  icon: typeof Home;
-}> = [
-  {
-    value: "host",
-    label: "Property owner",
-    description: "Post cleaning jobs.",
-    icon: Home,
-  },
-  {
-    value: "cleaner",
-    label: "Cleaner",
-    description: "Join verified network and find cleaning jobs.",
-    icon: Sparkles,
-  },
-  {
-    value: "agency",
-    label: "Agency",
-    description: "Invite cleaners to your network and assign cleaning jobs.",
-    icon: Building2,
-  },
-];
 
 function validateEmailAddress(rawEmail: string): string | null {
   const email = rawEmail.trim();
@@ -84,10 +56,8 @@ function validateEmailAddress(rawEmail: string): string | null {
 }
 
 export default function SignupPage() {
-  const [role, setRole] = useState<SignupRole>("host");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [agencyName, setAgencyName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -103,27 +73,12 @@ export default function SignupPage() {
     });
   }
 
-  function firstMessage(value: unknown): string | null {
-    if (typeof value === "string") return value;
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        if (typeof item === "string") return item;
-      }
-    }
-    return null;
-  }
-
-  async function submitSignup(event: FormEvent<HTMLFormElement>) {
+  function submitSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors: SignupFieldErrors = {};
 
-    if (role === "agency" && !agencyName.trim()) {
-      nextErrors.agency_name = "Agency name is required.";
-    }
-    if (role !== "agency" && (!firstName.trim() || !lastName.trim())) {
-      if (!firstName.trim()) nextErrors.first_name = "First name is required.";
-      if (!lastName.trim()) nextErrors.last_name = "Last name is required.";
-    }
+    if (!firstName.trim()) nextErrors.first_name = "First name is required.";
+    if (!lastName.trim()) nextErrors.last_name = "Last name is required.";
     const emailError = validateEmailAddress(email);
     if (emailError) {
       nextErrors.email = emailError;
@@ -145,57 +100,16 @@ export default function SignupPage() {
       return;
     }
     setFieldErrors({});
-
     setSubmitting(true);
-
-    try {
-      const normalizedAgencyName = agencyName.trim();
-      const payloadFirstName = role === "agency" ? normalizedAgencyName : firstName.trim();
-      const payloadLastName = role === "agency" ? "Agency" : lastName.trim();
-      const response = await apiFetch("/api/accounts/signup/", {
-        method: "POST",
-        body: JSON.stringify({
-          role,
-          first_name: payloadFirstName,
-          last_name: payloadLastName,
-          email,
-          password,
-          password_confirm: confirmPassword,
-        }),
-      });
-      if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-        const serverErrors: SignupFieldErrors = {};
-        if (data && typeof data === "object") {
-          for (const [key, rawValue] of Object.entries(data)) {
-            const message = firstMessage(rawValue);
-            if (!message) continue;
-            if (key === "first_name") {
-              serverErrors[role === "agency" ? "agency_name" : "first_name"] = message;
-            } else if (key === "last_name" && role !== "agency") {
-              serverErrors.last_name = message;
-            } else if (key === "email") {
-              serverErrors.email = message;
-            } else if (key === "password") {
-              serverErrors.password = message;
-            } else if (key === "password_confirm") {
-              serverErrors.password_confirm = message;
-            } else if (key === "non_field_errors" || key === "detail") {
-              serverErrors.form = message;
-            }
-          }
-        }
-        if (Object.keys(serverErrors).length > 0) {
-          setFieldErrors(serverErrors);
-        } else {
-          setFieldErrors({ form: "Check the signup details and try again." });
-        }
-        return;
-      }
-      window.location.href = "/app";
-    } finally {
-      setSubmitting(false);
-    }
+    const payload = {
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      email: email.trim(),
+      password,
+      password_confirm: confirmPassword,
+    };
+    sessionStorage.setItem("signup_draft", JSON.stringify(payload));
+    window.location.href = "/signup/role";
   }
 
   const passwordChecks = [
@@ -208,7 +122,7 @@ export default function SignupPage() {
 
   return (
     <main className="auth-page">
-      <section className="auth-panel wide-auth-panel">
+      <section className="auth-panel wide-auth-panel signup-auth-panel">
         <Link className="site-brand auth-brand" href="/">
           <span className="brand-symbol">
             <UserPlus size={18} aria-hidden />
@@ -231,79 +145,37 @@ export default function SignupPage() {
         </div>
 
         <form className="auth-form" onSubmit={submitSignup} noValidate>
-          <div className="role-grid" role="radiogroup" aria-label="Account type">
-            {roles.map((option) => {
-              const Icon = option.icon;
-              return (
-                <button
-                  aria-checked={role === option.value}
-                  className={role === option.value ? "role-option selected" : "role-option"}
-                  key={option.value}
-                  onClick={() => {
-                    setRole(option.value);
-                    setFieldErrors({});
-                  }}
-                  role="radio"
-                  type="button"
-                >
-                  <Icon size={20} aria-hidden />
-                  <span>{option.label}</span>
-                  <small>{option.description}</small>
-                </button>
-              );
-            })}
-          </div>
-
           <div className="form-grid signup-form-grid">
-            {role === "agency" ? (
-              <label>
-                <span>Agency name</span>
-                <input
-                  aria-invalid={Boolean(fieldErrors.agency_name)}
-                  className={fieldErrors.agency_name ? "input-invalid" : ""}
-                  required
-                  value={agencyName}
-                  onChange={(event) => {
-                    setAgencyName(event.target.value);
-                    clearFieldError("agency_name");
-                  }}
-                />
-                {fieldErrors.agency_name ? <small className="field-error-text">{fieldErrors.agency_name}</small> : null}
-              </label>
-            ) : (
-              <>
-                <label>
-                  <span>First name</span>
-                  <input
-                    autoComplete="given-name"
-                    aria-invalid={Boolean(fieldErrors.first_name)}
-                    className={fieldErrors.first_name ? "input-invalid" : ""}
-                    required
-                    value={firstName}
-                    onChange={(event) => {
-                      setFirstName(event.target.value);
-                      clearFieldError("first_name");
-                    }}
-                  />
-                  {fieldErrors.first_name ? <small className="field-error-text">{fieldErrors.first_name}</small> : null}
-                </label>
-                <label>
-                  <span>Last name</span>
-                  <input
-                    autoComplete="family-name"
-                    aria-invalid={Boolean(fieldErrors.last_name)}
-                    className={fieldErrors.last_name ? "input-invalid" : ""}
-                    required
-                    value={lastName}
-                    onChange={(event) => {
-                      setLastName(event.target.value);
-                      clearFieldError("last_name");
-                    }}
-                  />
-                  {fieldErrors.last_name ? <small className="field-error-text">{fieldErrors.last_name}</small> : null}
-                </label>
-              </>
-            )}
+            <label>
+              <span>First name</span>
+              <input
+                autoComplete="given-name"
+                aria-invalid={Boolean(fieldErrors.first_name)}
+                className={fieldErrors.first_name ? "input-invalid" : ""}
+                required
+                value={firstName}
+                onChange={(event) => {
+                  setFirstName(event.target.value);
+                  clearFieldError("first_name");
+                }}
+              />
+              {fieldErrors.first_name ? <small className="field-error-text">{fieldErrors.first_name}</small> : null}
+            </label>
+            <label>
+              <span>Last name</span>
+              <input
+                autoComplete="family-name"
+                aria-invalid={Boolean(fieldErrors.last_name)}
+                className={fieldErrors.last_name ? "input-invalid" : ""}
+                required
+                value={lastName}
+                onChange={(event) => {
+                  setLastName(event.target.value);
+                  clearFieldError("last_name");
+                }}
+              />
+              {fieldErrors.last_name ? <small className="field-error-text">{fieldErrors.last_name}</small> : null}
+            </label>
             <label>
               <span>Email</span>
               <input

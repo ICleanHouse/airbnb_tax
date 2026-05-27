@@ -227,7 +227,7 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 |---|---|---|---|
 | `/` | No | All | ✅ Live |
 | `/login` | No | All | ✅ Live |
-| `/signup` | No | All | ✅ Live — custom validation + email confirmation |
+| `/signup` | No | All | 🟨 In progress — multi-step flow started (`/signup` -> `/signup/role` -> `/signup/location`). **Cleaner signup is not finished yet.** |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role | ✅ Live |
 | `/host` | Yes | `host` role | ✅ Live |
@@ -275,14 +275,14 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
     3. Confirm: creates one Draft cleaning job per selected checkout date via `POST /api/marketplace/jobs/`.
 - Pending hosts see a gold warning banner but can still view the UI.
 
-### Signup page (`/signup`)
+### Signup flow (`/signup`, `/signup/role`, `/signup/location`)
 
-- Role tiles for Property owner, Cleaner, and Agency.
-- Host/cleaner signup uses first name and last name; agency signup uses agency name.
+- Multi-step signup UX is in progress.
+- Step 1 (`/signup`): first/last name, email, password + confirmation, custom field validation, and live password checklist.
+- Step 2 (`/signup/role`): role selection (host / cleaner / agency) with progress indicator.
+- Step 3 (`/signup/location`): city and district selection with dual-list transfer UI.
 - UI-only Google and Apple buttons are present but not connected to OAuth.
-- Client-side field errors use red input outlines and inline messages.
-- Email validation checks the local part and dot-separated domain labels.
-- Password validation requires 8+ characters, uppercase, lowercase, number, and special character, with a live checklist.
+- **Cleaner signup is not finished yet** (the end-to-end final step and submission flow are still incomplete).
 
 ### Cleaner dashboard (`/cleaner`)
 

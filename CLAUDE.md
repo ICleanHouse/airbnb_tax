@@ -94,7 +94,7 @@ docker-compose.yml
 |---|---|---|---|
 | `/` | No | All | ✅ Live |
 | `/login` | No | All | ✅ Live |
-| `/signup` | No | All | ✅ Live — custom validation + email confirmation |
+| `/signup` | No | All | 🟨 In progress — multi-step flow started (`/signup` -> `/signup/role` -> `/signup/location`). **Cleaner signup is not finished yet.** |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role only | ✅ Live — reads `?filter=pending` URL param |
 | `/host` | Yes | `host` role only | ✅ Live — ICS import + calendar + jobs |
@@ -112,7 +112,7 @@ docker-compose.yml
 - **ICS file import**: `POST /api/properties/parse-ics/` parses uploaded Airbnb `.ics` files, filters blocked-date placeholders, returns reservation list. Host dashboard two-step modal: upload → review → bulk-create Draft jobs.
 - **`apiFetch` FormData fix**: `Content-Type: application/json` only set for string bodies, not `FormData`.
 - **`is_platform_admin` in CurrentUser**: added to `frontend/lib/api.ts` interface.
-- **Signup UX**: first/last name for host/cleaner, agency-name field for agencies, custom per-field errors, email domain validation, live password checklist, UI-only Google/Apple buttons.
+- **Signup UX (in progress)**: multi-step flow started with custom field errors, email validation, live password checklist, role step, and location step. **Cleaner signup is not finished yet.**
 - **Cleaner dashboard**: calendar, open jobs, applications, assignments, profile form with service area, sex, bio, and profile image upload preview.
 
 ## CSS Design System (globals.css)

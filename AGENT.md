@@ -186,7 +186,7 @@ When code exists:
 
 **`frontend/app/login/page.tsx`** — session login, redirects to `/` after success.
 
-**`frontend/app/signup/page.tsx`** — role-based signup (host / cleaner / agency), redirects to `/app` after success. Includes custom field errors, email validation, live password checklist, agency-name mode, and UI-only Google/Apple buttons.
+**`frontend/app/signup/*`** — signup flow is being refactored into steps (`/signup`, `/signup/role`, `/signup/location`) with custom field errors, email validation, live password checklist, role selection, and location selection. Cleaner signup is still not finished end-to-end.
 
 **`frontend/app/app/page.tsx`** — generic workspace:
 

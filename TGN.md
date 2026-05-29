@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-05-27
+**Last updated:** 2026-05-29
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -112,6 +112,9 @@ AuditLog ──[references]────────► (any entity — polymorph
 - A 6-digit email confirmation code is sent before account creation; final signup requires the verified token.
 - Admin email is sent to all `role=admin` or `is_staff=True` users on every `pending` creation.
 - Email confirmation sets `email_verified_at`; admin approval still controls marketplace rights.
+- Public signup is a single React wizard at `/signup`; old signup step URLs redirect back to it.
+- Cleaner signup payloads must include birth date, sex, native language, experience level, work preference, and at least one preferred time slot.
+- Any changed signup field for Cleaner, Host, or Agency must be reflected in database fields, migrations, serializers, frontend payloads, and tests.
 
 ### 2b. Cleaner Verification Status
 
@@ -258,34 +261,17 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
 
 /signup
   auth: no
-  reads: none
+  reads: sessionStorage signup_wizard_state for refresh recovery
   writes: POST /api/accounts/signup/email-code/
-  next: /signup/confirm-email
-
-/signup/confirm-email
-  auth: no
-  reads: sessionStorage signup draft
-  writes: POST /api/accounts/signup/verify-email-code/
-  next: /signup/role
-
-/signup/role
-  auth: no
-  reads: sessionStorage signup draft + email_verification_token
-  next: /signup/location
-
-/signup/location
-  auth: no
-  reads: sessionStorage signup draft + role + email_verification_token
-  writes: sessionStorage city + service_areas
-  next: cleaner → /signup/personal-info
-        host/agency → /app after POST /api/accounts/signup/
-
-/signup/personal-info
-  auth: no
-  reads: sessionStorage signup draft + role + email_verification_token + city + service_areas
-  validates: birth_date 18+, sex, own car, driving license, license categories when applicable
-  writes: POST /api/accounts/signup/
-  next: /app (on success) ──► triggers send_admin_new_account_email
+          POST /api/accounts/signup/verify-email-code/
+          POST /api/accounts/signup/
+  behavior: single React wizard with Motion transitions; Continue/Back mutate local state
+  progress starts: role step
+  cleaner path: account → confirm email → role → personal info → location → native language → experience → availability → /app
+  host/agency path: account → confirm email → role → location → /app
+  old step URLs: /signup/confirm-email, /signup/role, /signup/location,
+                 /signup/personal-info, /signup/native-language, /signup/experience
+                 redirect to /signup
 
 /app
   auth: required
@@ -490,17 +476,24 @@ language_preference: [bg | en]
 user (1:1), kind, display_name, bio, service_areas[],
 verification_status: [pending | verified | rejected | suspended],
 sex: [male | female | prefer_not_to_say],
-birth_date, age (calculated), education, has_driving_license, driving_license_categories[],
+birth_date, age (calculated), native_language, experience_level,
+work_preference: [full_time | part_time],
+preferred_time_slots: [morning | afternoon | evening | flexible],
+weekly_availability: {weekday: [morning | afternoon | evening]},
+education, has_driving_license, driving_license_categories[],
 has_own_car, smoker,
 profile_image, average_rating, completed_jobs_count
 ```
 
-Cleaner signup personal-info rules:
+Cleaner signup rules:
 - Birth date is required and must prove age 18+.
-- Sex, own-car answer, and driving-license answer are required.
-- Education and smoker status are optional.
-- Bulgarian driving-license categories are required when `has_driving_license=true`.
-- The frontend shows birth date as a compact dropdown calendar and places categories directly below Driving license.
+- Sex, native language, experience level, work preference, and at least one preferred time slot are required.
+- Weekly availability is optional and should be treated as usual preference, not a hard booking calendar.
+- Flexible preferred time is exclusive of morning/afternoon/evening in the UI and normalized by the backend.
+- The frontend shows birth date as a compact dropdown calendar.
+
+Signup database rule:
+- Final Cleaner, Host, and Agency signup questions must have matching database columns/JSON fields, migrations, serializer validation, profile serializer exposure, frontend payload handling, and tests.
 
 ### AgencyProfile
 ```
@@ -640,7 +633,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 |---|---|
 | Public landing page `/` | ✅ Complete |
 | Login `/login` | ✅ Complete |
-| Signup `/signup` through cleaner personal info | 🟨 In progress |
+| Signup `/signup` React wizard through cleaner availability | 🟨 In progress |
 | Generic workspace `/app` | ✅ Complete |
 | Admin approval panel `/admin` + URL filter | ✅ Complete |
 | Host dashboard `/host` — properties section | ✅ Complete |
@@ -677,3 +670,4 @@ Rules that must never be broken regardless of task scope.
 | R13 | All Celery tasks must be idempotent and retryable | `apps/notifications/tasks.py` convention |
 | R14 | Public `/` is marketing only — never a dashboard | Frontend routing |
 | R15 | Timezone `Europe/Sofia`; store UTC, display local | All datetime handling |
+| R16 | Signup field changes must update database models, migrations, serializers, frontend payloads, and tests together | Accounts signup/profile workflow |

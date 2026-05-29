@@ -152,7 +152,11 @@ Signup and verification direction:
 
 - V1 uses email confirmation and admin approval after signup. Pending users can log in, complete onboarding, and wait for approval.
 - Email confirmation is implemented through a 6-digit Resend code before account creation. SMS code verification remains a future step.
-- Cleaner signup currently collects birth date for 18+ validation, sex, education, own-car status, smoker status, and driving-license details/categories.
+- Signup is now designed as a single React wizard at `/signup`, not a full page reload between onboarding steps. Continue and Back should feel like one guided flow with Motion-based transitions.
+- Progress tracking starts after email confirmation, at account type selection.
+- Cleaner signup currently collects birth date for 18+ validation, sex, native language, cleaning experience, work preference, broad preferred time slots, and optional weekly availability.
+- Host and agency signup should remain shorter than cleaner signup: after email confirmation and account type, they only need location/service-area data before account creation unless the business adds more required fields.
+- When the signup flow for Cleaner, Host, or Agency changes, the database profile fields, migrations, serializer validation, admin/profile visibility, and tests must be updated at the same time. Onboarding questions are not just UI; they define operational supply/demand data.
 - V1 web authentication uses secure Django session cookies with CSRF protection. JWT or OAuth can be revisited if native mobile apps, third-party API clients, or social sign-in become near-term requirements.
 - Google and Apple signup buttons may appear in the UI as placeholders, but OAuth is not connected yet.
 
@@ -271,7 +275,7 @@ Operations:
 - How much admin work is required to verify supply and handle disputes?
 - What support process is needed when a cleaner cancels close to check-in time?
 - How much admin work is required to approve all signup categories after email confirmation is complete?
-- What manual review process should be used for cleaner personal details collected during signup?
+- What manual review process should be used for cleaner personal details, native language, experience, work preference, and availability collected during signup?
 - What verification details should agencies provide before they can invite cleaners and accept jobs?
 
 ## Business Decisions Locked So Far
@@ -288,6 +292,9 @@ Operations:
 - New users start pending and need admin approval before posting jobs, applying, or assigning agency work.
 - V1 authentication uses Django session cookies with CSRF protection.
 - New users confirm email through a 6-digit Resend code before account creation.
+- Signup should behave like a React wizard at `/signup`; old step URLs are compatibility redirects, not the normal flow.
+- Cleaner onboarding includes native language, experience, work preference, preferred time slots, and optional weekly availability before account creation.
+- Signup questions for Cleaner, Host, and Agency must be backed by database fields, migrations, serializers, and tests when the flow is finalized or expanded.
 - Cookie consent is consent-first: only essential cookies are enabled before opt-in.
 - The marketplace should be available across Bulgaria while building practical local supply clusters.
 - The main trust promise is verified and reviewed cleaners/agencies.

@@ -20,6 +20,7 @@ Read `TGN.md` at the start of every session to reconstruct full project context.
 
 - Backend: Django 6.0+ / DRF 3.17+, PostgreSQL 16+ (Docker), SQLite (local), Redis 7+, Celery 5.4+
 - Frontend: Next.js 15.5+ / React 19.2+ (responsive web/PWA), TypeScript 5.9+
+- Frontend animations: Motion (`motion/react`) for reusable React transitions
 - Timezone: `Europe/Sofia` | Currency: EUR | Languages: BG/EN
 - Local infra: Docker Compose
 
@@ -74,7 +75,7 @@ frontend/
   app/
     page.tsx        Public landing page (auth-aware header)
     login/          Session login
-    signup/         Role-based signup
+    signup/         Single-route React signup wizard
     app/            Generic workspace — auto-redirects hosts → /host, admins → /admin
     admin/          Admin approval panel (list / approve / reject, ?filter=pending URL param)
     host/           Host dashboard (properties, jobs, month calendar, ICS import)
@@ -94,7 +95,7 @@ docker-compose.yml
 |---|---|---|---|
 | `/` | No | All | ✅ Live |
 | `/login` | No | All | ✅ Live |
-| `/signup` | No | All | 🟨 In progress — multi-step flow started (`/signup` -> `/signup/confirm-email` -> `/signup/role` -> `/signup/location` -> cleaner-only `/signup/personal-info`) with email-code verification and final account creation. |
+| `/signup` | No | All | 🟨 In progress — single React wizard with Motion transitions, email-code verification, role selection, cleaner personal/language/experience/availability steps, and final account creation. Old step URLs redirect to `/signup`. |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role only | ✅ Live — reads `?filter=pending` URL param |
 | `/host` | Yes | `host` role only | ✅ Live — ICS import + calendar + jobs |
@@ -113,7 +114,8 @@ docker-compose.yml
 - **ICS file import**: `POST /api/properties/parse-ics/` parses uploaded Airbnb `.ics` files, filters blocked-date placeholders, returns reservation list. Host dashboard two-step modal: upload → review → bulk-create Draft jobs.
 - **`apiFetch` FormData fix**: `Content-Type: application/json` only set for string bodies, not `FormData`.
 - **`is_platform_admin` in CurrentUser**: added to `frontend/lib/api.ts` interface.
-- **Signup UX (in progress)**: multi-step flow started with custom field errors, email validation, Resend 6-digit email-code step, live password checklist, role step, location/service-area step, cleaner personal-info step, and final account creation. The cleaner personal-info step uses a compact birth-date dropdown, 18+ validation, and driving-license categories directly under the Driving license selector.
+- **Signup UX (in progress)**: single-route `/signup` React wizard with custom field errors, email validation, Resend 6-digit email-code step, live password checklist, role step, cleaner personal-info step, location/service-area step, native-language step, experience step, availability step, and final account creation. Continue and Back update React state and animate with Motion instead of navigating between pages.
+- **Signup database alignment**: cleaner signup now requires persisted `birth_date`, `sex`, `native_language`, `experience_level`, `work_preference`, and `preferred_time_slots`; optional `weekly_availability` is stored as JSON. Any future signup changes for Cleaner, Host, or Agency must update database fields, migrations, serializers, and tests together.
 - **Cleaner dashboard**: calendar, open jobs, applications, assignments, profile form with service area, sex, bio, and profile image upload preview.
 
 ## CSS Design System (globals.css)

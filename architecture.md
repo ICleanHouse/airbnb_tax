@@ -12,7 +12,7 @@ The v1 architecture is a modular Django backend with a Next.js PWA frontend. Thi
 
 The app calendar is the source of truth. External calendars, including Airbnb iCal feeds and Google Calendar, sync into or out of the application.
 
-The public landing page is the entry point. Authenticated host, cleaner, and admin workspaces live behind separate authenticated routes.
+The public landing page is the entry point. Signup lives at a single React route (`/signup`) with animated wizard steps. Authenticated host, cleaner, and admin workspaces live behind separate authenticated routes.
 
 ## Architecture Style
 
@@ -59,7 +59,8 @@ Future extraction into microservices should be possible without rewriting core b
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
 - `frontend/app/page.tsx`: public landing page. Auth-aware header shows role-correct dashboard link (`/admin` for admins, `/host` for hosts, `/cleaner` for cleaners, `/app` fallback). Search form uses local state only — not yet connected to backend.
 - `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
-- `frontend/app/signup/page.tsx`, `frontend/app/signup/confirm-email/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`, `frontend/app/signup/personal-info/page.tsx`: signup flow is being migrated to multi-step onboarding (`/signup` -> `/signup/confirm-email` -> `/signup/role` -> `/signup/location` -> cleaner-only `/signup/personal-info`) with custom validation, Resend 6-digit email-code verification, role selection, service-area selection, cleaner personal details, and final account creation. The cleaner personal-info step includes a compact dropdown birth-date calendar, 18+ validation, and driving-license categories directly under the Driving license selector.
+- `frontend/app/signup/page.tsx`: single-route signup wizard. It handles credentials, Resend 6-digit email-code verification, role selection, cleaner personal details, location/service-area selection, native language, experience, availability, and final account creation without full page reloads between steps. It uses Motion (`motion/react`) for reusable panel transitions and keeps `sessionStorage` only for refresh recovery.
+- `frontend/app/signup/confirm-email/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`, `frontend/app/signup/personal-info/page.tsx`, `frontend/app/signup/native-language/page.tsx`, `frontend/app/signup/experience/page.tsx`: lightweight compatibility redirects to `/signup`.
 - `frontend/app/app/page.tsx`: generic authenticated workspace. Automatically redirects hosts to `/host` and admins to `/admin`. For cleaners and agencies shows account status.
 - `frontend/app/admin/page.tsx`: admin account approval panel. Lists all accounts, filters by pending / approved / all. Supports `?filter=pending` URL param to pre-select a tab (used in approval email links). Approve and reject actions call `POST /api/accounts/users/{id}/approve/` and `/reject/`. Accessible to `admin` role only.
 - `frontend/app/host/page.tsx`: host dashboard with two sections toggled in the topbar:
@@ -93,6 +94,7 @@ Responsibilities:
 - Cookie consent records for essential, analytics, and marketing choices.
 - Permissions and role-based API access.
 - Email-code confirmation before account creation and admin email notification after new account signup.
+- Signup wizard state, including role-specific final payload construction.
 
 Rules:
 
@@ -101,6 +103,8 @@ Rules:
 - Cleaners who work for an agency remain separate users with their own cleaner profile and calendar.
 - Agencies invite cleaners into their group; cleaners accept invitations from their own account.
 - Email-code confirmation is implemented for signup. SMS code verification remains planned.
+- Normal signup stays on `/signup`; old signup step routes exist only as redirects.
+- Signup UI fields must map to backend serializer fields and persistent profile fields. When Cleaner, Host, or Agency onboarding changes, update models, migrations, serializer validation, profile serializers, frontend payloads, and tests in the same change.
 
 ### Hosts and Properties
 
@@ -123,6 +127,8 @@ Responsibilities:
 - Verification state.
 - Public rating summary.
 - Work preferences.
+- Native language and experience level.
+- Broad preferred time slots and optional weekly availability.
 
 ### Agencies
 
@@ -244,7 +250,7 @@ The implemented schema covers these concepts:
 
 - User account (role, account status, approval metadata, language preference).
 - Host profile.
-- Cleaner profile (verification status, service areas, birth date, calculated age, sex, education, driving-license details, own-car status, smoker status, rating summary).
+- Cleaner profile (verification status, service areas, birth date, calculated age, sex, native language, experience level, work preference, preferred time slots, weekly availability, education, driving-license details, own-car status, smoker status, rating summary).
 - Agency profile (company name, service areas, member count).
 - Agency invitation (token, expiry, status).
 - Agency membership (status, active/revoked).
@@ -273,7 +279,7 @@ REST APIs through Django REST Framework.
 | `GET /api/health/` | Health check |
 | `POST /api/accounts/signup/email-code/` | Sends a 6-digit signup email confirmation code. |
 | `POST /api/accounts/signup/verify-email-code/` | Verifies the 6-digit code and returns `email_verification_token`. |
-| `POST /api/accounts/signup/` | Creates user + auto-login after email-code verification. Fires admin email notification. |
+| `POST /api/accounts/signup/` | Creates user + role profile + auto-login after email-code verification. Host/agency payloads include location/service-area data. Cleaner payloads include personal information, native language, experience, work preference, preferred time slots, and optional weekly availability. Fires admin email notification. |
 | `GET /api/accounts/confirm-email/{uidb64}/{token}/` | Confirms user email and redirects to frontend login. |
 | `POST /api/accounts/login/` | Session login |
 | `POST /api/accounts/logout/` | Session logout |

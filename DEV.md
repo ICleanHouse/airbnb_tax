@@ -45,7 +45,7 @@ Out of scope for v1 unless explicitly requested:
 Use this baseline stack unless the architecture document is intentionally updated:
 
 - Backend: Python 3.13+, Django 6.0+, Django REST Framework 3.17+.
-- Frontend: React 19.2+ with Next.js 15.5+ as a responsive web/PWA.
+- Frontend: React 19.2+ with Next.js 15.5+ as a responsive web/PWA; Motion is used for reusable React animations.
 - Database: PostgreSQL 16+ (Docker/production); SQLite (local dev without Docker).
 - Cache and broker: Redis 7+.
 - Background jobs: Celery 5.4+.
@@ -65,7 +65,7 @@ frontend/
   app/
     page.tsx        Public landing page (auth-aware header)
     login/          Session login
-    signup/         Multi-step signup with email code, role, location, cleaner personal info
+    signup/         Single-route React signup wizard with email code, role, cleaner details, location, language, experience, availability
     app/            Generic workspace (auto-redirects hosts → /host, admins → /admin)
     admin/          Admin approval panel (list / approve / reject, URL filter param)
     host/           Host dashboard (properties, jobs, calendar, ICS import)
@@ -229,7 +229,7 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 |---|---|---|---|
 | `/` | No | All | ✅ Live |
 | `/login` | No | All | ✅ Live |
-| `/signup` | No | All | 🟨 In progress — multi-step flow started (`/signup` -> `/signup/confirm-email` -> `/signup/role` -> `/signup/location` -> cleaner-only `/signup/personal-info`). |
+| `/signup` | No | All | 🟨 In progress — single React wizard with Motion transitions, email-code confirmation, role selection, cleaner-only personal/language/experience/availability steps, and final account creation. |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role | ✅ Live |
 | `/host` | Yes | `host` role | ✅ Live |
@@ -277,17 +277,21 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
     3. Confirm: creates one Draft cleaning job per selected checkout date via `POST /api/marketplace/jobs/`.
 - Pending hosts see a gold warning banner but can still view the UI.
 
-### Signup flow (`/signup`, `/signup/confirm-email`, `/signup/role`, `/signup/location`, `/signup/personal-info`)
+### Signup flow (`/signup`)
 
-- Multi-step signup UX is in progress.
-- Step 1 (`/signup`): first/last name, email, password + confirmation, custom field validation, and live password checklist.
-- Step 2 (`/signup/confirm-email`): sends a Resend email containing a 6-digit code and verifies it before role selection.
-- Step 3 (`/signup/role`): role selection (host / cleaner / agency) with progress indicator.
-- Step 4 (`/signup/location`): city and district selection with dual-list transfer UI. Hosts/agencies finish here; cleaners continue to personal information.
-- Step 5 (`/signup/personal-info`): cleaner-only personal details; requires birth date proving age 18+, sex, own-car answer, and driving-license answer before final `POST /api/accounts/signup/`.
-- The personal-info step uses a compact dropdown calendar for birth date.
-- If Driving license is `Yes`, Bulgarian license categories appear directly under the Driving license selector.
+- Signup is a single client-side React wizard at `/signup`; normal Continue/Back actions do not navigate to new pages.
+- Old step URLs (`/signup/confirm-email`, `/signup/role`, `/signup/location`, `/signup/personal-info`, `/signup/native-language`, `/signup/experience`) redirect to `/signup`.
+- Motion (`motion/react`) powers step transitions. Keep transitions compact and respect reduced-motion behavior.
+- The auth panel, logo, heading area, and progress bar should stay visually stable while only the form content changes.
+- Step 1: first/last name, email, password + confirmation, custom field validation, and live password checklist.
+- Step 2: sends a Resend email containing a 6-digit code and verifies it before role selection.
+- Progress starts at `Choose account type`, not during credentials or email confirmation.
+- Cleaner flow after role selection: personal information → location/service areas → native language → experience → availability → final `POST /api/accounts/signup/`.
+- Host/agency flow after role selection: location/service areas → final `POST /api/accounts/signup/`.
+- Cleaner required fields: birth date proving age 18+, sex, native language, experience level, work preference, and at least one preferred time slot.
+- Cleaner optional availability detail: weekly availability by weekday/time slot.
 - UI-only Google and Apple buttons are present but not connected to OAuth.
+- When changing signup for Cleaner, Host, or Agency, update frontend state/payloads, backend models, migrations, serializer validation, profile serializers, admin/profile visibility when needed, and tests together.
 
 ### Cleaner dashboard (`/cleaner`)
 
@@ -295,7 +299,7 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 - Open jobs list with apply action gated by account approval and cleaner verification.
 - Applications and assigned jobs views.
 - Profile form with first/last name, service-area dropdown, sex dropdown, bio, verification status, and profile picture upload preview.
-- Cleaner signup captures birth date, calculated age, sex, education, driving-license status/categories, own-car status, and optional smoker status.
+- Cleaner signup captures birth date, calculated age, sex, native language, experience level, work preference, preferred time slots, optional weekly availability, and any future verification fields added to the profile schema.
 
 ### CSS conventions
 
@@ -338,6 +342,8 @@ Implemented service-level behavior:
 - Pending, approved, rejected, and suspended account status.
 - Admin approval, rejection, and suspension actions.
 - **Email-code confirmation before account creation** — `POST /api/accounts/signup/email-code/` creates a hashed 6-digit code record and `send_signup_email_code` sends it through Resend only. `POST /api/accounts/signup/verify-email-code/` returns the token required by final signup.
+- Cleaner signup persistence includes `birth_date`, `sex`, `native_language`, `experience_level`, `work_preference`, `preferred_time_slots`, and optional `weekly_availability`.
+- Host and agency signup payloads create their role profiles from location/service-area data. Add fields only with corresponding migrations and serializer/test updates.
 - **Admin email notification on new account signup** — `send_admin_new_account_email` Celery task sends email to all `role=admin` or `is_staff=True` users with a direct link to the pending-tab admin panel. Retries up to 3 times on SMTP failure.
 - Agency profile, invitation, membership, and member assignment APIs.
 - Cookie consent records for essential, analytics, and marketing choices.

@@ -25,6 +25,7 @@ The product direction for v1 is:
 - Bulk cleaning job creation from Airbnb iCal calendar imports.
 - Google Calendar sync and iCal import/export.
 - Signup email confirmation via Resend only. Other notification email paths still use Django's mail backend until migrated.
+- Signup is a single React wizard at `/signup` with Motion-based transitions; old step routes are compatibility redirects.
 - Two-way reviews.
 - No in-app payments in v1.
 
@@ -84,6 +85,7 @@ When code exists:
 - Do not run `npm run build` while `npm run dev` is running against the same `frontend/.next` directory; stop dev or clear `.next` first to avoid stale Next.js runtime errors.
 - Never call `fetch` directly in the frontend — always use `apiFetch` from `frontend/lib/api.ts`.
 - Never set `Content-Type: application/json` for `FormData` bodies — let the browser set the multipart boundary.
+- Keep signup field changes end-to-end: React wizard state and payloads, backend model fields, migrations, serializer validation, profile serializers, and tests must change together for Cleaner, Host, and Agency onboarding.
 
 ## Marketplace Rules To Preserve
 
@@ -118,7 +120,9 @@ When code exists:
   - Sends a 6-digit code through Resend only.
   - The server stores only the code hash in `SignupEmailVerification`.
   - `POST /api/accounts/signup/verify-email-code/` returns `email_verification_token`.
-  - Final signup requires `email_verification_token` and sets `email_verified_at`.
+- Final signup requires `email_verification_token` and sets `email_verified_at`.
+- Cleaner signup persists birth date, sex, native language, experience level, work preference, preferred time slots, and optional weekly availability.
+- Host and agency signup currently create role profiles from location/service-area data.
 
 **Properties (`apps/properties`)**
 
@@ -187,7 +191,7 @@ When code exists:
 
 **`frontend/app/login/page.tsx`** — session login, redirects to `/` after success.
 
-**`frontend/app/signup/*`** — signup flow is being refactored into steps (`/signup`, `/signup/confirm-email`, `/signup/role`, `/signup/location`, cleaner-only `/signup/personal-info`) with custom field errors, email validation, Resend 6-digit email-code confirmation, live password checklist, role selection, service-area selection, cleaner personal details, and final account creation. Google and Apple buttons are UI-only placeholders.
+**`frontend/app/signup/*`** — signup is centered on `frontend/app/signup/page.tsx`, a single client-side React wizard at `/signup`. It uses custom field errors, email validation, Resend 6-digit email-code confirmation, live password checklist, role selection, cleaner personal details, location/service areas, native language, experience, availability, and final account creation. Continue and Back update React state and animate with Motion instead of loading new pages. Old step route files redirect to `/signup`. Google and Apple buttons are UI-only placeholders.
 
 **`frontend/app/app/page.tsx`** — generic workspace:
 
@@ -219,12 +223,12 @@ When code exists:
 - Cleaner applications call `POST /api/marketplace/applications/`.
 - Assigned jobs can be marked complete through `POST /api/marketplace/jobs/{id}/complete/`.
 
-### Cleaner signup personal-info state
+### Cleaner signup state
 
 - Birth date uses a compact dropdown-style calendar and must prove the cleaner is at least 18.
-- Required fields: birth date, sex, own car, driving license.
-- Optional fields: education and smoker status.
-- If Driving license is `Yes`, Bulgarian license categories appear directly under the selector.
+- Required fields: birth date, sex, native language, experience level, work preference, and at least one preferred time slot.
+- Optional signup availability detail: weekly availability by day and time slot.
+- The frontend stores draft wizard state in `sessionStorage` only for refresh recovery.
 
 ### What is NOT built yet (next priorities)
 

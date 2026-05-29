@@ -156,6 +156,19 @@ class CleanerProfile(TimeStampedModel):
         HIGH_SCHOOL = "high_school", "High school"
         HIGHER = "higher", "Higher education"
 
+    class ExperienceLevel(models.TextChoices):
+        NONE = "none", "No experience"
+        ONE_YEAR = "1_year", "1 year"
+        TWO_YEARS = "2_years", "2 years"
+        THREE_YEARS = "3_years", "3 years"
+        FOUR_YEARS = "4_years", "4 years"
+        FIVE_YEARS = "5_years", "5 years"
+        MORE_THAN_FIVE_YEARS = "more_than_5_years", "More than 5 years"
+
+    class WorkPreference(models.TextChoices):
+        FULL_TIME = "full_time", "Full time"
+        PART_TIME = "part_time", "Part time"
+
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -175,9 +188,14 @@ class CleanerProfile(TimeStampedModel):
         choices=Sex.choices,
         default=Sex.PREFER_NOT_TO_SAY,
     )
+    native_language = models.CharField(max_length=80, blank=True)
     age = models.PositiveSmallIntegerField(null=True, blank=True)
     birth_date = models.DateField(null=True, blank=True)
     education = models.CharField(max_length=32, choices=Education.choices, blank=True)
+    experience_level = models.CharField(max_length=32, choices=ExperienceLevel.choices, blank=True)
+    work_preference = models.CharField(max_length=32, choices=WorkPreference.choices, blank=True)
+    preferred_time_slots = models.JSONField(default=list, blank=True)
+    weekly_availability = models.JSONField(default=dict, blank=True)
     has_driving_license = models.BooleanField(null=True, blank=True)
     driving_license_categories = models.JSONField(default=list, blank=True)
     has_own_car = models.BooleanField(null=True, blank=True)

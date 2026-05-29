@@ -609,6 +609,7 @@ img {
   justify-content: center;
   gap: 8px;
   border-radius: 999px;
+  cursor: pointer;
   font-weight: 800;
   padding: 0 18px;
 }
@@ -654,6 +655,49 @@ img {
   width: min(688px, 100%);
 }
 
+.signup-wizard-panel {
+  grid-template-rows: auto 10px auto;
+  gap: 22px;
+  align-content: start;
+  overflow: visible;
+}
+
+.signup-wizard-frame {
+  overflow: hidden;
+}
+
+.signup-wizard-motion {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+}
+
+.signup-wizard-panel .site-brand {
+  font-size: 19px;
+}
+
+.signup-wizard-panel .brand-symbol {
+  width: 34px;
+  height: 34px;
+}
+
+.signup-wizard-motion > .auth-heading {
+  min-height: 82px;
+  align-content: start;
+}
+
+.signup-wizard-motion > .auth-heading:has(p) {
+  min-height: 82px;
+}
+
+.signup-wizard-panel .auth-heading h1 {
+  font-size: clamp(26.6px, 3.99vw, 38px);
+}
+
+.signup-progress-placeholder {
+  height: 10px;
+}
+
 .signup-progress-wrap {
   display: grid;
   gap: 10px;
@@ -670,6 +714,20 @@ img {
 
 .signup-progress-meta strong {
   color: var(--text);
+}
+
+.signup-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.signup-nav-actions .auth-submit {
+  margin-left: auto;
+}
+
+.signup-nav-actions--confirm {
+  justify-content: space-between;
 }
 
 .signup-progress-track {
@@ -696,6 +754,14 @@ img {
 
 .signup-progress-fill-step-4-of-5 {
   width: 80%;
+}
+
+.signup-progress-fill-step-5-of-6 {
+  width: 90%;
+}
+
+.signup-progress-fill-step-native-language {
+  width: 95%;
 }
 
 .signup-confirm-step .auth-heading h1 {
@@ -841,8 +907,58 @@ img {
   gap: 20px;
 }
 
+.signup-sex-field {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.signup-sex-field legend {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0;
+}
+
+.signup-sex-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.signup-sex-options.input-invalid {
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px rgba(226, 29, 72, 0.18);
+}
+
+.signup-sex-option {
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 13px;
+}
+
+.signup-sex-option:hover {
+  border-color: var(--brand);
+}
+
+.signup-sex-option.selected {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #ffffff;
+}
+
 .signup-birthdate-field {
   display: grid;
+  grid-column: 1 / -1;
   gap: 8px;
   position: relative;
 }
@@ -866,26 +982,57 @@ img {
   box-shadow: 0 0 0 2px rgba(226, 29, 72, 0.18);
 }
 
-.birthdate-selected {
+.birthdate-input-row {
   display: flex;
   align-items: center;
   width: 100%;
-  gap: 9px;
+}
+
+.auth-form .birthdate-input {
+  min-height: 48px;
+  flex: 1;
+  min-width: 0;
   border: 0;
-  border-radius: 14px;
+  border-radius: 14px 0 0 14px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.auth-form .birthdate-input:focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.auth-form .birthdate-input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+.birthdate-picker:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.14);
+}
+
+.birthdate-toggle {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0 14px 14px 0;
   background: var(--surface);
   color: var(--ink);
   cursor: pointer;
-  padding: 14px 16px;
-  text-align: left;
+  padding: 0;
 }
 
-.birthdate-selected svg {
+.birthdate-toggle svg {
   color: var(--brand);
 }
 
-.birthdate-selected strong {
-  font-size: 16px;
+.birthdate-toggle:hover {
+  background: var(--header-highlight);
 }
 
 .birthdate-calendar {
@@ -989,6 +1136,206 @@ img {
 .birthdate-day:disabled {
   color: #b8b8b8;
   cursor: not-allowed;
+}
+
+.signup-experience-step {
+  gap: 22px;
+}
+
+.signup-experience-step .auth-heading h1 {
+  font-size: clamp(26.6px, 3.99vw, 38px);
+}
+
+.signup-experience-form {
+  gap: 20px;
+}
+
+.signup-experience-options {
+  display: grid;
+  gap: 10px;
+}
+
+.signup-experience-option {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1.5px solid #9a9a9a;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 16px;
+  text-align: left;
+}
+
+.signup-experience-option:hover {
+  border-color: var(--brand);
+}
+
+.signup-experience-option.selected {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.12);
+}
+
+.signup-experience-check {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #ffffff;
+}
+
+.signup-availability-form {
+  gap: 18px;
+}
+
+.signup-availability-section {
+  display: grid;
+  gap: 10px;
+}
+
+.signup-availability-section h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.signup-availability-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.signup-availability-time-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.signup-availability-time-grid .signup-experience-option {
+  min-height: 52px;
+  justify-content: center;
+  text-align: center;
+}
+
+.signup-availability-toggle {
+  width: fit-content;
+  justify-self: start;
+}
+
+.signup-weekly-grid {
+  display: grid;
+  gap: 8px;
+  border: 1.5px solid #9a9a9a;
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 12px;
+}
+
+.signup-weekly-row {
+  display: grid;
+  grid-template-columns: minmax(104px, 1fr) repeat(3, minmax(72px, 0.7fr));
+  gap: 8px;
+  align-items: center;
+}
+
+.signup-weekly-row strong,
+.signup-weekly-head span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.signup-weekly-head span {
+  color: var(--muted);
+  text-align: center;
+}
+
+.signup-weekly-slot {
+  display: grid;
+  min-height: 38px;
+  place-items: center;
+  border: 1.5px solid #9a9a9a;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.signup-weekly-slot:hover {
+  border-color: var(--brand);
+}
+
+.signup-weekly-slot.selected {
+  border-color: var(--brand);
+  background: var(--brand);
+}
+
+.signup-language-option-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.signup-language-other-wrap {
+  position: relative;
+  display: grid;
+}
+
+.signup-language-other-trigger {
+  width: 100%;
+}
+
+.signup-language-other-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+}
+
+.signup-language-dropdown {
+  display: grid;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 50;
+  max-height: 268px;
+  overflow-y: auto;
+  border: 1.5px solid #7f7f7f;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 16px 36px rgba(17, 17, 17, 0.16);
+  padding: 8px;
+}
+
+.signup-language-dropdown-option {
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  padding: 0 14px;
+  text-align: left;
+}
+
+.signup-language-dropdown-option:hover,
+.signup-language-dropdown-option.selected {
+  background: rgba(255, 56, 92, 0.1);
+  color: var(--brand-strong);
+}
+
+.signup-language-other-trigger:focus-visible,
+.signup-language-dropdown-option:focus-visible {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.14);
+  outline: 0;
 }
 
 .signup-driving-license-field {
@@ -1214,6 +1561,8 @@ img {
 
 .auth-brand {
   width: fit-content;
+  justify-self: center;
+  margin-inline: auto;
 }
 
 .auth-heading {
@@ -3247,6 +3596,23 @@ img {
   .form-grid,
   .workspace-grid {
     grid-template-columns: 1fr;
+  }
+
+  .signup-sex-options {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-availability-choice-grid,
+  .signup-availability-time-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-weekly-row {
+    grid-template-columns: 1fr repeat(3, minmax(48px, 1fr));
+  }
+
+  .signup-weekly-head span {
+    font-size: 11px;
   }
 
   .signup-driving-license-field > label {

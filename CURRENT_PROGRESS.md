@@ -1,6 +1,6 @@
 # Current Progress Handoff
 
-Updated: 2026-05-27, after cleaner signup email confirmation and personal-info step updates.
+Updated: 2026-05-29, after the React signup wizard, Motion transitions, native-language, experience, and cleaner availability step updates.
 
 ## User Goal
 
@@ -30,16 +30,29 @@ Current work is focused on completing the cleaner signup flow. The production-ho
   - Signup email HTML is rendered from `backend/apps/notifications/templates/notifications/signup_code_email.html`.
   - `.env.example` now includes `EMAIL_RESEND_APIKEY` and `EMAIL_RESEND_FROM_EMAIL`.
 - Added `.env` loading from `settings.py` so manual Django and Celery runs read local environment values.
-- Updated signup UI into a multi-step flow in progress:
-  - `/signup` (credentials + validation + password checklist)
-  - `/signup/confirm-email` (6-digit email code confirmation)
-  - `/signup/role` (role selection step)
-  - `/signup/location` (city + district selection step)
-  - `/signup/personal-info` (cleaner-only birth date/18+ check, sex, education, own car, smoker, driving license/categories, final account creation)
-- Updated cleaner personal-info UI:
+- Converted signup into a single React wizard at `/signup`:
+  - Old step routes redirect to `/signup`.
+  - Continue and Back update React state instead of navigating with full page loads.
+  - Motion (`motion/react`) animates form panels between steps.
+  - Progress tracking starts at `Choose account type`.
+  - Draft signup state is persisted in `sessionStorage` for refresh recovery.
+- Current signup flow:
+  - Credentials and password validation.
+  - 6-digit email code confirmation.
+  - Choose account type.
+  - Cleaner: personal information → location/service areas → native language → experience → availability → create account.
+  - Host/agency: location/service areas → create account.
+- Updated cleaner signup fields:
   - Birth date uses a compact dropdown-style calendar.
-  - Date of birth matches normal field width.
-  - Driving license categories appear directly under the Driving license field and use a wider layout.
+  - Sex uses selectable button options.
+  - Native language uses selectable options, with an inline dropdown above the `Other` button.
+  - Experience uses single-select button fields.
+  - Availability captures full-time/part-time preference, broad preferred time slots, and optional weekly availability.
+- Added backend signup/profile fields for cleaner availability:
+  - `work_preference`
+  - `preferred_time_slots`
+  - `weekly_availability`
+  - Migration: `backend/apps/accounts/migrations/0010_cleanerprofile_work_availability.py`
 - Added cleaner dashboard/profile updates: calendar, profile picture upload preview, service-area dropdown, sex dropdown, applications, assignments, and open jobs.
 
 ## Current Local Development Notes
@@ -65,6 +78,33 @@ python -m celery -A config worker --loglevel=info --pool=solo
 - Restart both Django and Celery after changes to notification tasks, templates, or `.env`.
 
 ## Verified
+
+- Frontend signup wizard checks:
+
+```powershell
+cd C:\Users\35987\Desktop\airbnb_tax\frontend
+npm run typecheck
+npm run lint
+npm run build
+```
+
+  - Typecheck passed.
+  - Build passed.
+  - Lint passed with two existing warnings in `frontend/app/admin/page.tsx` and `frontend/app/host/page.tsx`.
+
+- Backend signup checks:
+
+```powershell
+python backend/manage.py check
+python backend/manage.py makemigrations --check --dry-run
+python backend/manage.py test apps.accounts.tests.test_auth_agency_consent.AccountAuthTests.test_cleaner_signup_saves_service_areas apps.accounts.tests.test_auth_agency_consent.AccountAuthTests.test_cleaner_signup_requires_work_preference apps.accounts.tests.test_auth_agency_consent.AccountAuthTests.test_cleaner_signup_requires_preferred_time
+```
+
+  - Django system check passed.
+  - Migration check passed.
+  - Targeted cleaner signup tests passed.
+
+- Full `apps.accounts.tests.test_auth_agency_consent` still has one existing unrelated failure: the host signup test expects `pending`, while current signup code creates `approved`.
 
 - Docker CLI exists at `C:\Program Files\Docker\Docker\resources\bin\docker.exe`.
 - Docker Desktop daemon is running on the `desktop-linux` context.
@@ -112,7 +152,8 @@ Invoke-WebRequest http://localhost/
 
 ## Remaining Blockers
 
-- Cleaner signup is not fully finished; the current final step collects required personal info, but broader onboarding/verification work is still pending.
+- Signup flow is more complete, but final production readiness still requires deciding the exact final Host, Cleaner, and Agency onboarding fields.
+- Any final signup-field changes must update database models, migrations, serializer validation, profile serializers/admin visibility, frontend payloads, and signup tests together.
 - Windows Firewall rule creation requires an Administrator PowerShell session and was not applied from this non-admin shell.
 - Router forwarding was not configured yet.
 - Public IP was not added to `.env.production` yet.

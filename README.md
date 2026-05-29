@@ -19,7 +19,7 @@ The MVP focuses on job posting, monthly cleaning batches, Airbnb iCal imports, c
 ## Stack
 
 - Backend: Django 6.0+, Django REST Framework 3.17+, PostgreSQL 16+, Redis 7+, Celery 5.4+.
-- Frontend: Next.js 15.5+ / React 19.2+ responsive web/PWA, TypeScript 5.9+.
+- Frontend: Next.js 15.5+ / React 19.2+ responsive web/PWA, TypeScript 5.9+, Motion for reusable React animations.
 - Local infrastructure: Docker Compose with PostgreSQL, Redis, backend, worker, and frontend services.
 
 ## Quick Start
@@ -72,7 +72,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 |---|---|---|
 | `/` | ✅ Done | Public landing page — auth-aware header with role-based dashboard link |
 | `/login` | ✅ Done | Session login |
-| `/signup` | 🟨 In progress | Multi-step signup started (`/signup` -> `/signup/confirm-email` -> `/signup/role` -> `/signup/location` -> cleaner-only `/signup/personal-info`) with custom validation, Resend email code confirmation, role selection, service-area selection, cleaner personal details, and final account creation. |
+| `/signup` | 🟨 In progress | Single React signup wizard with Motion transitions, Resend email code confirmation, role selection, cleaner personal details, location/service areas, native language, experience, availability, and final account creation. Old step URLs redirect back to `/signup`. |
 | `/app` | ✅ Done | Generic workspace — auto-redirects hosts → `/host`, admins → `/admin` |
 | `/admin` | ✅ Done | Admin approval dashboard — list / filter / approve / reject; reads `?filter=pending` URL param |
 | `/host` | ✅ Done | Host dashboard — property CRUD, job posting, month calendar, publish jobs, **ICS import** |
@@ -89,9 +89,22 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 
 - Signup email confirmation uses a 6-digit code delivered through Resend only.
 - The email HTML is rendered from `backend/apps/notifications/templates/notifications/signup_code_email.html`.
-- Cleaner personal info currently captures birth date with 18+ validation, sex, optional education, own-car answer, optional smoker answer, driving-license answer, and Bulgarian license categories when applicable.
-- Date of birth uses a compact dropdown-style calendar; driving-license categories appear directly under the Driving license field.
+- `/signup` stays on one browser route during onboarding. Continue and Back update React state and animate the current form out while the next form enters.
+- Motion animations use `motion/react`; reduced-motion users get non-animated transitions.
+- Progress tracking starts at `Choose account type`, not at credentials or email confirmation.
+- Cleaner flow: choose account type → personal information → location → native language → experience → availability → account creation.
+- Host and agency flow: choose account type → location → account creation.
+- Cleaner personal info currently captures birth date with 18+ validation and sex.
+- Cleaner language, experience, work preference, preferred time slots, and optional weekly availability are collected before account creation.
+- Date of birth uses a compact dropdown-style calendar.
 - Google and Apple buttons are UI-only placeholders; OAuth is not connected yet.
+
+### Signup database notes
+
+- Signup payloads and profile serializers must stay aligned with the database schema for all roles.
+- Cleaner signup currently requires `birth_date`, `sex`, `native_language`, `experience_level`, `work_preference`, and at least one `preferred_time_slots` value. Optional `weekly_availability` is stored as JSON.
+- Host signup creates/updates `HostProfile` with city data; agency signup creates/updates `AgencyProfile` with company/city/service-area data.
+- Any future change to the Cleaner, Host, or Agency signup flow must include matching model fields, migrations, serializer validation, profile serialization, and signup tests.
 
 ## Email Configuration
 

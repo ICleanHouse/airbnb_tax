@@ -39,6 +39,10 @@ BULGARIAN_DRIVING_LICENSE_CATEGORIES = {
     "Tтм",
 }
 
+PREFERRED_TIME_SLOTS = ("morning", "afternoon", "evening", "flexible")
+WEEKLY_TIME_SLOTS = ("morning", "afternoon", "evening")
+WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
 
 def age_from_birth_date(birth_date):
     today = timezone.localdate()
@@ -123,7 +127,19 @@ class SignupSerializer(serializers.Serializer):
     )
     birth_date = serializers.DateField(required=False)
     sex = serializers.ChoiceField(choices=CleanerProfile.Sex.choices, required=False)
+    native_language = serializers.CharField(max_length=80, required=False, allow_blank=True)
     education = serializers.ChoiceField(choices=CleanerProfile.Education.choices, required=False, allow_blank=True)
+    experience_level = serializers.ChoiceField(choices=CleanerProfile.ExperienceLevel.choices, required=False, allow_blank=True)
+    work_preference = serializers.ChoiceField(choices=CleanerProfile.WorkPreference.choices, required=False, allow_blank=True)
+    preferred_time_slots = serializers.ListField(
+        child=serializers.ChoiceField(choices=PREFERRED_TIME_SLOTS),
+        required=False,
+        allow_empty=True,
+    )
+    weekly_availability = serializers.DictField(
+        child=serializers.ListField(child=serializers.ChoiceField(choices=WEEKLY_TIME_SLOTS), allow_empty=True),
+        required=False,
+    )
     has_driving_license = serializers.BooleanField(required=False)
     driving_license_categories = serializers.ListField(
         child=serializers.CharField(max_length=8),
@@ -180,11 +196,19 @@ class SignupSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"birth_date": "You must be at least 18 years old to sign up as a cleaner."})
             if not attrs.get("sex"):
                 raise serializers.ValidationError({"sex": "Sex is required."})
-            if "has_driving_license" not in attrs:
-                raise serializers.ValidationError({"has_driving_license": "Driving license answer is required."})
-            if "has_own_car" not in attrs:
-                raise serializers.ValidationError({"has_own_car": "Own car answer is required."})
-
+            if not attrs.get("native_language", "").strip():
+                raise serializers.ValidationError({"native_language": "Native language is required."})
+            if not attrs.get("work_preference"):
+                raise serializers.ValidationError({"work_preference": "Work preference is required."})
+            preferred_time_slots = attrs.get("preferred_time_slots", [])
+            if not preferred_time_slots:
+                raise serializers.ValidationError({"preferred_time_slots": "Choose at least one preferred time."})
+            if "flexible" in preferred_time_slots:
+                attrs["preferred_time_slots"] = ["flexible"]
+            weekly_availability = attrs.get("weekly_availability", {})
+            invalid_days = [day for day in weekly_availability if day not in WEEKDAYS]
+            if invalid_days:
+                raise serializers.ValidationError({"weekly_availability": "Choose valid weekdays."})
             categories = attrs.get("driving_license_categories", [])
             invalid_categories = [category for category in categories if category not in BULGARIAN_DRIVING_LICENSE_CATEGORIES]
             if invalid_categories:
@@ -208,7 +232,12 @@ class SignupSerializer(serializers.Serializer):
         birth_date = validated_data.pop("birth_date", None)
         age = age_from_birth_date(birth_date) if birth_date else None
         sex = validated_data.pop("sex", CleanerProfile.Sex.PREFER_NOT_TO_SAY)
+        native_language = validated_data.pop("native_language", "").strip()
         education = validated_data.pop("education", "")
+        experience_level = validated_data.pop("experience_level", "")
+        work_preference = validated_data.pop("work_preference", "")
+        preferred_time_slots = validated_data.pop("preferred_time_slots", [])
+        weekly_availability = validated_data.pop("weekly_availability", {})
         has_driving_license = validated_data.pop("has_driving_license", None)
         driving_license_categories = validated_data.pop("driving_license_categories", [])
         has_own_car = validated_data.pop("has_own_car", None)
@@ -238,7 +267,12 @@ class SignupSerializer(serializers.Serializer):
                 age=age,
                 birth_date=birth_date,
                 sex=sex,
+                native_language=native_language,
                 education=education,
+                experience_level=experience_level,
+                work_preference=work_preference,
+                preferred_time_slots=preferred_time_slots,
+                weekly_availability=weekly_availability,
                 has_driving_license=has_driving_license,
                 driving_license_categories=driving_license_categories,
                 has_own_car=has_own_car,
@@ -341,9 +375,14 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "bio",
             "service_areas",
             "sex",
+            "native_language",
             "age",
             "birth_date",
             "education",
+            "experience_level",
+            "work_preference",
+            "preferred_time_slots",
+            "weekly_availability",
             "has_driving_license",
             "driving_license_categories",
             "has_own_car",

@@ -117,7 +117,11 @@ class AccountAuthTests(TestCase):
                 "service_areas": ["Lozenets", "Center"],
                 "birth_date": "1994-04-30",
                 "sex": CleanerProfile.Sex.FEMALE,
+                "native_language": "Български",
                 "education": CleanerProfile.Education.HIGHER,
+                "work_preference": CleanerProfile.WorkPreference.FULL_TIME,
+                "preferred_time_slots": ["morning", "afternoon"],
+                "weekly_availability": {"monday": ["morning"], "tuesday": ["afternoon"]},
                 "has_driving_license": True,
                 "driving_license_categories": ["B", "AM"],
                 "has_own_car": True,
@@ -131,6 +135,10 @@ class AccountAuthTests(TestCase):
         self.assertEqual(profile.service_areas, ["Lozenets", "Center"])
         self.assertEqual(profile.age, 32)
         self.assertEqual(profile.birth_date.isoformat(), "1994-04-30")
+        self.assertEqual(profile.native_language, "Български")
+        self.assertEqual(profile.work_preference, CleanerProfile.WorkPreference.FULL_TIME)
+        self.assertEqual(profile.preferred_time_slots, ["morning", "afternoon"])
+        self.assertEqual(profile.weekly_availability, {"monday": ["morning"], "tuesday": ["afternoon"]})
         self.assertEqual(profile.driving_license_categories, ["B", "AM"])
 
     def test_cleaner_signup_rejects_underage_user(self):
@@ -151,6 +159,56 @@ class AccountAuthTests(TestCase):
                 "sex": CleanerProfile.Sex.MALE,
                 "has_driving_license": False,
                 "has_own_car": False,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(email=email).exists())
+
+    def test_cleaner_signup_requires_work_preference(self):
+        email = "cleaner-missing-work@example.com"
+        response = self.client.post(
+            reverse("account-signup"),
+            {
+                "first_name": "Cleaner",
+                "last_name": "Work",
+                "email": email,
+                "role": User.Role.CLEANER,
+                "password": "Password123!",
+                "password_confirm": "Password123!",
+                "email_verification_token": self.make_verified_signup_token(email),
+                "city": "Sofia",
+                "service_areas": ["Center"],
+                "birth_date": "1994-04-30",
+                "sex": CleanerProfile.Sex.FEMALE,
+                "native_language": "Български",
+                "preferred_time_slots": ["morning"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(email=email).exists())
+
+    def test_cleaner_signup_requires_preferred_time(self):
+        email = "cleaner-missing-time@example.com"
+        response = self.client.post(
+            reverse("account-signup"),
+            {
+                "first_name": "Cleaner",
+                "last_name": "Time",
+                "email": email,
+                "role": User.Role.CLEANER,
+                "password": "Password123!",
+                "password_confirm": "Password123!",
+                "email_verification_token": self.make_verified_signup_token(email),
+                "city": "Sofia",
+                "service_areas": ["Center"],
+                "birth_date": "1994-04-30",
+                "sex": CleanerProfile.Sex.FEMALE,
+                "native_language": "Български",
+                "work_preference": CleanerProfile.WorkPreference.PART_TIME,
             },
             format="json",
         )

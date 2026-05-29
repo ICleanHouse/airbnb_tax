@@ -39,7 +39,12 @@ erDiagram
       int age
       string bio
       string sex
+      string native_language
       string education
+      string experience_level
+      string work_preference
+      json preferred_time_slots
+      json weekly_availability
       bool has_driving_license
       json driving_license_categories
       bool has_own_car
@@ -173,36 +178,44 @@ erDiagram
 2. **Email/SMS Verification**
    - Email confirmation is implemented through a 6-digit Resend code before account creation.
    - Phone/SMS verification remains planned for a later provider integration.
-3. **Cleaner Personal Information**
+3. **Single-Route Signup Wizard**
+   - Normal signup happens at `/signup` as a React wizard.
+   - Credentials and email-code confirmation happen before progress tracking.
+   - Progress starts at `Choose account type`.
+   - Continue and Back update React state and use Motion animations instead of loading a new page.
+   - Old signup step URLs redirect to `/signup`.
+4. **Cleaner Personal Information And Preferences**
    - Cleaner signup includes a compact dropdown birth-date calendar with 18+ validation.
-   - Required cleaner fields: birth date, sex, own car, and driving license.
-   - Optional cleaner fields: education and smoker status.
-   - If Driving license is `Yes`, Bulgarian license categories are required.
-4. **Property Management (Property Owner)**
+   - Required cleaner fields: birth date, sex, native language, experience level, work preference, and at least one preferred time slot.
+   - Optional cleaner fields: weekly availability, education, smoker status, own-car status, and driving-license details/categories unless made required by later verification policy.
+   - Current cleaner flow: choose account type → personal information → location/service areas → native language → experience → availability → create account.
+   - Current host/agency flow: choose account type → location/service areas → create account.
+   - If future signup questions are added for Cleaner, Host, or Agency, matching database fields, migrations, serializer validation, profile serialization, admin visibility, and signup tests must be added with the frontend change.
+5. **Property Management (Property Owner)**
    - Approved property owners add/manage properties.
-5. **Job Posting**
+6. **Job Posting**
    - Approved property owners post single or batch cleaning jobs for their properties.
-6. **Cleaner and Agency Applications**
+7. **Cleaner and Agency Applications**
    - Approved, verified cleaners can apply directly.
    - Approved agencies can apply as an agency account.
-7. **Assignment**
+8. **Assignment**
    - Hosts review applications and assign one cleaner or agency.
    - If an agency is assigned, it chooses an active member cleaner for the job calendar.
-8. **Agency Membership**
+9. **Agency Membership**
    - Agencies invite cleaners by email or phone.
    - Cleaners accept invitations from their own user account.
    - Agency work can be assigned only to active member cleaners with approved and verified accounts.
-9. **Job Execution**
+10. **Job Execution**
    - Job status updates as scheduled, assigned, completed, cancelled, or disputed.
-10. **Calendar Sync**
+11. **Calendar Sync**
    - Internal calendar is the source of truth; Google/iCal sync remains available through the calendar domain.
-11. **Notifications**
+12. **Notifications**
    - Email, in-app, and SMS notifications remain the intended channels for key events.
-12. **Feedback**
+13. **Feedback**
    - After job completion, involved parties leave two-way reviews.
-13. **Cookie Consent**
+14. **Cookie Consent**
    - Essential login/security cookies are always enabled.
    - Analytics and marketing cookies are recorded only after explicit consent.
    - Consent stores visitor/user identity, choices, consent version, policy version, and timestamp.
-14. **Admin Moderation**
+15. **Admin Moderation**
    - Admins approve accounts, verify cleaners/agencies, moderate reviews, inspect agency memberships, and resolve disputes.

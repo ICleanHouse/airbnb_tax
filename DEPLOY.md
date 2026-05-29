@@ -52,6 +52,8 @@ EMAIL_RESEND_FROM_EMAIL=you@your-verified-domain.com
 
 `FRONTEND_URL` is used for frontend redirects and admin approval links. `BACKEND_URL` remains available for legacy backend links. Django's configurable mail backend may still be used by non-signup notification paths until those are migrated.
 
+Signup is a single React wizard at `/signup`; old signup step URLs redirect there. Cleaner signup writes additional profile fields (`native_language`, `experience_level`, `work_preference`, `preferred_time_slots`, and optional `weekly_availability`). Before deploying signup-flow changes for Cleaner, Host, or Agency, ensure the matching Django migrations are included and applied so production profile tables match the final frontend payloads.
+
 ## 3. Open Windows Firewall
 
 Run PowerShell as Administrator:
@@ -81,6 +83,19 @@ The public reverse proxy exposes:
 - Frontend: `http://localhost/`
 - Backend health check: `http://localhost/api/health/`
 - Django admin: `http://localhost/admin/`
+
+Apply database migrations whenever signup/profile fields change:
+
+```powershell
+docker compose --env-file .env.production -f docker-compose.prod.yml exec backend python manage.py migrate
+```
+
+For local/manual backend runs, use:
+
+```powershell
+cd backend
+python manage.py migrate
+```
 
 ## 5. Configure the router
 

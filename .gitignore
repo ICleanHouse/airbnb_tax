@@ -212,6 +212,8 @@ pnpm-debug.log*
 
 # Local runtime tools
 .tools/
+.cloudflare_tunnel_state.json
+.tunnel_logs/
 
 # Cursor
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to

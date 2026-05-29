@@ -25,6 +25,10 @@ type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "di
 type ApplicationStatus = "pending" | "accepted" | "rejected" | "withdrawn";
 type VerificationStatus = "pending" | "verified" | "rejected" | "suspended";
 type CleanerSex = "male" | "female" | "prefer_not_to_say";
+type WeeklyTimeSlot = "morning" | "afternoon" | "evening";
+type JobTypePreference = "one_off" | "ongoing" | "both";
+type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+type WeeklyAvailability = Partial<Record<Weekday, WeeklyTimeSlot[]>>;
 
 interface CleanerProfile {
   id: number;
@@ -32,6 +36,13 @@ interface CleanerProfile {
   bio: string;
   service_areas: string[];
   sex: CleanerSex;
+  native_language: string;
+  birth_date: string | null;
+  age: number | null;
+  experience_level: string;
+  job_type_preference: JobTypePreference | "";
+  preferred_time_slots: string[];
+  weekly_availability: WeeklyAvailability;
   profile_image: string;
   average_rating: string;
   completed_jobs_count: number;
@@ -119,14 +130,40 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const CLEANER_CITY_OPTIONS = [
-  "Sofia",
-  "Plovdiv",
-  "Varna",
-  "Burgas",
-  "Bansko",
-  "Ruse",
-  "Stara Zagora",
+const sexOptions: Array<{ value: CleanerSex; label: string }> = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "prefer_not_to_say", label: "Prefer not to say" },
+];
+const experienceOptions = [
+  { value: "", label: "Not set" },
+  { value: "none", label: "I don't have experience" },
+  { value: "1_year", label: "1 year" },
+  { value: "2_years", label: "2 years" },
+  { value: "3_years", label: "3 years" },
+  { value: "4_years", label: "4 years" },
+  { value: "5_years", label: "5 years" },
+  { value: "more_than_5_years", label: "More than 5 years of experience" },
+];
+const jobTypePreferenceOptions: Array<{ value: JobTypePreference | ""; label: string }> = [
+  { value: "", label: "Not set" },
+  { value: "one_off", label: "One-off jobs" },
+  { value: "ongoing", label: "Ongoing work" },
+  { value: "both", label: "Open to both" },
+];
+const weeklyDayOptions: Array<{ value: Weekday; label: string }> = [
+  { value: "monday", label: "Mon" },
+  { value: "tuesday", label: "Tue" },
+  { value: "wednesday", label: "Wed" },
+  { value: "thursday", label: "Thu" },
+  { value: "friday", label: "Fri" },
+  { value: "saturday", label: "Sat" },
+  { value: "sunday", label: "Sun" },
+];
+const weeklyTimeOptions: Array<{ value: WeeklyTimeSlot; label: string }> = [
+  { value: "morning", label: "Morning" },
+  { value: "afternoon", label: "Afternoon" },
+  { value: "evening", label: "Evening" },
 ];
 const DEFAULT_PROFILE_IMAGE = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f3f4f6"/><stop offset="100%" stop-color="#e5e7eb"/></linearGradient></defs><rect width="240" height="240" fill="url(#g)"/><circle cx="120" cy="88" r="40" fill="#cbd5e1"/><path d="M40 214c8-40 38-62 80-62s72 22 80 62H40z" fill="#cbd5e1"/></svg>',
@@ -177,6 +214,38 @@ function calendarItemColor(item: CalendarItem) {
     return "var(--gold)";
   }
   return "var(--teal)";
+}
+
+function normalizeWeeklyAvailability(value: unknown): WeeklyAvailability {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const raw = value as Record<string, unknown>;
+  const allowedSlots = new Set(weeklyTimeOptions.map((option) => option.value));
+  const normalized: WeeklyAvailability = {};
+  for (const day of weeklyDayOptions) {
+    const slots = raw[day.value];
+    if (!Array.isArray(slots)) continue;
+    const validSlots = slots.filter((slot): slot is WeeklyTimeSlot => (
+      typeof slot === "string" && allowedSlots.has(slot as WeeklyTimeSlot)
+    ));
+    if (validSlots.length > 0) normalized[day.value] = Array.from(new Set(validSlots));
+  }
+  return normalized;
+}
+
+function derivePreferredTimeSlots(value: WeeklyAvailability): WeeklyTimeSlot[] {
+  const selected = new Set(Object.values(value).flatMap((slots) => slots ?? []));
+  return weeklyTimeOptions.map((option) => option.value).filter((slot) => selected.has(slot));
+}
+
+function serviceAreasFromText(value: string) {
+  return value
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function labelFromOptions(options: Array<{ value: string; label: string }>, value?: string | null) {
+  return options.find((option) => option.value === value)?.label || "Not set";
 }
 
 function readList<T>(data: unknown): T[] {
@@ -257,8 +326,13 @@ export default function CleanerDashboard() {
 
   const [profileFirstName, setProfileFirstName] = useState("");
   const [profileLastName, setProfileLastName] = useState("");
-  const [profileAreaSelected, setProfileAreaSelected] = useState("");
   const [profileSex, setProfileSex] = useState<CleanerSex>("prefer_not_to_say");
+  const [profileBirthDate, setProfileBirthDate] = useState("");
+  const [profileNativeLanguage, setProfileNativeLanguage] = useState("");
+  const [profileExperienceLevel, setProfileExperienceLevel] = useState("");
+  const [profileJobTypePreference, setProfileJobTypePreference] = useState<JobTypePreference | "">("");
+  const [profileWeeklyAvailability, setProfileWeeklyAvailability] = useState<WeeklyAvailability>({});
+  const [profileServiceAreas, setProfileServiceAreas] = useState("");
   const [profileImage, setProfileImage] = useState("");
   const [profileBio, setProfileBio] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -271,6 +345,8 @@ export default function CleanerDashboard() {
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState("");
   const [completingJobId, setCompletingJobId] = useState<number | null>(null);
+  const [cancelingApplicationId, setCancelingApplicationId] = useState<number | null>(null);
+  const [applicationActionError, setApplicationActionError] = useState("");
 
   useEffect(() => {
     apiFetch("/api/accounts/me/")
@@ -295,11 +371,15 @@ export default function CleanerDashboard() {
   }, [me]);
 
   function syncProfileForm(nextProfile: CleanerProfile) {
-    const firstArea = nextProfile.service_areas[0] || "";
-    setProfileAreaSelected(firstArea);
     setProfileSex(nextProfile.sex || "prefer_not_to_say");
+    setProfileBirthDate(nextProfile.birth_date || "");
+    setProfileNativeLanguage(nextProfile.native_language || "");
+    setProfileExperienceLevel(nextProfile.experience_level || "");
+    setProfileJobTypePreference(nextProfile.job_type_preference || "");
+    setProfileWeeklyAvailability(normalizeWeeklyAvailability(nextProfile.weekly_availability));
+    setProfileServiceAreas(nextProfile.service_areas.join("\n"));
     setProfileImage(nextProfile.profile_image || "");
-    setProfileBio(nextProfile.bio);
+    setProfileBio(nextProfile.bio || "");
   }
 
   function calendarRange(year: number, month: number) {
@@ -417,6 +497,24 @@ export default function CleanerDashboard() {
     }
   }
 
+  async function cancelApplication(applicationId: number) {
+    setCancelingApplicationId(applicationId);
+    setApplicationActionError("");
+    try {
+      const res = await apiFetch(`/api/marketplace/applications/${applicationId}/withdraw/`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setApplicationActionError(messageFromResponse(data, "Could not cancel application."));
+        return;
+      }
+      const updated = data as CleanerApplication;
+      setApplications((prev) => prev.map((application) => (application.id === updated.id ? updated : application)));
+      void loadCalendar();
+    } finally {
+      setCancelingApplicationId(null);
+    }
+  }
+
   function onProfileImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -436,14 +534,14 @@ export default function CleanerDashboard() {
       setProfileError("First name and last name are required.");
       return;
     }
-    if (!profileAreaSelected) {
-      setProfileError("Select a service area from the dropdown list.");
+    const serviceAreas = serviceAreasFromText(profileServiceAreas);
+    if (serviceAreas.length === 0) {
+      setProfileError("Add at least one service area.");
       return;
     }
     setSavingProfile(true);
     setProfileError("");
     setProfileSaved(false);
-    const serviceAreas = [profileAreaSelected];
     try {
       const userRes = await apiFetch(`/api/accounts/users/${me.id}/`, {
         method: "PATCH",
@@ -463,6 +561,12 @@ export default function CleanerDashboard() {
         body: JSON.stringify({
           service_areas: serviceAreas,
           sex: profileSex,
+          birth_date: profileBirthDate || null,
+          native_language: profileNativeLanguage.trim(),
+          experience_level: profileExperienceLevel,
+          job_type_preference: profileJobTypePreference,
+          preferred_time_slots: derivePreferredTimeSlots(profileWeeklyAvailability),
+          weekly_availability: profileWeeklyAvailability,
           profile_image: profileImage,
           bio: profileBio,
         }),
@@ -480,9 +584,23 @@ export default function CleanerDashboard() {
     }
   }
 
+  function toggleProfileWeeklyAvailability(day: Weekday, slot: WeeklyTimeSlot) {
+    setProfileWeeklyAvailability((current) => {
+      const currentSlots = current[day] ?? [];
+      const nextSlots = currentSlots.includes(slot)
+        ? currentSlots.filter((item) => item !== slot)
+        : [...currentSlots, slot];
+      const next = { ...current };
+      if (nextSlots.length > 0) next[day] = nextSlots;
+      else delete next[day];
+      return next;
+    });
+  }
+
   const applicationsByJob = useMemo(() => {
     const map = new Map<number, CleanerApplication>();
     for (const application of applications) {
+      if (application.status === "withdrawn") continue;
       map.set(application.job, application);
     }
     return map;
@@ -997,31 +1115,45 @@ export default function CleanerDashboard() {
                 <p>Your applications will appear here.</p>
               </div>
             ) : (
-              <ul className="cleaner-job-list">
-                {applications.map((application) => {
-                  const job = jobById.get(application.job);
-                  return (
-                    <li key={application.id} className="cleaner-job-card cleaner-compact-card">
-                      <div className="cleaner-job-main">
-                        <div>
-                          <strong>{application.job_title || job?.title || `Job #${application.job}`}</strong>
-                          <span>{application.job_property_name || jobPlace(job)}</span>
+              <>
+                {applicationActionError ? <p className="form-error">{applicationActionError}</p> : null}
+                <ul className="cleaner-job-list">
+                  {applications.map((application) => {
+                    const job = jobById.get(application.job);
+                    return (
+                      <li key={application.id} className="cleaner-job-card cleaner-compact-card">
+                        <div className="cleaner-job-main">
+                          <div>
+                            <strong>{application.job_title || job?.title || `Job #${application.job}`}</strong>
+                            <span>{application.job_property_name || jobPlace(job)}</span>
+                          </div>
+                          <div className="cleaner-job-meta">
+                            <span><CalendarDays size={14} aria-hidden />{fmtDateTime(application.job_scheduled_start || job?.scheduled_start)}</span>
+                            <span>{money(application.proposed_price, job?.currency)}</span>
+                          </div>
+                          {application.message && <p>{application.message}</p>}
                         </div>
-                        <div className="cleaner-job-meta">
-                          <span><CalendarDays size={14} aria-hidden />{fmtDateTime(application.job_scheduled_start || job?.scheduled_start)}</span>
-                          <span>{money(application.proposed_price, job?.currency)}</span>
+                        <div className="cleaner-job-actions">
+                          <span className={`cleaner-application-chip cleaner-application-${application.status}`}>
+                            {APPLICATION_LABEL[application.status]}
+                          </span>
+                          {application.status === "pending" ? (
+                            <button
+                              className="cleaner-action-primary cleaner-action-cancel"
+                              type="button"
+                              disabled={cancelingApplicationId === application.id}
+                              onClick={() => void cancelApplication(application.id)}
+                            >
+                              <X size={14} aria-hidden />
+                              {cancelingApplicationId === application.id ? "Canceling..." : "Cancel application"}
+                            </button>
+                          ) : null}
                         </div>
-                        {application.message && <p>{application.message}</p>}
-                      </div>
-                      <div className="cleaner-job-actions">
-                        <span className={`cleaner-application-chip cleaner-application-${application.status}`}>
-                          {APPLICATION_LABEL[application.status]}
-                        </span>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
             )}
           </div>
         )}
@@ -1105,54 +1237,150 @@ export default function CleanerDashboard() {
             ) : (
               <div className="cleaner-profile-layout">
                 <form className="host-form cleaner-profile-form" onSubmit={(event) => void submitProfile(event)}>
-                  <label className="cleaner-avatar-uploader">
-                    <input type="file" accept="image/*" onChange={onProfileImageChange} />
-                    <span className="cleaner-avatar-frame">
-                      <Image src={profileImage || DEFAULT_PROFILE_IMAGE} alt="Profile" width={112} height={112} unoptimized />
-                      <span className="cleaner-avatar-overlay">
-                        <Plus size={18} aria-hidden />
-                      </span>
-                    </span>
-                  </label>
-                  <div className="form-grid">
+                  <section className="cleaner-profile-section" aria-labelledby="cleaner-account-title">
+                    <div className="cleaner-profile-section-head">
+                      <h2 id="cleaner-account-title">Account</h2>
+                    </div>
+                    <div className="cleaner-profile-account-row">
+                      <label className="cleaner-avatar-uploader">
+                        <input type="file" accept="image/*" onChange={onProfileImageChange} />
+                        <span className="cleaner-avatar-frame">
+                          <Image src={profileImage || DEFAULT_PROFILE_IMAGE} alt="Profile" width={112} height={112} unoptimized />
+                          <span className="cleaner-avatar-overlay">
+                            <Plus size={18} aria-hidden />
+                          </span>
+                        </span>
+                      </label>
+                      <div className="form-grid">
+                        <label>
+                          <span>First name</span>
+                          <input value={profileFirstName} onChange={(event) => setProfileFirstName(event.target.value)} />
+                        </label>
+                        <label>
+                          <span>Last name</span>
+                          <input value={profileLastName} onChange={(event) => setProfileLastName(event.target.value)} />
+                        </label>
+                        <label>
+                          <span>Email</span>
+                          <input value={me.email} readOnly />
+                        </label>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="cleaner-profile-section" aria-labelledby="cleaner-personal-title">
+                    <div className="cleaner-profile-section-head">
+                      <h2 id="cleaner-personal-title">Personal information</h2>
+                    </div>
+                    <div className="form-grid">
+                      <label className="cleaner-sex-picker">
+                        <span>Sex</span>
+                        <select value={profileSex} onChange={(event) => setProfileSex(event.target.value as CleanerSex)}>
+                          {sexOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        <span>Date of birth</span>
+                        <input type="date" value={profileBirthDate} onChange={(event) => setProfileBirthDate(event.target.value)} />
+                      </label>
+                    </div>
+                  </section>
+
+                  <section className="cleaner-profile-section" aria-labelledby="cleaner-location-title">
+                    <div className="cleaner-profile-section-head">
+                      <h2 id="cleaner-location-title">Location</h2>
+                    </div>
                     <label>
-                      <span>First name</span>
-                      <input value={profileFirstName} onChange={(event) => setProfileFirstName(event.target.value)} />
+                      <span>Service areas</span>
+                      <textarea
+                        rows={5}
+                        value={profileServiceAreas}
+                        onChange={(event) => setProfileServiceAreas(event.target.value)}
+                        placeholder="Add one district or city per line"
+                      />
                     </label>
+                  </section>
+
+                  <section className="cleaner-profile-section" aria-labelledby="cleaner-experience-title">
+                    <div className="cleaner-profile-section-head">
+                      <h2 id="cleaner-experience-title">Experience</h2>
+                    </div>
+                    <div className="form-grid">
+                      <label>
+                        <span>Native language</span>
+                        <input value={profileNativeLanguage} onChange={(event) => setProfileNativeLanguage(event.target.value)} />
+                      </label>
+                      <label>
+                        <span>Cleaning experience</span>
+                        <select value={profileExperienceLevel} onChange={(event) => setProfileExperienceLevel(event.target.value)}>
+                          {experienceOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section className="cleaner-profile-section" aria-labelledby="cleaner-availability-title">
+                    <div className="cleaner-profile-section-head">
+                      <h2 id="cleaner-availability-title">Availability</h2>
+                    </div>
                     <label>
-                      <span>Last name</span>
-                      <input value={profileLastName} onChange={(event) => setProfileLastName(event.target.value)} />
+                      <span>Job preference</span>
+                      <select
+                        value={profileJobTypePreference}
+                        onChange={(event) => setProfileJobTypePreference(event.target.value as JobTypePreference | "")}
+                      >
+                        {jobTypePreferenceOptions.map((option) => (
+                          <option key={option.value || "empty"} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
                     </label>
-                  </div>
-                  <label className="cleaner-city-picker">
-                    <span>Service area</span>
-                    <select
-                      value={profileAreaSelected}
-                      onChange={(event) => setProfileAreaSelected(event.target.value)}
-                    >
-                      <option value="" disabled>Select a city</option>
-                      {CLEANER_CITY_OPTIONS.map((city) => (
-                        <option key={city} value={city}>{city}</option>
+                    <div className="cleaner-weekly-availability-grid" role="group" aria-label="Weekly availability">
+                      <span className="cleaner-weekly-availability-corner" aria-hidden />
+                      {weeklyTimeOptions.map((slot) => (
+                        <span className="cleaner-weekly-availability-head" key={slot.value}>{slot.label}</span>
                       ))}
-                    </select>
-                  </label>
-                  <label className="cleaner-sex-picker">
-                    <span>Sex</span>
-                    <select value={profileSex} onChange={(event) => setProfileSex(event.target.value as CleanerSex)}>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="prefer_not_to_say">Prefer not to say</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Bio</span>
-                    <textarea
-                      rows={5}
-                      value={profileBio}
-                      onChange={(event) => setProfileBio(event.target.value)}
-                      placeholder="Experience, property types, languages, availability..."
-                    />
-                  </label>
+                      {weeklyDayOptions.map((day) => (
+                        <div className="cleaner-weekly-availability-row" key={day.value}>
+                          <span className="cleaner-weekly-availability-day">{day.label}</span>
+                          {weeklyTimeOptions.map((slot) => {
+                            const selected = profileWeeklyAvailability[day.value]?.includes(slot.value) ?? false;
+                            return (
+                              <button
+                                type="button"
+                                key={`${day.value}-${slot.value}`}
+                                className={selected ? "cleaner-weekly-availability-cell selected" : "cleaner-weekly-availability-cell"}
+                                aria-pressed={selected}
+                                aria-label={`${day.label} ${slot.label}`}
+                                onClick={() => toggleProfileWeeklyAvailability(day.value, slot.value)}
+                              >
+                                {selected ? <CheckCircle2 size={14} aria-hidden /> : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="cleaner-profile-section" aria-labelledby="cleaner-introduction-title">
+                    <div className="cleaner-profile-section-head">
+                      <h2 id="cleaner-introduction-title">Introduction</h2>
+                    </div>
+                    <label>
+                      <span>Your introduction</span>
+                      <textarea
+                        rows={5}
+                        maxLength={1500}
+                        value={profileBio}
+                        onChange={(event) => setProfileBio(event.target.value)}
+                        placeholder="Experience, property types, languages, availability..."
+                      />
+                    </label>
+                  </section>
                   {profileError && <p className="form-error">{profileError}</p>}
                   {profileSaved && <p className="cleaner-success"><CheckCircle2 size={15} aria-hidden />Profile saved.</p>}
                   <div className="host-form-actions">
@@ -1166,6 +1394,26 @@ export default function CleanerDashboard() {
                   <div>
                     <span>Verification</span>
                     <strong>{profile.verification_status}</strong>
+                  </div>
+                  <div>
+                    <span>Age</span>
+                    <strong>{profile.age ?? "Not set"}</strong>
+                  </div>
+                  <div>
+                    <span>Language</span>
+                    <strong>{profileNativeLanguage || "Not set"}</strong>
+                  </div>
+                  <div>
+                    <span>Experience</span>
+                    <strong>{labelFromOptions(experienceOptions, profileExperienceLevel)}</strong>
+                  </div>
+                  <div>
+                    <span>Job preference</span>
+                    <strong>{labelFromOptions(jobTypePreferenceOptions, profileJobTypePreference)}</strong>
+                  </div>
+                  <div>
+                    <span>Service areas</span>
+                    <strong>{serviceAreasFromText(profileServiceAreas).length}</strong>
                   </div>
                   <div>
                     <span>Completed jobs</span>

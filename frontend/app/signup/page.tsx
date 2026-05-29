@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Apple,
@@ -21,15 +21,15 @@ import {
 import { apiFetch, UserRole } from "../../lib/api";
 
 type SignupRole = Extract<UserRole, "host" | "cleaner" | "agency">;
-type SignupStep = "account" | "confirm_email" | "role" | "location" | "personal_info" | "native_language" | "experience" | "availability";
+type SignupStep = "account" | "confirm_email" | "role" | "location" | "personal_info" | "native_language" | "experience" | "availability" | "introduction";
 type SignupField = "first_name" | "last_name" | "email" | "password" | "password_confirm" | "form";
 type SignupFieldErrors = Partial<Record<SignupField, string>>;
 type PersonalInfoErrors = Partial<Record<"birth_date" | "sex", string>>;
 type Direction = 1 | -1;
-type WorkPreference = "full_time" | "part_time";
-type PreferredTimeSlot = "morning" | "afternoon" | "evening" | "flexible";
-type WeeklyTimeSlot = Exclude<PreferredTimeSlot, "flexible">;
+type WeeklyTimeSlot = "morning" | "afternoon" | "evening";
+type JobTypePreference = "one_off" | "ongoing" | "both";
 type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+type WeeklyAvailability = Partial<Record<Weekday, WeeklyTimeSlot[]>>;
 
 type SignupDraft = {
   first_name: string;
@@ -467,31 +467,26 @@ const experienceOptions = [
   { value: "5_years", label: "5 years" },
   { value: "more_than_5_years", label: "More than 5 years of experience" },
 ];
-const workPreferenceOptions: Array<{ value: WorkPreference; label: string }> = [
-  { value: "full_time", label: "Full time" },
-  { value: "part_time", label: "Part time" },
-];
-const preferredTimeOptions: Array<{ value: PreferredTimeSlot; label: string }> = [
-  { value: "morning", label: "Morning" },
-  { value: "afternoon", label: "Afternoon" },
-  { value: "evening", label: "Evening" },
-  { value: "flexible", label: "Flexible" },
+const weeklyDayOptions: Array<{ value: Weekday; label: string }> = [
+  { value: "monday", label: "Mon" },
+  { value: "tuesday", label: "Tue" },
+  { value: "wednesday", label: "Wed" },
+  { value: "thursday", label: "Thu" },
+  { value: "friday", label: "Fri" },
+  { value: "saturday", label: "Sat" },
+  { value: "sunday", label: "Sun" },
 ];
 const weeklyTimeOptions: Array<{ value: WeeklyTimeSlot; label: string }> = [
   { value: "morning", label: "Morning" },
   { value: "afternoon", label: "Afternoon" },
   { value: "evening", label: "Evening" },
 ];
-const weekdays: Array<{ value: Weekday; label: string }> = [
-  { value: "monday", label: "Monday" },
-  { value: "tuesday", label: "Tuesday" },
-  { value: "wednesday", label: "Wednesday" },
-  { value: "thursday", label: "Thursday" },
-  { value: "friday", label: "Friday" },
-  { value: "saturday", label: "Saturday" },
-  { value: "sunday", label: "Sunday" },
+const jobTypePreferenceOptions: Array<{ value: JobTypePreference; label: string }> = [
+  { value: "one_off", label: "One-off jobs" },
+  { value: "ongoing", label: "Ongoing work" },
+  { value: "both", label: "Open to both" },
 ];
-
+const introductionMaxLength = 1500;
 function validateEmailAddress(rawEmail: string): string | null {
   const email = rawEmail.trim();
   if (!email) return "Email is required.";
@@ -558,36 +553,32 @@ function asSet(value: string | null): Set<string> {
   }
 }
 
-function emptyWeeklyAvailability(): Record<Weekday, WeeklyTimeSlot[]> {
-  return weekdays.reduce((availability, day) => {
-    availability[day.value] = [];
-    return availability;
-  }, {} as Record<Weekday, WeeklyTimeSlot[]>);
-}
-
-function normalizePreferredTimeSlots(value: unknown): PreferredTimeSlot[] {
-  if (!Array.isArray(value)) return [];
-  const allowed = new Set(preferredTimeOptions.map((option) => option.value));
-  const slots = value.filter((slot): slot is PreferredTimeSlot => typeof slot === "string" && allowed.has(slot as PreferredTimeSlot));
-  return slots.includes("flexible") ? ["flexible"] : Array.from(new Set(slots));
-}
-
-function normalizeWeeklyAvailability(value: unknown): Record<Weekday, WeeklyTimeSlot[]> {
-  const availability = emptyWeeklyAvailability();
-  if (!value || typeof value !== "object" || Array.isArray(value)) return availability;
-  const raw = value as Partial<Record<Weekday, unknown>>;
-  const allowed = new Set(weeklyTimeOptions.map((option) => option.value));
-  weekdays.forEach((day) => {
+function normalizeWeeklyAvailability(value: unknown): WeeklyAvailability {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const raw = value as Record<string, unknown>;
+  const allowedSlots = new Set(weeklyTimeOptions.map((option) => option.value));
+  const normalized: WeeklyAvailability = {};
+  for (const day of weeklyDayOptions) {
     const slots = raw[day.value];
-    if (!Array.isArray(slots)) return;
-    availability[day.value] = Array.from(new Set(slots.filter((slot): slot is WeeklyTimeSlot => typeof slot === "string" && allowed.has(slot as WeeklyTimeSlot))));
-  });
-  return availability;
+    if (!Array.isArray(slots)) continue;
+    const validSlots = slots.filter((slot): slot is WeeklyTimeSlot => typeof slot === "string" && allowedSlots.has(slot as WeeklyTimeSlot));
+    if (validSlots.length > 0) normalized[day.value] = Array.from(new Set(validSlots));
+  }
+  return normalized;
+}
+
+function weeklyAvailabilitySlotCount(value: WeeklyAvailability) {
+  return Object.values(value).reduce((total, slots) => total + (slots?.length ?? 0), 0);
+}
+
+function derivePreferredTimeSlots(value: WeeklyAvailability): WeeklyTimeSlot[] {
+  const selected = new Set(Object.values(value).flatMap((slots) => slots ?? []));
+  return weeklyTimeOptions.map((option) => option.value).filter((slot) => selected.has(slot));
 }
 
 function stepIndex(step: SignupStep, role: SignupRole | null) {
   const steps = role === "cleaner"
-    ? ["role", "personal_info", "location", "native_language", "experience", "availability"]
+    ? ["role", "personal_info", "location", "native_language", "experience", "availability", "introduction"]
     : ["role", "location"];
   return Math.max(0, steps.indexOf(step));
 }
@@ -621,10 +612,9 @@ export default function SignupPage() {
   const [languageChoice, setLanguageChoice] = useState("");
   const [otherLanguage, setOtherLanguage] = useState("");
   const [experience, setExperience] = useState("");
-  const [workPreference, setWorkPreference] = useState<WorkPreference | "">("");
-  const [preferredTimeSlots, setPreferredTimeSlots] = useState<PreferredTimeSlot[]>([]);
-  const [weeklyAvailability, setWeeklyAvailability] = useState<Record<Weekday, WeeklyTimeSlot[]>>(emptyWeeklyAvailability);
-  const [customizeAvailability, setCustomizeAvailability] = useState(false);
+  const [jobTypePreference, setJobTypePreference] = useState<JobTypePreference | "">("");
+  const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailability>({});
+  const [introduction, setIntroduction] = useState("");
 
   const [fieldErrors, setFieldErrors] = useState<SignupFieldErrors>({});
   const [code, setCode] = useState("");
@@ -634,6 +624,7 @@ export default function SignupPage() {
   const [languageError, setLanguageError] = useState("");
   const [experienceError, setExperienceError] = useState("");
   const [availabilityError, setAvailabilityError] = useState("");
+  const [introductionError, setIntroductionError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
@@ -647,6 +638,9 @@ export default function SignupPage() {
   const [calendarYear, setCalendarYear] = useState(cutoffDate.getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(cutoffDate.getMonth());
   const [otherDropdownOpen, setOtherDropdownOpen] = useState(false);
+  const [showEmptyBioPrompt, setShowEmptyBioPrompt] = useState(false);
+  const [introductionFocused, setIntroductionFocused] = useState(false);
+  const introductionInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const raw = sessionStorage.getItem("signup_wizard_state");
@@ -667,10 +661,9 @@ export default function SignupPage() {
           sex: string;
           nativeLanguage: string;
           experience: string;
-          workPreference: WorkPreference;
-          preferredTimeSlots: PreferredTimeSlot[];
-          weeklyAvailability: Record<Weekday, WeeklyTimeSlot[]>;
-          customizeAvailability: boolean;
+          jobTypePreference: JobTypePreference;
+          weeklyAvailability: WeeklyAvailability;
+          introduction: string;
         }>;
         setStep(parsed.step ?? "account");
         setFirstName(parsed.firstName ?? "");
@@ -693,10 +686,9 @@ export default function SignupPage() {
           }
         }
         setExperience(parsed.experience ?? "");
-        if (parsed.workPreference === "full_time" || parsed.workPreference === "part_time") setWorkPreference(parsed.workPreference);
-        setPreferredTimeSlots(normalizePreferredTimeSlots(parsed.preferredTimeSlots));
+        if (parsed.jobTypePreference === "one_off" || parsed.jobTypePreference === "ongoing" || parsed.jobTypePreference === "both") setJobTypePreference(parsed.jobTypePreference);
         setWeeklyAvailability(normalizeWeeklyAvailability(parsed.weeklyAvailability));
-        setCustomizeAvailability(Boolean(parsed.customizeAvailability));
+        setIntroduction(parsed.introduction ?? "");
       } catch {
         setStep("account");
       }
@@ -731,25 +723,17 @@ export default function SignupPage() {
         }
       }
       setExperience(sessionStorage.getItem("signup_experience_level") ?? "");
-      const storedWorkPreference = sessionStorage.getItem("signup_work_preference");
-      if (storedWorkPreference === "full_time" || storedWorkPreference === "part_time") setWorkPreference(storedWorkPreference);
-      const storedPreferredTimes = sessionStorage.getItem("signup_preferred_time_slots");
-      if (storedPreferredTimes) {
-        try {
-          setPreferredTimeSlots(normalizePreferredTimeSlots(JSON.parse(storedPreferredTimes) as unknown));
-        } catch {
-          setPreferredTimeSlots([]);
-        }
-      }
+      const storedJobTypePreference = sessionStorage.getItem("signup_job_type_preference");
+      if (storedJobTypePreference === "one_off" || storedJobTypePreference === "ongoing" || storedJobTypePreference === "both") setJobTypePreference(storedJobTypePreference);
+      setIntroduction(sessionStorage.getItem("signup_introduction") ?? "");
       const storedWeeklyAvailability = sessionStorage.getItem("signup_weekly_availability");
       if (storedWeeklyAvailability) {
         try {
           setWeeklyAvailability(normalizeWeeklyAvailability(JSON.parse(storedWeeklyAvailability) as unknown));
         } catch {
-          setWeeklyAvailability(emptyWeeklyAvailability());
+          setWeeklyAvailability({});
         }
       }
-      setCustomizeAvailability(sessionStorage.getItem("signup_customize_availability") === "true");
     }
     setRestored(true);
   }, []);
@@ -774,10 +758,9 @@ export default function SignupPage() {
         sex,
         nativeLanguage,
         experience,
-        workPreference,
-        preferredTimeSlots,
+        jobTypePreference,
         weeklyAvailability,
-        customizeAvailability,
+        introduction,
       }),
     );
     if (firstName || lastName || email || password || confirmPassword) {
@@ -804,11 +787,17 @@ export default function SignupPage() {
     if (sex) sessionStorage.setItem("signup_sex", sex);
     if (nativeLanguage) sessionStorage.setItem("signup_native_language", nativeLanguage);
     if (experience) sessionStorage.setItem("signup_experience_level", experience);
-    if (workPreference) sessionStorage.setItem("signup_work_preference", workPreference);
-    sessionStorage.setItem("signup_preferred_time_slots", JSON.stringify(preferredTimeSlots));
+    if (jobTypePreference) sessionStorage.setItem("signup_job_type_preference", jobTypePreference);
     sessionStorage.setItem("signup_weekly_availability", JSON.stringify(weeklyAvailability));
-    sessionStorage.setItem("signup_customize_availability", String(customizeAvailability));
-  }, [birthDate, city, confirmPassword, customizeAvailability, email, emailVerificationToken, experience, firstName, languageChoice, lastName, otherLanguage, password, preferredTimeSlots, restored, role, selectedZones, sex, step, weeklyAvailability, workPreference]);
+    sessionStorage.setItem("signup_introduction", introduction);
+  }, [birthDate, city, confirmPassword, email, emailVerificationToken, experience, firstName, introduction, jobTypePreference, languageChoice, lastName, otherLanguage, password, restored, role, selectedZones, sex, step, weeklyAvailability]);
+
+  useEffect(() => {
+    const input = introductionInputRef.current;
+    if (!input || step !== "introduction") return;
+    input.style.height = "auto";
+    input.style.height = `${Math.max(200, input.scrollHeight)}px`;
+  }, [introduction, step]);
 
   const selectedCity = useMemo(() => cities.find((item) => item.value === city) ?? null, [city]);
   const availableZones = useMemo(() => selectedCity?.zones.filter((zone) => !selectedZones.has(zone)) ?? [], [selectedCity, selectedZones]);
@@ -819,7 +808,7 @@ export default function SignupPage() {
     return availableZones.filter((zone) => zone.toLocaleLowerCase().includes(query));
   }, [availableZones, districtSearch]);
   const canContinueLocation = Boolean(selectedCity && selectedZones.size > 0);
-  const totalSteps = role === "cleaner" ? 6 : 2;
+  const totalSteps = role === "cleaner" ? 7 : 2;
   const progressPercent = Math.round(((stepIndex(step, role) + 1) / totalSteps) * 100);
 
   function selectedNativeLanguage() {
@@ -849,6 +838,7 @@ export default function SignupPage() {
   function goTo(nextStep: SignupStep, nextDirection: Direction) {
     setDirection(nextDirection);
     setSubmitError("");
+    setShowEmptyBioPrompt(false);
     setStep(nextStep);
   }
 
@@ -865,8 +855,10 @@ export default function SignupPage() {
       "signup_sex",
       "signup_native_language",
       "signup_experience_level",
+      "signup_job_type_preference",
       "signup_work_preference",
       "signup_preferred_time_slots",
+      "signup_introduction",
       "signup_weekly_availability",
       "signup_customize_availability",
     ].forEach((key) => sessionStorage.removeItem(key));
@@ -1133,43 +1125,42 @@ export default function SignupPage() {
     goTo("availability", 1);
   }
 
-  function togglePreferredTimeSlot(slot: PreferredTimeSlot) {
+  function toggleWeeklyAvailabilitySlot(day: Weekday, slot: WeeklyTimeSlot) {
     setAvailabilityError("");
-    setPreferredTimeSlots((current) => {
-      if (slot === "flexible") return current.includes("flexible") ? [] : ["flexible"];
-      const withoutFlexible = current.filter((item) => item !== "flexible");
-      if (withoutFlexible.includes(slot)) return withoutFlexible.filter((item) => item !== slot);
-      return [...withoutFlexible, slot];
-    });
-  }
-
-  function toggleWeeklySlot(day: Weekday, slot: WeeklyTimeSlot) {
     setWeeklyAvailability((current) => {
-      const daySlots = current[day] ?? [];
-      const nextDaySlots = daySlots.includes(slot) ? daySlots.filter((item) => item !== slot) : [...daySlots, slot];
-      return { ...current, [day]: nextDaySlots };
+      const currentSlots = current[day] ?? [];
+      const nextSlots = currentSlots.includes(slot)
+        ? currentSlots.filter((item) => item !== slot)
+        : [...currentSlots, slot];
+      const next = { ...current };
+      if (nextSlots.length > 0) next[day] = nextSlots;
+      else delete next[day];
+      return next;
     });
   }
 
-  function selectedWeeklyAvailability() {
-    return weekdays.reduce((availability, day) => {
-      const slots = weeklyAvailability[day.value] ?? [];
-      if (slots.length > 0) availability[day.value] = slots;
-      return availability;
-    }, {} as Partial<Record<Weekday, WeeklyTimeSlot[]>>);
+  function changeIntroduction(value: string) {
+    setIntroduction(value.slice(0, introductionMaxLength));
+    setIntroductionError("");
+    setShowEmptyBioPrompt(false);
   }
 
   function submitAvailability(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!role || role !== "cleaner" || !selectedCity || !emailVerificationToken) return;
-    if (!workPreference) {
-      setAvailabilityError("Choose how you prefer to work.");
+    if (!jobTypePreference) {
+      setAvailabilityError("Choose whether you prefer one-off jobs, ongoing work, or both.");
       return;
     }
-    if (preferredTimeSlots.length === 0) {
-      setAvailabilityError("Choose at least one preferred time.");
+    if (weeklyAvailabilitySlotCount(weeklyAvailability) === 0) {
+      setAvailabilityError("Choose at least one day and time when you are available.");
       return;
     }
+    goTo("introduction", 1);
+  }
+
+  function createCleanerAccount() {
+    if (!selectedCity) return;
     void createAccount({
       ...draft(),
       role: "cleaner",
@@ -1180,10 +1171,39 @@ export default function SignupPage() {
       sex,
       native_language: selectedNativeLanguage(),
       experience_level: experience,
-      work_preference: workPreference,
-      preferred_time_slots: preferredTimeSlots,
-      weekly_availability: customizeAvailability ? selectedWeeklyAvailability() : {},
+      job_type_preference: jobTypePreference,
+      preferred_time_slots: derivePreferredTimeSlots(weeklyAvailability),
+      weekly_availability: weeklyAvailability,
+      bio: introduction.trim(),
     });
+  }
+
+  function submitIntroduction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!role || role !== "cleaner" || !selectedCity || !emailVerificationToken) return;
+    if (introduction.length > introductionMaxLength) {
+      setIntroductionError(`Keep your introduction under ${introductionMaxLength} characters.`);
+      return;
+    }
+    if (!introduction.trim()) {
+      setSubmitError("");
+      setIntroductionError("");
+      setShowEmptyBioPrompt(true);
+      return;
+    }
+    createCleanerAccount();
+  }
+
+  function returnToIntroduction() {
+    setShowEmptyBioPrompt(false);
+    window.requestAnimationFrame(() => {
+      introductionInputRef.current?.focus();
+    });
+  }
+
+  function createAccountWithoutBio() {
+    setShowEmptyBioPrompt(false);
+    createCleanerAccount();
   }
 
   const passwordChecks = [
@@ -1555,75 +1575,98 @@ export default function SignupPage() {
       );
     }
 
-    return (
-      <>
-        <div className="auth-heading">
-          <h1>How do you prefer to work?</h1>
-        </div>
-        <form className="auth-form signup-availability-form" onSubmit={submitAvailability} noValidate>
-          <section className="signup-availability-section" aria-labelledby="work-preference-title">
-            <h2 id="work-preference-title">Work preference</h2>
-            <div className="signup-availability-choice-grid" role="radiogroup" aria-label="Work preference">
-              {workPreferenceOptions.map((option) => {
-                const selected = workPreference === option.value;
-                return (
-                  <button type="button" key={option.value} className={selected ? "signup-experience-option selected" : "signup-experience-option"} role="radio" aria-checked={selected} onClick={() => { setWorkPreference(option.value); setAvailabilityError(""); }}>
-                    <span>{option.label}</span>
-                    {selected ? <span className="signup-experience-check" aria-hidden><Check size={15} /></span> : null}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+    if (step === "availability") {
+      return (
+        <>
+          <div className="auth-heading">
+            <h1>When are you available to work?</h1>
+          </div>
+          <form className="auth-form signup-availability-form" onSubmit={submitAvailability} noValidate>
+            <section className="signup-availability-section" aria-labelledby="job-type-preference-title">
+              <h2 id="job-type-preference-title">Job preference</h2>
+              <div className="signup-availability-choice-grid signup-job-type-grid" role="radiogroup" aria-label="Job preference">
+                {jobTypePreferenceOptions.map((option) => {
+                  const selected = jobTypePreference === option.value;
+                  return (
+                    <button type="button" key={option.value} className={selected ? "signup-experience-option selected" : "signup-experience-option"} role="radio" aria-checked={selected} onClick={() => { setJobTypePreference(option.value); setAvailabilityError(""); }}>
+                      <span>{option.label}</span>
+                      {selected ? <span className="signup-experience-check" aria-hidden><Check size={15} /></span> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
-          <section className="signup-availability-section" aria-labelledby="preferred-times-title">
-            <h2 id="preferred-times-title">Preferred times</h2>
-            <div className="signup-availability-choice-grid signup-availability-time-grid" aria-label="Preferred times">
-              {preferredTimeOptions.map((option) => {
-                const selected = preferredTimeSlots.includes(option.value);
-                return (
-                  <button type="button" key={option.value} className={selected ? "signup-experience-option selected" : "signup-experience-option"} aria-pressed={selected} onClick={() => togglePreferredTimeSlot(option.value)}>
-                    <span>{option.label}</span>
-                    {selected ? <span className="signup-experience-check" aria-hidden><Check size={15} /></span> : null}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="signup-availability-section">
-            <button type="button" className="secondary-link signup-availability-toggle" onClick={() => setCustomizeAvailability((open) => !open)} aria-expanded={customizeAvailability}>
-              {customizeAvailability ? "Hide days" : "Customize days"}
-              <ChevronDown size={17} aria-hidden />
-            </button>
-            {customizeAvailability ? (
-              <div className="signup-weekly-grid" aria-label="Weekly availability">
-                <div className="signup-weekly-row signup-weekly-head" aria-hidden>
-                  <span />
-                  {weeklyTimeOptions.map((slot) => <span key={slot.value}>{slot.label}</span>)}
-                </div>
-                {weekdays.map((day) => (
-                  <div className="signup-weekly-row" key={day.value}>
-                    <strong>{day.label}</strong>
+            <section className="signup-availability-section" aria-labelledby="weekly-availability-title">
+              <h2 id="weekly-availability-title">Weekly availability</h2>
+              <div className="signup-weekly-availability-grid" role="group" aria-label="Weekly availability">
+                <span className="signup-weekly-availability-corner" aria-hidden />
+                {weeklyTimeOptions.map((slot) => (
+                  <span className="signup-weekly-availability-head" key={slot.value}>{slot.label}</span>
+                ))}
+                {weeklyDayOptions.map((day) => (
+                  <div className="signup-weekly-availability-row" key={day.value}>
+                    <span className="signup-weekly-availability-day">{day.label}</span>
                     {weeklyTimeOptions.map((slot) => {
                       const selected = weeklyAvailability[day.value]?.includes(slot.value) ?? false;
                       return (
-                        <button type="button" key={slot.value} className={selected ? "signup-weekly-slot selected" : "signup-weekly-slot"} aria-pressed={selected} aria-label={`${day.label} ${slot.label}`} onClick={() => toggleWeeklySlot(day.value, slot.value)}>
-                          {selected ? <Check size={16} aria-hidden /> : null}
+                        <button
+                          type="button"
+                          key={`${day.value}-${slot.value}`}
+                          className={selected ? "signup-weekly-availability-cell selected" : "signup-weekly-availability-cell"}
+                          aria-pressed={selected}
+                          aria-label={`${day.label} ${slot.label}`}
+                          onClick={() => toggleWeeklyAvailabilitySlot(day.value, slot.value)}
+                        >
+                          {selected ? <Check size={15} aria-hidden /> : null}
                         </button>
                       );
                     })}
                   </div>
                 ))}
               </div>
-            ) : null}
-          </section>
+            </section>
 
-          {availabilityError ? <p className="form-error">{availabilityError}</p> : null}
+            {availabilityError ? <p className="form-error">{availabilityError}</p> : null}
+            {submitError ? <p className="form-error">{submitError}</p> : null}
+            <div className="signup-nav-actions">
+              <button type="button" className="secondary-link" onClick={() => goTo("experience", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
+              <button className="primary-link auth-submit" type="submit" disabled={!jobTypePreference || weeklyAvailabilitySlotCount(weeklyAvailability) === 0}>Continue</button>
+            </div>
+          </form>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <div className="auth-heading">
+          <h1>Introduce yourself</h1>
+        </div>
+        <form className="auth-form signup-introduction-form" onSubmit={submitIntroduction} noValidate>
+          <label className="signup-introduction-label">
+            <span>Your introduction</span>
+            <textarea
+              aria-invalid={Boolean(introductionError)}
+              className={introductionError ? "input-invalid" : ""}
+              maxLength={introductionMaxLength}
+              onBlur={() => setIntroductionFocused(false)}
+              onChange={(event) => changeIntroduction(event.target.value)}
+              onFocus={() => setIntroductionFocused(true)}
+              placeholder={introductionFocused ? "" : "Hosts read descriptions to find the best match.\nShare your experience, work style, and what makes you reliable.\nMake your profile feel clear and trustworthy."}
+              ref={introductionInputRef}
+              style={{ height: 200 }}
+              value={introduction}
+            />
+            <span className={introduction.length >= introductionMaxLength ? "signup-character-count at-limit" : "signup-character-count"}>
+              {introduction.length}/{introductionMaxLength}
+            </span>
+            {introductionError ? <small className="field-error-text">{introductionError}</small> : null}
+          </label>
           {submitError ? <p className="form-error">{submitError}</p> : null}
           <div className="signup-nav-actions">
-            <button type="button" className="secondary-link" onClick={() => goTo("experience", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
-            <button className="primary-link auth-submit" type="submit" disabled={!workPreference || preferredTimeSlots.length === 0 || submitting}>{submitting ? "Creating account" : "Create account"}</button>
+            <button type="button" className="secondary-link" onClick={() => goTo("availability", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
+            <button className="primary-link auth-submit" type="submit" disabled={submitting}>{submitting ? "Creating account" : "Create account"}</button>
           </div>
         </form>
       </>
@@ -1646,7 +1689,7 @@ export default function SignupPage() {
             </div>
           </div>
         ) : <div className="signup-progress-placeholder" aria-hidden />}
-        <div className="signup-wizard-frame">
+        <div className={step === "personal_info" && calendarOpen ? "signup-wizard-frame signup-wizard-frame--overlay-open" : "signup-wizard-frame"}>
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div
               key={step}
@@ -1667,6 +1710,30 @@ export default function SignupPage() {
           </AnimatePresence>
         </div>
       </section>
+      {showEmptyBioPrompt ? (
+        <div className="signup-empty-bio-backdrop" role="dialog" aria-modal="true" aria-labelledby="empty-bio-title" aria-describedby="empty-bio-description">
+          <div className="signup-empty-bio-modal">
+            <h2 id="empty-bio-title">Improve your matching by 75%!</h2>
+            <p id="empty-bio-description">
+              A short bio helps hosts understand a cleaner&apos;s experience, reliability, and work style before they choose who to work with.
+              You can add one now, or create the account and update it later.
+            </p>
+            <div className="signup-empty-bio-footer">
+              <div className="signup-empty-bio-icon" aria-hidden>
+                <Sparkles size={24} />
+              </div>
+              <div className="signup-empty-bio-actions">
+                <button type="button" className="primary-link auth-submit" onClick={returnToIntroduction}>
+                  Add Bio
+                </button>
+                <button type="button" className="signup-empty-bio-text-action" onClick={createAccountWithoutBio} disabled={submitting}>
+                  {submitting ? "Creating account" : "Finish registration"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

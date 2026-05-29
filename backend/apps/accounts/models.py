@@ -5,6 +5,7 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, UserManager
+from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.utils import timezone
 
@@ -169,6 +170,11 @@ class CleanerProfile(TimeStampedModel):
         FULL_TIME = "full_time", "Full time"
         PART_TIME = "part_time", "Part time"
 
+    class JobTypePreference(models.TextChoices):
+        ONE_OFF = "one_off", "One-off jobs"
+        ONGOING = "ongoing", "Ongoing work"
+        BOTH = "both", "Open to both"
+
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -181,7 +187,7 @@ class CleanerProfile(TimeStampedModel):
         default=VerificationStatus.PENDING,
     )
     display_name = models.CharField(max_length=255, blank=True)
-    bio = models.TextField(blank=True)
+    bio = models.CharField(max_length=1500, blank=True, validators=[MaxLengthValidator(1500)])
     service_areas = models.JSONField(default=list, blank=True)
     sex = models.CharField(
         max_length=32,
@@ -194,6 +200,7 @@ class CleanerProfile(TimeStampedModel):
     education = models.CharField(max_length=32, choices=Education.choices, blank=True)
     experience_level = models.CharField(max_length=32, choices=ExperienceLevel.choices, blank=True)
     work_preference = models.CharField(max_length=32, choices=WorkPreference.choices, blank=True)
+    job_type_preference = models.CharField(max_length=32, choices=JobTypePreference.choices, blank=True)
     preferred_time_slots = models.JSONField(default=list, blank=True)
     weekly_availability = models.JSONField(default=dict, blank=True)
     has_driving_license = models.BooleanField(null=True, blank=True)

@@ -33,6 +33,7 @@
 # - gunicorn 23.0+ (production WSGI server, Docker only)
 # - icalendar 6.3+ (iCal / Airbnb calendar parsing)
 # - python-dotenv 1.2+ (auto-load .env in development)
+# - Pillow 11+ (Django image uploads)
 #
 # Infrastructure/config files:
 #
@@ -40,5 +41,7 @@
 # - .env.example for local environment variables
 # - backend/requirements.txt for backend Python packages
 # - frontend/package.json for frontend Node packages
+
+# Framer Motion for UI/UX animations
 
 -r backend/requirements.txt

@@ -119,9 +119,9 @@ class AccountAuthTests(TestCase):
                 "sex": CleanerProfile.Sex.FEMALE,
                 "native_language": "Български",
                 "education": CleanerProfile.Education.HIGHER,
-                "work_preference": CleanerProfile.WorkPreference.FULL_TIME,
-                "preferred_time_slots": ["morning", "afternoon"],
+                "job_type_preference": CleanerProfile.JobTypePreference.BOTH,
                 "weekly_availability": {"monday": ["morning"], "tuesday": ["afternoon"]},
+                "bio": "Reliable cleaner with short-term rental turnover experience.",
                 "has_driving_license": True,
                 "driving_license_categories": ["B", "AM"],
                 "has_own_car": True,
@@ -136,10 +136,40 @@ class AccountAuthTests(TestCase):
         self.assertEqual(profile.age, 32)
         self.assertEqual(profile.birth_date.isoformat(), "1994-04-30")
         self.assertEqual(profile.native_language, "Български")
-        self.assertEqual(profile.work_preference, CleanerProfile.WorkPreference.FULL_TIME)
+        self.assertEqual(profile.work_preference, "")
+        self.assertEqual(profile.job_type_preference, CleanerProfile.JobTypePreference.BOTH)
         self.assertEqual(profile.preferred_time_slots, ["morning", "afternoon"])
         self.assertEqual(profile.weekly_availability, {"monday": ["morning"], "tuesday": ["afternoon"]})
+        self.assertEqual(profile.bio, "Reliable cleaner with short-term rental turnover experience.")
         self.assertEqual(profile.driving_license_categories, ["B", "AM"])
+
+    def test_cleaner_signup_rejects_overlong_bio(self):
+        email = "long-bio-cleaner@example.com"
+        response = self.client.post(
+            reverse("account-signup"),
+            {
+                "first_name": "Cleaner",
+                "last_name": "Bio",
+                "email": email,
+                "role": User.Role.CLEANER,
+                "password": "Password123!",
+                "password_confirm": "Password123!",
+                "email_verification_token": self.make_verified_signup_token(email),
+                "city": "Sofia",
+                "service_areas": ["Center"],
+                "birth_date": "1994-04-30",
+                "sex": CleanerProfile.Sex.FEMALE,
+                "native_language": "Български",
+                "job_type_preference": CleanerProfile.JobTypePreference.ONE_OFF,
+                "weekly_availability": {"monday": ["morning"]},
+                "bio": "a" * 1501,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("bio", response.data)
+        self.assertFalse(User.objects.filter(email=email).exists())
 
     def test_cleaner_signup_rejects_underage_user(self):
         email = "underage-cleaner@example.com"
@@ -166,13 +196,13 @@ class AccountAuthTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(User.objects.filter(email=email).exists())
 
-    def test_cleaner_signup_requires_work_preference(self):
-        email = "cleaner-missing-work@example.com"
+    def test_cleaner_signup_requires_job_type_preference(self):
+        email = "cleaner-missing-job-type@example.com"
         response = self.client.post(
             reverse("account-signup"),
             {
                 "first_name": "Cleaner",
-                "last_name": "Work",
+                "last_name": "JobType",
                 "email": email,
                 "role": User.Role.CLEANER,
                 "password": "Password123!",
@@ -183,21 +213,22 @@ class AccountAuthTests(TestCase):
                 "birth_date": "1994-04-30",
                 "sex": CleanerProfile.Sex.FEMALE,
                 "native_language": "Български",
-                "preferred_time_slots": ["morning"],
+                "weekly_availability": {"monday": ["morning"]},
             },
             format="json",
         )
 
         self.assertEqual(response.status_code, 400)
+        self.assertIn("job_type_preference", response.data)
         self.assertFalse(User.objects.filter(email=email).exists())
 
-    def test_cleaner_signup_requires_preferred_time(self):
-        email = "cleaner-missing-time@example.com"
+    def test_cleaner_signup_requires_weekly_availability_slot(self):
+        email = "cleaner-missing-availability@example.com"
         response = self.client.post(
             reverse("account-signup"),
             {
                 "first_name": "Cleaner",
-                "last_name": "Time",
+                "last_name": "Availability",
                 "email": email,
                 "role": User.Role.CLEANER,
                 "password": "Password123!",
@@ -208,12 +239,14 @@ class AccountAuthTests(TestCase):
                 "birth_date": "1994-04-30",
                 "sex": CleanerProfile.Sex.FEMALE,
                 "native_language": "Български",
-                "work_preference": CleanerProfile.WorkPreference.PART_TIME,
+                "job_type_preference": CleanerProfile.JobTypePreference.ONE_OFF,
+                "weekly_availability": {"monday": []},
             },
             format="json",
         )
 
         self.assertEqual(response.status_code, 400)
+        self.assertIn("weekly_availability", response.data)
         self.assertFalse(User.objects.filter(email=email).exists())
 
     @mock.patch("apps.notifications.tasks._send_resend_email")

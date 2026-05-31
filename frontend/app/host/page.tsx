@@ -28,6 +28,16 @@ import { apiFetch, CurrentUser } from "../../lib/api";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+interface Review {
+  id: number;
+  job: number;
+  reviewer: number;
+  reviewee: number;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
 interface IcsEvent {
   uid: string;
   summary: string;
@@ -179,6 +189,16 @@ export default function HostDashboard() {
   const [dataError,    setDataError]    = useState("");
   const [actingAppId,  setActingAppId]  = useState<number | null>(null);   // which app is being accepted/rejected
   const [completingJobId, setCompletingJobId] = useState<number | null>(null);
+  const [confirmDeleteJobId, setConfirmDeleteJobId] = useState<number | null>(null);
+  const [deletingJobId,      setDeletingJobId]      = useState<number | null>(null);
+
+  // ── Reviews ────────────────────────────────────────────────────────────────
+  const [reviews,         setReviews]         = useState<Review[]>([]);
+  const [reviewJobId,     setReviewJobId]     = useState<number | null>(null);
+  const [reviewRating,    setReviewRating]    = useState(0);
+  const [reviewComment,   setReviewComment]   = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [hoveredStar,     setHoveredStar]     = useState(0);
 
   const [section, setSection] = useState<"jobs" | "properties" | "applications">("jobs");
 
@@ -213,15 +233,16 @@ export default function HostDashboard() {
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   // ── Job form ───────────────────────────────────────────────────────────────
-  const [showJobForm,  setShowJobForm]  = useState(false);
-  const [jobPropId,    setJobPropId]    = useState("");
-  const [jobTitle,     setJobTitle]     = useState("");
-  const [jobStart,     setJobStart]     = useState("");
-  const [jobEnd,       setJobEnd]       = useState("");
-  const [jobPrice,     setJobPrice]     = useState("");
-  const [jobDesc,      setJobDesc]      = useState("");
-  const [savingJob,    setSavingJob]    = useState(false);
-  const [jobError,     setJobError]     = useState("");
+  const [showJobForm,    setShowJobForm]    = useState(false);
+  const [jobPropId,      setJobPropId]      = useState("");
+  const [jobTitle,       setJobTitle]       = useState("");
+  const [jobDate,        setJobDate]        = useState("");
+  const [jobStartTime,   setJobStartTime]   = useState("10:00");
+  const [jobEndTime,     setJobEndTime]     = useState("12:00");
+  const [jobPrice,       setJobPrice]       = useState("");
+  const [jobDesc,        setJobDesc]        = useState("");
+  const [savingJob,      setSavingJob]      = useState(false);
+  const [jobError,       setJobError]       = useState("");
 
   // ── ICS import ─────────────────────────────────────────────────────────────
   const [showIcsModal,   setShowIcsModal]   = useState(false);
@@ -253,11 +274,12 @@ export default function HostDashboard() {
   async function loadAll() {
     setLoadingData(true);
     setDataError("");
-    const [pRes, jRes, aRes, asRes] = await Promise.all([
+    const [pRes, jRes, aRes, asRes, rvRes] = await Promise.all([
       apiFetch("/api/properties/properties/"),
       apiFetch("/api/marketplace/jobs/"),
       apiFetch("/api/marketplace/applications/"),
       apiFetch("/api/marketplace/assignments/"),
+      apiFetch("/api/feedback/reviews/"),
     ]);
     if (pRes.ok) {
       const d: unknown = await pRes.json();
@@ -276,6 +298,10 @@ export default function HostDashboard() {
     if (asRes.ok) {
       const d: unknown = await asRes.json();
       setAssignments(Array.isArray(d) ? d as HostAssignment[] : (d as { results: HostAssignment[] }).results ?? []);
+    }
+    if (rvRes.ok) {
+      const d: unknown = await rvRes.json();
+      setReviews(Array.isArray(d) ? d as Review[] : (d as { results: Review[] }).results ?? []);
     }
     setLoadingData(false);
   }
@@ -437,12 +463,18 @@ export default function HostDashboard() {
 
   // ── Create job ─────────────────────────────────────────────────────────────
   function openJobForm(day?: number) {
+    setJobPropId(properties.length === 1 ? String(properties[0].id) : "");
+    setJobTitle("");
+    setJobPrice("");
+    setJobDesc("");
+    setJobError("");
     if (day !== undefined) {
-      const base = `${calYear}-${pad(calMonth + 1)}-${pad(day)}`;
-      setJobStart(`${base}T10:00`);
-      setJobEnd(`${base}T12:00`);
+      setJobDate(`${calYear}-${pad(calMonth + 1)}-${pad(day)}`);
+    } else {
+      setJobDate("");
     }
-    if (properties.length === 1) setJobPropId(String(properties[0].id));
+    setJobStartTime("10:00");
+    setJobEndTime("12:00");
     setShowJobForm(true);
   }
 
@@ -456,8 +488,8 @@ export default function HostDashboard() {
         body: JSON.stringify({
           property_id: parseInt(jobPropId),
           title: jobTitle,
-          scheduled_start: new Date(jobStart).toISOString(),
-          scheduled_end:   new Date(jobEnd).toISOString(),
+          scheduled_start: new Date(`${jobDate}T${jobStartTime}`).toISOString(),
+          scheduled_end:   new Date(`${jobDate}T${jobEndTime}`).toISOString(),
           proposed_price: jobPrice || null,
           description: jobDesc,
         }),
@@ -472,7 +504,7 @@ export default function HostDashboard() {
       setJobs((prev) =>
         [...prev, newJob].sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start)),
       );
-      setJobPropId(""); setJobTitle(""); setJobStart(""); setJobEnd(""); setJobPrice(""); setJobDesc("");
+      setJobPropId(""); setJobTitle(""); setJobDate(""); setJobStartTime("10:00"); setJobEndTime("12:00"); setJobPrice(""); setJobDesc("");
       setShowJobForm(false);
     } finally {
       setSavingJob(false);
@@ -520,6 +552,46 @@ export default function HostDashboard() {
       setApplications((prev) => prev.filter((a) => a.id !== appId));
     } finally {
       setActingAppId(null);
+    }
+  }
+
+  // ── Delete job ─────────────────────────────────────────────────────────────
+  async function deleteJob(id: number) {
+    setDeletingJobId(id);
+    try {
+      const res = await apiFetch(`/api/marketplace/jobs/${id}/`, { method: "DELETE" });
+      if (res.ok || res.status === 204) {
+        setJobs((prev) => prev.filter((j) => j.id !== id));
+      }
+    } finally {
+      setDeletingJobId(null);
+      setConfirmDeleteJobId(null);
+    }
+  }
+
+  // ── Submit review ───────────────────────────────────────────────────────────
+  async function submitReview(asgn: HostAssignment) {
+    if (reviewRating === 0) return;
+    setSubmittingReview(true);
+    try {
+      const res = await apiFetch("/api/feedback/reviews/", {
+        method: "POST",
+        body: JSON.stringify({
+          job_id: asgn.job,
+          reviewee_id: asgn.cleaner,
+          rating: reviewRating,
+          comment: reviewComment,
+        }),
+      });
+      if (!res.ok) return;
+      const newReview = await res.json() as Review;
+      setReviews((prev) => [...prev, newReview]);
+      setReviewJobId(null);
+      setReviewRating(0);
+      setReviewComment("");
+      setHoveredStar(0);
+    } finally {
+      setSubmittingReview(false);
     }
   }
 
@@ -659,6 +731,20 @@ export default function HostDashboard() {
     const end   = new Date(calYear, calMonth + 1, 1).toISOString();
     return jobs.filter((j) => j.scheduled_start >= start && j.scheduled_start < end);
   }, [jobs, selectedDay, calYear, calMonth, monthPrefix]);
+
+  /** Per-job activity summary: pending application count + assignment (if any). */
+  const jobActivityMap = useMemo(() => {
+    const map = new Map<number, { pendingApps: number; assignment: HostAssignment | null }>();
+    for (const app of applications) {
+      if (!map.has(app.job)) map.set(app.job, { pendingApps: 0, assignment: null });
+      if (app.status === "pending") map.get(app.job)!.pendingApps++;
+    }
+    for (const asgn of assignments) {
+      if (!map.has(asgn.job)) map.set(asgn.job, { pendingApps: 0, assignment: null });
+      map.get(asgn.job)!.assignment = asgn;
+    }
+    return map;
+  }, [applications, assignments]);
 
   function prevMonth() {
     setSelectedDay(null);
@@ -905,6 +991,32 @@ export default function HostDashboard() {
               </div>
             </div>
 
+            {/* ── Summary dashboard ── */}
+            {!loadingData && (
+              <div className="host-appdash-grid">
+                <div className="host-appdash-card">
+                  <span className="host-appdash-label">Pending</span>
+                  <strong className="host-appdash-value">{pendingCount}</strong>
+                  <span className="host-appdash-sub">applications</span>
+                </div>
+                <div className="host-appdash-card host-appdash-card--gold">
+                  <span className="host-appdash-label">Active</span>
+                  <strong className="host-appdash-value">{assignments.filter((a) => !a.completed_at).length}</strong>
+                  <span className="host-appdash-sub">assignments</span>
+                </div>
+                <div className="host-appdash-card host-appdash-card--green">
+                  <span className="host-appdash-label">Completed</span>
+                  <strong className="host-appdash-value">{assignments.filter((a) => !!a.completed_at).length}</strong>
+                  <span className="host-appdash-sub">cleanings</span>
+                </div>
+                <div className="host-appdash-card host-appdash-card--teal">
+                  <span className="host-appdash-label">Open jobs</span>
+                  <strong className="host-appdash-value">{jobs.filter((j) => j.status === "open").length}</strong>
+                  <span className="host-appdash-sub">awaiting cleaners</span>
+                </div>
+              </div>
+            )}
+
             {loadingData ? (
               <p className="host-empty">Loading…</p>
             ) : (
@@ -1096,6 +1208,88 @@ export default function HostDashboard() {
                               )}
                               <span className="host-app-badge host-app-badge--done">✓ Done</span>
                             </div>
+                            {/* Review row — full width */}
+                            <div className="host-app-review-row">
+                              {(() => {
+                                const existing = reviews.find(
+                                  (r) => r.job === asgn.job && r.reviewee === asgn.cleaner,
+                                );
+                                if (existing) {
+                                  return (
+                                    <div className="host-review-given">
+                                      <span className="host-review-given-stars">
+                                        {"★".repeat(existing.rating)}{"☆".repeat(5 - existing.rating)}
+                                      </span>
+                                      {existing.comment && (
+                                        <span className="host-review-given-comment">"{existing.comment}"</span>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                if (reviewJobId === asgn.job) {
+                                  return (
+                                    <div className="host-review-form">
+                                      <div className="host-stars">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                          <button
+                                            key={star}
+                                            type="button"
+                                            className={`host-star${(hoveredStar || reviewRating) >= star ? " host-star--on" : ""}`}
+                                            onMouseEnter={() => setHoveredStar(star)}
+                                            onMouseLeave={() => setHoveredStar(0)}
+                                            onClick={() => setReviewRating(star)}
+                                            aria-label={`${star} star${star !== 1 ? "s" : ""}`}
+                                          >★</button>
+                                        ))}
+                                      </div>
+                                      <textarea
+                                        className="host-review-textarea"
+                                        placeholder="Optional written feedback…"
+                                        rows={2}
+                                        value={reviewComment}
+                                        onChange={(e) => setReviewComment(e.target.value)}
+                                      />
+                                      <div className="host-review-actions">
+                                        <button
+                                          className="host-review-cancel"
+                                          type="button"
+                                          onClick={() => {
+                                            setReviewJobId(null);
+                                            setReviewRating(0);
+                                            setReviewComment("");
+                                            setHoveredStar(0);
+                                          }}
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          className="host-review-submit"
+                                          type="button"
+                                          disabled={reviewRating === 0 || submittingReview}
+                                          onClick={() => void submitReview(asgn)}
+                                        >
+                                          {submittingReview ? "Saving…" : "Submit review"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <button
+                                    className="host-review-trigger"
+                                    type="button"
+                                    onClick={() => {
+                                      setReviewJobId(asgn.job);
+                                      setReviewRating(0);
+                                      setReviewComment("");
+                                      setHoveredStar(0);
+                                    }}
+                                  >
+                                    ★ Leave a review
+                                  </button>
+                                );
+                              })()}
+                            </div>
                           </li>
                         ))}
                     </ul>
@@ -1269,6 +1463,20 @@ export default function HostDashboard() {
                               {" – "}
                               {fmtTime(job.scheduled_end)}
                             </span>
+                            {(() => {
+                              const act = jobActivityMap.get(job.id);
+                              if (!act) return null;
+                              if (act.assignment?.completed_at) {
+                                return <span className="host-job-activity host-job-activity--done">✓ {act.assignment.cleaner_name}</span>;
+                              }
+                              if (act.assignment) {
+                                return <span className="host-job-activity host-job-activity--assigned">👤 {act.assignment.cleaner_name}</span>;
+                              }
+                              if (act.pendingApps > 0) {
+                                return <span className="host-job-activity host-job-activity--apps">{act.pendingApps} application{act.pendingApps !== 1 ? "s" : ""}</span>;
+                              }
+                              return null;
+                            })()}
                           </div>
                           <div className="host-job-right">
                             <span className={`host-job-badge host-job-badge--${job.status}`}>
@@ -1285,6 +1493,46 @@ export default function HostDashboard() {
                               >
                                 Publish
                               </button>
+                            )}
+                            {job.status === "assigned" && (
+                              <button
+                                className="host-job-complete-btn"
+                                type="button"
+                                disabled={completingJobId === job.id}
+                                onClick={() => void completeJob(job.id)}
+                              >
+                                {completingJobId === job.id ? "…" : "Mark done"}
+                              </button>
+                            )}
+                            {(job.status === "draft" || job.status === "open") && (
+                              confirmDeleteJobId === job.id ? (
+                                <div className="host-delete-confirm">
+                                  <button
+                                    className="host-delete-confirm-yes"
+                                    type="button"
+                                    disabled={deletingJobId === job.id}
+                                    onClick={() => void deleteJob(job.id)}
+                                  >
+                                    {deletingJobId === job.id ? "…" : "Delete"}
+                                  </button>
+                                  <button
+                                    className="host-delete-confirm-no"
+                                    type="button"
+                                    onClick={() => setConfirmDeleteJobId(null)}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="host-delete-btn"
+                                  type="button"
+                                  onClick={() => setConfirmDeleteJobId(job.id)}
+                                  aria-label="Delete job"
+                                >
+                                  <Trash2 size={13} aria-hidden />
+                                </button>
+                              )
                             )}
                           </div>
                         </li>
@@ -1716,22 +1964,31 @@ export default function HostDashboard() {
                 />
               </label>
               <div className="form-grid">
-                <label>
-                  <span>Start date &amp; time *</span>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  <span>Cleaning date *</span>
                   <input
                     required
-                    type="datetime-local"
-                    value={jobStart}
-                    onChange={(e) => setJobStart(e.target.value)}
+                    type="date"
+                    value={jobDate}
+                    onChange={(e) => setJobDate(e.target.value)}
                   />
                 </label>
                 <label>
-                  <span>End date &amp; time *</span>
+                  <span>Start time *</span>
                   <input
                     required
-                    type="datetime-local"
-                    value={jobEnd}
-                    onChange={(e) => setJobEnd(e.target.value)}
+                    type="time"
+                    value={jobStartTime}
+                    onChange={(e) => setJobStartTime(e.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>End time *</span>
+                  <input
+                    required
+                    type="time"
+                    value={jobEndTime}
+                    onChange={(e) => setJobEndTime(e.target.value)}
                   />
                 </label>
                 <label>

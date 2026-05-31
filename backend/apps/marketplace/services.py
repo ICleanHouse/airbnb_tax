@@ -8,7 +8,7 @@ from django.utils import timezone
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, User
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
 from apps.notifications.services import create_notification
-from apps.notifications.tasks import send_application_submitted_email
+from apps.notifications.tasks import send_application_submitted_email, send_job_completed_email
 
 
 class MarketplaceError(ValueError):
@@ -235,6 +235,7 @@ def complete_job(*, job: CleaningJob, completed_by: User) -> CleaningJob:
         body=f"Please review your experience for {job.title}.",
         metadata={"job_id": job.id},
     )
+    send_job_completed_email.delay(job.id)
     return job
 
 

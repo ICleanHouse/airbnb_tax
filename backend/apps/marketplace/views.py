@@ -310,6 +310,16 @@ class CleaningJobViewSet(MarketplaceQuerysetMixin, viewsets.ModelViewSet):
             raise PermissionDenied("Hosts can create jobs only for their own properties.")
         serializer.save(host=property.host)
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.status not in (CleaningJob.Status.DRAFT, CleaningJob.Status.OPEN):
+            return Response(
+                {"detail": "Only draft or open jobs can be deleted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=["post"])
     def publish(self, request, pk=None):
         if not request.user.is_platform_admin and not request.user.is_approved:

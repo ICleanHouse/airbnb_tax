@@ -302,6 +302,90 @@ def send_application_submitted_email(self, application_id: int) -> None:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_job_completed_email(self, job_id: int) -> None:
+    """
+    Notify the job's host by email when a cleaning job is marked complete.
+    """
+    from django.conf import settings
+    from django.core.exceptions import ImproperlyConfigured
+    from django.template.loader import render_to_string
+    from django.utils.html import escape
+
+    from apps.marketplace.models import CleaningJob
+
+    try:
+        job = (
+            CleaningJob.objects
+            .select_related("property", "host", "assignment", "assignment__cleaner")
+            .get(id=job_id)
+        )
+    except CleaningJob.DoesNotExist:
+        return
+
+    host = job.host
+    if not host.email:
+        return
+
+    try:
+        assignment = job.assignment
+        cleaner = assignment.cleaner
+    except Exception:
+        return
+
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
+    dashboard_url = f"{frontend_url}/host"
+
+    host_name = host.get_full_name().strip() or host.email.split("@")[0]
+    cleaner_name = cleaner.get_full_name().strip() or cleaner.get_username()
+    scheduled_start = job.scheduled_start.strftime("%d %b %Y, %H:%M") if job.scheduled_start else "—"
+
+    context = {
+        "host_name": escape(host_name),
+        "cleaner_name": escape(cleaner_name),
+        "job_title": escape(job.title),
+        "property_name": escape(job.property.name),
+        "property_city": escape(job.property.city or ""),
+        "scheduled_start": scheduled_start,
+        "agreed_price": assignment.agreed_price or "",
+        "dashboard_url": dashboard_url,
+    }
+
+    subject = f'Cleaning complete: "{job.title}"'
+    text_body = (
+        f"Hi {host_name},\n\n"
+        f"{cleaner_name} has marked your cleaning job as complete.\n\n"
+        f"Job:       {job.title}\n"
+        f"Property:  {job.property.name}"
+        + (f", {job.property.city}" if job.property.city else "") + "\n"
+        + f"Scheduled: {scheduled_start}\n"
+    )
+    if assignment.agreed_price:
+        text_body += f"Agreed price: €{assignment.agreed_price}\n"
+    text_body += f"\nLeave feedback for your cleaner:\n{dashboard_url}\n"
+
+    html_body = render_to_string("notifications/job_completed_email.html", context)
+
+    try:
+        api_key = getattr(settings, "EMAIL_RESEND_APIKEY", "")
+        from_email = getattr(settings, "EMAIL_RESEND_FROM_EMAIL", "")
+        if not api_key:
+            raise ImproperlyConfigured("EMAIL_RESEND_APIKEY is required for job completion emails.")
+        if not from_email:
+            raise ImproperlyConfigured("EMAIL_RESEND_FROM_EMAIL is required for job completion emails.")
+
+        _send_resend_email(
+            api_key=api_key,
+            from_email=from_email,
+            to_email=host.email,
+            subject=subject,
+            text=text_body,
+            html=html_body,
+        )
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_signup_email_code(self, verification_id: int, code: str) -> None:
     from django.conf import settings
     from django.core.exceptions import ImproperlyConfigured

@@ -1,0 +1,29 @@
+services:
+  backend:
+    environment:
+      DATABASE_URL: postgres://airbnb_cleaners:airbnb_cleaners@db:5432/airbnb_cleaners
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend,.trycloudflare.com
+      FRONTEND_TRUSTED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,https://*.trycloudflare.com
+      USE_X_FORWARDED_HOST: "true"
+
+  worker:
+    environment:
+      DATABASE_URL: postgres://airbnb_cleaners:airbnb_cleaners@db:5432/airbnb_cleaners
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend,.trycloudflare.com
+      FRONTEND_TRUSTED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,https://*.trycloudflare.com
+      USE_X_FORWARDED_HOST: "true"
+
+  frontend:
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8000/api
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --url http://frontend:3000 --no-autoupdate
+    depends_on:
+      - frontend
+    restart: unless-stopped

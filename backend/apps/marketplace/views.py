@@ -23,6 +23,7 @@ from apps.marketplace.services import (
     complete_job,
     publish_job,
     submit_application,
+    withdraw_application,
 )
 
 
@@ -187,7 +188,9 @@ class MarketplaceCalendarView(views.APIView):
                 )
 
             application_queryset = in_calendar_window(
-                CleanerApplication.objects.select_related("job", "job__property", "job__host").filter(cleaner=user),
+                CleanerApplication.objects.select_related("job", "job__property", "job__host")
+                .filter(cleaner=user)
+                .exclude(status=CleanerApplication.Status.WITHDRAWN),
                 start,
                 end,
                 "job__",
@@ -231,7 +234,9 @@ class MarketplaceCalendarView(views.APIView):
                 )
 
             application_queryset = in_calendar_window(
-                CleanerApplication.objects.select_related("job", "job__property", "job__host").filter(cleaner=user),
+                CleanerApplication.objects.select_related("job", "job__property", "job__host")
+                .filter(cleaner=user)
+                .exclude(status=CleanerApplication.Status.WITHDRAWN),
                 start,
                 end,
                 "job__",
@@ -359,6 +364,17 @@ class CleanerApplicationViewSet(viewsets.ModelViewSet):
         except MarketplaceError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(AssignmentSerializer(assignment).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def withdraw(self, request, pk=None):
+        try:
+            application = withdraw_application(
+                application=self.get_object(),
+                withdrawn_by=request.user,
+            )
+        except MarketplaceError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(self.get_serializer(application).data)
 
 
 class AssignmentViewSet(viewsets.ReadOnlyModelViewSet):

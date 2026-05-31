@@ -14,6 +14,7 @@ from apps.marketplace.services import (
     complete_job,
     publish_job,
     submit_application,
+    withdraw_application,
 )
 from apps.notifications.models import Notification
 from apps.properties.models import Property
@@ -92,6 +93,27 @@ class MarketplaceServiceTests(TestCase):
         with self.assertRaises(MarketplaceError):
             submit_application(job=self.job, cleaner=unverified)
 
+    def test_cleaner_can_withdraw_pending_application(self):
+        publish_job(self.job)
+        application = submit_application(job=self.job, cleaner=self.cleaner)
+
+        withdrawn = withdraw_application(application=application, withdrawn_by=self.cleaner)
+
+        self.assertEqual(withdrawn.status, CleanerApplication.Status.WITHDRAWN)
+        self.assertEqual(Notification.objects.filter(user=self.host, notification_type="application.withdrawn").count(), 1)
+
+    def test_cleaner_can_withdraw_application_through_api(self):
+        publish_job(self.job)
+        application = submit_application(job=self.job, cleaner=self.cleaner)
+        self.api_client.force_authenticate(self.cleaner)
+
+        response = self.api_client.post(f"/api/marketplace/applications/{application.id}/withdraw/")
+
+        application.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], CleanerApplication.Status.WITHDRAWN)
+        self.assertEqual(application.status, CleanerApplication.Status.WITHDRAWN)
+
     def test_completed_job_can_receive_two_way_review(self):
         publish_job(self.job)
         application = submit_application(job=self.job, cleaner=self.cleaner)
@@ -130,6 +152,13 @@ class MarketplaceServiceTests(TestCase):
         self.assertEqual(application_response.data[0]["item_type"], "application")
         self.assertEqual(application_response.data[0]["application"], application.id)
 
+        withdraw_application(application=application, withdrawn_by=self.cleaner)
+        withdrawn_response = self.api_client.get("/api/marketplace/calendar/", params)
+        self.assertEqual(withdrawn_response.status_code, 200)
+        self.assertEqual(withdrawn_response.data[0]["item_type"], "open_job")
+        self.assertTrue(withdrawn_response.data[0]["can_apply"])
+
+        application = submit_application(job=self.job, cleaner=self.cleaner)
         assignment = accept_application(application=application, accepted_by=self.host)
         assignment_response = self.api_client.get("/api/marketplace/calendar/", params)
         self.assertEqual(assignment_response.status_code, 200)

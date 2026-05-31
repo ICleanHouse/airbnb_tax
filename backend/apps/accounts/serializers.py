@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
+from django.db import transaction
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 import re
@@ -86,6 +87,7 @@ class UserSerializer(serializers.ModelSerializer):
             "account_status",
         ]
 
+    @transaction.atomic
     def create(self, validated_data):
         password = validated_data.pop("password", None)
         user = User(**validated_data)
@@ -127,10 +129,12 @@ class SignupSerializer(serializers.Serializer):
     )
     birth_date = serializers.DateField(required=False)
     sex = serializers.ChoiceField(choices=CleanerProfile.Sex.choices, required=False)
+    bio = serializers.CharField(max_length=1500, required=False, allow_blank=True, trim_whitespace=True)
     native_language = serializers.CharField(max_length=80, required=False, allow_blank=True)
     education = serializers.ChoiceField(choices=CleanerProfile.Education.choices, required=False, allow_blank=True)
     experience_level = serializers.ChoiceField(choices=CleanerProfile.ExperienceLevel.choices, required=False, allow_blank=True)
     work_preference = serializers.ChoiceField(choices=CleanerProfile.WorkPreference.choices, required=False, allow_blank=True)
+    job_type_preference = serializers.ChoiceField(choices=CleanerProfile.JobTypePreference.choices, required=False, allow_blank=True)
     preferred_time_slots = serializers.ListField(
         child=serializers.ChoiceField(choices=PREFERRED_TIME_SLOTS),
         required=False,
@@ -198,17 +202,28 @@ class SignupSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"sex": "Sex is required."})
             if not attrs.get("native_language", "").strip():
                 raise serializers.ValidationError({"native_language": "Native language is required."})
-            if not attrs.get("work_preference"):
-                raise serializers.ValidationError({"work_preference": "Work preference is required."})
-            preferred_time_slots = attrs.get("preferred_time_slots", [])
-            if not preferred_time_slots:
-                raise serializers.ValidationError({"preferred_time_slots": "Choose at least one preferred time."})
-            if "flexible" in preferred_time_slots:
-                attrs["preferred_time_slots"] = ["flexible"]
+            if not attrs.get("job_type_preference"):
+                raise serializers.ValidationError({"job_type_preference": "Job type preference is required."})
             weekly_availability = attrs.get("weekly_availability", {})
             invalid_days = [day for day in weekly_availability if day not in WEEKDAYS]
             if invalid_days:
                 raise serializers.ValidationError({"weekly_availability": "Choose valid weekdays."})
+            selected_weekly_slots = [
+                slot
+                for day, slots in weekly_availability.items()
+                if day in WEEKDAYS
+                for slot in slots
+            ]
+            if not selected_weekly_slots:
+                raise serializers.ValidationError({"weekly_availability": "Choose at least one available time."})
+            preferred_time_slots = attrs.get("preferred_time_slots", [])
+            if preferred_time_slots:
+                if "flexible" in preferred_time_slots:
+                    attrs["preferred_time_slots"] = ["flexible"]
+            else:
+                attrs["preferred_time_slots"] = [
+                    slot for slot in WEEKLY_TIME_SLOTS if slot in set(selected_weekly_slots)
+                ]
             categories = attrs.get("driving_license_categories", [])
             invalid_categories = [category for category in categories if category not in BULGARIAN_DRIVING_LICENSE_CATEGORIES]
             if invalid_categories:
@@ -232,10 +247,12 @@ class SignupSerializer(serializers.Serializer):
         birth_date = validated_data.pop("birth_date", None)
         age = age_from_birth_date(birth_date) if birth_date else None
         sex = validated_data.pop("sex", CleanerProfile.Sex.PREFER_NOT_TO_SAY)
+        bio = validated_data.pop("bio", "")
         native_language = validated_data.pop("native_language", "").strip()
         education = validated_data.pop("education", "")
         experience_level = validated_data.pop("experience_level", "")
         work_preference = validated_data.pop("work_preference", "")
+        job_type_preference = validated_data.pop("job_type_preference", "")
         preferred_time_slots = validated_data.pop("preferred_time_slots", [])
         weekly_availability = validated_data.pop("weekly_availability", {})
         has_driving_license = validated_data.pop("has_driving_license", None)
@@ -267,10 +284,12 @@ class SignupSerializer(serializers.Serializer):
                 age=age,
                 birth_date=birth_date,
                 sex=sex,
+                bio=bio,
                 native_language=native_language,
                 education=education,
                 experience_level=experience_level,
                 work_preference=work_preference,
+                job_type_preference=job_type_preference,
                 preferred_time_slots=preferred_time_slots,
                 weekly_availability=weekly_availability,
                 has_driving_license=has_driving_license,
@@ -381,6 +400,7 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "education",
             "experience_level",
             "work_preference",
+            "job_type_preference",
             "preferred_time_slots",
             "weekly_availability",
             "has_driving_license",
@@ -403,6 +423,12 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def update(self, instance, validated_data):
+        if "birth_date" in validated_data:
+            birth_date = validated_data["birth_date"]
+            validated_data["age"] = age_from_birth_date(birth_date) if birth_date else None
+        return super().update(instance, validated_data)
 
 
 class AgencyProfileSerializer(serializers.ModelSerializer):

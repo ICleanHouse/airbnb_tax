@@ -128,6 +128,38 @@ def accept_application(
 
 
 @transaction.atomic
+def withdraw_application(
+    *,
+    application: CleanerApplication,
+    withdrawn_by: User,
+) -> CleanerApplication:
+    application = CleanerApplication.objects.select_for_update().select_related("job", "cleaner").get(
+        id=application.id
+    )
+
+    if not (withdrawn_by.is_platform_admin or application.cleaner_id == withdrawn_by.id):
+        raise MarketplaceError("Only the cleaner or admin can cancel this application.")
+
+    if not withdrawn_by.is_platform_admin and not withdrawn_by.is_approved:
+        raise MarketplaceError("Account must be approved before cancelling applications.")
+
+    if application.status != CleanerApplication.Status.PENDING:
+        raise MarketplaceError("Only pending applications can be cancelled.")
+
+    application.status = CleanerApplication.Status.WITHDRAWN
+    application.save(update_fields=["status", "updated_at"])
+
+    create_notification(
+        user=application.job.host,
+        notification_type="application.withdrawn",
+        title="Cleaner application cancelled",
+        body=f"{application.cleaner.get_username()} cancelled their application for {application.job.title}.",
+        metadata={"job_id": application.job_id, "application_id": application.id},
+    )
+    return application
+
+
+@transaction.atomic
 def complete_job(*, job: CleaningJob, completed_by: User) -> CleaningJob:
     job = CleaningJob.objects.select_for_update().get(id=job.id)
 

@@ -37,7 +37,8 @@ body {
 button,
 a,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -656,14 +657,24 @@ img {
 }
 
 .signup-wizard-panel {
+  --signup-edge-gap: clamp(24px, 5vw, 42px);
+  --signup-shadow-bleed: 18px;
+
   grid-template-rows: auto 10px auto;
   gap: 22px;
   align-content: start;
   overflow: visible;
+  padding: var(--signup-edge-gap);
 }
 
 .signup-wizard-frame {
+  margin: calc(var(--signup-shadow-bleed) * -1);
   overflow: hidden;
+  padding: var(--signup-shadow-bleed);
+}
+
+.signup-wizard-frame--overlay-open {
+  overflow: visible;
 }
 
 .signup-wizard-motion {
@@ -730,6 +741,17 @@ img {
   justify-content: space-between;
 }
 
+.signup-wizard-motion > .signup-nav-actions,
+.signup-wizard-motion .auth-form > .signup-nav-actions,
+.signup-wizard-motion .auth-form > .auth-submit {
+  margin-top: calc(var(--signup-edge-gap) - 20px);
+}
+
+.signup-wizard-motion .signup-availability-form > .signup-nav-actions,
+.signup-wizard-motion .auth-form:not(.signup-code-form, .signup-personal-form, .signup-experience-form, .signup-availability-form) > .auth-submit {
+  margin-top: calc(var(--signup-edge-gap) - 18px);
+}
+
 .signup-progress-track {
   width: 100%;
   height: 10px;
@@ -742,6 +764,89 @@ img {
   width: 50%;
   height: 100%;
   background: linear-gradient(90deg, #ff385c, #008489);
+}
+
+.signup-wizard-panel .auth-form input,
+.signup-wizard-panel .auth-form select,
+.signup-wizard-panel .auth-form textarea,
+.signup-city-picker select,
+.dual-zone-search {
+  box-shadow: 0 7px 16px rgba(15, 23, 42, 0.06);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.signup-wizard-panel .auth-form input:hover,
+.signup-wizard-panel .auth-form select:hover,
+.signup-wizard-panel .auth-form textarea:hover,
+.signup-city-picker select:hover,
+.dual-zone-search:hover {
+  border-color: rgba(255, 56, 92, 0.38);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.signup-wizard-panel .auth-form input:focus,
+.signup-wizard-panel .auth-form select:focus,
+.signup-wizard-panel .auth-form textarea:focus,
+.signup-city-picker select:focus,
+.dual-zone-search:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.14), 0 12px 26px rgba(15, 23, 42, 0.1);
+}
+
+.signup-wizard-panel .role-option,
+.signup-wizard-panel .auth-choice-button,
+.signup-wizard-panel .primary-link,
+.signup-wizard-panel .secondary-link,
+.signup-sex-option,
+.signup-experience-option,
+.license-category,
+.zones-actions button,
+.dual-zone-controls button,
+.signup-resend-button {
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.signup-wizard-panel .role-option:hover,
+.signup-wizard-panel .auth-choice-button:hover,
+.signup-wizard-panel .primary-link:hover:not(:disabled),
+.signup-wizard-panel .secondary-link:hover:not(:disabled),
+.signup-sex-option:hover,
+.signup-experience-option:hover,
+.license-category:hover,
+.zones-actions button:hover,
+.dual-zone-controls button:hover:not(:disabled),
+.signup-resend-button:hover:not(:disabled) {
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.1);
+  transform: translateY(-1px);
+}
+
+.signup-wizard-panel .role-option.selected,
+.signup-sex-option.selected,
+.signup-experience-option.selected,
+.license-category.selected {
+  box-shadow: 0 12px 28px rgba(255, 56, 92, 0.18);
+}
+
+.signup-code-box,
+.birthdate-picker,
+.birthdate-calendar,
+.signup-language-dropdown,
+.license-category-panel,
+.zones-panel,
+.dual-zone-listbox,
+.password-checklist {
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.signup-wizard-panel .signup-code-box.filled,
+.signup-wizard-panel .birthdate-picker:focus-within {
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.14), 0 12px 26px rgba(15, 23, 42, 0.1);
+}
+
+.dual-zone-controls button:disabled {
+  box-shadow: none;
+  transform: none;
 }
 
 .signup-progress-fill-step-3 {
@@ -1213,6 +1318,24 @@ img {
   gap: 10px;
 }
 
+.signup-job-type-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.signup-job-type-grid .signup-experience-option {
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.signup-job-type-grid .signup-experience-option:hover {
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.1);
+  transform: translateY(-1px);
+}
+
+.signup-job-type-grid .signup-experience-option.selected {
+  box-shadow: 0 12px 28px rgba(255, 56, 92, 0.18);
+}
+
 .signup-availability-time-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -1223,57 +1346,191 @@ img {
   text-align: center;
 }
 
-.signup-availability-toggle {
-  width: fit-content;
-  justify-self: start;
+.signup-weekly-availability-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.signup-weekly-grid {
-  display: grid;
-  gap: 8px;
-  border: 1.5px solid #9a9a9a;
-  border-radius: var(--radius);
-  background: var(--surface);
-  padding: 12px;
+.signup-weekly-availability-corner {
+  min-height: 26px;
 }
 
-.signup-weekly-row {
+.signup-weekly-availability-head,
+.signup-weekly-availability-day {
   display: grid;
-  grid-template-columns: minmax(104px, 1fr) repeat(3, minmax(72px, 0.7fr));
-  gap: 8px;
   align-items: center;
-}
-
-.signup-weekly-row strong,
-.signup-weekly-head span {
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 850;
-}
-
-.signup-weekly-head span {
   color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.signup-weekly-availability-head {
+  justify-items: center;
   text-align: center;
 }
 
-.signup-weekly-slot {
+.signup-weekly-availability-row {
+  display: contents;
+}
+
+.signup-weekly-availability-cell {
   display: grid;
-  min-height: 38px;
+  min-height: 42px;
   place-items: center;
   border: 1.5px solid #9a9a9a;
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--surface);
   color: #ffffff;
   cursor: pointer;
+  box-shadow: 0 7px 16px rgba(15, 23, 42, 0.07);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease;
 }
 
-.signup-weekly-slot:hover {
+.signup-weekly-availability-cell:hover {
   border-color: var(--brand);
+  box-shadow: 0 11px 24px rgba(15, 23, 42, 0.11);
+  transform: translateY(-1px);
 }
 
-.signup-weekly-slot.selected {
+.signup-weekly-availability-cell.selected {
   border-color: var(--brand);
   background: var(--brand);
+  box-shadow: 0 12px 24px rgba(255, 56, 92, 0.22);
+}
+
+.signup-weekly-availability-cell:focus-visible,
+.signup-job-type-grid .signup-experience-option:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.18), 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.signup-introduction-form {
+  gap: 20px;
+}
+
+.signup-introduction-label {
+  gap: 9px;
+}
+
+.signup-introduction-label > span {
+  display: block;
+  padding-left: 2px;
+  line-height: 1.2;
+}
+
+.signup-introduction-label textarea {
+  height: 200px;
+  min-height: 200px;
+  max-height: 520px;
+  padding: 15px;
+  line-height: 1.5;
+  overflow-y: auto;
+  resize: vertical;
+}
+
+.signup-character-count {
+  justify-self: end;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.auth-form label .signup-character-count {
+  font-weight: 500;
+}
+
+.signup-character-count.at-limit {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.auth-form label .signup-character-count.at-limit {
+  font-weight: 800;
+}
+
+.signup-empty-bio-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(17, 24, 39, 0.58);
+}
+
+.signup-empty-bio-modal {
+  display: grid;
+  width: min(500px, 100%);
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+  padding: clamp(24px, 5vw, 34px);
+}
+
+.signup-empty-bio-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 56, 92, 0.12);
+  color: var(--brand);
+}
+
+.signup-empty-bio-modal h2 {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1.16;
+}
+
+.signup-empty-bio-modal p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.signup-empty-bio-footer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 24px;
+  margin-top: 10px;
+}
+
+.signup-empty-bio-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.signup-empty-bio-text-action {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.signup-empty-bio-text-action:hover {
+  color: var(--ink);
+}
+
+.signup-empty-bio-text-action:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .signup-language-option-wrap {
@@ -1608,7 +1865,8 @@ img {
 }
 
 .auth-form input,
-.auth-form select {
+.auth-form select,
+.auth-form textarea {
   min-height: 48px;
   width: 100%;
   border: 1px solid var(--line);
@@ -1620,13 +1878,15 @@ img {
 }
 
 .auth-form input:focus,
-.auth-form select:focus {
+.auth-form select:focus,
+.auth-form textarea:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.14);
 }
 
 .auth-form input.input-invalid,
-.auth-form select.input-invalid {
+.auth-form select.input-invalid,
+.auth-form textarea.input-invalid {
   border-color: var(--brand-strong);
   box-shadow: 0 0 0 2px rgba(226, 29, 72, 0.18);
 }
@@ -2943,6 +3203,17 @@ img {
   background: #166534;
 }
 
+.cleaner-action-cancel {
+  border: 1px solid rgba(226, 29, 72, 0.24);
+  background: rgba(226, 29, 72, 0.08);
+  color: var(--brand-strong);
+}
+
+.cleaner-action-cancel:hover:not(:disabled) {
+  background: var(--brand);
+  color: #ffffff;
+}
+
 .cleaner-application-chip {
   display: inline-flex;
   align-items: center;
@@ -2969,6 +3240,7 @@ img {
 }
 
 .cleaner-application-rejected,
+.cleaner-application-withdrawn,
 .cleaner-verification-rejected,
 .cleaner-verification-suspended {
   background: rgba(226, 29, 72, 0.1);
@@ -2986,6 +3258,42 @@ img {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
+}
+
+.cleaner-profile-section {
+  display: grid;
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.cleaner-profile-section:first-child {
+  padding-top: 0;
+}
+
+.cleaner-profile-section-head h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.cleaner-profile-account-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(0, 440px);
+  gap: 22px;
+  align-items: start;
+}
+
+.cleaner-profile-account-row .form-grid {
+  width: 100%;
+  max-width: 440px;
+  justify-self: start;
+  grid-template-columns: repeat(2, minmax(0, 210px));
+}
+
+.cleaner-profile-account-row .form-grid label:last-child {
+  grid-column: 1 / -1;
 }
 
 .cleaner-avatar-uploader {
@@ -3053,6 +3361,56 @@ img {
 
 .cleaner-sex-picker {
   width: min(240px, 100%);
+}
+
+.cleaner-weekly-availability-grid {
+  display: grid;
+  grid-template-columns: 58px repeat(3, minmax(70px, 1fr));
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+}
+
+.cleaner-weekly-availability-corner {
+  min-height: 34px;
+}
+
+.cleaner-weekly-availability-head,
+.cleaner-weekly-availability-day {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.cleaner-weekly-availability-head {
+  text-align: center;
+}
+
+.cleaner-weekly-availability-row {
+  display: contents;
+}
+
+.cleaner-weekly-availability-cell {
+  display: grid;
+  place-items: center;
+  min-width: 70px;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--teal);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.cleaner-weekly-availability-cell:hover {
+  border-color: rgba(0, 166, 153, 0.45);
+}
+
+.cleaner-weekly-availability-cell.selected {
+  border-color: rgba(0, 166, 153, 0.45);
+  background: rgba(0, 166, 153, 0.12);
 }
 
 .cleaner-profile-summary {
@@ -3135,6 +3493,18 @@ img {
 @media (max-width: 620px) {
   .cleaner-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .cleaner-profile-account-row {
+    grid-template-columns: 1fr;
+  }
+
+  .cleaner-weekly-availability-grid {
+    grid-template-columns: 48px repeat(3, minmax(64px, 1fr));
+  }
+
+  .cleaner-weekly-availability-cell {
+    min-width: 64px;
   }
 
   .cleaner-job-card {
@@ -3694,16 +4064,20 @@ img {
   }
 
   .signup-availability-choice-grid,
+  .signup-job-type-grid,
   .signup-availability-time-grid {
     grid-template-columns: 1fr;
   }
 
-  .signup-weekly-row {
-    grid-template-columns: 1fr repeat(3, minmax(48px, 1fr));
+  .signup-weekly-availability-grid {
+    grid-template-columns: 42px repeat(3, minmax(70px, 1fr));
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
   }
 
-  .signup-weekly-head span {
-    font-size: 11px;
+  .signup-weekly-availability-cell {
+    min-height: 40px;
   }
 
   .signup-driving-license-field > label {

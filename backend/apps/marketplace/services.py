@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, User
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
 from apps.notifications.services import create_notification
+from apps.notifications.tasks import send_application_submitted_email
 
 
 class MarketplaceError(ValueError):
@@ -71,6 +72,7 @@ def submit_application(
         body=f"{cleaner.get_username()} applied for {job.title}.",
         metadata={"job_id": job.id, "application_id": application.id},
     )
+    send_application_submitted_email.delay(application.id)
     return application
 
 

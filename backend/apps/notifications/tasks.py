@@ -217,6 +217,91 @@ def _send_resend_email(*, api_key: str, from_email: str, to_email: str, subject:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def send_application_submitted_email(self, application_id: int) -> None:
+    """
+    Notify the job's host by email when a cleaner submits an application.
+
+    Sends via the Resend API (same infrastructure as signup-code emails).
+    """
+    from django.conf import settings
+    from django.core.exceptions import ImproperlyConfigured
+    from django.template.loader import render_to_string
+    from django.utils.html import escape
+
+    from apps.marketplace.models import CleanerApplication
+
+    try:
+        application = (
+            CleanerApplication.objects
+            .select_related("job", "job__property", "job__host", "cleaner")
+            .get(id=application_id)
+        )
+    except CleanerApplication.DoesNotExist:
+        return
+
+    host = application.job.host
+    if not host.email:
+        return
+
+    cleaner = application.cleaner
+    job = application.job
+
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
+    dashboard_url = f"{frontend_url}/host"
+
+    host_name = host.get_full_name().strip() or host.email.split("@")[0]
+    cleaner_name = cleaner.get_full_name().strip() or cleaner.get_username()
+
+    scheduled_start = job.scheduled_start.strftime("%d %b %Y, %H:%M") if job.scheduled_start else "—"
+
+    context = {
+        "host_name": escape(host_name),
+        "cleaner_name": escape(cleaner_name),
+        "job_title": escape(job.title),
+        "property_name": escape(job.property.name),
+        "property_city": escape(job.property.city or ""),
+        "scheduled_start": scheduled_start,
+        "proposed_price": application.proposed_price or "",
+        "message": escape(application.message or ""),
+        "dashboard_url": dashboard_url,
+    }
+
+    subject = f'New application for "{job.title}" — {cleaner_name}'
+    text_body = (
+        f"Hi {host_name},\n\n"
+        f"{cleaner_name} has applied for your cleaning job: {job.title}\n\n"
+        f"Property:  {job.property.name}{', ' + job.property.city if job.property.city else ''}\n"
+        f"Scheduled: {scheduled_start}\n"
+    )
+    if application.proposed_price:
+        text_body += f"Proposed price: €{application.proposed_price}\n"
+    if application.message:
+        text_body += f"Message: \"{application.message}\"\n"
+    text_body += f"\nReview this application in your dashboard:\n{dashboard_url}\n"
+
+    html_body = render_to_string("notifications/application_submitted_email.html", context)
+
+    try:
+        api_key = getattr(settings, "EMAIL_RESEND_APIKEY", "")
+        from_email = getattr(settings, "EMAIL_RESEND_FROM_EMAIL", "")
+        if not api_key:
+            raise ImproperlyConfigured("EMAIL_RESEND_APIKEY is required for application notification emails.")
+        if not from_email:
+            raise ImproperlyConfigured("EMAIL_RESEND_FROM_EMAIL is required for application notification emails.")
+
+        _send_resend_email(
+            api_key=api_key,
+            from_email=from_email,
+            to_email=host.email,
+            subject=subject,
+            text=text_body,
+            html=html_body,
+        )
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_signup_email_code(self, verification_id: int, code: str) -> None:
     from django.conf import settings
     from django.core.exceptions import ImproperlyConfigured

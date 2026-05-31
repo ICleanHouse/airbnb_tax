@@ -22,6 +22,7 @@ from apps.marketplace.services import (
     assign_member_to_assignment,
     complete_job,
     publish_job,
+    reject_application,
     submit_application,
     withdraw_application,
 )
@@ -364,6 +365,17 @@ class CleanerApplicationViewSet(viewsets.ModelViewSet):
         except MarketplaceError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(AssignmentSerializer(assignment).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        try:
+            application = reject_application(
+                application=self.get_object(),
+                rejected_by=request.user,
+            )
+        except MarketplaceError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(self.get_serializer(application).data)
 
     @action(detail=True, methods=["post"])
     def withdraw(self, request, pk=None):

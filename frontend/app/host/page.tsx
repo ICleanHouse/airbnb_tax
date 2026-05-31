@@ -12,8 +12,10 @@ const PropertyLocationPicker = dynamic(
 import {
   Building2,
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Home as HomeIcon,
   LogOut,
   Pencil,
@@ -55,6 +57,45 @@ interface Property {
   default_cleaning_duration_minutes: number;
   default_price_eur: string | null;
   images: PropertyImage[];
+}
+
+type ApplicationStatus = "pending" | "accepted" | "rejected" | "withdrawn";
+
+interface CleanerApplication {
+  id: number;
+  job: number;
+  job_title: string;
+  job_scheduled_start: string;
+  job_scheduled_end: string;
+  job_status: string;
+  job_property_name: string;
+  job_property_city: string;
+  job_property_neighborhood: string;
+  job_proposed_price: string | null;
+  cleaner: number;
+  cleaner_name: string;
+  cleaner_email: string;
+  status: ApplicationStatus;
+  proposed_price: string | null;
+  message: string;
+  created_at: string;
+}
+
+interface HostAssignment {
+  id: number;
+  job: number;
+  job_title: string;
+  job_scheduled_start: string;
+  job_scheduled_end: string;
+  job_status: string;
+  job_property_name: string;
+  job_property_city: string;
+  cleaner: number;
+  cleaner_name: string;
+  cleaner_email: string;
+  agreed_price: string | null;
+  completed_at: string | null;
+  assigned_at: string;
 }
 
 type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "disputed";
@@ -130,12 +171,16 @@ export default function HostDashboard() {
   const [me, setMe]           = useState<CurrentUser | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
 
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [jobs,       setJobs]       = useState<CleaningJob[]>([]);
-  const [loadingData, setLoadingData] = useState(false);
-  const [dataError,   setDataError]   = useState("");
+  const [properties,   setProperties]   = useState<Property[]>([]);
+  const [jobs,         setJobs]         = useState<CleaningJob[]>([]);
+  const [applications, setApplications] = useState<CleanerApplication[]>([]);
+  const [assignments,  setAssignments]  = useState<HostAssignment[]>([]);
+  const [loadingData,  setLoadingData]  = useState(false);
+  const [dataError,    setDataError]    = useState("");
+  const [actingAppId,  setActingAppId]  = useState<number | null>(null);   // which app is being accepted/rejected
+  const [completingJobId, setCompletingJobId] = useState<number | null>(null);
 
-  const [section, setSection] = useState<"jobs" | "properties">("jobs");
+  const [section, setSection] = useState<"jobs" | "properties" | "applications">("jobs");
 
   // ── Calendar ───────────────────────────────────────────────────────────────
   const now = useMemo(() => new Date(), []);
@@ -208,9 +253,11 @@ export default function HostDashboard() {
   async function loadAll() {
     setLoadingData(true);
     setDataError("");
-    const [pRes, jRes] = await Promise.all([
+    const [pRes, jRes, aRes, asRes] = await Promise.all([
       apiFetch("/api/properties/properties/"),
       apiFetch("/api/marketplace/jobs/"),
+      apiFetch("/api/marketplace/applications/"),
+      apiFetch("/api/marketplace/assignments/"),
     ]);
     if (pRes.ok) {
       const d: unknown = await pRes.json();
@@ -221,6 +268,14 @@ export default function HostDashboard() {
     if (jRes.ok) {
       const d: unknown = await jRes.json();
       setJobs(Array.isArray(d) ? d as CleaningJob[] : (d as { results: CleaningJob[] }).results ?? []);
+    }
+    if (aRes.ok) {
+      const d: unknown = await aRes.json();
+      setApplications(Array.isArray(d) ? d as CleanerApplication[] : (d as { results: CleanerApplication[] }).results ?? []);
+    }
+    if (asRes.ok) {
+      const d: unknown = await asRes.json();
+      setAssignments(Array.isArray(d) ? d as HostAssignment[] : (d as { results: HostAssignment[] }).results ?? []);
     }
     setLoadingData(false);
   }
@@ -433,6 +488,59 @@ export default function HostDashboard() {
     }
   }
 
+  // ── Accept / reject application ────────────────────────────────────────────
+  async function acceptApplication(appId: number) {
+    setActingAppId(appId);
+    try {
+      const res = await apiFetch(`/api/marketplace/applications/${appId}/accept/`, { method: "POST" });
+      if (!res.ok) return;
+      const newAssignment = await res.json() as HostAssignment;
+      // Remove the accepted application (and all others for the same job are rejected by the service)
+      const acceptedApp = applications.find((a) => a.id === appId);
+      if (acceptedApp) {
+        setApplications((prev) =>
+          prev.filter((a) => a.job !== acceptedApp.job),
+        );
+        // Update the job status in the jobs list
+        setJobs((prev) =>
+          prev.map((j) => j.id === acceptedApp.job ? { ...j, status: "assigned" as JobStatus } : j),
+        );
+      }
+      setAssignments((prev) => [...prev, newAssignment]);
+    } finally {
+      setActingAppId(null);
+    }
+  }
+
+  async function rejectApplication(appId: number) {
+    setActingAppId(appId);
+    try {
+      const res = await apiFetch(`/api/marketplace/applications/${appId}/reject/`, { method: "POST" });
+      if (!res.ok) return;
+      setApplications((prev) => prev.filter((a) => a.id !== appId));
+    } finally {
+      setActingAppId(null);
+    }
+  }
+
+  // ── Complete assignment ─────────────────────────────────────────────────────
+  async function completeJob(jobId: number) {
+    setCompletingJobId(jobId);
+    try {
+      const res = await apiFetch(`/api/marketplace/jobs/${jobId}/complete/`, { method: "POST" });
+      if (!res.ok) return;
+      const updated = await res.json() as CleaningJob;
+      setJobs((prev) => prev.map((j) => (j.id === jobId ? updated : j)));
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.job === jobId ? { ...a, completed_at: new Date().toISOString(), job_status: "completed" } : a,
+        ),
+      );
+    } finally {
+      setCompletingJobId(null);
+    }
+  }
+
   // ── ICS import handlers ────────────────────────────────────────────────────
   function openIcsModal() {
     setIcsStep(1);
@@ -596,6 +704,7 @@ export default function HostDashboard() {
   }
 
   const isApproved = me.is_approved;
+  const pendingCount = applications.filter((a) => a.status === "pending").length;
 
   // ══════════════════════════════════════════════════════════════════════════
   // Render
@@ -617,6 +726,17 @@ export default function HostDashboard() {
           >
             <CalendarDays size={15} aria-hidden />
             Jobs &amp; Calendar
+          </button>
+          <button
+            type="button"
+            className={`host-tab${section === "applications" ? " active" : ""}`}
+            onClick={() => setSection("applications")}
+          >
+            <ClipboardList size={15} aria-hidden />
+            Applications
+            {pendingCount > 0 && (
+              <span className="host-tab-count host-tab-count--alert">{pendingCount}</span>
+            )}
           </button>
           <button
             type="button"
@@ -771,6 +891,217 @@ export default function HostDashboard() {
                   );
                 })}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ APPLICATIONS SECTION ══ */}
+        {section === "applications" && (
+          <div className="host-section">
+            <div className="host-section-header">
+              <div>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Cleaner requests</p>
+                <h1 className="host-section-title">Applications</h1>
+              </div>
+            </div>
+
+            {loadingData ? (
+              <p className="host-empty">Loading…</p>
+            ) : (
+              <>
+                {/* ── Pending applications ── */}
+                <div className="host-apps-subsection">
+                  <h2 className="host-apps-subtitle">
+                    Awaiting your review
+                    {pendingCount > 0 && (
+                      <span className="host-apps-subtitle-count">{pendingCount}</span>
+                    )}
+                  </h2>
+
+                  {applications.filter((a) => a.status === "pending").length === 0 ? (
+                    <div className="host-apps-empty">
+                      <ClipboardList size={32} />
+                      <p>No pending applications.</p>
+                      <span className="host-apps-empty-hint">
+                        Cleaners will appear here once they apply to your open jobs.
+                      </span>
+                    </div>
+                  ) : (
+                    <ul className="host-apps-list">
+                      {applications
+                        .filter((a) => a.status === "pending")
+                        .sort((a, b) => a.job_scheduled_start.localeCompare(b.job_scheduled_start))
+                        .map((app) => (
+                          <li key={app.id} className="host-app-card">
+                            <div className="host-app-card-left">
+                              <div className="host-app-job-info">
+                                <strong className="host-app-job-title">{app.job_title}</strong>
+                                <span className="host-app-job-meta">
+                                  {app.job_property_name}
+                                  {app.job_property_city && ` · ${app.job_property_city}`}
+                                  {app.job_property_neighborhood && ` · ${app.job_property_neighborhood}`}
+                                </span>
+                                <span className="host-app-job-time">
+                                  {fmtDateTime(app.job_scheduled_start)} – {fmtTime(app.job_scheduled_end)}
+                                </span>
+                              </div>
+
+                              <div className="host-app-divider" />
+
+                              <div className="host-app-cleaner-info">
+                                <span className="host-app-cleaner-name">{app.cleaner_name}</span>
+                                <a
+                                  href={`mailto:${app.cleaner_email}`}
+                                  className="host-app-cleaner-email"
+                                >
+                                  {app.cleaner_email}
+                                </a>
+                              </div>
+
+                              {app.message && (
+                                <p className="host-app-message">"{app.message}"</p>
+                              )}
+                            </div>
+
+                            <div className="host-app-card-right">
+                              {app.proposed_price ? (
+                                <span className="host-app-price">€{app.proposed_price}</span>
+                              ) : app.job_proposed_price ? (
+                                <span className="host-app-price host-app-price--job">
+                                  €{app.job_proposed_price}
+                                  <small>listed</small>
+                                </span>
+                              ) : null}
+
+                              <div className="host-app-actions">
+                                <button
+                                  className="host-app-accept-btn"
+                                  type="button"
+                                  disabled={actingAppId === app.id}
+                                  onClick={() => void acceptApplication(app.id)}
+                                >
+                                  <Check size={13} aria-hidden />
+                                  {actingAppId === app.id ? "…" : "Accept"}
+                                </button>
+                                <button
+                                  className="host-app-reject-btn"
+                                  type="button"
+                                  disabled={actingAppId === app.id}
+                                  onClick={() => void rejectApplication(app.id)}
+                                >
+                                  <X size={13} aria-hidden />
+                                  Decline
+                                </button>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* ── Active assignments ── */}
+                <div className="host-apps-subsection">
+                  <h2 className="host-apps-subtitle">Active assignments</h2>
+
+                  {assignments.filter((a) => !a.completed_at).length === 0 ? (
+                    <div className="host-apps-empty">
+                      <Check size={32} />
+                      <p>No active assignments yet.</p>
+                      <span className="host-apps-empty-hint">
+                        Accept a cleaner application to create an assignment.
+                      </span>
+                    </div>
+                  ) : (
+                    <ul className="host-apps-list">
+                      {assignments
+                        .filter((a) => !a.completed_at)
+                        .sort((a, b) => a.job_scheduled_start.localeCompare(b.job_scheduled_start))
+                        .map((asgn) => (
+                          <li key={asgn.id} className="host-app-card host-app-card--assigned">
+                            <div className="host-app-card-left">
+                              <div className="host-app-job-info">
+                                <strong className="host-app-job-title">{asgn.job_title}</strong>
+                                <span className="host-app-job-meta">
+                                  {asgn.job_property_name}
+                                  {asgn.job_property_city && ` · ${asgn.job_property_city}`}
+                                </span>
+                                <span className="host-app-job-time">
+                                  {fmtDateTime(asgn.job_scheduled_start)} – {fmtTime(asgn.job_scheduled_end)}
+                                </span>
+                              </div>
+
+                              <div className="host-app-divider" />
+
+                              <div className="host-app-cleaner-info">
+                                <span className="host-app-cleaner-name">{asgn.cleaner_name}</span>
+                                <a
+                                  href={`mailto:${asgn.cleaner_email}`}
+                                  className="host-app-cleaner-email"
+                                >
+                                  {asgn.cleaner_email}
+                                </a>
+                              </div>
+                            </div>
+
+                            <div className="host-app-card-right">
+                              {asgn.agreed_price && (
+                                <span className="host-app-price">€{asgn.agreed_price}</span>
+                              )}
+                              <span className="host-app-badge host-app-badge--assigned">Assigned</span>
+                              <button
+                                className="host-app-complete-btn"
+                                type="button"
+                                disabled={completingJobId === asgn.job}
+                                onClick={() => void completeJob(asgn.job)}
+                              >
+                                {completingJobId === asgn.job ? "…" : "Mark complete"}
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* ── Recently completed ── */}
+                {assignments.filter((a) => a.completed_at).length > 0 && (
+                  <div className="host-apps-subsection">
+                    <h2 className="host-apps-subtitle host-apps-subtitle--muted">Completed</h2>
+                    <ul className="host-apps-list">
+                      {assignments
+                        .filter((a) => a.completed_at)
+                        .sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""))
+                        .slice(0, 10)
+                        .map((asgn) => (
+                          <li key={asgn.id} className="host-app-card host-app-card--done">
+                            <div className="host-app-card-left">
+                              <div className="host-app-job-info">
+                                <strong className="host-app-job-title">{asgn.job_title}</strong>
+                                <span className="host-app-job-meta">
+                                  {asgn.job_property_name} · {asgn.job_property_city}
+                                </span>
+                                <span className="host-app-job-time">
+                                  {fmtDateTime(asgn.job_scheduled_start)}
+                                </span>
+                              </div>
+                              <div className="host-app-divider" />
+                              <div className="host-app-cleaner-info">
+                                <span className="host-app-cleaner-name">{asgn.cleaner_name}</span>
+                              </div>
+                            </div>
+                            <div className="host-app-card-right">
+                              {asgn.agreed_price && (
+                                <span className="host-app-price">€{asgn.agreed_price}</span>
+                              )}
+                              <span className="host-app-badge host-app-badge--done">✓ Done</span>
+                            </div>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

@@ -37,6 +37,8 @@ class AssignmentSerializer(serializers.ModelSerializer):
     job_property_name = serializers.CharField(source="job.property.name", read_only=True)
     job_property_city = serializers.CharField(source="job.property.city", read_only=True)
     job_property_neighborhood = serializers.CharField(source="job.property.neighborhood", read_only=True)
+    cleaner_name = serializers.SerializerMethodField()
+    cleaner_email = serializers.EmailField(source="cleaner.email", read_only=True)
 
     class Meta:
         model = Assignment
@@ -51,6 +53,8 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "job_property_city",
             "job_property_neighborhood",
             "cleaner",
+            "cleaner_name",
+            "cleaner_email",
             "assigned_member",
             "application",
             "agreed_price",
@@ -61,6 +65,9 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    def get_cleaner_name(self, obj):
+        return obj.cleaner.get_full_name() or obj.cleaner.get_username()
 
 
 class AssignMemberSerializer(serializers.Serializer):
@@ -167,6 +174,8 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     cleaner = serializers.PrimaryKeyRelatedField(read_only=True)
+    cleaner_name = serializers.SerializerMethodField()
+    cleaner_email = serializers.EmailField(source="cleaner.email", read_only=True)
     job_title = serializers.CharField(source="job.title", read_only=True)
     job_scheduled_start = serializers.DateTimeField(source="job.scheduled_start", read_only=True)
     job_scheduled_end = serializers.DateTimeField(source="job.scheduled_end", read_only=True)
@@ -174,6 +183,9 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
     job_property_name = serializers.CharField(source="job.property.name", read_only=True)
     job_property_city = serializers.CharField(source="job.property.city", read_only=True)
     job_property_neighborhood = serializers.CharField(source="job.property.neighborhood", read_only=True)
+    job_proposed_price = serializers.DecimalField(
+        source="job.proposed_price", max_digits=8, decimal_places=2, read_only=True, allow_null=True
+    )
 
     class Meta:
         model = CleanerApplication
@@ -188,11 +200,17 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
             "job_property_name",
             "job_property_city",
             "job_property_neighborhood",
+            "job_proposed_price",
             "cleaner",
+            "cleaner_name",
+            "cleaner_email",
             "status",
             "proposed_price",
             "message",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "job", "cleaner", "status", "created_at", "updated_at"]
+        read_only_fields = ["id", "job", "cleaner", "cleaner_name", "cleaner_email", "status", "created_at", "updated_at"]
+
+    def get_cleaner_name(self, obj):
+        return obj.cleaner.get_full_name() or obj.cleaner.get_username()

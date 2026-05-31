@@ -128,6 +128,38 @@ def accept_application(
 
 
 @transaction.atomic
+def reject_application(
+    *,
+    application: CleanerApplication,
+    rejected_by: User,
+) -> CleanerApplication:
+    application = CleanerApplication.objects.select_for_update().select_related("job", "cleaner").get(
+        id=application.id
+    )
+
+    if not (rejected_by.is_platform_admin or application.job.host_id == rejected_by.id):
+        raise MarketplaceError("Only the host or admin can decline applications.")
+
+    if not rejected_by.is_platform_admin and not rejected_by.is_approved:
+        raise MarketplaceError("Account must be approved before declining applications.")
+
+    if application.status != CleanerApplication.Status.PENDING:
+        raise MarketplaceError("Only pending applications can be declined.")
+
+    application.status = CleanerApplication.Status.REJECTED
+    application.save(update_fields=["status", "updated_at"])
+
+    create_notification(
+        user=application.cleaner,
+        notification_type="application.rejected",
+        title="Application declined",
+        body=f"Your application for {application.job.title} was not accepted.",
+        metadata={"job_id": application.job_id, "application_id": application.id},
+    )
+    return application
+
+
+@transaction.atomic
 def withdraw_application(
     *,
     application: CleanerApplication,

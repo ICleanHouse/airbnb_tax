@@ -9,6 +9,7 @@ from apps.accounts.views import (
     CleanerProfileViewSet,
     ConfirmEmailView,
     CookieConsentView,
+    CsrfTokenView,
     HostProfileViewSet,
     LoginView,
     LogoutView,
@@ -29,6 +30,7 @@ router.register("agency-invitations", AgencyInvitationViewSet, basename="agency-
 router.register("agency-memberships", AgencyMembershipViewSet, basename="agency-membership")
 
 urlpatterns = [
+    path("csrf/", CsrfTokenView.as_view(), name="account-csrf"),
     path("signup/", SignupView.as_view(), name="account-signup"),
     path("signup/email-code/", SignupEmailCodeRequestView.as_view(), name="account-signup-email-code"),
     path("signup/verify-email-code/", SignupEmailCodeVerifyView.as_view(), name="account-signup-verify-email-code"),

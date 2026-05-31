@@ -103,6 +103,24 @@ class ConfirmEmailView(APIView):
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
+class CsrfTokenView(APIView):
+    """
+    GET /api/accounts/csrf/
+
+    No-op endpoint whose only purpose is to let the browser obtain the
+    csrftoken cookie before it submits any state-changing request (login,
+    signup, etc.).  Django's CsrfViewMiddleware rejects POST requests that
+    arrive without the cookie; calling this endpoint on page mount fixes
+    fresh sessions (incognito, new browser, cleared cookies).
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response({"detail": "CSRF cookie set."})
+
+
+@method_decorator(ensure_csrf_cookie, name="dispatch")
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 

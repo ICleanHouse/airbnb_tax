@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { LogIn, UserPlus } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 
@@ -10,6 +10,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Seed the csrftoken cookie as soon as the page loads.
+  // Django's CsrfViewMiddleware rejects POST requests that arrive without the
+  // cookie (fresh incognito windows, different browsers, cleared cookies).
+  // This one silent GET guarantees the cookie exists before the form is submitted.
+  useEffect(() => {
+    void apiFetch("/api/accounts/csrf/");
+  }, []);
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

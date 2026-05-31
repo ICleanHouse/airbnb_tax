@@ -4699,3 +4699,319 @@ img {
   font-size: 11px;
   color: var(--muted);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   HOST APPLICATIONS SECTION
+   ═══════════════════════════════════════════════════════════ */
+
+/* Alert variant for tab count badge — overrides the default */
+.host-tab-count--alert {
+  background: var(--brand) !important;
+  color: #ffffff !important;
+}
+
+/* Subsection wrapper — provides spacing between Pending / Active / Completed */
+.host-apps-subsection {
+  margin-bottom: 36px;
+}
+
+.host-apps-subsection:last-child {
+  margin-bottom: 0;
+}
+
+/* Section sub-heading */
+.host-apps-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.host-apps-subtitle--muted {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.host-apps-subtitle-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 5px;
+}
+
+/* Empty state inside a subsection */
+.host-apps-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 20px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+  color: var(--muted);
+}
+
+.host-apps-empty p {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.host-apps-empty-hint {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Application / assignment card list */
+.host-apps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+/* Individual card — two-column: info left, actions right */
+.host-app-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 20px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 16px 18px;
+}
+
+.host-app-card--assigned {
+  border-left-color: var(--gold);
+}
+
+.host-app-card--done {
+  border-left-color: #22c55e;
+  opacity: 0.8;
+}
+
+/* Left column: job info + divider + cleaner info */
+.host-app-card-left {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Job details block */
+.host-app-job-info {
+  display: grid;
+  gap: 3px;
+}
+
+.host-app-job-title {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.host-app-job-meta {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.host-app-job-time {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Thin divider between job block and cleaner block */
+.host-app-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 2px 0;
+}
+
+/* Cleaner identity block */
+.host-app-cleaner-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.host-app-cleaner-name {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.host-app-cleaner-email {
+  color: var(--teal);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.host-app-cleaner-email:hover {
+  text-decoration: underline;
+}
+
+/* Optional cleaner message / note */
+.host-app-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.5;
+  border-left: 2px solid var(--line);
+  padding-left: 10px;
+}
+
+/* Right column: price + badge + action buttons */
+.host-app-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* Price display */
+.host-app-price {
+  color: var(--teal);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.host-app-price--job {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.host-app-price--job small {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+}
+
+/* Status badge */
+.host-app-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.host-app-badge--assigned {
+  background: rgba(183, 121, 31, 0.12);
+  color: var(--gold);
+}
+
+.host-app-badge--done {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+/* Accept / Decline action button group */
+.host-app-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.host-app-accept-btn,
+.host-app-reject-btn,
+.host-app-complete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.host-app-accept-btn {
+  background: rgba(0, 132, 137, 0.12);
+  color: var(--teal);
+}
+
+.host-app-accept-btn:hover:not(:disabled) {
+  background: var(--teal);
+  color: #ffffff;
+}
+
+.host-app-reject-btn {
+  background: rgba(226, 29, 72, 0.08);
+  color: var(--brand-strong);
+}
+
+.host-app-reject-btn:hover:not(:disabled) {
+  background: var(--brand);
+  color: #ffffff;
+}
+
+.host-app-complete-btn {
+  background: rgba(34, 197, 94, 0.1);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.host-app-complete-btn:hover:not(:disabled) {
+  background: #15803d;
+  color: #ffffff;
+}
+
+.host-app-accept-btn:disabled,
+.host-app-reject-btn:disabled,
+.host-app-complete-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+@media (max-width: 620px) {
+  .host-app-card {
+    grid-template-columns: 1fr;
+  }
+
+  .host-app-card-right {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .host-app-actions {
+    flex-direction: row;
+  }
+}

@@ -395,6 +395,8 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "service_areas",
             "sex",
             "native_language",
+            "other_languages",
+            "personal_preferences",
             "age",
             "birth_date",
             "education",

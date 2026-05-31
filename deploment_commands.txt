@@ -1,0 +1,4 @@
+python cloudflare_tunnel.py status
+python cloudflare_tunnel.py logs
+python cloudflare_tunnel.py stop
+python cloudflare_tunnel.py start --build

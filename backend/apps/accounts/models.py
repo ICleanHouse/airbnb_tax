@@ -195,6 +195,8 @@ class CleanerProfile(TimeStampedModel):
         default=Sex.PREFER_NOT_TO_SAY,
     )
     native_language = models.CharField(max_length=80, blank=True)
+    other_languages = models.JSONField(default=list, blank=True)
+    personal_preferences = models.JSONField(default=list, blank=True)
     age = models.PositiveSmallIntegerField(null=True, blank=True)
     birth_date = models.DateField(null=True, blank=True)
     education = models.CharField(max_length=32, choices=Education.choices, blank=True)

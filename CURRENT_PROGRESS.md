@@ -1,6 +1,23 @@
 # Current Progress Handoff
 
-Updated: 2026-06-01, after logging/observability implementation.
+Updated: 2026-06-01, after marketplace stickiness layer (profiles, notifications, direct offers, favourites) + Sentry sanitizer fix.
+
+## Latest Work — Review-Based Marketplace Stickiness Layer
+
+Roadmap Phases 1–3 implemented (browsable cleaner profiles + reviews → notification center → direct offers + favourites). Agency dashboard, in-app chat, payments, and iCal two-way sync remain deferred.
+
+- **Phase 1 — Public cleaner profiles & reviews**:
+  - `GET /api/accounts/cleaners/` directory (verified + approved only; `?city=&min_rating=&service_area=` filters) and `GET /api/accounts/cleaners/<id>/` detail + received reviews. Safe fields only — no email/phone/birth_date.
+  - Shared components `RatingStars.tsx`, `CleanerProfileCard.tsx`, `CleanerProfileModal.tsx`; new `/cleaners` directory route; landing-page featured cleaners wired to the live endpoint. `PublicCleaner` / `CleanerReview` types in `lib/api.ts`.
+- **Phase 2 — Direct offers + favourites (side by side with the open pool)**:
+  - Reuses `CleanerApplication` via new `origin` field (`cleaner_applied` / `host_offered`). Migration `apps/marketplace/migrations/0003_cleanerapplication_origin_favouritecleaner.py`.
+  - Services `offer_job` / `accept_offer` / `decline_offer` (guards + one-assignment invariant + sibling auto-reject). `offer` action on `CleaningJobViewSet`; `accept-offer` / `decline-offer` on `CleanerApplicationViewSet`. `FavouriteCleaner` model + `GET/POST/DELETE /api/marketplace/favourites/`.
+  - Pending offers surface on the shared calendar as a gold `offer` item type (both roles).
+  - Host: ♥ favourite toggle + "My cleaners" list + "Offer a job" → `JobOfferModal.tsx`. Cleaner: **Offers** tab with Accept / Decline + gold badge.
+  - Tests: `apps/marketplace/tests/test_offers.py` (8 offer-service/API tests + favourite CRUD tests) — all pass.
+- **Phase 3 — Notification center**:
+  - `GET /api/notifications/`, `POST /api/notifications/<id>/read/`, `POST /api/notifications/read-all/`. Shared `NotificationBell.tsx` (polled) in host + cleaner topbars.
+- **Sentry sanitizer fix**: recreated missing `frontend/lib/sentry-sanitize.ts` (`beforeSend` PII scrubber imported by the three Sentry config files). Sentry env vars now in gitignored `frontend/.env.local`. `npm.cmd run typecheck` passes clean.
 
 ## User Goal
 

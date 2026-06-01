@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-05-29
+**Last updated:** 2026-06-01
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -292,12 +292,25 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
   reads: GET /api/accounts/me/
          GET /api/properties/properties/
          GET /api/marketplace/jobs/
-  writes: POST /api/properties/properties/          (add property)
-          POST /api/marketplace/jobs/               (post job / ICS bulk create)
-          POST /api/marketplace/jobs/{id}/publish/  (draft → open)
-          POST /api/properties/parse-ics/           (ICS upload → parsed events)
-  NOT YET: GET /api/marketplace/applications/       (per-job applications)
-           POST /api/marketplace/applications/{id}/accept/
+         GET /api/marketplace/applications/
+         GET /api/marketplace/assignments/
+         GET /api/feedback/reviews/
+  writes: POST   /api/properties/properties/                  (add property)
+          PATCH  /api/properties/properties/{id}/             (edit property)
+          POST   /api/properties/images/                      (upload photos)
+          DELETE /api/properties/images/{id}/                 (remove photo)
+          POST   /api/properties/parse-ics/                   (ICS upload → parsed events)
+          POST   /api/marketplace/jobs/                       (post job / ICS bulk create)
+          POST   /api/marketplace/jobs/{id}/publish/          (draft → open)
+          DELETE /api/marketplace/jobs/{id}/                  (delete; draft/open only)
+          POST   /api/marketplace/jobs/{id}/complete/         (mark done)
+          POST   /api/marketplace/applications/{id}/accept/   (accept → creates assignment)
+          POST   /api/marketplace/applications/{id}/reject/   (decline application)
+          POST   /api/feedback/reviews/                       (rate cleaner; body: job_id, reviewee_id)
+  notes:
+    - Job form uses separate date + start/end time fields (not datetime-local)
+    - Summary cards are <button> elements driving appFilter state (pending/active/completed/open)
+    - hostRatingAvg = avg of reviews where reviewee === me.id (cleaner-written reviews of the host)
 
 /cleaner                         [role: cleaner only]
   reads: GET /api/accounts/me/
@@ -366,9 +379,14 @@ Full API surface with implementation state.
 | GET/POST | `/api/marketplace/batches/` | Host | ✅ |
 | GET/POST | `/api/marketplace/jobs/` | Host/Cleaner | ✅ |
 | POST | `/api/marketplace/jobs/{id}/publish/` | Host | ✅ |
-| GET/POST | `/api/marketplace/applications/` | Cleaner/Agency | ✅ |
+| DELETE | `/api/marketplace/jobs/{id}/` | Host | ✅ — draft/open only |
+| POST | `/api/marketplace/jobs/{id}/complete/` | Host/Cleaner/Admin | ✅ |
+| GET | `/api/marketplace/calendar/` | Required | ✅ |
+| GET/POST | `/api/marketplace/applications/` | Host/Cleaner/Agency | ✅ |
 | POST | `/api/marketplace/applications/{id}/accept/` | Host | ✅ |
-| GET/POST | `/api/marketplace/assignments/` | Required | ✅ |
+| POST | `/api/marketplace/applications/{id}/reject/` | Host | ✅ |
+| POST | `/api/marketplace/applications/{id}/withdraw/` | Cleaner/Agency | ✅ |
+| GET/READ | `/api/marketplace/assignments/` | Required | ✅ |
 | POST | `/api/marketplace/assignments/{id}/assign-member/` | Agency | ✅ |
 
 ### Other
@@ -405,16 +423,19 @@ EVENT: account.created (signup)
 EVENT: account.approved                            ⬜ planned
   └──► TASK: notify cleaner/host of approval
 
-EVENT: application.submitted                       ⬜ planned
-  └──► TASK: notify host (email + in-app)
+EVENT: application.submitted                       ✅ implemented
+  ├──► TASK: send_application_submitted_email      sends via Resend to job host
+  └──► SIDE EFFECT: in-app Notification created for host
 
-EVENT: application.accepted                        ⬜ planned
-  ├──► TASK: notify cleaner (email + in-app)
+EVENT: application.accepted                        ✅ partial
   ├──► SIDE EFFECT: Assignment created
-  └──► SIDE EFFECT: competing applications → rejected
+  ├──► SIDE EFFECT: competing applications → rejected
+  ├──► SIDE EFFECT: in-app Notification created for cleaner
+  └──► ⬜ planned: acceptance email to cleaner
 
-EVENT: application.rejected                        ⬜ planned
-  └──► TASK: notify cleaner (email + in-app)
+EVENT: application.rejected                        ✅ partial
+  ├──► SIDE EFFECT: in-app Notification created for cleaner
+  └──► ⬜ planned: rejection email to cleaner
 
 EVENT: assignment.created                          ⬜ planned
   └──► TASK: notify cleaner + calendar entry
@@ -423,8 +444,11 @@ EVENT: assignment.cancelled                        ⬜ planned
   ├──► TASK: notify both parties
   └──► SIDE EFFECT: AuditLog entry
 
-EVENT: job.completed                               ⬜ planned
-  └──► TASK: review prompt to both parties (scheduled delay)
+EVENT: job.completed                               ✅ partial
+  ├──► TASK: send_job_completed_email              sends via Resend to host
+  ├──► SIDE EFFECT: assignment.completed_at set
+  ├──► SIDE EFFECT: in-app Notifications to host + cleaner
+  └──► ⬜ planned: review-prompt task (scheduled delay)
 
 EVENT: review.submitted                            ⬜ planned
   └──► SIDE EFFECT: CleanerProfile.rating recalculated
@@ -445,6 +469,8 @@ SCHEDULED: google.calendar.sync                    ⬜ placeholder (OAuth not st
 | `send_admin_new_account_email` | `apps.notifications.tasks` | ✅ | 3× / 60s |
 | `send_signup_email_code` | `apps.notifications.tasks` | ✅ | 3× / 60s |
 | `send_account_confirmation_email` | `apps.notifications.tasks` | Legacy | 3× / 60s |
+| `send_application_submitted_email` | `apps.notifications.tasks` | ✅ | 3× / 60s |
+| `send_job_completed_email` | `apps.notifications.tasks` | ✅ | 3× / 60s |
 | `dispatch_notification` | `apps.notifications.tasks` | ⬜ placeholder | — |
 | `poll_ical_feed` | `apps.calendars.tasks` | ⬜ placeholder | — |
 | `sync_google_calendar` | `apps.calendars.tasks` | ⬜ placeholder | — |
@@ -616,11 +642,14 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Application acceptance + assignment | ✅ Complete |
 | Agency member delegation | ✅ Complete |
 | Job completion | ✅ Complete |
+| Job deletion guard (draft/open only) | ✅ Complete |
 | Two-way reviews + rating update | ✅ Complete |
 | In-app notification records | ✅ Complete |
 | Calendar conflict API | ✅ Complete |
+| Application-submitted email (Resend) | ✅ Complete |
+| Job-completed email (Resend) | ✅ Complete |
 | Cleaner verification admin action | ⬜ Not built |
-| Notification triggers (application, assignment, etc.) | ⬜ Placeholder |
+| Notification triggers (acceptance, rejection, assignment emails) | ⬜ Placeholder |
 | iCal feed polling | ⬜ Placeholder |
 | Google Calendar sync | ⬜ Placeholder |
 | iCal export | ⬜ Planned |
@@ -639,9 +668,17 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Host dashboard `/host` — properties section | ✅ Complete |
 | Host dashboard `/host` — jobs + calendar | ✅ Complete |
 | Host dashboard `/host` — ICS import modal | ✅ Complete |
+| Host dashboard — job form (date + start/end time fields) | ✅ Complete |
+| Host dashboard — delete job (two-step confirm; draft/open only) | ✅ Complete |
+| Host dashboard — host can mark job complete (calendar + apps panel) | ✅ Complete |
+| Host dashboard — job completion email to host via Resend | ✅ Complete |
+| Host dashboard — application submitted email to host via Resend | ✅ Complete |
+| Host dashboard — applications panel (summary cards, filter, pending/active/completed/open) | ✅ Complete |
+| Host dashboard — host rating display (avg from cleaner-written reviews) | ✅ Complete |
+| Host dashboard — star rating + review form (post-completion) | ✅ Complete |
+| Host dashboard — job activity context in calendar list | ✅ Complete |
 | Cookie consent banner | ✅ Complete |
 | `apiFetch` — CSRF, Content-Type, FormData-safe | ✅ Complete |
-| Host dashboard — applications review panel | ⬜ Not built |
 | Cleaner dashboard `/cleaner` | ✅ Complete |
 | Agency dashboard `/agency` | ⬜ Not built |
 | Real cleaner search on landing page | ⬜ Not built |

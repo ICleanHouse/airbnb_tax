@@ -1,6 +1,6 @@
 # Current Progress Handoff
 
-Updated: 2026-06-01, after cleaner profile UX/data-model updates (location districts flow, language overlay, profile image crop, and extra services).
+Updated: 2026-06-01, after host dashboard job-flow features and applications panel.
 
 ## User Goal
 

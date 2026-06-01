@@ -199,7 +199,6 @@ export default function HostDashboard() {
   const [reviewComment,   setReviewComment]   = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [hoveredStar,     setHoveredStar]     = useState(0);
-  const [appFilter, setAppFilter] = useState<"pending" | "active" | "completed" | "open" | null>(null);
 
   const [section, setSection] = useState<"jobs" | "properties" | "applications">("jobs");
 
@@ -793,16 +792,6 @@ export default function HostDashboard() {
   const isApproved = me.is_approved;
   const pendingCount = applications.filter((a) => a.status === "pending").length;
 
-  /** Reviews where this host is the reviewee (written by cleaners about the host). */
-  const hostReviews = useMemo(
-    () => reviews.filter((r) => r.reviewee === (me?.id ?? -1)),
-    [reviews, me],
-  );
-  const hostRatingAvg = useMemo(() => {
-    if (hostReviews.length === 0) return null;
-    return hostReviews.reduce((sum, r) => sum + r.rating, 0) / hostReviews.length;
-  }, [hostReviews]);
-
   // ══════════════════════════════════════════════════════════════════════════
   // Render
   // ══════════════════════════════════════════════════════════════════════════
@@ -999,59 +988,32 @@ export default function HostDashboard() {
               <div>
                 <p className="eyebrow" style={{ margin: "0 0 4px" }}>Cleaner requests</p>
                 <h1 className="host-section-title">Applications</h1>
-                {!loadingData && hostRatingAvg !== null && (
-                  <div className="host-rating-display">
-                    <span className="host-rating-stars">
-                      {"★".repeat(Math.round(hostRatingAvg))}{"☆".repeat(5 - Math.round(hostRatingAvg))}
-                    </span>
-                    <strong className="host-rating-score">{hostRatingAvg.toFixed(1)}</strong>
-                    <span className="host-rating-count">
-                      {hostReviews.length} review{hostReviews.length !== 1 ? "s" : ""} received
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
 
             {/* ── Summary dashboard ── */}
             {!loadingData && (
               <div className="host-appdash-grid">
-                <button
-                  type="button"
-                  className={`host-appdash-card${appFilter === "pending" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "pending" ? null : "pending")}
-                >
+                <div className="host-appdash-card">
                   <span className="host-appdash-label">Pending</span>
                   <strong className="host-appdash-value">{pendingCount}</strong>
                   <span className="host-appdash-sub">applications</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--gold${appFilter === "active" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "active" ? null : "active")}
-                >
+                </div>
+                <div className="host-appdash-card host-appdash-card--gold">
                   <span className="host-appdash-label">Active</span>
                   <strong className="host-appdash-value">{assignments.filter((a) => !a.completed_at).length}</strong>
                   <span className="host-appdash-sub">assignments</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--green${appFilter === "completed" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "completed" ? null : "completed")}
-                >
+                </div>
+                <div className="host-appdash-card host-appdash-card--green">
                   <span className="host-appdash-label">Completed</span>
                   <strong className="host-appdash-value">{assignments.filter((a) => !!a.completed_at).length}</strong>
                   <span className="host-appdash-sub">cleanings</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--teal${appFilter === "open" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "open" ? null : "open")}
-                >
+                </div>
+                <div className="host-appdash-card host-appdash-card--teal">
                   <span className="host-appdash-label">Open jobs</span>
                   <strong className="host-appdash-value">{jobs.filter((j) => j.status === "open").length}</strong>
                   <span className="host-appdash-sub">awaiting cleaners</span>
-                </button>
+                </div>
               </div>
             )}
 
@@ -1060,7 +1022,6 @@ export default function HostDashboard() {
             ) : (
               <>
                 {/* ── Pending applications ── */}
-                {(appFilter === null || appFilter === "pending") && (
                 <div className="host-apps-subsection">
                   <h2 className="host-apps-subtitle">
                     Awaiting your review
@@ -1150,10 +1111,8 @@ export default function HostDashboard() {
                     </ul>
                   )}
                 </div>
-                )}
 
                 {/* ── Active assignments ── */}
-                {(appFilter === null || appFilter === "active") && (
                 <div className="host-apps-subsection">
                   <h2 className="host-apps-subtitle">Active assignments</h2>
 
@@ -1216,18 +1175,11 @@ export default function HostDashboard() {
                     </ul>
                   )}
                 </div>
-                )}
 
                 {/* ── Recently completed ── */}
-                {(appFilter === "completed" || (appFilter === null && assignments.filter((a) => a.completed_at).length > 0)) && (
+                {assignments.filter((a) => a.completed_at).length > 0 && (
                   <div className="host-apps-subsection">
                     <h2 className="host-apps-subtitle host-apps-subtitle--muted">Completed</h2>
-                    {assignments.filter((a) => a.completed_at).length === 0 ? (
-                      <div className="host-apps-empty">
-                        <Check size={32} />
-                        <p>No completed cleanings yet.</p>
-                      </div>
-                    ) : (
                     <ul className="host-apps-list">
                       {assignments
                         .filter((a) => a.completed_at)
@@ -1341,56 +1293,6 @@ export default function HostDashboard() {
                           </li>
                         ))}
                     </ul>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Open jobs listing ── */}
-                {appFilter === "open" && (
-                  <div className="host-apps-subsection">
-                    <h2 className="host-apps-subtitle">Open jobs</h2>
-                    {jobs.filter((j) => j.status === "open").length === 0 ? (
-                      <div className="host-apps-empty">
-                        <CalendarDays size={32} />
-                        <p>No open jobs.</p>
-                        <span className="host-apps-empty-hint">
-                          Publish a draft job to start receiving applications.
-                        </span>
-                      </div>
-                    ) : (
-                      <ul className="host-apps-list">
-                        {jobs
-                          .filter((j) => j.status === "open")
-                          .sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start))
-                          .map((job) => {
-                            const act = jobActivityMap.get(job.id);
-                            return (
-                              <li key={job.id} className="host-app-card">
-                                <div className="host-app-card-left">
-                                  <div className="host-app-job-info">
-                                    <strong className="host-app-job-title">{job.title}</strong>
-                                    <span className="host-app-job-meta">{getPropName(job.property)}</span>
-                                    <span className="host-app-job-time">
-                                      {fmtDateTime(job.scheduled_start)} – {fmtTime(job.scheduled_end)}
-                                    </span>
-                                    {act?.pendingApps ? (
-                                      <span className="host-job-activity host-job-activity--apps">
-                                        {act.pendingApps} application{act.pendingApps !== 1 ? "s" : ""}
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                </div>
-                                <div className="host-app-card-right">
-                                  {job.proposed_price && (
-                                    <span className="host-app-price">€{job.proposed_price}</span>
-                                  )}
-                                  <span className="host-app-badge host-app-badge--open">Open</span>
-                                </div>
-                              </li>
-                            );
-                          })}
-                      </ul>
-                    )}
                   </div>
                 )}
               </>

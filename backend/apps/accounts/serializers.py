@@ -152,6 +152,7 @@ class SignupSerializer(serializers.Serializer):
     )
     has_own_car = serializers.BooleanField(required=False)
     smoker = serializers.BooleanField(required=False, allow_null=True)
+    profile_image = serializers.CharField(required=False, allow_blank=True)
 
     def validate_email(self, value):
         email = value.strip().lower()
@@ -259,6 +260,7 @@ class SignupSerializer(serializers.Serializer):
         driving_license_categories = validated_data.pop("driving_license_categories", [])
         has_own_car = validated_data.pop("has_own_car", None)
         smoker = validated_data.pop("smoker", None)
+        profile_image = validated_data.pop("profile_image", "")
         email = validated_data.pop("email")
 
         user = User(
@@ -296,6 +298,7 @@ class SignupSerializer(serializers.Serializer):
                 driving_license_categories=driving_license_categories,
                 has_own_car=has_own_car,
                 smoker=smoker,
+                profile_image=profile_image,
                 verification_status=CleanerProfile.VerificationStatus.VERIFIED,
             )
         elif user.is_agency:

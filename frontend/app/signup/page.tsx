@@ -1,12 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Apple,
   Building2,
   CalendarDays,
+  Camera,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -15,6 +17,7 @@ import {
   MailCheck,
   RotateCw,
   Sparkles,
+  User,
   UserPlus,
   UserRoundCheck,
 } from "lucide-react";
@@ -22,7 +25,7 @@ import { apiFetch, UserRole } from "../../lib/api";
 import { cities } from "../../lib/cityDistricts";
 
 type SignupRole = Extract<UserRole, "host" | "cleaner" | "agency">;
-type SignupStep = "account" | "confirm_email" | "role" | "location" | "personal_info" | "native_language" | "experience" | "availability" | "introduction";
+type SignupStep = "account" | "confirm_email" | "role" | "location" | "personal_info" | "native_language" | "experience" | "availability" | "introduction" | "profile_photo";
 type SignupField = "first_name" | "last_name" | "email" | "password" | "password_confirm" | "form";
 type SignupFieldErrors = Partial<Record<SignupField, string>>;
 type PersonalInfoErrors = Partial<Record<"birth_date" | "sex", string>>;
@@ -31,6 +34,11 @@ type WeeklyTimeSlot = "morning" | "afternoon" | "evening";
 type JobTypePreference = "one_off" | "ongoing" | "both";
 type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 type WeeklyAvailability = Partial<Record<Weekday, WeeklyTimeSlot[]>>;
+type CropSource = {
+  src: string;
+  width: number;
+  height: number;
+};
 
 type SignupDraft = {
   first_name: string;
@@ -125,6 +133,31 @@ const jobTypePreferenceOptions: Array<{ value: JobTypePreference; label: string 
   { value: "both", label: "Open to both" },
 ];
 const introductionMaxLength = 1500;
+const PROFILE_CROP_PREVIEW_SIZE = 360;
+const PROFILE_CROP_EXPORT_SIZE = 720;
+const PROFILE_CROP_MIN_ZOOM = 1;
+const PROFILE_CROP_MAX_ZOOM = 3;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function profileCropBaseScale(source: CropSource, canvasSize: number) {
+  return Math.max(canvasSize / source.width, canvasSize / source.height);
+}
+
+function clampProfileCropOffset(offset: { x: number; y: number }, source: CropSource, zoom: number, canvasSize: number) {
+  const drawScale = profileCropBaseScale(source, canvasSize) * zoom;
+  const drawWidth = source.width * drawScale;
+  const drawHeight = source.height * drawScale;
+  const maxX = Math.max(0, (drawWidth - canvasSize) / 2);
+  const maxY = Math.max(0, (drawHeight - canvasSize) / 2);
+  return {
+    x: clamp(offset.x, -maxX, maxX),
+    y: clamp(offset.y, -maxY, maxY),
+  };
+}
+
 function validateEmailAddress(rawEmail: string): string | null {
   const email = rawEmail.trim();
   if (!email) return "Email is required.";
@@ -216,7 +249,7 @@ function derivePreferredTimeSlots(value: WeeklyAvailability): WeeklyTimeSlot[] {
 
 function stepIndex(step: SignupStep, role: SignupRole | null) {
   const steps = role === "cleaner"
-    ? ["role", "personal_info", "location", "native_language", "experience", "availability", "introduction"]
+    ? ["role", "personal_info", "location", "native_language", "experience", "availability", "introduction", "profile_photo"]
     : ["role", "location"];
   return Math.max(0, steps.indexOf(step));
 }
@@ -253,11 +286,22 @@ export default function SignupPage() {
   const [jobTypePreference, setJobTypePreference] = useState<JobTypePreference | "">("");
   const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailability>({});
   const [introduction, setIntroduction] = useState("");
+  const [profileImage, setProfileImage] = useState("");
+  const [profileImageError, setProfileImageError] = useState("");
+  const [showEmptyPhotoPrompt, setShowEmptyPhotoPrompt] = useState(false);
+  const [cropSource, setCropSource] = useState<CropSource | null>(null);
+  const [cropImageElement, setCropImageElement] = useState<HTMLImageElement | null>(null);
+  const [cropZoom, setCropZoom] = useState(PROFILE_CROP_MIN_ZOOM);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [cropBusy, setCropBusy] = useState(false);
+  const [cropError, setCropError] = useState("");
+  const [cropDragging, setCropDragging] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState<SignupFieldErrors>({});
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
   const [codeNotice, setCodeNotice] = useState("");
+  const [codeInputFocused, setCodeInputFocused] = useState(false);
   const [personalErrors, setPersonalErrors] = useState<PersonalInfoErrors>({});
   const [languageError, setLanguageError] = useState("");
   const [experienceError, setExperienceError] = useState("");
@@ -278,6 +322,10 @@ export default function SignupPage() {
   const [otherDropdownOpen, setOtherDropdownOpen] = useState(false);
   const [showEmptyBioPrompt, setShowEmptyBioPrompt] = useState(false);
   const [introductionFocused, setIntroductionFocused] = useState(false);
+  const codeInputRef = useRef<HTMLInputElement | null>(null);
+  const profilePhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const cropCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cropDragStateRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
   const introductionInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -437,6 +485,31 @@ export default function SignupPage() {
     input.style.height = `${Math.max(200, input.scrollHeight)}px`;
   }, [introduction, step]);
 
+  useEffect(() => {
+    if (!cropSource) {
+      setCropImageElement(null);
+      return;
+    }
+    const image = new window.Image();
+    image.onload = () => setCropImageElement(image);
+    image.onerror = () => setCropError("Could not load image preview.");
+    image.src = cropSource.src;
+  }, [cropSource]);
+
+  useEffect(() => {
+    if (!cropSource) return;
+    setCropOffset((current) => {
+      const constrained = clampProfileCropOffset(current, cropSource, cropZoom, PROFILE_CROP_PREVIEW_SIZE);
+      if (constrained.x === current.x && constrained.y === current.y) return current;
+      return constrained;
+    });
+  }, [cropSource, cropZoom]);
+
+  useEffect(() => {
+    drawCropPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cropSource, cropImageElement, cropZoom, cropOffset]);
+
   const selectedCity = useMemo(() => cities.find((item) => item.value === city) ?? null, [city]);
   const availableZones = useMemo(() => selectedCity?.zones.filter((zone) => !selectedZones.has(zone)) ?? [], [selectedCity, selectedZones]);
   const selectedZoneList = useMemo(() => selectedCity?.zones.filter((zone) => selectedZones.has(zone)) ?? [], [selectedCity, selectedZones]);
@@ -446,7 +519,7 @@ export default function SignupPage() {
     return availableZones.filter((zone) => zone.toLocaleLowerCase().includes(query));
   }, [availableZones, districtSearch]);
   const canContinueLocation = Boolean(selectedCity && selectedZones.size > 0);
-  const totalSteps = role === "cleaner" ? 7 : 2;
+  const totalSteps = role === "cleaner" ? 8 : 2;
   const progressPercent = Math.round(((stepIndex(step, role) + 1) / totalSteps) * 100);
 
   function selectedNativeLanguage() {
@@ -477,6 +550,7 @@ export default function SignupPage() {
     setDirection(nextDirection);
     setSubmitError("");
     setShowEmptyBioPrompt(false);
+    setShowEmptyPhotoPrompt(false);
     setStep(nextStep);
   }
 
@@ -783,6 +857,166 @@ export default function SignupPage() {
     setShowEmptyBioPrompt(false);
   }
 
+  function closeCropEditor() {
+    setCropSource(null);
+    setCropImageElement(null);
+    setCropZoom(PROFILE_CROP_MIN_ZOOM);
+    setCropOffset({ x: 0, y: 0 });
+    setCropBusy(false);
+    setCropError("");
+    setCropDragging(false);
+    cropDragStateRef.current = null;
+  }
+
+  function setCropZoomLevel(nextZoom: number) {
+    const normalizedZoom = clamp(nextZoom, PROFILE_CROP_MIN_ZOOM, PROFILE_CROP_MAX_ZOOM);
+    setCropZoom(normalizedZoom);
+    if (!cropSource) return;
+    setCropOffset((current) => clampProfileCropOffset(current, cropSource, normalizedZoom, PROFILE_CROP_PREVIEW_SIZE));
+  }
+
+  function drawCropPreview() {
+    if (!cropSource || !cropImageElement) return;
+    const canvas = cropCanvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const canvasSize = PROFILE_CROP_PREVIEW_SIZE;
+    const constrainedOffset = clampProfileCropOffset(cropOffset, cropSource, cropZoom, canvasSize);
+
+    context.clearRect(0, 0, canvasSize, canvasSize);
+    context.fillStyle = "#0f172a";
+    context.fillRect(0, 0, canvasSize, canvasSize);
+
+    const scale = profileCropBaseScale(cropSource, canvasSize) * cropZoom;
+    const drawWidth = cropSource.width * scale;
+    const drawHeight = cropSource.height * scale;
+    const drawX = (canvasSize - drawWidth) / 2 + constrainedOffset.x;
+    const drawY = (canvasSize - drawHeight) / 2 + constrainedOffset.y;
+    context.drawImage(cropImageElement, drawX, drawY, drawWidth, drawHeight);
+  }
+
+  function applyCropResult() {
+    if (!cropSource || !cropImageElement) return;
+
+    setCropBusy(true);
+    setCropError("");
+
+    try {
+      const outputCanvas = document.createElement("canvas");
+      outputCanvas.width = PROFILE_CROP_EXPORT_SIZE;
+      outputCanvas.height = PROFILE_CROP_EXPORT_SIZE;
+      const context = outputCanvas.getContext("2d");
+      if (!context) {
+        setCropError("Could not prepare cropped image.");
+        setCropBusy(false);
+        return;
+      }
+
+      const constrainedOffset = clampProfileCropOffset(cropOffset, cropSource, cropZoom, PROFILE_CROP_PREVIEW_SIZE);
+      const ratio = PROFILE_CROP_EXPORT_SIZE / PROFILE_CROP_PREVIEW_SIZE;
+      const scale = profileCropBaseScale(cropSource, PROFILE_CROP_EXPORT_SIZE) * cropZoom;
+      const drawWidth = cropSource.width * scale;
+      const drawHeight = cropSource.height * scale;
+      const drawX = (PROFILE_CROP_EXPORT_SIZE - drawWidth) / 2 + constrainedOffset.x * ratio;
+      const drawY = (PROFILE_CROP_EXPORT_SIZE - drawHeight) / 2 + constrainedOffset.y * ratio;
+
+      context.clearRect(0, 0, PROFILE_CROP_EXPORT_SIZE, PROFILE_CROP_EXPORT_SIZE);
+      context.drawImage(cropImageElement, drawX, drawY, drawWidth, drawHeight);
+
+      setProfileImage(outputCanvas.toDataURL("image/jpeg", 0.92));
+      setProfileImageError("");
+      setShowEmptyPhotoPrompt(false);
+      closeCropEditor();
+    } catch {
+      setCropError("Could not apply crop. Please try again.");
+      setCropBusy(false);
+    }
+  }
+
+  function onCropPointerDown(event: PointerEvent<HTMLCanvasElement>) {
+    if (!cropSource) return;
+    event.preventDefault();
+    const canvas = event.currentTarget;
+    canvas.setPointerCapture(event.pointerId);
+    cropDragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: cropOffset.x,
+      originY: cropOffset.y,
+    };
+    setCropDragging(true);
+  }
+
+  function onCropPointerMove(event: PointerEvent<HTMLCanvasElement>) {
+    if (!cropSource) return;
+    const dragState = cropDragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
+
+    const nextOffset = clampProfileCropOffset(
+      {
+        x: dragState.originX + (event.clientX - dragState.startX),
+        y: dragState.originY + (event.clientY - dragState.startY),
+      },
+      cropSource,
+      cropZoom,
+      PROFILE_CROP_PREVIEW_SIZE,
+    );
+    setCropOffset(nextOffset);
+  }
+
+  function onCropPointerEnd(event: PointerEvent<HTMLCanvasElement>) {
+    const dragState = cropDragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    cropDragStateRef.current = null;
+    setCropDragging(false);
+  }
+
+  function onSignupProfileImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setProfileImageError("Please choose a valid image file.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileImageError("Please choose an image up to 5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    setProfileImageError("");
+    setCropError("");
+    setCropBusy(false);
+    setCropZoom(PROFILE_CROP_MIN_ZOOM);
+    setCropOffset({ x: 0, y: 0 });
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        const image = new window.Image();
+        image.onload = () => {
+          setCropSource({
+            src: reader.result as string,
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+          });
+        };
+        image.onerror = () => {
+          setProfileImageError("Could not open this image. Please choose another file.");
+        };
+        image.src = reader.result;
+      }
+    };
+    reader.onerror = () => setProfileImageError("Could not read this image. Try another file.");
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  }
+
   function submitAvailability(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!role || role !== "cleaner" || !selectedCity || !emailVerificationToken) return;
@@ -798,7 +1032,8 @@ export default function SignupPage() {
   }
 
   function createCleanerAccount() {
-    if (!selectedCity) return;
+    if (!selectedCity || !emailVerificationToken) return;
+    setShowEmptyPhotoPrompt(false);
     void createAccount({
       ...draft(),
       role: "cleaner",
@@ -813,6 +1048,7 @@ export default function SignupPage() {
       preferred_time_slots: derivePreferredTimeSlots(weeklyAvailability),
       weekly_availability: weeklyAvailability,
       bio: introduction.trim(),
+      profile_image: profileImage,
     });
   }
 
@@ -829,6 +1065,16 @@ export default function SignupPage() {
       setShowEmptyBioPrompt(true);
       return;
     }
+    goTo("profile_photo", 1);
+  }
+
+  function submitProfilePhoto(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!role || role !== "cleaner" || !selectedCity || !emailVerificationToken) return;
+    if (!profileImage) {
+      setShowEmptyPhotoPrompt(true);
+      return;
+    }
     createCleanerAccount();
   }
 
@@ -841,7 +1087,18 @@ export default function SignupPage() {
 
   function createAccountWithoutBio() {
     setShowEmptyBioPrompt(false);
-    createCleanerAccount();
+    goTo("profile_photo", 1);
+  }
+
+  function returnToProfilePhoto() {
+    setShowEmptyPhotoPrompt(false);
+  }
+
+  function openProfilePhotoPicker() {
+    setShowEmptyPhotoPrompt(false);
+    window.requestAnimationFrame(() => {
+      profilePhotoInputRef.current?.click();
+    });
   }
 
   const passwordChecks = [
@@ -934,11 +1191,11 @@ export default function SignupPage() {
           <form className="auth-form signup-code-form" onSubmit={verifyCode} noValidate>
             <label className="signup-code-label">
               <span>Confirmation code</span>
-              <div className={codeError ? "signup-code-boxes input-invalid" : "signup-code-boxes"} onClick={() => document.getElementById("signup-code-input")?.focus()}>
+              <div className={codeError ? "signup-code-boxes input-invalid" : "signup-code-boxes"} onClick={() => codeInputRef.current?.focus()}>
                 {Array.from({ length: 6 }, (_, index) => (
-                  <span className={code[index] ? "signup-code-box filled" : "signup-code-box"} key={index}>{code[index] ?? ""}</span>
+                  <span className={`${code[index] ? "signup-code-box filled" : "signup-code-box"}${codeInputFocused && code.length < 6 && index === code.length ? " active" : ""}`} key={index}>{code[index] ?? ""}</span>
                 ))}
-                <input id="signup-code-input" className="signup-code-input" inputMode="numeric" maxLength={6} pattern="[0-9]{6}" value={code} onChange={(event) => { setCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setCodeError(""); }} autoComplete="one-time-code" aria-label="Confirmation code" aria-invalid={Boolean(codeError)} />
+                <input id="signup-code-input" ref={codeInputRef} className="signup-code-input" inputMode="numeric" maxLength={6} pattern="[0-9]{6}" value={code} onChange={(event) => { setCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setCodeError(""); }} onFocus={() => setCodeInputFocused(true)} onBlur={() => setCodeInputFocused(false)} autoComplete="one-time-code" aria-label="Confirmation code" aria-invalid={Boolean(codeError)} autoFocus />
               </div>
               {codeError ? <small className="field-error-text">{codeError}</small> : null}
               {codeNotice ? <small className="signup-code-notice">{codeNotice}</small> : null}
@@ -1276,39 +1533,82 @@ export default function SignupPage() {
       );
     }
 
-    return (
-      <>
-        <div className="auth-heading">
-          <h1>Introduce yourself</h1>
-        </div>
-        <form className="auth-form signup-introduction-form" onSubmit={submitIntroduction} noValidate>
-          <label className="signup-introduction-label">
-            <span>Your introduction</span>
-            <textarea
-              aria-invalid={Boolean(introductionError)}
-              className={introductionError ? "input-invalid" : ""}
-              maxLength={introductionMaxLength}
-              onBlur={() => setIntroductionFocused(false)}
-              onChange={(event) => changeIntroduction(event.target.value)}
-              onFocus={() => setIntroductionFocused(true)}
-              placeholder={introductionFocused ? "" : "Hosts read descriptions to find the best match.\nShare your experience, work style, and what makes you reliable.\nMake your profile feel clear and trustworthy."}
-              ref={introductionInputRef}
-              style={{ height: 200 }}
-              value={introduction}
-            />
-            <span className={introduction.length >= introductionMaxLength ? "signup-character-count at-limit" : "signup-character-count"}>
-              {introduction.length}/{introductionMaxLength}
-            </span>
-            {introductionError ? <small className="field-error-text">{introductionError}</small> : null}
-          </label>
-          {submitError ? <p className="form-error">{submitError}</p> : null}
-          <div className="signup-nav-actions">
-            <button type="button" className="secondary-link" onClick={() => goTo("availability", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
-            <button className="primary-link auth-submit" type="submit" disabled={submitting}>{submitting ? "Creating account" : "Create account"}</button>
+    if (step === "introduction") {
+      return (
+        <>
+          <div className="auth-heading">
+            <h1>Introduce yourself</h1>
           </div>
-        </form>
-      </>
-    );
+          <form className="auth-form signup-introduction-form" onSubmit={submitIntroduction} noValidate>
+            <label className="signup-introduction-label">
+              <span>Your introduction</span>
+              <textarea
+                aria-invalid={Boolean(introductionError)}
+                className={introductionError ? "input-invalid" : ""}
+                maxLength={introductionMaxLength}
+                onBlur={() => setIntroductionFocused(false)}
+                onChange={(event) => changeIntroduction(event.target.value)}
+                onFocus={() => setIntroductionFocused(true)}
+                placeholder={introductionFocused ? "" : "Hosts read descriptions to find the best match.\nShare your experience, work style, and what makes you reliable.\nMake your profile feel clear and trustworthy."}
+                ref={introductionInputRef}
+                style={{ height: 200 }}
+                value={introduction}
+              />
+              <span className={introduction.length >= introductionMaxLength ? "signup-character-count at-limit" : "signup-character-count"}>
+                {introduction.length}/{introductionMaxLength}
+              </span>
+              {introductionError ? <small className="field-error-text">{introductionError}</small> : null}
+            </label>
+            {submitError ? <p className="form-error">{submitError}</p> : null}
+            <div className="signup-nav-actions">
+              <button type="button" className="secondary-link" onClick={() => goTo("availability", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
+              <button className="primary-link auth-submit" type="submit">Continue</button>
+            </div>
+          </form>
+        </>
+      );
+    }
+
+    if (step === "profile_photo") {
+      return (
+        <>
+          <div className="auth-heading">
+            <h1>Add a profile photo</h1>
+            <p>A clear profile photo helps hosts trust your profile faster. You can skip this and add it later.</p>
+          </div>
+          <form className="auth-form signup-profile-photo-form" onSubmit={submitProfilePhoto} noValidate>
+            <div className="signup-profile-photo-preview-wrap">
+              <button
+                type="button"
+                className={profileImage ? "signup-profile-photo-trigger has-image" : "signup-profile-photo-trigger"}
+                onClick={openProfilePhotoPicker}
+                aria-label={profileImage ? "Edit profile photo" : "Upload profile photo"}
+              >
+                <div className="signup-profile-photo-preview" aria-label="Profile photo preview">
+                  {profileImage ? (
+                    <Image src={profileImage} alt="Selected profile" width={148} height={148} unoptimized />
+                  ) : (
+                    <span className="signup-profile-photo-placeholder" aria-hidden>
+                      <User size={48} />
+                    </span>
+                  )}
+                  <span className="signup-profile-photo-hover-hint">{profileImage ? "Edit photo" : "Upload photo"}</span>
+                </div>
+              </button>
+            </div>
+            <input ref={profilePhotoInputRef} type="file" accept="image/*" onChange={onSignupProfileImageChange} hidden />
+            {profileImageError ? <p className="form-error">{profileImageError}</p> : null}
+            {submitError ? <p className="form-error">{submitError}</p> : null}
+            <div className="signup-nav-actions">
+              <button type="button" className="secondary-link" onClick={() => goTo("introduction", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
+              <button className="primary-link auth-submit" type="submit" disabled={submitting}>{submitting ? "Creating account" : "Create account"}</button>
+            </div>
+          </form>
+        </>
+      );
+    }
+
+    return null;
   }
 
   return (
@@ -1348,10 +1648,80 @@ export default function SignupPage() {
           </AnimatePresence>
         </div>
       </section>
+      {cropSource ? (
+        <div
+          className="host-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="signup-crop-title"
+          onClick={closeCropEditor}
+        >
+          <div className="host-modal cleaner-crop-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="host-modal-header">
+              <h2 id="signup-crop-title">Adjust your profile photo</h2>
+              <button type="button" className="host-modal-close" onClick={closeCropEditor} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <div className="cleaner-crop-modal-body">
+              <p className="cleaner-crop-hint">
+                Drag to center your photo. Use zoom to crop tighter or wider.
+              </p>
+              <div className="cleaner-crop-canvas-wrap">
+                <canvas
+                  ref={cropCanvasRef}
+                  className={cropDragging ? "cleaner-crop-canvas dragging" : "cleaner-crop-canvas"}
+                  width={PROFILE_CROP_PREVIEW_SIZE}
+                  height={PROFILE_CROP_PREVIEW_SIZE}
+                  onPointerDown={onCropPointerDown}
+                  onPointerMove={onCropPointerMove}
+                  onPointerUp={onCropPointerEnd}
+                  onPointerCancel={onCropPointerEnd}
+                  onPointerLeave={onCropPointerEnd}
+                />
+              </div>
+              <div className="cleaner-crop-controls">
+                <label className="cleaner-crop-zoom" htmlFor="signup-crop-zoom">
+                  <span>Zoom</span>
+                  <input
+                    id="signup-crop-zoom"
+                    type="range"
+                    min={PROFILE_CROP_MIN_ZOOM}
+                    max={PROFILE_CROP_MAX_ZOOM}
+                    step={0.01}
+                    value={cropZoom}
+                    onChange={(event) => setCropZoomLevel(Number(event.target.value))}
+                  />
+                  <strong>{cropZoom.toFixed(2)}x</strong>
+                </label>
+                <div className="cleaner-crop-actions cleaner-crop-actions--all">
+                  <div className="cleaner-crop-actions-left">
+                    <button className="secondary-link" type="button" onClick={() => setCropOffset({ x: 0, y: 0 })}>
+                      Recenter
+                    </button>
+                    <button className="secondary-link" type="button" onClick={() => setCropZoomLevel(PROFILE_CROP_MIN_ZOOM)}>
+                      Reset zoom
+                    </button>
+                  </div>
+                  <div className="cleaner-crop-actions-right">
+                    <button className="secondary-link" type="button" onClick={closeCropEditor}>
+                      Cancel
+                    </button>
+                    <button className="primary-link auth-submit" type="button" onClick={applyCropResult} disabled={cropBusy}>
+                      {cropBusy ? "Applying..." : "Use this image"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {cropError ? <p className="form-error">{cropError}</p> : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {showEmptyBioPrompt ? (
         <div className="signup-empty-bio-backdrop" role="dialog" aria-modal="true" aria-labelledby="empty-bio-title" aria-describedby="empty-bio-description">
           <div className="signup-empty-bio-modal">
-            <h2 id="empty-bio-title">Improve your matching by 75%!</h2>
+            <h2 id="empty-bio-title">Improve your matching by 53%!</h2>
             <p id="empty-bio-description">
               A short bio helps hosts understand a cleaner&apos;s experience, reliability, and work style before they choose who to work with.
               You can add one now, or create the account and update it later.
@@ -1365,8 +1735,32 @@ export default function SignupPage() {
                   Add Bio
                 </button>
                 <button type="button" className="signup-empty-bio-text-action" onClick={createAccountWithoutBio} disabled={submitting}>
-                  {submitting ? "Creating account" : "Finish registration"}
+                  {submitting ? "Loading" : "Continue without bio"}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {showEmptyPhotoPrompt ? (
+        <div className="signup-empty-bio-backdrop" role="dialog" aria-modal="true" aria-labelledby="empty-photo-title" aria-describedby="empty-photo-description">
+          <div className="signup-empty-bio-modal">
+            <h2 id="empty-photo-title">Users with profile pictures are 78% more likely to find a job.</h2>
+            <p id="empty-photo-description">
+              Hosts want reliable people in their homes. A clear photo makes your profile feel trustworthy and helps you get picked faster.
+            </p>
+            <div className="signup-empty-bio-footer">
+              <div className="signup-empty-bio-icon" aria-hidden>
+                <Sparkles size={24} />
+              </div>
+              <div className="signup-empty-bio-actions">
+                <button type="button" className="primary-link auth-submit" onClick={openProfilePhotoPicker}>
+                  Upload Photo
+                </button>
+                <button type="button" className="signup-empty-bio-text-action" onClick={createCleanerAccount} disabled={submitting}>
+                  {submitting ? "Creating account" : "Create account without photo"}
+                </button>
+
               </div>
             </div>
           </div>

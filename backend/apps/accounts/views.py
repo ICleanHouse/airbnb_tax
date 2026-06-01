@@ -1,3 +1,6 @@
+import logging
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login, logout
 from django.conf import settings
@@ -12,8 +15,8 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
-import uuid
 
+from apps.core.services import write_audit_log
 from apps.accounts.models import (
     AgencyInvitation,
     AgencyMembership,
@@ -43,6 +46,7 @@ from apps.accounts.serializers import (
 
 
 User = get_user_model()
+logger = logging.getLogger("apps.accounts")
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -55,6 +59,14 @@ class SignupView(APIView):
         user = serializer.save()
         login(request, user)
         send_admin_new_account_email.delay(user.id)
+        write_audit_log(
+            actor=user,
+            action="account.created",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+            metadata={"role": user.role},
+        )
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
@@ -67,6 +79,12 @@ class SignupEmailCodeRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         verification, code = SignupEmailVerification.create_for_email(serializer.validated_data["email"])
         send_signup_email_code.delay(verification.id, code)
+        write_audit_log(
+            action="user.signup_email_code_requested",
+            entity_type="SignupEmailVerification",
+            entity_id=verification.id,
+            request=request,
+        )
         return Response({"email": verification.email, "expires_at": verification.expires_at}, status=status.HTTP_201_CREATED)
 
 
@@ -76,8 +94,23 @@ class SignupEmailCodeVerifyView(APIView):
 
     def post(self, request):
         serializer = SignupEmailCodeVerifySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            logger.warning(
+                "Signup email code verification failed",
+                extra={
+                    "event": "signup.invalid_code",
+                    "method": request.method,
+                    "path": request.path,
+                },
+            )
+            raise ValidationError(serializer.errors)
         verification = serializer.validated_data["verification"]
+        write_audit_log(
+            action="user.email_verified",
+            entity_type="SignupEmailVerification",
+            entity_id=verification.id,
+            request=request,
+        )
         return Response({"email": verification.email, "email_verification_token": str(verification.token)})
 
 
@@ -97,6 +130,13 @@ class ConfirmEmailView(APIView):
         if user.email_verified_at is None:
             user.email_verified_at = timezone.now()
             user.save(update_fields=["email_verified_at"])
+            write_audit_log(
+                actor=user,
+                action="user.email_verified",
+                entity_type="User",
+                entity_id=user.id,
+                request=request,
+            )
 
         redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?email_confirmed=1"
         return redirect(redirect_url)
@@ -126,9 +166,26 @@ class LoginView(APIView):
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            logger.warning(
+                "Login failed",
+                extra={
+                    "event": "login.failed",
+                    "method": request.method,
+                    "path": request.path,
+                },
+            )
+            raise ValidationError(serializer.errors)
         user = serializer.validated_data["user"]
         login(request, user)
+        write_audit_log(
+            actor=user,
+            action="login.succeeded",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+            metadata={"role": user.role},
+        )
         return Response(UserSerializer(user).data)
 
 
@@ -136,7 +193,15 @@ class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        user = request.user
         logout(request)
+        write_audit_log(
+            actor=user,
+            action="logout.succeeded",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -199,6 +264,14 @@ class UserViewSet(viewsets.ModelViewSet):
         user.approved_at = timezone.now()
         user.approved_by = request.user
         user.save(update_fields=["account_status", "approved_at", "approved_by"])
+        write_audit_log(
+            actor=request.user,
+            action="account.approved",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+            metadata={"role": user.role},
+        )
         return Response(self.get_serializer(user).data)
 
     @action(detail=True, methods=["post"])
@@ -206,6 +279,14 @@ class UserViewSet(viewsets.ModelViewSet):
         user = self.get_object()
         user.account_status = User.AccountStatus.REJECTED
         user.save(update_fields=["account_status"])
+        write_audit_log(
+            actor=request.user,
+            action="account.rejected",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+            metadata={"role": user.role},
+        )
         return Response(self.get_serializer(user).data)
 
     @action(detail=True, methods=["post"])

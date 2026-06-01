@@ -1,3 +1,5 @@
+import logging
+
 try:
     from celery import shared_task
 except ImportError:  # pragma: no cover - runs without Celery in local dev / tests.
@@ -34,6 +36,9 @@ except ImportError:  # pragma: no cover - runs without Celery in local dev / tes
         if func is None:
             return decorator
         return _FakeTask(func, bind=bind)
+
+
+logger = logging.getLogger("apps.notifications")
 
 
 @shared_task
@@ -98,6 +103,10 @@ def send_admin_new_account_email(self, user_id: int) -> None:
             fail_silently=False,
         )
     except Exception as exc:
+        logger.error(
+            "Admin new account email failed",
+            extra={"event": "resend.email_failed", "entity_type": "User", "entity_id": user_id},
+        )
         raise self.retry(exc=exc)
 
 
@@ -181,6 +190,10 @@ def send_account_confirmation_email(self, user_id: int) -> None:
     try:
         email.send(fail_silently=False)
     except Exception as exc:
+        logger.error(
+            "Account confirmation email failed",
+            extra={"event": "resend.email_failed", "entity_type": "User", "entity_id": user_id},
+        )
         raise self.retry(exc=exc)
 
 
@@ -298,6 +311,14 @@ def send_application_submitted_email(self, application_id: int) -> None:
             html=html_body,
         )
     except Exception as exc:
+        logger.error(
+            "Application notification email failed",
+            extra={
+                "event": "resend.email_failed",
+                "entity_type": "CleanerApplication",
+                "entity_id": application_id,
+            },
+        )
         raise self.retry(exc=exc)
 
 
@@ -382,6 +403,10 @@ def send_job_completed_email(self, job_id: int) -> None:
             html=html_body,
         )
     except Exception as exc:
+        logger.error(
+            "Job completion email failed",
+            extra={"event": "resend.email_failed", "entity_type": "CleaningJob", "entity_id": job_id},
+        )
         raise self.retry(exc=exc)
 
 
@@ -426,5 +451,13 @@ def send_signup_email_code(self, verification_id: int, code: str) -> None:
             html=html_body,
         )
     except Exception as exc:
+        logger.error(
+            "Signup confirmation code email failed",
+            extra={
+                "event": "resend.email_failed",
+                "entity_type": "SignupEmailVerification",
+                "entity_id": verification_id,
+            },
+        )
         raise self.retry(exc=exc)
 

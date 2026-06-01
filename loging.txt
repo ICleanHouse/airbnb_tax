@@ -1,0 +1,339 @@
+For your project, build three separate systems, not one giant “log everything” table:
+
+Technical logging — backend/frontend/worker logs for developers.
+Audit/activity logging — permanent records of important marketplace actions.
+Error/crash monitoring — automatic alerts with stack traces when something breaks.
+
+Your own architecture already includes an AuditLog concept for key marketplace decisions and a Notification event system, so logging should fit naturally into the existing domain-event structure.
+
+Recommended setup for your Django / Next.js / Celery app
+1. Use structured backend logs
+
+Use Django/Python logging, but output logs as JSON, not plain text.
+
+Each backend log should include:
+
+{
+  "timestamp": "2026-06-01T14:35:22+03:00",
+  "level": "INFO",
+  "service": "backend",
+  "environment": "local",
+  "request_id": "req_abc123",
+  "user_id": 42,
+  "role": "host",
+  "event": "cleaning_job_created",
+  "message": "Host created draft cleaning job",
+  "entity_type": "CleaningJob",
+  "entity_id": 118
+}
+
+OWASP recommends that useful logs should answer when, where, who, and what, which maps exactly to timestamp, service/route, user/session/request, and event/action.
+
+Use levels like this:
+
+Level	Use for	Example
+DEBUG	Developer-only details	Serializer input shape, branch decisions
+INFO	Successful important actions	User logged in, job posted, application accepted
+WARNING	Something suspicious or recoverable	Failed login, permission denied, invalid verification code
+ERROR	Operation failed but system continues	Resend failed, ICS parse failed, DB constraint failure
+CRITICAL	System cannot continue safely	DB unavailable, startup failure, repeated worker crash
+
+Do not log passwords, email verification codes, API keys, full cookies, session IDs, raw tokens, full request bodies, or unnecessary personal data.
+
+2. Add request correlation IDs
+
+Every request should get a unique request_id.
+
+Flow:
+
+Browser request
+  -> Next.js frontend
+  -> Django API
+  -> Celery task
+  -> Resend / external service
+
+The same request_id should appear in all related logs. This makes debugging much easier:
+
+User says: “Signup failed.”
+Admin finds user email/user_id.
+Search logs by user_id or request_id.
+See: frontend clicked submit -> backend accepted -> Celery task failed -> Resend returned 403.
+
+This is one of the most practical things you can add early.
+
+3. Add an AuditLog database table
+
+This is different from technical logs.
+
+Technical logs are for debugging.
+Audit logs are for business history, support, disputes, and admin visibility.
+
+Your AuditLog should record important actions such as:
+
+Action	Why it matters
+account.created	Signup history
+account.approved / account.rejected	Admin accountability
+cleaner.verified	Trust and marketplace access
+property.created	Host activity
+job.created / job.published	Marketplace history
+application.submitted	Cleaner/agency intent
+application.accepted / rejected	Assignment history
+assignment.cancelled	Dispute support
+job.completed	Review/payment-context support
+review.submitted	Reputation history
+calendar.import_failed	Host support
+
+Suggested model:
+
+class AuditLog(models.Model):
+    actor = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
+    action = models.CharField(max_length=100)
+    entity_type = models.CharField(max_length=100)
+    entity_id = models.CharField(max_length=100, null=True, blank=True)
+    request_id = models.CharField(max_length=100, null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+Keep this table append-only. Do not update old audit records except for legal deletion/anonymization rules.
+
+4. Use Sentry for errors and crashes
+
+For crash tracking, use Sentry.
+
+Sentry’s Django integration supports automatic reporting of errors and exceptions, plus tracing.
+
+Use it for:
+
+Django 500 errors.
+Uncaught frontend errors.
+Next.js rendering errors.
+Celery task failures.
+Performance bottlenecks.
+Release/version tracking.
+
+In practice, Sentry tells you:
+
+This exact error happened 42 times.
+It affects 7 users.
+It started after release v0.3.1.
+Here is the stack trace.
+Here is the user/session/request context.
+
+This is much better than searching raw logs manually.
+
+5. Use frontend error tracking and optional session replay
+
+For the frontend, add:
+
+React error boundaries.
+Global error handler.
+API error logging in apiFetch.
+Sentry browser SDK.
+Optional session replay later.
+
+For “what did the user click before the bug happened?”, use either:
+
+PostHog for product analytics/session replay.
+Sentry Session Replay if you want it close to error monitoring.
+
+PostHog session replay is specifically designed to replay sessions and diagnose UI issues from user behavior context.
+
+Because your app handles personal data, session replay should be:
+
+Disabled by default until cookie/analytics consent.
+Mask form inputs.
+Never record passwords, verification codes, phone numbers, or private notes.
+Enabled first only for internal/admin testing.
+
+Your project already has consent-first cookie handling, so optional analytics/session replay should respect that model.
+
+6. Centralize logs
+
+For local development:
+
+Django console logs
+Celery console logs
+Next.js console logs
+Docker compose logs
+
+For production:
+
+App logs -> stdout JSON -> collector -> central log storage
+
+Good options:
+
+Option	Use case
+Grafana Loki + Grafana	Cost-effective log aggregation
+Grafana Cloud	Easier hosted option
+ELK / OpenSearch	Powerful but heavier
+Cloud provider logs	Azure/AWS/GCP-native deployment
+Sentry Logs	Useful if already using Sentry
+
+Grafana Loki is built to store and query logs from applications and infrastructure.
+
+For your MVP, I would start with:
+
+Sentry + JSON stdout logs + Docker logs
+
+Then later add:
+
+Grafana Loki + Grafana dashboards
+7. Add metrics and alerts
+
+Logs tell you what happened.
+Metrics tell you whether the system is healthy.
+
+Track:
+
+Metric	Alert when
+HTTP 500 rate	More than normal
+API latency	Too slow
+Celery failed tasks	Any repeated failure
+Signup email failures	Immediate alert
+Resend API failures	Repeated failures
+DB connection failures	Immediate alert
+Redis unavailable	Immediate alert
+Login/signup failure spike	Possible bug or attack
+Disk/RAM/CPU	Near limit
+
+Prometheus is a common open-source monitoring and alerting system with a time-series database and alerting model.
+
+For early MVP, you do not need a complex metrics stack immediately. Use:
+
+Sentry alerts + uptime monitor + basic server metrics
+
+Later:
+
+Prometheus + Grafana
+What to log in your actual marketplace
+Successful events — INFO
+
+Log important successful business actions:
+
+user.signup_email_code_requested
+user.email_verified
+account.created
+account.approved
+login.succeeded
+property.created
+ics.import.started
+ics.import.completed
+job.created
+job.published
+application.submitted
+application.accepted
+job.completed
+review.submitted
+
+Do not log every mouse click in backend logs. Use analytics/session replay for that.
+
+Failed but expected events — WARNING
+login.failed
+permission.denied
+signup.invalid_code
+signup.expired_code
+cleaner.apply_blocked_not_verified
+host.delete_job_denied_assigned
+csrf.failed
+rate_limit.triggered
+
+These are not necessarily bugs, but they are useful for security and support.
+
+Real errors — ERROR
+resend.email_failed
+celery.task_failed
+ics.parse_failed
+db.integrity_error
+external_calendar.sync_failed
+unexpected_serializer_error
+
+These should go to logs and Sentry.
+
+Crashes — CRITICAL
+django.startup_failed
+database.unavailable
+redis.unavailable
+celery.worker_crashed
+migration.failed
+
+These should trigger an immediate alert.
+
+Minimum implementation plan
+Phase 1 — build now
+
+Add these first:
+
+Django JSON logging config
+Request ID middleware
+Sentry for Django, Celery, and Next.js
+AuditLog model
+Helper function: write_audit_log(...)
+Log key events in service functions
+Log all Celery task starts, successes, retries, and failures
+Add basic admin view for AuditLog
+
+Example helper:
+
+def write_audit_log(
+    *,
+    actor,
+    action: str,
+    entity_type: str,
+    entity_id=None,
+    request_id=None,
+    metadata=None,
+):
+    AuditLog.objects.create(
+        actor=actor if actor and actor.is_authenticated else None,
+        action=action,
+        entity_type=entity_type,
+        entity_id=str(entity_id) if entity_id else "",
+        request_id=request_id,
+        metadata=metadata or {},
+    )
+Phase 2 — after MVP works
+
+Add:
+
+Grafana Loki or hosted log storage.
+Uptime monitoring.
+Product analytics.
+Session replay with consent and masking.
+Security alerts.
+Admin support screen: search user → see recent audit events/errors.
+Phase 3 — production scaling
+
+Add:
+
+OpenTelemetry traces.
+Prometheus metrics.
+Full dashboards.
+Alert routing to email/Slack/Telegram.
+Log retention policies.
+Incident review process.
+
+OpenTelemetry is the vendor-neutral standard for telemetry data such as traces, metrics, and logs, so it is the better long-term direction once the system grows.
+
+Best practical stack for you
+
+For your current stage, use this:
+
+Django logging          -> JSON logs to console
+Next.js logging         -> console + Sentry browser SDK
+Celery logging          -> JSON logs with task_id and request_id
+AuditLog table          -> permanent business/action history
+Sentry                  -> errors, crashes, stack traces, releases
+Docker logs             -> local/early hosting debugging
+PostHog later           -> analytics/session replay after consent
+Grafana Loki later      -> centralized logs
+Prometheus later        -> metrics and alerts
+Important rule
+
+Do not use technical logs as your only source of truth.
+
+For marketplace actions, use AuditLog.
+For bugs and crashes, use Sentry.
+For infrastructure debugging, use centralized structured logs.
+For user behavior, use analytics/session replay with consent.

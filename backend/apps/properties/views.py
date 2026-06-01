@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import urllib.request
 
 from icalendar import Calendar
@@ -8,6 +9,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.services import write_audit_log
 from apps.properties.models import ExternalCalendarConnection, Property, PropertyImage, Reservation
 from apps.properties.serializers import (
     ExternalCalendarConnectionSerializer,
@@ -18,6 +20,7 @@ from apps.properties.serializers import (
 
 
 _ICS_SKIP_KEYWORDS = ("not available", "blocked", "unavailable")
+logger = logging.getLogger("apps.properties")
 
 
 def _parse_ics_bytes(content: bytes):
@@ -84,10 +87,35 @@ class ParseIcsView(APIView):
                 {"detail": "ics_file is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        write_audit_log(
+            actor=request.user,
+            action="ics.import.started",
+            entity_type="ICSImport",
+            request=request,
+            metadata={"source": "upload"},
+        )
         try:
             events = _parse_ics_bytes(ics_file.read())
         except ValueError as exc:
+            logger.error(
+                "ICS upload parse failed",
+                extra={"event": "ics.parse_failed", "metadata": {"source": "upload"}},
+            )
+            write_audit_log(
+                actor=request.user,
+                action="ics.import_failed",
+                entity_type="ICSImport",
+                request=request,
+                metadata={"source": "upload", "reason": str(exc)},
+            )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        write_audit_log(
+            actor=request.user,
+            action="ics.import.completed",
+            entity_type="ICSImport",
+            request=request,
+            metadata={"source": "upload", "event_count": len(events)},
+        )
         return Response(events)
 
 
@@ -112,11 +140,29 @@ class FetchIcsUrlView(APIView):
         if not url.startswith(("http://", "https://")):
             return Response({"detail": "url must start with http:// or https://."}, status=status.HTTP_400_BAD_REQUEST)
 
+        write_audit_log(
+            actor=request.user,
+            action="ics.import.started",
+            entity_type="ICSImport",
+            request=request,
+            metadata={"source": "url"},
+        )
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=15) as response:
                 content = response.read()
         except Exception as exc:
+            logger.error(
+                "ICS URL fetch failed",
+                extra={"event": "external_calendar.sync_failed", "metadata": {"source": "url"}},
+            )
+            write_audit_log(
+                actor=request.user,
+                action="ics.import_failed",
+                entity_type="ICSImport",
+                request=request,
+                metadata={"source": "url", "reason": str(exc)},
+            )
             return Response(
                 {"detail": f"Could not fetch the calendar URL: {exc}"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -125,8 +171,26 @@ class FetchIcsUrlView(APIView):
         try:
             events = _parse_ics_bytes(content)
         except ValueError as exc:
+            logger.error(
+                "ICS URL parse failed",
+                extra={"event": "ics.parse_failed", "metadata": {"source": "url"}},
+            )
+            write_audit_log(
+                actor=request.user,
+                action="ics.import_failed",
+                entity_type="ICSImport",
+                request=request,
+                metadata={"source": "url", "reason": str(exc)},
+            )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        write_audit_log(
+            actor=request.user,
+            action="ics.import.completed",
+            entity_type="ICSImport",
+            request=request,
+            metadata={"source": "url", "event_count": len(events)},
+        )
         return Response(events)
 
 
@@ -157,7 +221,14 @@ class PropertyViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Only hosts can create properties.")
         if not self.request.user.is_platform_admin and not self.request.user.is_approved:
             raise PermissionDenied("Account must be approved before creating properties.")
-        serializer.save(host=self.request.user)
+        property = serializer.save(host=self.request.user)
+        write_audit_log(
+            actor=self.request.user,
+            action="property.created",
+            entity_type="Property",
+            entity_id=property.id,
+            request=self.request,
+        )
 
 
 class PropertyImageViewSet(viewsets.ModelViewSet):

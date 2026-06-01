@@ -1,9 +1,14 @@
+import logging
+
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 
 from apps.feedback.models import Review
 from apps.feedback.serializers import ReviewSerializer
 from apps.feedback.services import FeedbackError, submit_review
+
+
+logger = logging.getLogger("apps.feedback")
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
@@ -28,8 +33,12 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 comment=serializer.validated_data.get("comment", ""),
                 private_note=serializer.validated_data.get("private_note", ""),
                 is_private_issue=serializer.validated_data.get("is_private_issue", False),
+                request=request,
             )
         except FeedbackError as exc:
+            logger.warning(
+                "Review submission blocked",
+                extra={"event": "review.submit_blocked", "metadata": {"reason": str(exc)}},
+            )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(review).data, status=status.HTTP_201_CREATED)
-

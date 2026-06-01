@@ -6,6 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, User
+from apps.core.services import write_audit_log
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
 from apps.notifications.services import create_notification
 from apps.notifications.tasks import send_application_submitted_email, send_job_completed_email
@@ -15,11 +16,19 @@ class MarketplaceError(ValueError):
     pass
 
 
-def publish_job(job: CleaningJob) -> CleaningJob:
+def publish_job(job: CleaningJob, *, actor: User | None = None, request=None) -> CleaningJob:
     if job.status != CleaningJob.Status.DRAFT:
         raise MarketplaceError("Only draft jobs can be published.")
     job.status = CleaningJob.Status.OPEN
     job.save(update_fields=["status", "updated_at"])
+    if actor is not None:
+        write_audit_log(
+            actor=actor,
+            action="job.published",
+            entity_type="CleaningJob",
+            entity_id=job.id,
+            request=request,
+        )
     return job
 
 
@@ -29,6 +38,7 @@ def submit_application(
     cleaner: User,
     proposed_price: Decimal | None = None,
     message: str = "",
+    request=None,
 ) -> CleanerApplication:
     if not cleaner.is_approved:
         raise MarketplaceError("Account must be approved before applying for cleaning jobs.")
@@ -73,6 +83,14 @@ def submit_application(
         metadata={"job_id": job.id, "application_id": application.id},
     )
     send_application_submitted_email.delay(application.id)
+    write_audit_log(
+        actor=cleaner,
+        action="application.submitted",
+        entity_type="CleanerApplication",
+        entity_id=application.id,
+        request=request,
+        metadata={"job_id": application.job_id},
+    )
     return application
 
 
@@ -82,6 +100,7 @@ def accept_application(
     application: CleanerApplication,
     accepted_by: User,
     agreed_price: Decimal | None = None,
+    request=None,
 ) -> Assignment:
     application = CleanerApplication.objects.select_for_update().select_related("job", "cleaner").get(
         id=application.id
@@ -126,6 +145,14 @@ def accept_application(
         body=f"You were assigned to {job.title}.",
         metadata={"job_id": job.id, "assignment_id": assignment.id},
     )
+    write_audit_log(
+        actor=accepted_by,
+        action="application.accepted",
+        entity_type="CleanerApplication",
+        entity_id=assignment.application_id,
+        request=request,
+        metadata={"assignment_id": assignment.id, "job_id": assignment.job_id},
+    )
     return assignment
 
 
@@ -134,6 +161,7 @@ def reject_application(
     *,
     application: CleanerApplication,
     rejected_by: User,
+    request=None,
 ) -> CleanerApplication:
     application = CleanerApplication.objects.select_for_update().select_related("job", "cleaner").get(
         id=application.id
@@ -158,6 +186,14 @@ def reject_application(
         body=f"Your application for {application.job.title} was not accepted.",
         metadata={"job_id": application.job_id, "application_id": application.id},
     )
+    write_audit_log(
+        actor=rejected_by,
+        action="application.rejected",
+        entity_type="CleanerApplication",
+        entity_id=application.id,
+        request=request,
+        metadata={"job_id": application.job_id},
+    )
     return application
 
 
@@ -166,6 +202,7 @@ def withdraw_application(
     *,
     application: CleanerApplication,
     withdrawn_by: User,
+    request=None,
 ) -> CleanerApplication:
     application = CleanerApplication.objects.select_for_update().select_related("job", "cleaner").get(
         id=application.id
@@ -190,11 +227,19 @@ def withdraw_application(
         body=f"{application.cleaner.get_username()} cancelled their application for {application.job.title}.",
         metadata={"job_id": application.job_id, "application_id": application.id},
     )
+    write_audit_log(
+        actor=withdrawn_by,
+        action="application.withdrawn",
+        entity_type="CleanerApplication",
+        entity_id=application.id,
+        request=request,
+        metadata={"job_id": application.job_id},
+    )
     return application
 
 
 @transaction.atomic
-def complete_job(*, job: CleaningJob, completed_by: User) -> CleaningJob:
+def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> CleaningJob:
     job = CleaningJob.objects.select_for_update().get(id=job.id)
 
     if job.status != CleaningJob.Status.ASSIGNED:
@@ -236,6 +281,13 @@ def complete_job(*, job: CleaningJob, completed_by: User) -> CleaningJob:
         metadata={"job_id": job.id},
     )
     send_job_completed_email.delay(job.id)
+    write_audit_log(
+        actor=completed_by,
+        action="job.completed",
+        entity_type="CleaningJob",
+        entity_id=job.id,
+        request=request,
+    )
     return job
 
 
@@ -245,6 +297,7 @@ def assign_member_to_assignment(
     assignment: Assignment,
     agency_user: User,
     member: User,
+    request=None,
 ) -> Assignment:
     assignment = Assignment.objects.select_for_update().select_related("job", "cleaner").get(
         id=assignment.id
@@ -291,5 +344,13 @@ def assign_member_to_assignment(
         title="Agency cleaning assigned",
         body=f"{agency_profile.company_name} assigned you to {assignment.job.title}.",
         metadata={"job_id": assignment.job_id, "assignment_id": assignment.id},
+    )
+    write_audit_log(
+        actor=agency_user,
+        action="assignment.member_assigned",
+        entity_type="Assignment",
+        entity_id=assignment.id,
+        request=request,
+        metadata={"assigned_member_id": assignment.assigned_member_id, "job_id": assignment.job_id},
     )
     return assignment

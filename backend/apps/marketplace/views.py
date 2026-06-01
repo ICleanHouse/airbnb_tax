@@ -1,3 +1,5 @@
+import logging
+
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -7,6 +9,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
+from apps.core.services import write_audit_log
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningBatch, CleaningJob
 from apps.marketplace.serializers import (
     AssignMemberSerializer,
@@ -29,6 +32,7 @@ from apps.marketplace.services import (
 
 
 User = get_user_model()
+logger = logging.getLogger("apps.marketplace")
 
 
 def parse_calendar_bound(value):
@@ -281,7 +285,15 @@ class CleaningBatchViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Account must be approved before creating cleaning batches.")
         if not self.request.user.is_platform_admin and property.host_id != self.request.user.id:
             raise PermissionDenied("Hosts can create batches only for their own properties.")
-        serializer.save(host=property.host)
+        job = serializer.save(host=property.host)
+        write_audit_log(
+            actor=self.request.user,
+            action="job.created",
+            entity_type="CleaningJob",
+            entity_id=job.id,
+            request=self.request,
+            metadata={"status": job.status},
+        )
 
 
 class CleaningJobViewSet(MarketplaceQuerysetMixin, viewsets.ModelViewSet):
@@ -334,16 +346,24 @@ class CleaningJobViewSet(MarketplaceQuerysetMixin, viewsets.ModelViewSet):
         if not request.user.is_platform_admin and not request.user.is_approved:
             raise PermissionDenied("Account must be approved before publishing jobs.")
         try:
-            job = publish_job(self.get_object())
+            job = publish_job(self.get_object(), actor=request.user, request=request)
         except MarketplaceError as exc:
+            logger.warning(
+                "Job publish blocked",
+                extra={"event": "host.publish_job_denied", "metadata": {"reason": str(exc)}},
+            )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(job).data)
 
     @action(detail=True, methods=["post"])
     def complete(self, request, pk=None):
         try:
-            job = complete_job(job=self.get_object(), completed_by=request.user)
+            job = complete_job(job=self.get_object(), completed_by=request.user, request=request)
         except MarketplaceError as exc:
+            logger.warning(
+                "Job completion blocked",
+                extra={"event": "job.complete_blocked", "metadata": {"reason": str(exc)}},
+            )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(job).data)
 
@@ -364,12 +384,27 @@ class CleanerApplicationViewSet(viewsets.ModelViewSet):
             return queryset.filter(cleaner=user)
         return queryset.none()
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            self.perform_create(serializer)
+        except MarketplaceError as exc:
+            logger.warning(
+                "Application submission blocked",
+                extra={"event": "cleaner.apply_blocked_not_verified", "metadata": {"reason": str(exc)}},
+            )
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def perform_create(self, serializer):
         application = submit_application(
             job=serializer.validated_data["job"],
             cleaner=self.request.user,
             proposed_price=serializer.validated_data.get("proposed_price"),
             message=serializer.validated_data.get("message", ""),
+            request=self.request,
         )
         serializer.instance = application
 
@@ -380,8 +415,13 @@ class CleanerApplicationViewSet(viewsets.ModelViewSet):
                 application=self.get_object(),
                 accepted_by=request.user,
                 agreed_price=request.data.get("agreed_price"),
+                request=request,
             )
         except MarketplaceError as exc:
+            logger.warning(
+                "Application accept blocked",
+                extra={"event": "application.accept_blocked", "metadata": {"reason": str(exc)}},
+            )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(AssignmentSerializer(assignment).data, status=status.HTTP_201_CREATED)
 
@@ -391,8 +431,13 @@ class CleanerApplicationViewSet(viewsets.ModelViewSet):
             application = reject_application(
                 application=self.get_object(),
                 rejected_by=request.user,
+                request=request,
             )
         except MarketplaceError as exc:
+            logger.warning(
+                "Application reject blocked",
+                extra={"event": "application.reject_blocked", "metadata": {"reason": str(exc)}},
+            )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(application).data)
 
@@ -402,8 +447,13 @@ class CleanerApplicationViewSet(viewsets.ModelViewSet):
             application = withdraw_application(
                 application=self.get_object(),
                 withdrawn_by=request.user,
+                request=request,
             )
         except MarketplaceError as exc:
+            logger.warning(
+                "Application withdrawal blocked",
+                extra={"event": "application.withdraw_blocked", "metadata": {"reason": str(exc)}},
+            )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(application).data)
 
@@ -440,7 +490,12 @@ class AssignmentViewSet(viewsets.ReadOnlyModelViewSet):
                 assignment=self.get_object(),
                 agency_user=request.user,
                 member=member,
+                request=request,
             )
         except MarketplaceError as exc:
+            logger.warning(
+                "Assignment member selection blocked",
+                extra={"event": "assignment.member_assign_blocked", "metadata": {"reason": str(exc)}},
+            )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(assignment).data)

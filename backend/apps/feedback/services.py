@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Avg
 
 from apps.accounts.models import CleanerProfile
+from apps.core.services import write_audit_log
 from apps.feedback.models import Review
 from apps.marketplace.models import CleaningJob
 from apps.notifications.services import create_notification
@@ -25,6 +26,7 @@ def submit_review(
     comment: str = "",
     private_note: str = "",
     is_private_issue: bool = False,
+    request=None,
 ) -> Review:
     if job.status != CleaningJob.Status.COMPLETED:
         raise FeedbackError("Reviews are allowed only after job completion.")
@@ -56,6 +58,14 @@ def submit_review(
         body=f"You received feedback for {job.title}.",
         metadata={"job_id": job.id, "review_id": review.id},
     )
+    write_audit_log(
+        actor=reviewer,
+        action="review.submitted",
+        entity_type="Review",
+        entity_id=review.id,
+        request=request,
+        metadata={"job_id": review.job_id, "reviewee_id": review.reviewee_id},
+    )
     return review
 
 
@@ -72,4 +82,3 @@ def refresh_cleaner_rating(user: User) -> None:
     profile.average_rating = aggregate["average"] or 0
     profile.completed_jobs_count = completed_count
     profile.save(update_fields=["average_rating", "completed_jobs_count", "updated_at"])
-

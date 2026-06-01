@@ -34,6 +34,7 @@
 # - icalendar 6.3+ (iCal / Airbnb calendar parsing)
 # - python-dotenv 1.2+ (auto-load .env in development)
 # - Pillow 11+ (Django image uploads)
+# - sentry-sdk 2.20+ (Django/Celery crash monitoring, enabled by SENTRY_DSN)
 #
 # Infrastructure/config files:
 #

@@ -206,7 +206,6 @@ class CleanerProfile(TimeStampedModel):
     preferred_time_slots = models.JSONField(default=list, blank=True)
     weekly_availability = models.JSONField(default=dict, blank=True)
     has_driving_license = models.BooleanField(null=True, blank=True)
-    driving_license_categories = models.JSONField(default=list, blank=True)
     has_own_car = models.BooleanField(null=True, blank=True)
     smoker = models.BooleanField(null=True, blank=True)
     profile_image = models.TextField(blank=True)

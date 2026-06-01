@@ -123,7 +123,6 @@ class AccountAuthTests(TestCase):
                 "weekly_availability": {"monday": ["morning"], "tuesday": ["afternoon"]},
                 "bio": "Reliable cleaner with short-term rental turnover experience.",
                 "has_driving_license": True,
-                "driving_license_categories": ["B", "AM"],
                 "has_own_car": True,
                 "smoker": False,
             },
@@ -141,7 +140,6 @@ class AccountAuthTests(TestCase):
         self.assertEqual(profile.preferred_time_slots, ["morning", "afternoon"])
         self.assertEqual(profile.weekly_availability, {"monday": ["morning"], "tuesday": ["afternoon"]})
         self.assertEqual(profile.bio, "Reliable cleaner with short-term rental turnover experience.")
-        self.assertEqual(profile.driving_license_categories, ["B", "AM"])
 
     def test_cleaner_signup_rejects_overlong_bio(self):
         email = "long-bio-cleaner@example.com"

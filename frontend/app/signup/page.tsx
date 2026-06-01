@@ -138,6 +138,13 @@ const PROFILE_CROP_EXPORT_SIZE = 720;
 const PROFILE_CROP_MIN_ZOOM = 1;
 const PROFILE_CROP_MAX_ZOOM = 3;
 
+function hasPasswordRequirements(value: string) {
+  return value.length >= 8
+    && /\p{L}/u.test(value)
+    && /\p{N}/u.test(value)
+    && /[^\p{L}\p{N}]/u.test(value);
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -605,8 +612,8 @@ export default function SignupPage() {
     if (!lastName.trim()) nextErrors.last_name = "Last name is required.";
     const emailError = validateEmailAddress(email);
     if (emailError) nextErrors.email = emailError;
-    const hasPasswordRules = password.length >= 8 && /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
-    if (!hasPasswordRules) nextErrors.password = "Password must be at least 8 characters long and contain an uppercase letter, a lowercase letter, a number, and a special character.";
+    const hasPasswordRules = hasPasswordRequirements(password);
+    if (!hasPasswordRules) nextErrors.password = "Password must be at least 8 characters long and contain at least one letter, one number, and one special character.";
     if (password !== confirmPassword) nextErrors.password_confirm = "Passwords do not match.";
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
@@ -1103,10 +1110,9 @@ export default function SignupPage() {
 
   const passwordChecks = [
     { label: "At least 8 characters", passed: password.length >= 8 },
-    { label: "At least one uppercase letter", passed: /[A-Z]/.test(password) },
-    { label: "At least one lowercase letter", passed: /[a-z]/.test(password) },
-    { label: "At least one number", passed: /\d/.test(password) },
-    { label: "At least one special character", passed: /[^A-Za-z0-9]/.test(password) },
+    { label: "At least one letter (any alphabet)", passed: /\p{L}/u.test(password) },
+    { label: "At least one number", passed: /\p{N}/u.test(password) },
+    { label: "At least one special character", passed: /[^\p{L}\p{N}]/u.test(password) },
   ];
 
   function renderStep() {

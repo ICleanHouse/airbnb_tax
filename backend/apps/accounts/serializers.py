@@ -3,7 +3,6 @@ from django.contrib.auth import authenticate
 from django.db import transaction
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
-import re
 from rest_framework import serializers
 
 from apps.accounts.models import (
@@ -19,26 +18,6 @@ from apps.accounts.models import (
 
 
 User = get_user_model()
-
-BULGARIAN_DRIVING_LICENSE_CATEGORIES = {
-    "AM",
-    "A1",
-    "A2",
-    "A",
-    "B1",
-    "B",
-    "BE",
-    "C1",
-    "C1E",
-    "C",
-    "CE",
-    "D1",
-    "D1E",
-    "D",
-    "DE",
-    "Tкт",
-    "Tтм",
-}
 
 PREFERRED_TIME_SLOTS = ("morning", "afternoon", "evening", "flexible")
 WEEKLY_TIME_SLOTS = ("morning", "afternoon", "evening")
@@ -145,11 +124,6 @@ class SignupSerializer(serializers.Serializer):
         required=False,
     )
     has_driving_license = serializers.BooleanField(required=False)
-    driving_license_categories = serializers.ListField(
-        child=serializers.CharField(max_length=8),
-        required=False,
-        allow_empty=True,
-    )
     has_own_car = serializers.BooleanField(required=False)
     smoker = serializers.BooleanField(required=False, allow_null=True)
     profile_image = serializers.CharField(required=False, allow_blank=True)
@@ -169,13 +143,11 @@ class SignupSerializer(serializers.Serializer):
 
         if len(password) < 8:
             raise serializers.ValidationError({"password": "Password must be at least 8 characters long."})
-        if not re.search(r"[a-z]", password):
-            raise serializers.ValidationError({"password": "Password must include at least one lowercase letter."})
-        if not re.search(r"[A-Z]", password):
-            raise serializers.ValidationError({"password": "Password must include at least one uppercase letter."})
-        if not re.search(r"\d", password):
+        if not any(char.isalpha() for char in password):
+            raise serializers.ValidationError({"password": "Password must include at least one letter."})
+        if not any(char.isdigit() for char in password):
             raise serializers.ValidationError({"password": "Password must include at least one number."})
-        if not re.search(r"[^A-Za-z0-9]", password):
+        if not any(not char.isalnum() for char in password):
             raise serializers.ValidationError({"password": "Password must include at least one special symbol."})
 
         email = attrs.get("email")
@@ -225,14 +197,6 @@ class SignupSerializer(serializers.Serializer):
                 attrs["preferred_time_slots"] = [
                     slot for slot in WEEKLY_TIME_SLOTS if slot in set(selected_weekly_slots)
                 ]
-            categories = attrs.get("driving_license_categories", [])
-            invalid_categories = [category for category in categories if category not in BULGARIAN_DRIVING_LICENSE_CATEGORIES]
-            if invalid_categories:
-                raise serializers.ValidationError({"driving_license_categories": "Choose valid Bulgarian driving license categories."})
-            if attrs.get("has_driving_license") and not categories:
-                raise serializers.ValidationError({"driving_license_categories": "Choose at least one driving license category."})
-            if not attrs.get("has_driving_license"):
-                attrs["driving_license_categories"] = []
 
         return attrs
 
@@ -257,7 +221,6 @@ class SignupSerializer(serializers.Serializer):
         preferred_time_slots = validated_data.pop("preferred_time_slots", [])
         weekly_availability = validated_data.pop("weekly_availability", {})
         has_driving_license = validated_data.pop("has_driving_license", None)
-        driving_license_categories = validated_data.pop("driving_license_categories", [])
         has_own_car = validated_data.pop("has_own_car", None)
         smoker = validated_data.pop("smoker", None)
         profile_image = validated_data.pop("profile_image", "")
@@ -295,7 +258,6 @@ class SignupSerializer(serializers.Serializer):
                 preferred_time_slots=preferred_time_slots,
                 weekly_availability=weekly_availability,
                 has_driving_license=has_driving_license,
-                driving_license_categories=driving_license_categories,
                 has_own_car=has_own_car,
                 smoker=smoker,
                 profile_image=profile_image,
@@ -409,7 +371,6 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "preferred_time_slots",
             "weekly_availability",
             "has_driving_license",
-            "driving_license_categories",
             "has_own_car",
             "smoker",
             "profile_image",

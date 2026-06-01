@@ -84,6 +84,10 @@ class CleanerApplication(TimeStampedModel):
         REJECTED = "rejected", "Rejected"
         WITHDRAWN = "withdrawn", "Withdrawn"
 
+    class Origin(models.TextChoices):
+        CLEANER_APPLIED = "cleaner_applied", "Cleaner applied"
+        HOST_OFFERED = "host_offered", "Host offered"
+
     job = models.ForeignKey(
         CleaningJob,
         on_delete=models.CASCADE,
@@ -95,6 +99,9 @@ class CleanerApplication(TimeStampedModel):
         related_name="cleaning_applications",
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    origin = models.CharField(
+        max_length=20, choices=Origin.choices, default=Origin.CLEANER_APPLIED
+    )
     proposed_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     message = models.TextField(blank=True)
 
@@ -140,3 +147,27 @@ class Assignment(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.cleaner} assigned to {self.job}"
+
+
+class FavouriteCleaner(TimeStampedModel):
+    host = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="favourite_cleaners",
+    )
+    cleaner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="favourited_by",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["host", "cleaner"], name="unique_favourite_cleaner_per_host"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.host} ♥ {self.cleaner}"

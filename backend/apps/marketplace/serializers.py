@@ -1,7 +1,17 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from apps.marketplace.models import Assignment, CleanerApplication, CleaningBatch, CleaningJob
+from apps.marketplace.models import (
+    Assignment,
+    CleanerApplication,
+    CleaningBatch,
+    CleaningJob,
+    FavouriteCleaner,
+)
 from apps.properties.models import Property
+
+
+User = get_user_model()
 
 
 class CleaningBatchSerializer(serializers.ModelSerializer):
@@ -76,7 +86,7 @@ class AssignMemberSerializer(serializers.Serializer):
 
 class MarketplaceCalendarItemSerializer(serializers.Serializer):
     id = serializers.CharField()
-    item_type = serializers.ChoiceField(choices=["open_job", "application", "assignment"])
+    item_type = serializers.ChoiceField(choices=["open_job", "application", "assignment", "offer"])
     job = serializers.IntegerField()
     application = serializers.IntegerField(required=False, allow_null=True)
     assignment = serializers.IntegerField(required=False, allow_null=True)
@@ -91,6 +101,7 @@ class MarketplaceCalendarItemSerializer(serializers.Serializer):
     host_name = serializers.CharField()
     job_status = serializers.CharField()
     application_status = serializers.CharField(required=False, allow_blank=True)
+    application_origin = serializers.CharField(required=False, allow_blank=True)
     completed_at = serializers.DateTimeField(required=False, allow_null=True)
     can_apply = serializers.BooleanField()
     can_complete = serializers.BooleanField()
@@ -176,6 +187,7 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
     cleaner = serializers.PrimaryKeyRelatedField(read_only=True)
     cleaner_name = serializers.SerializerMethodField()
     cleaner_email = serializers.EmailField(source="cleaner.email", read_only=True)
+    cleaner_profile_id = serializers.SerializerMethodField()
     job_title = serializers.CharField(source="job.title", read_only=True)
     job_scheduled_start = serializers.DateTimeField(source="job.scheduled_start", read_only=True)
     job_scheduled_end = serializers.DateTimeField(source="job.scheduled_end", read_only=True)
@@ -204,13 +216,94 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
             "cleaner",
             "cleaner_name",
             "cleaner_email",
+            "cleaner_profile_id",
             "status",
+            "origin",
             "proposed_price",
             "message",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "job", "cleaner", "cleaner_name", "cleaner_email", "status", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "job",
+            "cleaner",
+            "cleaner_name",
+            "cleaner_email",
+            "status",
+            "origin",
+            "created_at",
+            "updated_at",
+        ]
 
     def get_cleaner_name(self, obj):
         return obj.cleaner.get_full_name() or obj.cleaner.get_username()
+
+    def get_cleaner_profile_id(self, obj):
+        profile = getattr(obj.cleaner, "cleaner_profile", None)
+        return profile.id if profile else None
+
+
+class OfferJobSerializer(serializers.Serializer):
+    job_id = serializers.PrimaryKeyRelatedField(source="job", queryset=CleaningJob.objects.all())
+    cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all())
+    proposed_price = serializers.DecimalField(
+        max_digits=8, decimal_places=2, required=False, allow_null=True
+    )
+    message = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class FavouriteCleanerSerializer(serializers.ModelSerializer):
+    cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all())
+    cleaner_name = serializers.SerializerMethodField()
+    cleaner_profile_id = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    completed_jobs_count = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
+    service_areas = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FavouriteCleaner
+        fields = [
+            "id",
+            "cleaner_id",
+            "cleaner",
+            "cleaner_name",
+            "cleaner_profile_id",
+            "average_rating",
+            "completed_jobs_count",
+            "profile_image",
+            "service_areas",
+            "created_at",
+        ]
+        read_only_fields = ["id", "cleaner", "created_at"]
+
+    def _profile(self, obj):
+        return getattr(obj.cleaner, "cleaner_profile", None)
+
+    def get_cleaner_name(self, obj):
+        return obj.cleaner.get_full_name() or obj.cleaner.get_username()
+
+    def get_cleaner_profile_id(self, obj):
+        profile = self._profile(obj)
+        return profile.id if profile else None
+
+    def get_average_rating(self, obj):
+        profile = self._profile(obj)
+        return float(profile.average_rating) if profile else None
+
+    def get_completed_jobs_count(self, obj):
+        profile = self._profile(obj)
+        return profile.completed_jobs_count if profile else 0
+
+    def get_profile_image(self, obj):
+        profile = self._profile(obj)
+        if profile and profile.profile_image:
+            request = self.context.get("request")
+            url = profile.profile_image.url
+            return request.build_absolute_uri(url) if request else url
+        return None
+
+    def get_service_areas(self, obj):
+        profile = self._profile(obj)
+        return profile.service_areas if profile else []

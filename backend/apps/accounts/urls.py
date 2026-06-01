@@ -14,6 +14,7 @@ from apps.accounts.views import (
     LoginView,
     LogoutView,
     MeView,
+    PublicCleanerViewSet,
     SignupEmailCodeRequestView,
     SignupEmailCodeVerifyView,
     SignupView,
@@ -25,6 +26,7 @@ router = DefaultRouter()
 router.register("users", UserViewSet, basename="user")
 router.register("hosts", HostProfileViewSet, basename="host-profile")
 router.register("cleaners", CleanerProfileViewSet, basename="cleaner-profile")
+router.register("public-cleaners", PublicCleanerViewSet, basename="public-cleaner")
 router.register("agencies", AgencyProfileViewSet, basename="agency-profile")
 router.register("agency-invitations", AgencyInvitationViewSet, basename="agency-invitation")
 router.register("agency-memberships", AgencyMembershipViewSet, basename="agency-membership")

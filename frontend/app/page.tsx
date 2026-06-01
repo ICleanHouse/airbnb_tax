@@ -17,7 +17,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { apiFetch, CurrentUser, roleLabel } from "../lib/api";
+import { apiFetch, CurrentUser, type PublicCleaner, roleLabel } from "../lib/api";
+import RatingStars from "./components/RatingStars";
 
 type Audience = "host" | "cleaner";
 type Language = "BG" | "EN";
@@ -81,6 +82,20 @@ export default function Home() {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [liveCleaners, setLiveCleaners] = useState<PublicCleaner[]>([]);
+
+  useEffect(() => {
+    apiFetch("/api/accounts/public-cleaners/?min_rating=0")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: unknown) => {
+        if (!data) return;
+        const list = Array.isArray(data)
+          ? (data as PublicCleaner[])
+          : ((data as { results?: PublicCleaner[] }).results ?? []);
+        setLiveCleaners(list.slice(0, 6));
+      })
+      .catch(() => null);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -339,24 +354,48 @@ export default function Home() {
           <h2>Cleaner and agency profiles built for trust</h2>
         </div>
         <div className="cleaner-gallery">
-          {featuredCleaners.map((cleaner) => (
-            <article className="cleaner-card" key={cleaner.name}>
-              <div
-                aria-label={`${cleaner.name} cleaning service`}
-                className="cleaner-card-image"
-                role="img"
-                style={{ backgroundImage: `url(${cleaner.image})` }}
-              />
-              <div>
-                <h3>{cleaner.name}</h3>
-                <p>{cleaner.area}</p>
-                <span>
-                  <Star size={15} aria-hidden />
-                  {cleaner.rating} - {cleaner.type}
-                </span>
-              </div>
-            </article>
-          ))}
+          {liveCleaners.length > 0
+            ? liveCleaners.map((cleaner) => (
+                <article className="cleaner-card" key={cleaner.id}>
+                  <div
+                    aria-label={`${cleaner.display_name} cleaning service`}
+                    className="cleaner-card-image"
+                    role="img"
+                    style={
+                      cleaner.profile_image
+                        ? { backgroundImage: `url(${cleaner.profile_image})` }
+                        : undefined
+                    }
+                  />
+                  <div>
+                    <h3>{cleaner.display_name || "Cleaner"}</h3>
+                    <p>{(cleaner.service_areas || []).slice(0, 2).join(" · ") || "Available now"}</p>
+                    <RatingStars
+                      rating={cleaner.average_rating}
+                      count={cleaner.completed_jobs_count}
+                      size={15}
+                    />
+                  </div>
+                </article>
+              ))
+            : featuredCleaners.map((cleaner) => (
+                <article className="cleaner-card" key={cleaner.name}>
+                  <div
+                    aria-label={`${cleaner.name} cleaning service`}
+                    className="cleaner-card-image"
+                    role="img"
+                    style={{ backgroundImage: `url(${cleaner.image})` }}
+                  />
+                  <div>
+                    <h3>{cleaner.name}</h3>
+                    <p>{cleaner.area}</p>
+                    <span>
+                      <Star size={15} aria-hidden />
+                      {cleaner.rating} - {cleaner.type}
+                    </span>
+                  </div>
+                </article>
+              ))}
         </div>
       </section>
 

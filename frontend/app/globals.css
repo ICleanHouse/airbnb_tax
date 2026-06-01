@@ -6065,3 +6065,614 @@ img {
   background: rgba(0, 132, 137, 0.10);
   color: var(--teal);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Phase 1 — Cleaner profiles, reputation, directory
+   ══════════════════════════════════════════════════════════════ */
+
+/* Reusable read-only rating row (RatingStars.tsx) */
+.rating-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.rating-stars-row {
+  display: inline-flex;
+  gap: 1px;
+  line-height: 1;
+}
+.rating-stars-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.rating-stars-count {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* Cleaner profile card (directory grid + landing gallery) */
+.cleaner-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.cleaner-profile-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.10);
+  border-color: rgba(0, 132, 137, 0.4);
+}
+.cleaner-profile-card-avatar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(0, 132, 137, 0.10);
+  color: var(--teal);
+  font-weight: 700;
+  font-size: 18px;
+}
+.cleaner-profile-card-avatar img,
+.cleaner-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cleaner-profile-card-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.cleaner-profile-card-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+}
+.cleaner-profile-card-tag {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(183, 121, 31, 0.12);
+  color: var(--gold);
+}
+.cleaner-profile-card-areas,
+.cleaner-profile-card-exp {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Directory page */
+.cleaners-directory {
+  display: grid;
+  gap: 20px;
+}
+.cleaners-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.cleaners-filter-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 220px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+}
+.cleaners-filter-field input {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 10px 0;
+  background: transparent;
+  font-size: 14px;
+  color: var(--ink);
+}
+.cleaners-filters select {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--ink);
+}
+.cleaners-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.cleaner-card-skeleton {
+  height: 90px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.07) 37%, rgba(0,0,0,0.04) 63%);
+  background-size: 400% 100%;
+  animation: cleaner-skeleton 1.4s ease infinite;
+}
+@keyframes cleaner-skeleton {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* Profile modal */
+.cleaner-profile-modal {
+  width: min(560px, 100%);
+}
+.cleaner-profile-body {
+  display: grid;
+  gap: 18px;
+  padding: 20px 24px 24px;
+}
+.cleaner-profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.cleaner-profile-avatar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(0, 132, 137, 0.10);
+  color: var(--teal);
+  font-weight: 700;
+  font-size: 24px;
+}
+.cleaner-profile-hero-info {
+  display: grid;
+  gap: 6px;
+}
+.cleaner-profile-hero-info h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  color: var(--ink);
+}
+.cleaner-profile-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.cleaner-profile-bio {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.cleaner-profile-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.015);
+}
+.cleaner-profile-facts dt {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.cleaner-profile-facts dd {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.cleaner-profile-reviews h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 16px;
+  color: var(--ink);
+}
+.cleaner-profile-reviews-count {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(0, 132, 137, 0.12);
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 700;
+}
+.cleaner-profile-noreviews {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.review-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.review-item {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.review-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.review-item-head strong {
+  font-size: 14px;
+  color: var(--ink);
+}
+.review-item p {
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.review-item-date {
+  font-size: 12px;
+  color: var(--muted);
+}
+.cleaner-profile-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+}
+
+/* ── Notification bell (shared host + cleaner topbars) ── */
+.notif-bell {
+  position: relative;
+  display: inline-flex;
+}
+.notif-bell-trigger {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.notif-bell-trigger:hover {
+  background: var(--header-highlight, rgba(0, 0, 0, 0.04));
+  color: var(--ink);
+}
+.notif-bell-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.notif-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  width: min(360px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.notif-dropdown-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.notif-dropdown-head strong {
+  font-size: 15px;
+  color: var(--ink);
+}
+.notif-markall {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal);
+  cursor: pointer;
+}
+.notif-dropdown-body {
+  max-height: 380px;
+  overflow-y: auto;
+}
+.notif-empty {
+  margin: 0;
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted);
+}
+.notif-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.notif-item {
+  border-bottom: 1px solid var(--line);
+}
+.notif-item:last-child {
+  border-bottom: none;
+}
+.notif-item--unread {
+  background: rgba(0, 132, 137, 0.05);
+}
+.notif-item-btn {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.notif-item-btn:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+.notif-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.notif-item--unread .notif-item-title::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  vertical-align: middle;
+}
+.notif-item-body {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.notif-item-time {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* "View profile" link on applicant cards */
+.host-app-view-profile {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.host-app-view-profile:hover {
+  background: rgba(0, 132, 137, 0.08);
+  border-color: rgba(0, 132, 137, 0.4);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Phase 2 — Direct offers & favourites
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Favourite (saved cleaner) toggle */
+.host-fav-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.host-fav-toggle:hover {
+  border-color: rgba(255, 56, 92, 0.4);
+  color: var(--brand);
+}
+.host-fav-toggle--on {
+  color: var(--brand);
+  border-color: rgba(255, 56, 92, 0.4);
+  background: rgba(255, 56, 92, 0.07);
+}
+
+/* Offer-a-job trigger button */
+.host-offer-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: rgba(183, 121, 31, 0.08);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.host-offer-trigger:hover {
+  background: rgba(183, 121, 31, 0.16);
+}
+
+/* Offer modal form fields */
+.host-offer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.host-offer-field select,
+.host-offer-field input,
+.host-offer-field textarea {
+  font-weight: 400;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+.host-offer-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 520px) {
+  .host-offer-row { grid-template-columns: 1fr; }
+}
+
+/* My cleaners (saved) strip on the host applications dashboard */
+.host-mycleaners-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.host-mycleaner-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.host-mycleaner-avatar {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 132, 137, 0.1);
+  color: var(--teal);
+  font-weight: 700;
+  font-size: 18px;
+}
+.host-mycleaner-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.host-mycleaner-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.host-mycleaner-name {
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.host-mycleaner-areas {
+  font-size: 12px;
+  color: var(--muted);
+}
+.host-mycleaner-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* Cleaner-side offers */
+.host-tab-count--gold {
+  background: var(--gold);
+  color: #fff;
+}
+.cleaner-offer-card {
+  border-left: 3px solid var(--gold);
+}
+.cleaner-offer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(183, 121, 31, 0.12);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}

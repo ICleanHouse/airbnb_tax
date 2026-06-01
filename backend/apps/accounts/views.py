@@ -38,6 +38,8 @@ from apps.accounts.serializers import (
     CookieConsentSerializer,
     HostProfileSerializer,
     LoginSerializer,
+    PublicCleanerDetailSerializer,
+    PublicCleanerSerializer,
     SignupEmailCodeRequestSerializer,
     SignupEmailCodeVerifySerializer,
     SignupSerializer,
@@ -323,6 +325,63 @@ class CleanerProfileViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_platform_admin and "verification_status" in self.request.data:
             raise PermissionDenied("Only admins can change cleaner verification status.")
         serializer.save()
+
+
+class PublicCleanerViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Browsable, reputation-first cleaner directory.
+
+    Lists only verified + approved cleaners and exposes safe fields only
+    (no email/phone/birth_date). Detail embeds the cleaner's received reviews.
+
+        GET /api/accounts/public-cleaners/?service_area=&min_rating=&q=
+        GET /api/accounts/public-cleaners/<id>/
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return PublicCleanerDetailSerializer
+        return PublicCleanerSerializer
+
+    def get_queryset(self):
+        queryset = (
+            CleanerProfile.objects.select_related("user")
+            .filter(
+                verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+                user__account_status=User.AccountStatus.APPROVED,
+                user__is_active=True,
+            )
+            .order_by("-average_rating", "-completed_jobs_count", "id")
+        )
+
+        params = self.request.query_params
+
+        min_rating = params.get("min_rating")
+        if min_rating:
+            try:
+                queryset = queryset.filter(average_rating__gte=float(min_rating))
+            except (TypeError, ValueError):
+                pass
+
+        q = params.get("q", "").strip()
+        if q:
+            queryset = queryset.filter(
+                Q(display_name__icontains=q) | Q(bio__icontains=q)
+            )
+
+        # service_area / city: JSON list membership filtered in Python for DB portability.
+        # Only for list (detail/get_object needs a real queryset with .filter()).
+        area = (params.get("service_area") or params.get("city") or "").strip().lower()
+        if area and self.action == "list":
+            queryset = [
+                cleaner
+                for cleaner in queryset
+                if any(area in str(a).lower() for a in (cleaner.service_areas or []))
+            ]
+
+        return queryset
 
 
 class AgencyProfileViewSet(viewsets.ModelViewSet):

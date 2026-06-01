@@ -10,20 +10,31 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from apps.core.services import write_audit_log
-from apps.marketplace.models import Assignment, CleanerApplication, CleaningBatch, CleaningJob
+from apps.marketplace.models import (
+    Assignment,
+    CleanerApplication,
+    CleaningBatch,
+    CleaningJob,
+    FavouriteCleaner,
+)
 from apps.marketplace.serializers import (
     AssignMemberSerializer,
     AssignmentSerializer,
     CleanerApplicationSerializer,
     CleaningBatchSerializer,
     CleaningJobSerializer,
+    FavouriteCleanerSerializer,
     MarketplaceCalendarItemSerializer,
+    OfferJobSerializer,
 )
 from apps.marketplace.services import (
     MarketplaceError,
     accept_application,
+    accept_offer,
     assign_member_to_assignment,
     complete_job,
+    decline_offer,
+    offer_job,
     publish_job,
     reject_application,
     submit_application,
@@ -79,6 +90,7 @@ def job_calendar_payload(job, item_type, user, application=None, assignment=None
         "host_name": job.host.get_full_name() or job.host.get_username(),
         "job_status": job.status,
         "application_status": getattr(application, "status", ""),
+        "application_origin": getattr(application, "origin", ""),
         "completed_at": completed_at,
         "can_apply": item_type == "open_job" and job.status == CleaningJob.Status.OPEN and user_can_apply_to_calendar_job(user),
         "can_complete": user_can_complete_calendar_assignment(user, assignment, job),
@@ -163,10 +175,25 @@ class MarketplaceCalendarView(views.APIView):
                 start,
                 end,
             )
-            for job in jobs:
+            job_list = list(jobs)
+            pending_offers = {
+                offer.job_id: offer
+                for offer in CleanerApplication.objects.select_related("cleaner").filter(
+                    job__in=[j.id for j in job_list],
+                    origin=CleanerApplication.Origin.HOST_OFFERED,
+                    status=CleanerApplication.Status.PENDING,
+                )
+            }
+            for job in job_list:
                 assignment = get_job_assignment(job)
-                item_type = "assignment" if assignment else "open_job"
-                items.append(job_calendar_payload(job, item_type, user, assignment=assignment))
+                if assignment:
+                    items.append(job_calendar_payload(job, "assignment", user, assignment=assignment))
+                elif job.id in pending_offers:
+                    items.append(
+                        job_calendar_payload(job, "offer", user, application=pending_offers[job.id])
+                    )
+                else:
+                    items.append(job_calendar_payload(job, "open_job", user))
             serializer = MarketplaceCalendarItemSerializer(items, many=True)
             return Response(serializer.data)
 
@@ -203,7 +230,13 @@ class MarketplaceCalendarView(views.APIView):
             applied_job_ids = set()
             for application in application_queryset:
                 applied_job_ids.add(application.job_id)
-                items.append(job_calendar_payload(application.job, "application", user, application=application))
+                app_item_type = (
+                    "offer"
+                    if application.origin == CleanerApplication.Origin.HOST_OFFERED
+                    and application.status == CleanerApplication.Status.PENDING
+                    else "application"
+                )
+                items.append(job_calendar_payload(application.job, app_item_type, user, application=application))
 
             open_jobs = in_calendar_window(
                 CleaningJob.objects.select_related("property", "host")
@@ -249,7 +282,13 @@ class MarketplaceCalendarView(views.APIView):
             applied_job_ids = set()
             for application in application_queryset:
                 applied_job_ids.add(application.job_id)
-                items.append(job_calendar_payload(application.job, "application", user, application=application))
+                app_item_type = (
+                    "offer"
+                    if application.origin == CleanerApplication.Origin.HOST_OFFERED
+                    and application.status == CleanerApplication.Status.PENDING
+                    else "application"
+                )
+                items.append(job_calendar_payload(application.job, app_item_type, user, application=application))
 
             open_jobs = in_calendar_window(
                 CleaningJob.objects.select_related("property", "host")
@@ -367,6 +406,30 @@ class CleaningJobViewSet(MarketplaceQuerysetMixin, viewsets.ModelViewSet):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(job).data)
 
+    @action(detail=True, methods=["post"])
+    def offer(self, request, pk=None):
+        serializer = OfferJobSerializer(data={**request.data, "job_id": self.get_object().id})
+        serializer.is_valid(raise_exception=True)
+        try:
+            application = offer_job(
+                job=serializer.validated_data["job"],
+                host=request.user,
+                cleaner=serializer.validated_data["cleaner"],
+                proposed_price=serializer.validated_data.get("proposed_price"),
+                message=serializer.validated_data.get("message", ""),
+                request=request,
+            )
+        except MarketplaceError as exc:
+            logger.warning(
+                "Job offer blocked",
+                extra={"event": "job.offer_blocked", "metadata": {"reason": str(exc)}},
+            )
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            CleanerApplicationSerializer(application, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
 
 class CleanerApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = CleanerApplicationSerializer
@@ -457,6 +520,38 @@ class CleanerApplicationViewSet(viewsets.ModelViewSet):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(application).data)
 
+    @action(detail=True, methods=["post"], url_path="accept-offer")
+    def accept_offer(self, request, pk=None):
+        try:
+            assignment = accept_offer(
+                application=self.get_object(),
+                cleaner=request.user,
+                request=request,
+            )
+        except MarketplaceError as exc:
+            logger.warning(
+                "Offer accept blocked",
+                extra={"event": "offer.accept_blocked", "metadata": {"reason": str(exc)}},
+            )
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(AssignmentSerializer(assignment).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="decline-offer")
+    def decline_offer(self, request, pk=None):
+        try:
+            application = decline_offer(
+                application=self.get_object(),
+                cleaner=request.user,
+                request=request,
+            )
+        except MarketplaceError as exc:
+            logger.warning(
+                "Offer decline blocked",
+                extra={"event": "offer.decline_blocked", "metadata": {"reason": str(exc)}},
+            )
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(self.get_serializer(application).data)
+
 
 class AssignmentViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AssignmentSerializer
@@ -499,3 +594,27 @@ class AssignmentViewSet(viewsets.ReadOnlyModelViewSet):
             )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(self.get_serializer(assignment).data)
+
+
+class FavouriteCleanerViewSet(viewsets.ModelViewSet):
+    serializer_class = FavouriteCleanerSerializer
+    http_method_names = ["get", "post", "delete", "head", "options"]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = FavouriteCleaner.objects.select_related("cleaner", "cleaner__cleaner_profile")
+        if user.is_platform_admin:
+            return queryset
+        return queryset.filter(host=user)
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if not (user.is_platform_admin or user.is_host):
+            raise PermissionDenied("Only hosts can save favourite cleaners.")
+        if not user.is_platform_admin and not user.is_approved:
+            raise PermissionDenied("Account must be approved before saving favourites.")
+        cleaner = serializer.validated_data["cleaner"]
+        if not (cleaner.is_cleaner or cleaner.is_agency):
+            raise PermissionDenied("Only cleaner or agency accounts can be favourited.")
+        favourite, _ = FavouriteCleaner.objects.get_or_create(host=user, cleaner=cleaner)
+        serializer.instance = favourite

@@ -21,10 +21,17 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Users,
+  Heart,
+  Send,
   X,
 } from "lucide-react";
 import { Upload } from "lucide-react";
-import { apiFetch, CurrentUser } from "../../lib/api";
+import { apiFetch, CurrentUser, type FavouriteCleaner } from "../../lib/api";
+import CleanerProfileModal from "../components/CleanerProfileModal";
+import NotificationBell from "../components/NotificationBell";
+import JobOfferModal from "../components/JobOfferModal";
+import RatingStars from "../components/RatingStars";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -86,6 +93,7 @@ interface CleanerApplication {
   cleaner: number;
   cleaner_name: string;
   cleaner_email: string;
+  cleaner_profile_id: number | null;
   status: ApplicationStatus;
   proposed_price: string | null;
   message: string;
@@ -264,6 +272,13 @@ export default function HostDashboard() {
   // ── Edit job ───────────────────────────────────────────────────────────────
   const [editingJobId,   setEditingJobId]   = useState<number | null>(null);
 
+  // ── View cleaner profile ───────────────────────────────────────────────────
+  const [viewProfileId,  setViewProfileId]  = useState<number | null>(null);
+
+  // ── Favourites + direct offers ─────────────────────────────────────────────
+  const [favourites, setFavourites] = useState<FavouriteCleaner[]>([]);
+  const [offerTarget, setOfferTarget] = useState<{ userId: number; name: string } | null>(null);
+
   // ── Auth check ─────────────────────────────────────────────────────────────
   useEffect(() => {
     apiFetch("/api/accounts/me/")
@@ -281,12 +296,13 @@ export default function HostDashboard() {
   async function loadAll() {
     setLoadingData(true);
     setDataError("");
-    const [pRes, jRes, aRes, asRes, rvRes] = await Promise.all([
+    const [pRes, jRes, aRes, asRes, rvRes, fvRes] = await Promise.all([
       apiFetch("/api/properties/properties/"),
       apiFetch("/api/marketplace/jobs/"),
       apiFetch("/api/marketplace/applications/"),
       apiFetch("/api/marketplace/assignments/"),
       apiFetch("/api/feedback/reviews/"),
+      apiFetch("/api/marketplace/favourites/"),
     ]);
     if (pRes.ok) {
       const d: unknown = await pRes.json();
@@ -310,7 +326,33 @@ export default function HostDashboard() {
       const d: unknown = await rvRes.json();
       setReviews(Array.isArray(d) ? d as Review[] : (d as { results: Review[] }).results ?? []);
     }
+    if (fvRes.ok) {
+      const d: unknown = await fvRes.json();
+      setFavourites(Array.isArray(d) ? d as FavouriteCleaner[] : (d as { results: FavouriteCleaner[] }).results ?? []);
+    }
     setLoadingData(false);
+  }
+
+  // ── Favourite (saved cleaner) helpers ──────────────────────────────────────
+  function isFavourited(cleanerUserId: number): boolean {
+    return favourites.some((f) => f.cleaner === cleanerUserId);
+  }
+
+  async function toggleFavourite(cleanerUserId: number) {
+    const existing = favourites.find((f) => f.cleaner === cleanerUserId);
+    if (existing) {
+      const res = await apiFetch(`/api/marketplace/favourites/${existing.id}/`, { method: "DELETE" });
+      if (res.ok) setFavourites((prev) => prev.filter((f) => f.id !== existing.id));
+      return;
+    }
+    const res = await apiFetch("/api/marketplace/favourites/", {
+      method: "POST",
+      body: JSON.stringify({ cleaner_id: cleanerUserId }),
+    });
+    if (res.ok) {
+      const fav = (await res.json()) as FavouriteCleaner;
+      setFavourites((prev) => [fav, ...prev.filter((f) => f.id !== fav.id)]);
+    }
   }
 
   // ── Open property form ─────────────────────────────────────────────────────
@@ -889,6 +931,11 @@ export default function HostDashboard() {
         </nav>
 
         <div className="host-topbar-right">
+          <Link className="text-link" href="/cleaners">
+            <Users size={15} aria-hidden />
+            Find cleaners
+          </Link>
+          <NotificationBell />
           <span className="user-chip">
             {me.first_name || me.email.split("@")[0]}
             <span className="user-chip-dot" aria-hidden>·</span>
@@ -1099,6 +1146,66 @@ export default function HostDashboard() {
               </div>
             )}
 
+            {/* ── My cleaners (saved / favourites) ── */}
+            {!loadingData && favourites.length > 0 && (
+              <div className="host-apps-subsection host-mycleaners">
+                <h2 className="host-apps-subtitle">
+                  <Heart size={15} aria-hidden fill="currentColor" /> My cleaners
+                </h2>
+                <div className="host-mycleaners-grid">
+                  {favourites.map((fav) => (
+                    <div key={fav.id} className="host-mycleaner-card">
+                      <div className="host-mycleaner-avatar">
+                        {fav.profile_image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={fav.profile_image} alt="" />
+                        ) : (
+                          <span>{fav.cleaner_name.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className="host-mycleaner-main">
+                        <span className="host-mycleaner-name">{fav.cleaner_name}</span>
+                        <RatingStars
+                          rating={fav.average_rating ?? 0}
+                          count={fav.completed_jobs_count}
+                          size={12}
+                        />
+                        {fav.service_areas.length > 0 && (
+                          <span className="host-mycleaner-areas">{fav.service_areas.slice(0, 2).join(" · ")}</span>
+                        )}
+                      </div>
+                      <div className="host-mycleaner-actions">
+                        {fav.cleaner_profile_id && (
+                          <button
+                            type="button"
+                            className="host-app-view-profile"
+                            onClick={() => setViewProfileId(fav.cleaner_profile_id)}
+                          >
+                            View
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="host-offer-trigger"
+                          onClick={() => setOfferTarget({ userId: fav.cleaner, name: fav.cleaner_name })}
+                        >
+                          <Send size={12} aria-hidden /> Offer
+                        </button>
+                        <button
+                          type="button"
+                          className="host-fav-toggle host-fav-toggle--on"
+                          aria-label="Remove from saved cleaners"
+                          onClick={() => void toggleFavourite(fav.cleaner)}
+                        >
+                          <Heart size={12} aria-hidden fill="currentColor" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {loadingData ? (
               <p className="host-empty">Loading…</p>
             ) : (
@@ -1151,6 +1258,32 @@ export default function HostDashboard() {
                                 >
                                   {app.cleaner_email}
                                 </a>
+                                {app.cleaner_profile_id && (
+                                  <button
+                                    type="button"
+                                    className="host-app-view-profile"
+                                    onClick={() => setViewProfileId(app.cleaner_profile_id)}
+                                  >
+                                    View profile
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`host-fav-toggle${isFavourited(app.cleaner) ? " host-fav-toggle--on" : ""}`}
+                                  aria-pressed={isFavourited(app.cleaner)}
+                                  aria-label={isFavourited(app.cleaner) ? "Remove from saved cleaners" : "Save cleaner"}
+                                  onClick={() => void toggleFavourite(app.cleaner)}
+                                >
+                                  <Heart size={13} aria-hidden fill={isFavourited(app.cleaner) ? "currentColor" : "none"} />
+                                  {isFavourited(app.cleaner) ? "Saved" : "Save"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="host-offer-trigger"
+                                  onClick={() => setOfferTarget({ userId: app.cleaner, name: app.cleaner_name })}
+                                >
+                                  <Send size={13} aria-hidden /> Offer job
+                                </button>
                               </div>
 
                               {app.message && (
@@ -2257,6 +2390,28 @@ export default function HostDashboard() {
             </form>
           </div>
         </div>
+      )}
+
+      {viewProfileId !== null && (
+        <CleanerProfileModal
+          cleanerId={viewProfileId}
+          onClose={() => setViewProfileId(null)}
+        />
+      )}
+
+      {offerTarget !== null && (
+        <JobOfferModal
+          cleanerUserId={offerTarget.userId}
+          cleanerName={offerTarget.name}
+          properties={properties.map((p) => ({
+            id: p.id,
+            name: p.name,
+            city: p.city,
+            default_price_eur: p.default_price_eur,
+          }))}
+          onClose={() => setOfferTarget(null)}
+          onOffered={() => void loadAll()}
+        />
       )}
     </>
   );

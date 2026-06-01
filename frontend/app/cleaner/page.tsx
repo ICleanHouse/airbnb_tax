@@ -6,10 +6,12 @@ import { ChangeEvent, FormEvent, PointerEvent, useEffect, useMemo, useRef, useSt
 import {
   Briefcase,
   CalendarDays,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Gift,
   Home as HomeIcon,
   LogOut,
   Plus,
@@ -21,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { apiFetch, CurrentUser } from "../../lib/api";
+import NotificationBell from "../components/NotificationBell";
 import { cities } from "../../lib/cityDistricts";
 
 type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "disputed";
@@ -92,6 +95,8 @@ interface CleaningJob {
   assignment?: AssignmentSummary | null;
 }
 
+type ApplicationOrigin = "cleaner_applied" | "host_offered";
+
 interface CleanerApplication {
   id: number;
   job: number;
@@ -102,13 +107,15 @@ interface CleanerApplication {
   job_property_name?: string;
   job_property_city?: string;
   job_property_neighborhood?: string;
+  job_proposed_price?: string | null;
   status: ApplicationStatus;
+  origin: ApplicationOrigin;
   proposed_price: string | null;
   message: string;
   created_at: string;
 }
 
-type CalendarItemType = "open_job" | "application" | "assignment";
+type CalendarItemType = "open_job" | "application" | "assignment" | "offer";
 interface CalendarItem {
   id: string;
   item_type: CalendarItemType;
@@ -125,6 +132,7 @@ interface CalendarItem {
   host_name: string;
   job_status: JobStatus;
   application_status: ApplicationStatus | "";
+  application_origin?: ApplicationOrigin | "";
   completed_at: string | null;
   can_apply: boolean;
   can_complete: boolean;
@@ -156,7 +164,7 @@ type ProfileFormSnapshot = {
   bio: string;
 };
 
-type Section = "calendar" | "jobs" | "applications" | "assignments" | "profile";
+type Section = "calendar" | "jobs" | "offers" | "applications" | "assignments" | "profile";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -303,9 +311,13 @@ const CALENDAR_LABEL: Record<CalendarItemType, string> = {
   open_job: "Open",
   application: "Applied",
   assignment: "Assigned",
+  offer: "Offer",
 };
 
 function calendarItemColor(item: CalendarItem) {
+  if (item.item_type === "offer") {
+    return "var(--gold)";
+  }
   if (item.item_type === "assignment") {
     return item.completed_at || item.job_status === "completed" ? "#22c55e" : "var(--gold)";
   }
@@ -528,6 +540,7 @@ export default function CleanerDashboard() {
   const [applyError, setApplyError] = useState("");
   const [completingJobId, setCompletingJobId] = useState<number | null>(null);
   const [cancelingApplicationId, setCancelingApplicationId] = useState<number | null>(null);
+  const [offerActionId, setOfferActionId] = useState<number | null>(null);
   const [applicationActionError, setApplicationActionError] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
@@ -790,6 +803,41 @@ export default function CleanerDashboard() {
       void loadCalendar();
     } finally {
       setCancelingApplicationId(null);
+    }
+  }
+
+  async function acceptOffer(applicationId: number) {
+    setOfferActionId(applicationId);
+    setApplicationActionError("");
+    try {
+      const res = await apiFetch(`/api/marketplace/applications/${applicationId}/accept-offer/`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setApplicationActionError(messageFromResponse(data, "Could not accept the offer."));
+        return;
+      }
+      void loadAll();
+      void loadCalendar();
+    } finally {
+      setOfferActionId(null);
+    }
+  }
+
+  async function declineOffer(applicationId: number) {
+    setOfferActionId(applicationId);
+    setApplicationActionError("");
+    try {
+      const res = await apiFetch(`/api/marketplace/applications/${applicationId}/decline-offer/`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setApplicationActionError(messageFromResponse(data, "Could not decline the offer."));
+        return;
+      }
+      const updated = data as CleanerApplication;
+      setApplications((prev) => prev.map((application) => (application.id === updated.id ? updated : application)));
+      void loadCalendar();
+    } finally {
+      setOfferActionId(null);
     }
   }
 
@@ -1281,7 +1329,11 @@ export default function CleanerDashboard() {
   }
 
   const canApply = Boolean(me?.is_approved && profile?.is_verified);
-  const pendingApplications = applications.filter((application) => application.status === "pending").length;
+  const pendingOffers = applications.filter(
+    (application) => application.origin === "host_offered" && application.status === "pending",
+  );
+  const selfApplications = applications.filter((application) => application.origin !== "host_offered");
+  const pendingApplications = selfApplications.filter((application) => application.status === "pending").length;
   const fullName = `${me?.first_name || ""} ${me?.last_name || ""}`.trim();
   const displayName = fullName || me?.email.split("@")[0] || "Cleaner";
   const currentProfileSnapshot = useMemo(
@@ -1389,6 +1441,15 @@ export default function CleanerDashboard() {
           </button>
           <button
             type="button"
+            className={`host-tab${section === "offers" ? " active" : ""}`}
+            onClick={() => setSection("offers")}
+          >
+            <Gift size={15} aria-hidden />
+            Offers
+            {pendingOffers.length > 0 && <span className="host-tab-count host-tab-count--gold">{pendingOffers.length}</span>}
+          </button>
+          <button
+            type="button"
             className={`host-tab${section === "applications" ? " active" : ""}`}
             onClick={() => setSection("applications")}
           >
@@ -1408,6 +1469,7 @@ export default function CleanerDashboard() {
         </nav>
 
         <div className="host-topbar-right">
+          <NotificationBell />
           <span className="user-chip">
             {displayName}
             <span className="user-chip-dot" aria-hidden>·</span>
@@ -1753,18 +1815,82 @@ export default function CleanerDashboard() {
           </div>
         )}
 
+        {section === "offers" && (
+          <div className="host-section">
+            <div className="host-section-header">
+              <div>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{pendingOffers.length} pending</p>
+                <h1 className="host-section-title">Direct offers</h1>
+              </div>
+            </div>
+
+            {loadingData ? (
+              <p className="host-empty">Loading offers...</p>
+            ) : pendingOffers.length === 0 ? (
+              <div className="host-empty-state">
+                <Gift size={40} />
+                <p>When a host offers you a job directly, it appears here.</p>
+              </div>
+            ) : (
+              <>
+                {applicationActionError ? <p className="form-error">{applicationActionError}</p> : null}
+                <ul className="cleaner-job-list">
+                  {pendingOffers.map((offer) => {
+                    const job = jobById.get(offer.job);
+                    return (
+                      <li key={offer.id} className="cleaner-job-card cleaner-offer-card">
+                        <div className="cleaner-job-main">
+                          <div>
+                            <span className="cleaner-offer-badge"><Gift size={12} aria-hidden /> Offer</span>
+                            <strong>{offer.job_title || job?.title || `Job #${offer.job}`}</strong>
+                            <span>{offer.job_property_name || jobPlace(job)}</span>
+                          </div>
+                          <div className="cleaner-job-meta">
+                            <span><CalendarDays size={14} aria-hidden />{fmtDateTime(offer.job_scheduled_start || job?.scheduled_start)}</span>
+                            <span>{money(offer.proposed_price || offer.job_proposed_price, job?.currency)}</span>
+                          </div>
+                          {offer.message && <p>{offer.message}</p>}
+                        </div>
+                        <div className="cleaner-job-actions">
+                          <button
+                            className="cleaner-action-primary"
+                            type="button"
+                            disabled={offerActionId === offer.id}
+                            onClick={() => void acceptOffer(offer.id)}
+                          >
+                            <Check size={14} aria-hidden />
+                            {offerActionId === offer.id ? "Working..." : "Accept"}
+                          </button>
+                          <button
+                            className="cleaner-action-primary cleaner-action-cancel"
+                            type="button"
+                            disabled={offerActionId === offer.id}
+                            onClick={() => void declineOffer(offer.id)}
+                          >
+                            <X size={14} aria-hidden /> Decline
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+
         {section === "applications" && (
           <div className="host-section">
             <div className="host-section-header">
               <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{applications.length} total</p>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{selfApplications.length} total</p>
                 <h1 className="host-section-title">Applications</h1>
               </div>
             </div>
 
             {loadingData ? (
               <p className="host-empty">Loading applications...</p>
-            ) : applications.length === 0 ? (
+            ) : selfApplications.length === 0 ? (
               <div className="host-empty-state">
                 <Send size={40} />
                 <p>Your applications will appear here.</p>
@@ -1773,7 +1899,7 @@ export default function CleanerDashboard() {
               <>
                 {applicationActionError ? <p className="form-error">{applicationActionError}</p> : null}
                 <ul className="cleaner-job-list">
-                  {applications.map((application) => {
+                  {selfApplications.map((application) => {
                     const job = jobById.get(application.job);
                     return (
                       <li key={application.id} className="cleaner-job-card cleaner-compact-card">

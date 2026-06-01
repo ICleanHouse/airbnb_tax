@@ -291,6 +291,202 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
     return job
 
 
+def _ensure_cleaner_workable(cleaner: User) -> None:
+    """Validate that a user can receive/accept cleaning work (verified + approved)."""
+    if not cleaner.is_approved:
+        raise MarketplaceError("Cleaner account must be approved.")
+    if cleaner.is_cleaner:
+        try:
+            cleaner_profile = cleaner.cleaner_profile
+        except CleanerProfile.DoesNotExist as exc:
+            raise MarketplaceError("Cleaner profile is required.") from exc
+        if not cleaner_profile.is_verified:
+            raise MarketplaceError("Cleaner must be verified.")
+    elif cleaner.is_agency:
+        try:
+            cleaner.agency_profile
+        except AgencyProfile.DoesNotExist as exc:
+            raise MarketplaceError("Agency profile is required.") from exc
+    else:
+        raise MarketplaceError("Only cleaners and agencies can be offered cleaning jobs.")
+
+
+@transaction.atomic
+def offer_job(
+    *,
+    job: CleaningJob,
+    host: User,
+    cleaner: User,
+    proposed_price: Decimal | None = None,
+    message: str = "",
+    request=None,
+) -> CleanerApplication:
+    """Host directly offers a job to a specific cleaner (reuses CleanerApplication)."""
+    job = CleaningJob.objects.select_for_update().get(id=job.id)
+
+    if not (host.is_platform_admin or job.host_id == host.id):
+        raise MarketplaceError("Only the host or admin can offer this job.")
+
+    if not host.is_platform_admin and not host.is_approved:
+        raise MarketplaceError("Account must be approved before offering jobs.")
+
+    if job.status not in (CleaningJob.Status.DRAFT, CleaningJob.Status.OPEN):
+        raise MarketplaceError("Only draft or open jobs can be offered.")
+
+    if hasattr(job, "assignment"):
+        raise MarketplaceError("This job already has an assignment.")
+
+    _ensure_cleaner_workable(cleaner)
+
+    application, created = CleanerApplication.objects.get_or_create(
+        job=job,
+        cleaner=cleaner,
+        defaults={
+            "proposed_price": proposed_price,
+            "message": message,
+            "origin": CleanerApplication.Origin.HOST_OFFERED,
+            "status": CleanerApplication.Status.PENDING,
+        },
+    )
+    if not created:
+        if application.status == CleanerApplication.Status.PENDING:
+            raise MarketplaceError("This cleaner already has a pending offer or application for this job.")
+        application.status = CleanerApplication.Status.PENDING
+        application.origin = CleanerApplication.Origin.HOST_OFFERED
+        application.proposed_price = proposed_price
+        application.message = message
+        application.save(
+            update_fields=["status", "origin", "proposed_price", "message", "updated_at"]
+        )
+
+    create_notification(
+        user=cleaner,
+        notification_type="offer.received",
+        title="New job offer",
+        body=f"{host.get_username()} offered you {job.title}.",
+        metadata={"job_id": job.id, "application_id": application.id},
+    )
+    write_audit_log(
+        actor=host,
+        action="job.offered",
+        entity_type="CleanerApplication",
+        entity_id=application.id,
+        request=request,
+        metadata={"job_id": job.id, "cleaner_id": cleaner.id},
+    )
+    return application
+
+
+@transaction.atomic
+def accept_offer(
+    *,
+    application: CleanerApplication,
+    cleaner: User,
+    request=None,
+) -> Assignment:
+    """Cleaner accepts a host-initiated offer; creates the single Assignment."""
+    application = CleanerApplication.objects.select_for_update().select_related("job", "cleaner").get(
+        id=application.id
+    )
+    job = CleaningJob.objects.select_for_update().get(id=application.job_id)
+
+    if not (cleaner.is_platform_admin or application.cleaner_id == cleaner.id):
+        raise MarketplaceError("Only the offered cleaner can accept this offer.")
+
+    if not cleaner.is_platform_admin and not cleaner.is_approved:
+        raise MarketplaceError("Account must be approved before accepting offers.")
+
+    if application.origin != CleanerApplication.Origin.HOST_OFFERED:
+        raise MarketplaceError("Only host offers can be accepted this way.")
+
+    if application.status != CleanerApplication.Status.PENDING:
+        raise MarketplaceError("Only pending offers can be accepted.")
+
+    if job.status not in (CleaningJob.Status.DRAFT, CleaningJob.Status.OPEN):
+        raise MarketplaceError("This job is no longer available.")
+
+    if hasattr(job, "assignment"):
+        raise MarketplaceError("This job already has an assignment.")
+
+    application.status = CleanerApplication.Status.ACCEPTED
+    application.save(update_fields=["status", "updated_at"])
+
+    CleanerApplication.objects.filter(job=job).exclude(id=application.id).update(
+        status=CleanerApplication.Status.REJECTED,
+        updated_at=timezone.now(),
+    )
+
+    assignment = Assignment.objects.create(
+        job=job,
+        cleaner=application.cleaner,
+        application=application,
+        agreed_price=application.proposed_price,
+    )
+
+    job.status = CleaningJob.Status.ASSIGNED
+    job.agreed_price = assignment.agreed_price
+    job.save(update_fields=["status", "agreed_price", "updated_at"])
+
+    create_notification(
+        user=job.host,
+        notification_type="offer.accepted",
+        title="Offer accepted",
+        body=f"{application.cleaner.get_username()} accepted your offer for {job.title}.",
+        metadata={"job_id": job.id, "assignment_id": assignment.id},
+    )
+    write_audit_log(
+        actor=cleaner,
+        action="offer.accepted",
+        entity_type="CleanerApplication",
+        entity_id=application.id,
+        request=request,
+        metadata={"assignment_id": assignment.id, "job_id": job.id},
+    )
+    return assignment
+
+
+@transaction.atomic
+def decline_offer(
+    *,
+    application: CleanerApplication,
+    cleaner: User,
+    request=None,
+) -> CleanerApplication:
+    """Cleaner declines a host-initiated offer."""
+    application = CleanerApplication.objects.select_for_update().select_related("job", "cleaner").get(
+        id=application.id
+    )
+
+    if not (cleaner.is_platform_admin or application.cleaner_id == cleaner.id):
+        raise MarketplaceError("Only the offered cleaner can decline this offer.")
+
+    if application.origin != CleanerApplication.Origin.HOST_OFFERED:
+        raise MarketplaceError("Only host offers can be declined this way.")
+
+    if application.status != CleanerApplication.Status.PENDING:
+        raise MarketplaceError("Only pending offers can be declined.")
+
+    application.status = CleanerApplication.Status.REJECTED
+    application.save(update_fields=["status", "updated_at"])
+
+    create_notification(
+        user=application.job.host,
+        notification_type="offer.declined",
+        title="Offer declined",
+        body=f"{application.cleaner.get_username()} declined your offer for {application.job.title}.",
+        metadata={"job_id": application.job_id, "application_id": application.id},
+    )
+    write_audit_log(
+        actor=cleaner,
+        action="offer.declined",
+        entity_type="CleanerApplication",
+        entity_id=application.id,
+        request=request,
+        metadata={"job_id": application.job_id},
+    )
+    return application
+
+
 @transaction.atomic
 def assign_member_to_assignment(
     *,

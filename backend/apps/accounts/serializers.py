@@ -397,6 +397,60 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class PublicCleanerSerializer(serializers.ModelSerializer):
+    """Safe, browsable cleaner card — no PII (no email/phone/birth_date)."""
+
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
+    is_verified = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = CleanerProfile
+        fields = [
+            "id",
+            "user_id",
+            "kind",
+            "display_name",
+            "bio",
+            "service_areas",
+            "native_language",
+            "other_languages",
+            "personal_preferences",
+            "experience_level",
+            "work_preference",
+            "job_type_preference",
+            "preferred_time_slots",
+            "weekly_availability",
+            "has_driving_license",
+            "has_own_car",
+            "profile_image",
+            "average_rating",
+            "completed_jobs_count",
+            "is_verified",
+        ]
+        read_only_fields = fields
+
+
+class PublicCleanerDetailSerializer(PublicCleanerSerializer):
+    """Full public profile + the cleaner's received reviews."""
+
+    reviews = serializers.SerializerMethodField()
+
+    class Meta(PublicCleanerSerializer.Meta):
+        fields = PublicCleanerSerializer.Meta.fields + ["reviews"]
+        read_only_fields = fields
+
+    def get_reviews(self, obj):
+        from apps.feedback.models import Review
+        from apps.feedback.serializers import ReviewSerializer
+
+        reviews = (
+            Review.objects.filter(reviewee=obj.user, is_private_issue=False)
+            .select_related("reviewer", "job")
+            .order_by("-created_at")
+        )
+        return ReviewSerializer(reviews, many=True, context=self.context).data
+
+
 class AgencyProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     members_count = serializers.IntegerField(read_only=True)

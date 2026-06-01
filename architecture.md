@@ -66,7 +66,7 @@ Future extraction into microservices should be possible without rewriting core b
 - `frontend/app/host/page.tsx`: host dashboard with two sections toggled in the topbar:
   - **Properties** — lists host properties as cards with job counts. "Add property" modal POSTs to `POST /api/properties/properties/`.
   - **Jobs & Calendar** — custom month calendar grid with coloured status dots per day. "Post a job" modal POSTs to `POST /api/marketplace/jobs/` (saved as Draft). Publish button calls `POST /api/marketplace/jobs/{id}/publish/` to transition Draft → Open. **"Import ICS"** button opens a two-step modal: upload an Airbnb `.ics` file → review parsed reservations → bulk-create draft cleaning jobs (one per selected checkout date) via repeated `POST /api/marketplace/jobs/`.
-- `frontend/app/cleaner/page.tsx`: cleaner dashboard with calendar, open jobs, applications, assigned jobs, profile edit form, service-area dropdown, sex dropdown, and profile picture upload preview.
+- `frontend/app/cleaner/page.tsx`: cleaner dashboard with calendar, open jobs, applications, assigned jobs, and modular profile forms (city-scoped service areas, district picker overlay with drag/drop, other-languages overlay, profile-image crop editor, driving-license/own-car inputs, and extra-services toggles).
 - `frontend/app/components/CookieConsentBanner.tsx`: consent-first GDPR cookie banner.
 - `frontend/app/globals.css`: single CSS file for all routes using plain CSS variables and named component classes. No CSS library.
 
@@ -129,6 +129,7 @@ Responsibilities:
 - Work preferences.
 - Native language and experience level.
 - Broad preferred time slots and optional weekly availability.
+- Other languages and extra services offered.
 
 ### Agencies
 
@@ -250,7 +251,7 @@ The implemented schema covers these concepts:
 
 - User account (role, account status, approval metadata, language preference).
 - Host profile.
-- Cleaner profile (verification status, service areas, birth date, calculated age, sex, native language, experience level, work preference, preferred time slots, weekly availability, education, driving-license details, own-car status, smoker status, rating summary).
+- Cleaner profile (verification status, service areas, birth date, calculated age, sex, native language, other languages, personal preferences/extra services, experience level, work preference, preferred time slots, weekly availability, education, driving-license details, own-car status, smoker status, rating summary).
 - Agency profile (company name, service areas, member count).
 - Agency invitation (token, expiry, status).
 - Agency membership (status, active/revoked).
@@ -279,7 +280,7 @@ REST APIs through Django REST Framework.
 | `GET /api/health/` | Health check |
 | `POST /api/accounts/signup/email-code/` | Sends a 6-digit signup email confirmation code. |
 | `POST /api/accounts/signup/verify-email-code/` | Verifies the 6-digit code and returns `email_verification_token`. |
-| `POST /api/accounts/signup/` | Creates user + role profile + auto-login after email-code verification. Host/agency payloads include location/service-area data. Cleaner payloads include personal information, native language, experience, work preference, preferred time slots, and optional weekly availability. Fires admin email notification. |
+| `POST /api/accounts/signup/` | Creates user + role profile + auto-login after email-code verification. Host/agency payloads include location/service-area data. Cleaner payloads include personal information, native language, other languages, driving-license/own-car details, experience, work preference, preferred time slots, and optional weekly availability. Fires admin email notification. |
 | `GET /api/accounts/confirm-email/{uidb64}/{token}/` | Confirms user email and redirects to frontend login. |
 | `POST /api/accounts/login/` | Session login |
 | `POST /api/accounts/logout/` | Session logout |

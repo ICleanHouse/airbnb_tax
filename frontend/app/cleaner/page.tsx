@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Briefcase,
   CalendarDays,
@@ -16,10 +16,12 @@ import {
   RefreshCcw,
   Send,
   Star,
+  User,
   UserRoundCheck,
   X,
 } from "lucide-react";
 import { apiFetch, CurrentUser } from "../../lib/api";
+import { cities } from "../../lib/cityDistricts";
 
 type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "disputed";
 type ApplicationStatus = "pending" | "accepted" | "rejected" | "withdrawn";
@@ -37,12 +39,17 @@ interface CleanerProfile {
   service_areas: string[];
   sex: CleanerSex;
   native_language: string;
+  other_languages: string[];
+  personal_preferences: string[];
+  education: string;
   birth_date: string | null;
   age: number | null;
   experience_level: string;
   job_type_preference: JobTypePreference | "";
   preferred_time_slots: string[];
   weekly_availability: WeeklyAvailability;
+  has_driving_license: boolean | null;
+  has_own_car: boolean | null;
   profile_image: string;
   average_rating: string;
   completed_jobs_count: number;
@@ -123,6 +130,32 @@ interface CalendarItem {
   can_complete: boolean;
 }
 
+type CropSource = {
+  src: string;
+  width: number;
+  height: number;
+};
+
+type ProfileFormSnapshot = {
+  firstName: string;
+  lastName: string;
+  city: string;
+  sex: CleanerSex;
+  birthDate: string;
+  nativeLanguage: string;
+  otherLanguages: string;
+  personalPreferences: string;
+  education: string;
+  hasDrivingLicense: "" | "yes" | "no";
+  hasOwnCar: "" | "yes" | "no";
+  experienceLevel: string;
+  jobTypePreference: JobTypePreference | "";
+  weeklyAvailability: string;
+  serviceAreas: string;
+  profileImage: string;
+  bio: string;
+};
+
 type Section = "calendar" | "jobs" | "applications" | "assignments" | "profile";
 
 const MONTHS = [
@@ -135,8 +168,43 @@ const sexOptions: Array<{ value: CleanerSex; label: string }> = [
   { value: "female", label: "Female" },
   { value: "prefer_not_to_say", label: "Prefer not to say" },
 ];
+const nativeLanguageOptions = [
+  { value: "Български", label: "Български" },
+  { value: "Русский", label: "Русский" },
+  { value: "English", label: "English" },
+  { value: "Română", label: "Română" },
+  { value: "Српски", label: "Српски" },
+  { value: "Ελληνικά", label: "Ελληνικά" },
+  { value: "Українська", label: "Українська" },
+  { value: "Македонски", label: "Македонски" },
+  { value: "Bosanski", label: "Bosanski" },
+  { value: "Hrvatski", label: "Hrvatski" },
+  { value: "Slovenščina", label: "Slovenščina" },
+  { value: "Shqip", label: "Shqip" },
+  { value: "Español", label: "Español" },
+  { value: "Français", label: "Français" },
+  { value: "Deutsch", label: "Deutsch" },
+  { value: "Italiano", label: "Italiano" },
+  { value: "Português", label: "Português" },
+  { value: "Nederlands", label: "Nederlands" },
+  { value: "Polski", label: "Polski" },
+  { value: "Čeština", label: "Čeština" },
+  { value: "Slovenčina", label: "Slovenčina" },
+];
+const additionalLanguageOptions = [
+  "Türkçe",
+  "العربية",
+  "עברית",
+  "Magyar",
+  "Русиньскый",
+];
+const educationOptions = [
+  { value: "none", label: "No education" },
+  { value: "primary", label: "Primary education" },
+  { value: "high_school", label: "High school" },
+  { value: "higher", label: "Higher education" },
+];
 const experienceOptions = [
-  { value: "", label: "Not set" },
   { value: "none", label: "I don't have experience" },
   { value: "1_year", label: "1 year" },
   { value: "2_years", label: "2 years" },
@@ -165,9 +233,42 @@ const weeklyTimeOptions: Array<{ value: WeeklyTimeSlot; label: string }> = [
   { value: "afternoon", label: "Afternoon" },
   { value: "evening", label: "Evening" },
 ];
+const otherLanguageCatalog = Array.from(
+  new Set([...nativeLanguageOptions.map((option) => option.value), ...additionalLanguageOptions]),
+).sort((a, b) => a.localeCompare(b, "bg"));
+const personalPreferenceOptions = [
+  { value: "provide_cleaning_supplies", label: "Provide cleaning supplies" },
+  { value: "wash_and_dry_linen_towels", label: "Wash and dry linen and towels" },
+  { value: "iron_and_fold_linen_towels", label: "Iron and fold linen and towels" },
+  { value: "pet_friendly_homes", label: "Accept homes with pets" },
+] as const;
 const DEFAULT_PROFILE_IMAGE = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f3f4f6"/><stop offset="100%" stop-color="#e5e7eb"/></linearGradient></defs><rect width="240" height="240" fill="url(#g)"/><circle cx="120" cy="88" r="40" fill="#cbd5e1"/><path d="M40 214c8-40 38-62 80-62s72 22 80 62H40z" fill="#cbd5e1"/></svg>',
 )}`;
+const PROFILE_CROP_PREVIEW_SIZE = 360;
+const PROFILE_CROP_EXPORT_SIZE = 720;
+const PROFILE_CROP_MIN_ZOOM = 1;
+const PROFILE_CROP_MAX_ZOOM = 3;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function profileCropBaseScale(source: CropSource, canvasSize: number) {
+  return Math.max(canvasSize / source.width, canvasSize / source.height);
+}
+
+function clampProfileCropOffset(offset: { x: number; y: number }, source: CropSource, zoom: number, canvasSize: number) {
+  const drawScale = profileCropBaseScale(source, canvasSize) * zoom;
+  const drawWidth = source.width * drawScale;
+  const drawHeight = source.height * drawScale;
+  const maxX = Math.max(0, (drawWidth - canvasSize) / 2);
+  const maxY = Math.max(0, (drawHeight - canvasSize) / 2);
+  return {
+    x: clamp(offset.x, -maxX, maxX),
+    y: clamp(offset.y, -maxY, maxY),
+  };
+}
 
 function firstWeekday(year: number, month: number) {
   return (new Date(year, month, 1).getDay() + 6) % 7;
@@ -242,6 +343,62 @@ function serviceAreasFromText(value: string) {
     .split(/[\n,]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function normalizeServiceAreasText(value: string) {
+  return serviceAreasFromText(value).join("\n");
+}
+
+const ALL_DISTRICTS = new Set(cities.flatMap((city) => city.zones));
+
+function inferCityFromServiceAreas(value: string) {
+  const areas = serviceAreasFromText(value);
+  for (const city of cities) {
+    if (city.zones.some((zone) => areas.includes(zone))) {
+      return city.value;
+    }
+  }
+  return "";
+}
+
+function normalizeServiceAreasByCity(value: string, cityValue: string) {
+  const areas = serviceAreasFromText(value);
+  if (!cityValue) return [];
+  const selectedCity = cities.find((city) => city.value === cityValue);
+  if (!selectedCity) return [];
+  const cityZones = new Set(selectedCity.zones);
+  return areas.filter((item) => cityZones.has(item));
+}
+
+function serializeWeeklyAvailability(value: WeeklyAvailability) {
+  return weeklyDayOptions.map((day) => {
+    const slots = value[day.value] ?? [];
+    const normalizedSlots = weeklyTimeOptions
+      .map((option) => option.value)
+      .filter((slot) => slots.includes(slot));
+    return `${day.value}:${normalizedSlots.join(",")}`;
+  }).join("|");
+}
+
+function buildProfileSnapshot(snapshot: ProfileFormSnapshot) {
+  return JSON.stringify(snapshot);
+}
+
+function boolToChoice(value: boolean | null | undefined): "" | "yes" | "no" {
+  if (value === true) return "yes";
+  if (value === false) return "no";
+  return "";
+}
+
+function choiceToBool(value: "" | "yes" | "no"): boolean | null {
+  if (value === "yes") return true;
+  if (value === "no") return false;
+  return null;
+}
+
+function sanitizePersonalPreferences(value: string[]) {
+  const allowed = new Set(personalPreferenceOptions.map((option) => option.value));
+  return Array.from(new Set(value.filter((item) => allowed.has(item))));
 }
 
 function labelFromOptions(options: Array<{ value: string; label: string }>, value?: string | null) {
@@ -329,15 +486,40 @@ export default function CleanerDashboard() {
   const [profileSex, setProfileSex] = useState<CleanerSex>("prefer_not_to_say");
   const [profileBirthDate, setProfileBirthDate] = useState("");
   const [profileNativeLanguage, setProfileNativeLanguage] = useState("");
+  const [profileOtherLanguages, setProfileOtherLanguages] = useState<string[]>([]);
+  const [profilePersonalPreferences, setProfilePersonalPreferences] = useState<string[]>([]);
+  const [profileEducation, setProfileEducation] = useState("");
+  const [profileHasDrivingLicense, setProfileHasDrivingLicense] = useState<"" | "yes" | "no">("");
+  const [profileHasOwnCar, setProfileHasOwnCar] = useState<"" | "yes" | "no">("");
   const [profileExperienceLevel, setProfileExperienceLevel] = useState("");
   const [profileJobTypePreference, setProfileJobTypePreference] = useState<JobTypePreference | "">("");
   const [profileWeeklyAvailability, setProfileWeeklyAvailability] = useState<WeeklyAvailability>({});
+  const [profileDistrictCity, setProfileDistrictCity] = useState("");
   const [profileServiceAreas, setProfileServiceAreas] = useState("");
   const [profileImage, setProfileImage] = useState("");
   const [profileBio, setProfileBio] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [profileSaved, setProfileSaved] = useState(false);
+  const [savedProfileSnapshot, setSavedProfileSnapshot] = useState<string | null>(null);
+  const [districtOverlayOpen, setDistrictOverlayOpen] = useState(false);
+  const [districtSearch, setDistrictSearch] = useState("");
+  const [districtAvailableChoice, setDistrictAvailableChoice] = useState("");
+  const [districtSelectedChoice, setDistrictSelectedChoice] = useState("");
+  const [districtSelectedZones, setDistrictSelectedZones] = useState<Set<string>>(new Set());
+  const [districtDraggedZone, setDistrictDraggedZone] = useState<string | null>(null);
+  const [districtDragSource, setDistrictDragSource] = useState<"available" | "selected" | null>(null);
+  const [otherLanguagesOverlayOpen, setOtherLanguagesOverlayOpen] = useState(false);
+  const [otherLanguageSearch, setOtherLanguageSearch] = useState("");
+  const [cropSource, setCropSource] = useState<CropSource | null>(null);
+  const [cropImageElement, setCropImageElement] = useState<HTMLImageElement | null>(null);
+  const [cropZoom, setCropZoom] = useState(PROFILE_CROP_MIN_ZOOM);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [cropBusy, setCropBusy] = useState(false);
+  const [cropError, setCropError] = useState("");
+  const [cropDragging, setCropDragging] = useState(false);
+  const cropCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cropDragStateRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
 
   const [applyJob, setApplyJob] = useState<CleaningJob | null>(null);
   const [applyPrice, setApplyPrice] = useState("");
@@ -347,6 +529,8 @@ export default function CleanerDashboard() {
   const [completingJobId, setCompletingJobId] = useState<number | null>(null);
   const [cancelingApplicationId, setCancelingApplicationId] = useState<number | null>(null);
   const [applicationActionError, setApplicationActionError] = useState("");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     apiFetch("/api/accounts/me/")
@@ -366,20 +550,109 @@ export default function CleanerDashboard() {
   }, [me, calYear, calMonth]);
 
   useEffect(() => {
-    setProfileFirstName(me?.first_name || "");
-    setProfileLastName(me?.last_name || "");
-  }, [me]);
+    if (!cropSource) {
+      setCropImageElement(null);
+      return;
+    }
+    const image = new window.Image();
+    image.onload = () => setCropImageElement(image);
+    image.onerror = () => setCropError("Could not load image preview.");
+    image.src = cropSource.src;
+  }, [cropSource]);
 
-  function syncProfileForm(nextProfile: CleanerProfile) {
+  useEffect(() => {
+    if (!cropSource) return;
+    setCropOffset((current) => {
+      const constrained = clampProfileCropOffset(current, cropSource, cropZoom, PROFILE_CROP_PREVIEW_SIZE);
+      if (constrained.x === current.x && constrained.y === current.y) return current;
+      return constrained;
+    });
+  }, [cropSource, cropZoom]);
+
+  useEffect(() => {
+    drawCropPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cropSource, cropImageElement, cropZoom, cropOffset]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (!accountMenuRef.current) return;
+      if (!accountMenuRef.current.contains(event.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setAccountMenuOpen(false);
+    }
+    window.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [accountMenuOpen]);
+
+  useEffect(() => {
+    if (!profileSaved) return;
+    const timer = window.setTimeout(() => setProfileSaved(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [profileSaved]);
+
+  useEffect(() => {
+    if (!profileNativeLanguage) return;
+    setProfileOtherLanguages((current) => current.filter((language) => language !== profileNativeLanguage));
+  }, [profileNativeLanguage]);
+
+  useEffect(() => {
+    if (profileHasDrivingLicense !== "yes" && profileHasOwnCar !== "") {
+      setProfileHasOwnCar("");
+    }
+  }, [profileHasDrivingLicense, profileHasOwnCar]);
+
+  function syncProfileForm(nextProfile: CleanerProfile, nextUserNames?: { first_name: string; last_name: string }) {
+    const firstName = nextUserNames?.first_name ?? me?.first_name ?? "";
+    const lastName = nextUserNames?.last_name ?? me?.last_name ?? "";
+    const normalizedWeeklyAvailability = normalizeWeeklyAvailability(nextProfile.weekly_availability);
+    const serviceAreasText = nextProfile.service_areas.join("\n");
+    const inferredCity = inferCityFromServiceAreas(serviceAreasText);
+
+    setProfileFirstName(firstName);
+    setProfileLastName(lastName);
     setProfileSex(nextProfile.sex || "prefer_not_to_say");
     setProfileBirthDate(nextProfile.birth_date || "");
     setProfileNativeLanguage(nextProfile.native_language || "");
+    setProfileOtherLanguages((nextProfile.other_languages || []).filter(Boolean));
+    setProfilePersonalPreferences(sanitizePersonalPreferences((nextProfile.personal_preferences || []).filter(Boolean)));
+    setProfileEducation(nextProfile.education || "");
+    setProfileHasDrivingLicense(boolToChoice(nextProfile.has_driving_license));
+    setProfileHasOwnCar(boolToChoice(nextProfile.has_own_car));
     setProfileExperienceLevel(nextProfile.experience_level || "");
     setProfileJobTypePreference(nextProfile.job_type_preference || "");
-    setProfileWeeklyAvailability(normalizeWeeklyAvailability(nextProfile.weekly_availability));
-    setProfileServiceAreas(nextProfile.service_areas.join("\n"));
+    setProfileWeeklyAvailability(normalizedWeeklyAvailability);
+    setProfileDistrictCity(inferredCity);
+    setProfileServiceAreas(serviceAreasText);
     setProfileImage(nextProfile.profile_image || "");
     setProfileBio(nextProfile.bio || "");
+    setSavedProfileSnapshot(buildProfileSnapshot({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      city: inferredCity,
+      sex: nextProfile.sex || "prefer_not_to_say",
+      birthDate: nextProfile.birth_date || "",
+      nativeLanguage: (nextProfile.native_language || "").trim(),
+      otherLanguages: JSON.stringify((nextProfile.other_languages || []).filter(Boolean)),
+      personalPreferences: JSON.stringify(sanitizePersonalPreferences((nextProfile.personal_preferences || []).filter(Boolean))),
+      education: nextProfile.education || "",
+      hasDrivingLicense: boolToChoice(nextProfile.has_driving_license),
+      hasOwnCar: boolToChoice(nextProfile.has_own_car),
+      experienceLevel: nextProfile.experience_level || "",
+      jobTypePreference: nextProfile.job_type_preference || "",
+      weeklyAvailability: serializeWeeklyAvailability(normalizedWeeklyAvailability),
+      serviceAreas: normalizeServiceAreasText(serviceAreasText),
+      profileImage: nextProfile.profile_image || "",
+      bio: nextProfile.bio || "",
+    }));
   }
 
   function calendarRange(year: number, month: number) {
@@ -418,7 +691,7 @@ export default function CleanerDashboard() {
         const data = readList<CleanerProfile>(await profileRes.json());
         const ownProfile = data[0] ?? null;
         setProfile(ownProfile);
-        if (ownProfile) syncProfileForm(ownProfile);
+        if (ownProfile) syncProfileForm(ownProfile, me ? { first_name: me.first_name, last_name: me.last_name } : undefined);
       } else {
         setDataError("Could not load cleaner profile.");
       }
@@ -446,6 +719,11 @@ export default function CleanerDashboard() {
   async function logout() {
     await apiFetch("/api/accounts/logout/", { method: "POST" });
     window.location.href = "/";
+  }
+
+  function openProfileFromMenu() {
+    setSection("profile");
+    setAccountMenuOpen(false);
   }
 
   function openApply(job: CleaningJob) {
@@ -515,30 +793,201 @@ export default function CleanerDashboard() {
     }
   }
 
+  function closeCropEditor() {
+    setCropSource(null);
+    setCropImageElement(null);
+    setCropZoom(PROFILE_CROP_MIN_ZOOM);
+    setCropOffset({ x: 0, y: 0 });
+    setCropBusy(false);
+    setCropError("");
+    setCropDragging(false);
+    cropDragStateRef.current = null;
+  }
+
+  function resetCropPosition() {
+    setCropOffset({ x: 0, y: 0 });
+  }
+
+  function setCropZoomLevel(nextZoom: number) {
+    const normalizedZoom = clamp(nextZoom, PROFILE_CROP_MIN_ZOOM, PROFILE_CROP_MAX_ZOOM);
+    setCropZoom(normalizedZoom);
+    if (!cropSource) return;
+    setCropOffset((current) => clampProfileCropOffset(current, cropSource, normalizedZoom, PROFILE_CROP_PREVIEW_SIZE));
+  }
+
+  function drawCropPreview() {
+    if (!cropSource || !cropImageElement) return;
+    const canvas = cropCanvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const canvasSize = PROFILE_CROP_PREVIEW_SIZE;
+    const constrainedOffset = clampProfileCropOffset(cropOffset, cropSource, cropZoom, canvasSize);
+
+    context.clearRect(0, 0, canvasSize, canvasSize);
+    context.fillStyle = "#0f172a";
+    context.fillRect(0, 0, canvasSize, canvasSize);
+
+    const scale = profileCropBaseScale(cropSource, canvasSize) * cropZoom;
+    const drawWidth = cropSource.width * scale;
+    const drawHeight = cropSource.height * scale;
+    const drawX = (canvasSize - drawWidth) / 2 + constrainedOffset.x;
+    const drawY = (canvasSize - drawHeight) / 2 + constrainedOffset.y;
+    context.drawImage(cropImageElement, drawX, drawY, drawWidth, drawHeight);
+  }
+
+  function applyCropResult() {
+    if (!cropSource || !cropImageElement) return;
+
+    setCropBusy(true);
+    setCropError("");
+
+    try {
+      const outputCanvas = document.createElement("canvas");
+      outputCanvas.width = PROFILE_CROP_EXPORT_SIZE;
+      outputCanvas.height = PROFILE_CROP_EXPORT_SIZE;
+      const context = outputCanvas.getContext("2d");
+      if (!context) {
+        setCropError("Could not prepare cropped image.");
+        setCropBusy(false);
+        return;
+      }
+
+      const constrainedOffset = clampProfileCropOffset(cropOffset, cropSource, cropZoom, PROFILE_CROP_PREVIEW_SIZE);
+      const ratio = PROFILE_CROP_EXPORT_SIZE / PROFILE_CROP_PREVIEW_SIZE;
+      const scale = profileCropBaseScale(cropSource, PROFILE_CROP_EXPORT_SIZE) * cropZoom;
+      const drawWidth = cropSource.width * scale;
+      const drawHeight = cropSource.height * scale;
+      const drawX = (PROFILE_CROP_EXPORT_SIZE - drawWidth) / 2 + constrainedOffset.x * ratio;
+      const drawY = (PROFILE_CROP_EXPORT_SIZE - drawHeight) / 2 + constrainedOffset.y * ratio;
+
+      context.clearRect(0, 0, PROFILE_CROP_EXPORT_SIZE, PROFILE_CROP_EXPORT_SIZE);
+      context.drawImage(cropImageElement, drawX, drawY, drawWidth, drawHeight);
+
+      setProfileImage(outputCanvas.toDataURL("image/jpeg", 0.92));
+      closeCropEditor();
+    } catch {
+      setCropError("Could not apply crop. Please try again.");
+      setCropBusy(false);
+    }
+  }
+
+  function onCropPointerDown(event: PointerEvent<HTMLCanvasElement>) {
+    if (!cropSource) return;
+    event.preventDefault();
+    const canvas = event.currentTarget;
+    canvas.setPointerCapture(event.pointerId);
+    cropDragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: cropOffset.x,
+      originY: cropOffset.y,
+    };
+    setCropDragging(true);
+  }
+
+  function onCropPointerMove(event: PointerEvent<HTMLCanvasElement>) {
+    if (!cropSource) return;
+    const dragState = cropDragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
+
+    const nextOffset = clampProfileCropOffset(
+      {
+        x: dragState.originX + (event.clientX - dragState.startX),
+        y: dragState.originY + (event.clientY - dragState.startY),
+      },
+      cropSource,
+      cropZoom,
+      PROFILE_CROP_PREVIEW_SIZE,
+    );
+    setCropOffset(nextOffset);
+  }
+
+  function onCropPointerEnd(event: PointerEvent<HTMLCanvasElement>) {
+    const dragState = cropDragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    cropDragStateRef.current = null;
+    setCropDragging(false);
+  }
+
   function onProfileImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setProfileError("Please choose a valid image file.");
+      event.target.value = "";
+      return;
+    }
+
+    setProfileError("");
+    setProfileSaved(false);
+    setCropError("");
+    setCropBusy(false);
+    setCropZoom(PROFILE_CROP_MIN_ZOOM);
+    setCropOffset({ x: 0, y: 0 });
+
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === "string") {
-        setProfileImage(reader.result);
+        const image = new window.Image();
+        image.onload = () => {
+          setCropSource({
+            src: reader.result as string,
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+          });
+        };
+        image.onerror = () => {
+          setProfileError("Could not open this image. Please choose another file.");
+        };
+        image.src = reader.result;
       }
     };
     reader.readAsDataURL(file);
+    event.target.value = "";
   }
 
-  async function submitProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function patchCleanerProfile(
+    payload: Record<string, unknown>,
+    fallbackError: string,
+    nextUserNames?: { first_name: string; last_name: string },
+  ) {
+    if (!profile) return false;
+    const res = await apiFetch(`/api/accounts/cleaners/${profile.id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      setProfileError(messageFromResponse(await res.json(), fallbackError));
+      return false;
+    }
+    const updated = (await res.json()) as CleanerProfile;
+    setProfile(updated);
+    syncProfileForm(updated, nextUserNames);
+    return true;
+  }
+
+  async function submitAllProfileChanges(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     if (!profile || !me) return;
     if (!profileFirstName.trim() || !profileLastName.trim()) {
       setProfileError("First name and last name are required.");
       return;
     }
-    const serviceAreas = serviceAreasFromText(profileServiceAreas);
-    if (serviceAreas.length === 0) {
-      setProfileError("Add at least one service area.");
+    if (!profileDistrictCity) {
+      setProfileError("Choose a city before saving location details.");
       return;
     }
+    const serviceAreas = normalizeServiceAreasByCity(profileServiceAreas, profileDistrictCity);
+    if (serviceAreas.length === 0) {
+      setProfileError("Add at least one district from the selected city.");
+      return;
+    }
+    setProfileServiceAreas(serviceAreas.join("\n"));
+
     setSavingProfile(true);
     setProfileError("");
     setProfileSaved(false);
@@ -554,34 +1003,38 @@ export default function CleanerDashboard() {
         setProfileError(messageFromResponse(await userRes.json(), "Could not save name details."));
         return;
       }
-      setMe((await userRes.json()) as CurrentUser);
+      const updatedUser = (await userRes.json()) as CurrentUser;
+      setMe(updatedUser);
 
-      const res = await apiFetch(`/api/accounts/cleaners/${profile.id}/`, {
-        method: "PATCH",
-        body: JSON.stringify({
+      const success = await patchCleanerProfile(
+        {
           service_areas: serviceAreas,
           sex: profileSex,
           birth_date: profileBirthDate || null,
           native_language: profileNativeLanguage.trim(),
+          other_languages: profileOtherLanguages,
+          personal_preferences: profilePersonalPreferences,
+          education: profileEducation,
+          has_driving_license: choiceToBool(profileHasDrivingLicense),
+          has_own_car: profileHasDrivingLicense === "yes" ? choiceToBool(profileHasOwnCar) : null,
           experience_level: profileExperienceLevel,
           job_type_preference: profileJobTypePreference,
           preferred_time_slots: derivePreferredTimeSlots(profileWeeklyAvailability),
           weekly_availability: profileWeeklyAvailability,
           profile_image: profileImage,
           bio: profileBio,
-        }),
-      });
-      if (!res.ok) {
-        setProfileError(messageFromResponse(await res.json(), "Could not save profile."));
-        return;
-      }
-      const updated = (await res.json()) as CleanerProfile;
-      setProfile(updated);
-      syncProfileForm(updated);
-      setProfileSaved(true);
+        },
+        "Could not save profile changes.",
+        { first_name: updatedUser.first_name, last_name: updatedUser.last_name },
+      );
+      if (success) setProfileSaved(true);
     } finally {
       setSavingProfile(false);
     }
+  }
+
+  function preventCategoryFormSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
   }
 
   function toggleProfileWeeklyAvailability(day: Weekday, slot: WeeklyTimeSlot) {
@@ -594,6 +1047,150 @@ export default function CleanerDashboard() {
       if (nextSlots.length > 0) next[day] = nextSlots;
       else delete next[day];
       return next;
+    });
+  }
+
+  const selectedDistrictCity = useMemo(
+    () => cities.find((item) => item.value === profileDistrictCity) ?? null,
+    [profileDistrictCity],
+  );
+
+  const availableDistrictZones = useMemo(
+    () => selectedDistrictCity?.zones.filter((zone) => !districtSelectedZones.has(zone)) ?? [],
+    [selectedDistrictCity, districtSelectedZones],
+  );
+
+  const selectedDistrictZoneList = useMemo(
+    () => selectedDistrictCity?.zones.filter((zone) => districtSelectedZones.has(zone)) ?? [],
+    [selectedDistrictCity, districtSelectedZones],
+  );
+
+  const filteredAvailableDistrictZones = useMemo(() => {
+    const query = districtSearch.trim().toLocaleLowerCase();
+    if (!query) return availableDistrictZones;
+    return availableDistrictZones.filter((zone) => zone.toLocaleLowerCase().includes(query));
+  }, [availableDistrictZones, districtSearch]);
+
+  function openDistrictOverlay() {
+    if (!selectedDistrictCity) {
+      setProfileError("Choose a city first.");
+      return;
+    }
+    const existingAreas = serviceAreasFromText(profileServiceAreas);
+    const zoneSet = new Set<string>();
+    for (const zone of selectedDistrictCity.zones) {
+      if (existingAreas.includes(zone)) zoneSet.add(zone);
+    }
+    setDistrictSelectedZones(zoneSet);
+    setDistrictSearch("");
+    setDistrictAvailableChoice("");
+    setDistrictSelectedChoice("");
+    setDistrictOverlayOpen(true);
+    setProfileError("");
+  }
+
+  function closeDistrictOverlay() {
+    setDistrictOverlayOpen(false);
+    setDistrictSearch("");
+    setDistrictAvailableChoice("");
+    setDistrictSelectedChoice("");
+  }
+
+  function addSelectedDistrict() {
+    if (!districtAvailableChoice) return;
+    setDistrictSelectedZones((current) => new Set(current).add(districtAvailableChoice));
+    setDistrictAvailableChoice("");
+  }
+
+  function removeSelectedDistrict() {
+    if (!districtSelectedChoice) return;
+    setDistrictSelectedZones((current) => {
+      const next = new Set(current);
+      next.delete(districtSelectedChoice);
+      return next;
+    });
+    setDistrictSelectedChoice("");
+  }
+
+  function selectAllDistricts() {
+    if (!selectedDistrictCity) return;
+    setDistrictSelectedZones(new Set(selectedDistrictCity.zones));
+  }
+
+  function clearAllDistricts() {
+    setDistrictSelectedZones(new Set());
+  }
+
+  function applyDistrictsToServiceAreas() {
+    if (!selectedDistrictCity) return;
+    const nextAreas = [...selectedDistrictZoneList];
+    setProfileServiceAreas(nextAreas.join("\n"));
+    closeDistrictOverlay();
+  }
+
+  function handleDropToSelectedDistricts() {
+    if (districtDragSource !== "available" || !districtDraggedZone) return;
+    setDistrictSelectedZones((current) => new Set(current).add(districtDraggedZone));
+    setDistrictDraggedZone(null);
+    setDistrictDragSource(null);
+    setDistrictAvailableChoice("");
+  }
+
+  function handleDropToAvailableDistricts() {
+    if (districtDragSource !== "selected" || !districtDraggedZone) return;
+    setDistrictSelectedZones((current) => {
+      const next = new Set(current);
+      next.delete(districtDraggedZone);
+      return next;
+    });
+    setDistrictDraggedZone(null);
+    setDistrictDragSource(null);
+    setDistrictSelectedChoice("");
+  }
+
+  const availableOtherLanguageOptions = useMemo(() => {
+    const selected = new Set(profileOtherLanguages);
+    const normalizedNative = profileNativeLanguage.trim();
+    return otherLanguageCatalog.filter((language) => {
+      if (selected.has(language)) return false;
+      if (normalizedNative && language === normalizedNative) return false;
+      return true;
+    });
+  }, [profileOtherLanguages, profileNativeLanguage]);
+
+  const filteredAvailableOtherLanguageOptions = useMemo(() => {
+    const query = otherLanguageSearch.trim().toLocaleLowerCase();
+    if (!query) return availableOtherLanguageOptions;
+    return availableOtherLanguageOptions.filter((language) => language.toLocaleLowerCase().includes(query));
+  }, [availableOtherLanguageOptions, otherLanguageSearch]);
+
+  function openOtherLanguagesOverlay() {
+    setOtherLanguageSearch("");
+    setOtherLanguagesOverlayOpen(true);
+  }
+
+  function closeOtherLanguagesOverlay() {
+    setOtherLanguageSearch("");
+    setOtherLanguagesOverlayOpen(false);
+  }
+
+  function addOtherLanguage(language: string) {
+    setProfileOtherLanguages((current) => {
+      if (current.includes(language)) return current;
+      return [...current, language];
+    });
+  }
+
+  function removeOtherLanguage(language: string) {
+    setProfileOtherLanguages((current) => current.filter((item) => item !== language));
+  }
+
+  function togglePersonalPreference(value: string) {
+    setProfilePersonalPreferences((current) => {
+      if (current.includes(value)) {
+        return current.filter((item) => item !== value);
+      }
+      return [...current, value];
     });
   }
 
@@ -687,6 +1284,52 @@ export default function CleanerDashboard() {
   const pendingApplications = applications.filter((application) => application.status === "pending").length;
   const fullName = `${me?.first_name || ""} ${me?.last_name || ""}`.trim();
   const displayName = fullName || me?.email.split("@")[0] || "Cleaner";
+  const currentProfileSnapshot = useMemo(
+    () => buildProfileSnapshot({
+      firstName: profileFirstName.trim(),
+      lastName: profileLastName.trim(),
+      city: profileDistrictCity,
+      sex: profileSex,
+      birthDate: profileBirthDate || "",
+      nativeLanguage: profileNativeLanguage.trim(),
+      otherLanguages: JSON.stringify(profileOtherLanguages),
+      personalPreferences: JSON.stringify([...profilePersonalPreferences].sort()),
+      education: profileEducation,
+      hasDrivingLicense: profileHasDrivingLicense,
+      hasOwnCar: profileHasOwnCar,
+      experienceLevel: profileExperienceLevel,
+      jobTypePreference: profileJobTypePreference,
+      weeklyAvailability: serializeWeeklyAvailability(profileWeeklyAvailability),
+      serviceAreas: normalizeServiceAreasText(profileServiceAreas),
+      profileImage: profileImage || "",
+      bio: profileBio,
+    }),
+    [
+      profileFirstName,
+      profileLastName,
+      profileDistrictCity,
+      profileSex,
+      profileBirthDate,
+      profileNativeLanguage,
+      profileOtherLanguages,
+      profilePersonalPreferences,
+      profileEducation,
+      profileHasDrivingLicense,
+      profileHasOwnCar,
+      profileExperienceLevel,
+      profileJobTypePreference,
+      profileWeeklyAvailability,
+      profileServiceAreas,
+      profileImage,
+      profileBio,
+    ],
+  );
+  const normalizedServiceAreasForSave = useMemo(
+    () => normalizeServiceAreasByCity(profileServiceAreas, profileDistrictCity),
+    [profileServiceAreas, profileDistrictCity],
+  );
+  const hasSelectedDistricts = normalizedServiceAreasForSave.length > 0;
+  const hasProfileChanges = Boolean(savedProfileSnapshot && currentProfileSnapshot !== savedProfileSnapshot);
 
   if (loadingMe) {
     return <main className="host-page cleaner-page"><p className="host-loading">Loading...</p></main>;
@@ -762,14 +1405,6 @@ export default function CleanerDashboard() {
             Assigned
             {activeAssignments.length > 0 && <span className="host-tab-count">{activeAssignments.length}</span>}
           </button>
-          <button
-            type="button"
-            className={`host-tab${section === "profile" ? " active" : ""}`}
-            onClick={() => setSection("profile")}
-          >
-            <UserRoundCheck size={15} aria-hidden />
-            Profile
-          </button>
         </nav>
 
         <div className="host-topbar-right">
@@ -778,10 +1413,30 @@ export default function CleanerDashboard() {
             <span className="user-chip-dot" aria-hidden>·</span>
             Cleaner
           </span>
-          <button className="text-link logout-trigger" type="button" onClick={logout}>
-            <LogOut size={15} aria-hidden />
-            Log out
-          </button>
+          <div className="cleaner-account-menu" ref={accountMenuRef}>
+            <button
+              className="cleaner-account-menu-trigger"
+              type="button"
+              onClick={() => setAccountMenuOpen((current) => !current)}
+              aria-haspopup="menu"
+              aria-expanded={accountMenuOpen}
+              aria-label="Account menu"
+            >
+              <User size={18} aria-hidden />
+            </button>
+            {accountMenuOpen ? (
+              <div className="cleaner-account-menu-dropdown" role="menu" aria-label="Account menu">
+                <button type="button" className="cleaner-account-menu-item" role="menuitem" onClick={openProfileFromMenu}>
+                  <UserRoundCheck size={16} aria-hidden />
+                  Profile
+                </button>
+                <button type="button" className="cleaner-account-menu-item cleaner-account-menu-item--danger" role="menuitem" onClick={() => void logout()}>
+                  <LogOut size={16} aria-hidden />
+                  Log out
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -1222,11 +1877,6 @@ export default function CleanerDashboard() {
               <div>
                 <h1 className="host-section-title">Cleaner Profile</h1>
               </div>
-              {profile && (
-                <span className={`cleaner-application-chip cleaner-verification-${profile.verification_status}`}>
-                  {profile.verification_status}
-                </span>
-              )}
             </div>
 
             {!profile ? (
@@ -1236,159 +1886,293 @@ export default function CleanerDashboard() {
               </div>
             ) : (
               <div className="cleaner-profile-layout">
-                <form className="host-form cleaner-profile-form" onSubmit={(event) => void submitProfile(event)}>
-                  <section className="cleaner-profile-section" aria-labelledby="cleaner-account-title">
-                    <div className="cleaner-profile-section-head">
-                      <h2 id="cleaner-account-title">Account</h2>
-                    </div>
-                    <div className="cleaner-profile-account-row">
-                      <label className="cleaner-avatar-uploader">
-                        <input type="file" accept="image/*" onChange={onProfileImageChange} />
-                        <span className="cleaner-avatar-frame">
-                          <Image src={profileImage || DEFAULT_PROFILE_IMAGE} alt="Profile" width={112} height={112} unoptimized />
-                          <span className="cleaner-avatar-overlay">
-                            <Plus size={18} aria-hidden />
+                <div className="cleaner-profile-forms">
+                  {profileError ? <p className="form-error cleaner-profile-feedback">{profileError}</p> : null}
+
+                  <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
+                    <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-account-title">
+                      <div className="cleaner-profile-section-head">
+                        <h2 id="cleaner-account-title">Account &amp; personal information</h2>
+                      </div>
+                      <div className="cleaner-profile-account-row">
+                        <label className="cleaner-avatar-uploader">
+                          <input type="file" accept="image/*" onChange={onProfileImageChange} />
+                          <span className="cleaner-avatar-label">Profile image</span>
+                          <span className="cleaner-avatar-frame">
+                            <Image
+                              src={profileImage || DEFAULT_PROFILE_IMAGE}
+                              alt="Profile"
+                              fill
+                              sizes="152px"
+                              unoptimized
+                              style={{ objectFit: "cover", objectPosition: "center" }}
+                            />
+                            <span className="cleaner-avatar-overlay">
+                              <Plus size={18} aria-hidden />
+                            </span>
                           </span>
-                        </span>
+                        </label>
+                        <div className="form-grid">
+                          <label>
+                            <span>First name</span>
+                            <input value={profileFirstName} onChange={(event) => setProfileFirstName(event.target.value)} />
+                          </label>
+                          <label>
+                            <span>Last name</span>
+                            <input value={profileLastName} onChange={(event) => setProfileLastName(event.target.value)} />
+                          </label>
+                          <label className="cleaner-account-email-field">
+                            <span>Email</span>
+                            <input value={me.email} readOnly />
+                          </label>
+                          <label className="cleaner-sex-picker">
+                            <span>Sex</span>
+                            <select value={profileSex} onChange={(event) => setProfileSex(event.target.value as CleanerSex)}>
+                              {sexOptions.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            <span>Date of birth</span>
+                            <input type="date" value={profileBirthDate} onChange={(event) => setProfileBirthDate(event.target.value)} />
+                          </label>
+                        </div>
+                      </div>
+                    </section>
+                  </form>
+
+                  <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
+                    <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-location-title">
+                      <div className="cleaner-profile-section-head">
+                        <h2 id="cleaner-location-title">Location</h2>
+                      </div>
+                      <label className="cleaner-district-city-picker">
+                        <span>City</span>
+                        <select
+                          value={profileDistrictCity}
+                          onChange={(event) => {
+                            const nextCity = event.target.value;
+                            setProfileDistrictCity(nextCity);
+                            setDistrictSelectedZones(new Set());
+                            setDistrictAvailableChoice("");
+                            setDistrictSelectedChoice("");
+                            const normalizedAreas = normalizeServiceAreasByCity(profileServiceAreas, nextCity);
+                            setProfileServiceAreas(normalizedAreas.join("\n"));
+                          }}
+                        >
+                          <option value="">Choose city</option>
+                          {cities.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        </select>
                       </label>
+                      <div className="cleaner-service-areas-section">
+                        <div className="cleaner-service-areas-header">
+                          <span>Service areas</span>
+                          <button
+                            type="button"
+                            className="secondary-link cleaner-add-districts-button"
+                            onClick={openDistrictOverlay}
+                            disabled={!profileDistrictCity}
+                          >
+                            Add districts
+                          </button>
+                        </div>
+                        {normalizedServiceAreasForSave.length > 0 ? (
+                          <div className="cleaner-service-area-tags">
+                            {normalizedServiceAreasForSave.map((area) => (
+                              <span key={area} className="cleaner-service-area-tag">{area}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="host-form-hint">No service areas selected.</p>
+                        )}
+                      </div>
+                      <p className="host-form-hint">Select a <strong>City</strong> and then use <strong>Add districts</strong> to manage service areas.</p>
+                    </section>
+                  </form>
+
+                  <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
+                    <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-experience-title">
+                      <div className="cleaner-profile-section-head">
+                        <h2 id="cleaner-experience-title">Experience</h2>
+                      </div>
                       <div className="form-grid">
                         <label>
-                          <span>First name</span>
-                          <input value={profileFirstName} onChange={(event) => setProfileFirstName(event.target.value)} />
+                          <span>My Native language</span>
+                          <select value={profileNativeLanguage} onChange={(event) => setProfileNativeLanguage(event.target.value)}>
+                            {nativeLanguageOptions.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
                         </label>
                         <label>
-                          <span>Last name</span>
-                          <input value={profileLastName} onChange={(event) => setProfileLastName(event.target.value)} />
+                          <span>Education</span>
+                          <select value={profileEducation} onChange={(event) => setProfileEducation(event.target.value)}>
+                            {educationOptions.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
                         </label>
                         <label>
-                          <span>Email</span>
-                          <input value={me.email} readOnly />
+                          <span>Cleaning experience</span>
+                          <select value={profileExperienceLevel} onChange={(event) => setProfileExperienceLevel(event.target.value)}>
+                            {experienceOptions.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
                         </label>
+                        <label>
+                          <span>Driving license</span>
+                          <select value={profileHasDrivingLicense} onChange={(event) => setProfileHasDrivingLicense(event.target.value as "" | "yes" | "no")}>
+                            {profileHasDrivingLicense === "" ? <option value="">Select</option> : null}
+                            <option value="yes">I have a driving license</option>
+                            <option value="no">I don&apos;t have a driving license</option>
+                          </select>
+                        </label>
+                        {profileHasDrivingLicense === "yes" ? (
+                          <label>
+                            <span>Personal car</span>
+                            <select value={profileHasOwnCar} onChange={(event) => setProfileHasOwnCar(event.target.value as "" | "yes" | "no")}>
+                              {profileHasOwnCar === "" ? <option value="">Select</option> : null}
+                              <option value="yes">I have a personal car</option>
+                              <option value="no">I don&apos;t have a personal car</option>
+                            </select>
+                          </label>
+                        ) : null}
                       </div>
-                    </div>
-                  </section>
+                      <div className="cleaner-other-languages-section">
+                        <div className="cleaner-other-languages-header">
+                          <span>Other languages</span>
+                          <button type="button" className="secondary-link cleaner-other-languages-button" onClick={openOtherLanguagesOverlay}>
+                            Select languages
+                          </button>
+                        </div>
+                        {profileOtherLanguages.length > 0 ? (
+                          <div className="cleaner-other-language-tags">
+                            {profileOtherLanguages.map((language) => (
+                              <span key={language} className="cleaner-other-language-tag">{language}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="host-form-hint">No additional languages selected.</p>
+                        )}
+                      </div>
+                    </section>
+                  </form>
 
-                  <section className="cleaner-profile-section" aria-labelledby="cleaner-personal-title">
-                    <div className="cleaner-profile-section-head">
-                      <h2 id="cleaner-personal-title">Personal information</h2>
-                    </div>
-                    <div className="form-grid">
-                      <label className="cleaner-sex-picker">
-                        <span>Sex</span>
-                        <select value={profileSex} onChange={(event) => setProfileSex(event.target.value as CleanerSex)}>
-                          {sexOptions.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        <span>Date of birth</span>
-                        <input type="date" value={profileBirthDate} onChange={(event) => setProfileBirthDate(event.target.value)} />
-                      </label>
-                    </div>
-                  </section>
-
-                  <section className="cleaner-profile-section" aria-labelledby="cleaner-location-title">
-                    <div className="cleaner-profile-section-head">
-                      <h2 id="cleaner-location-title">Location</h2>
-                    </div>
-                    <label>
-                      <span>Service areas</span>
-                      <textarea
-                        rows={5}
-                        value={profileServiceAreas}
-                        onChange={(event) => setProfileServiceAreas(event.target.value)}
-                        placeholder="Add one district or city per line"
-                      />
-                    </label>
-                  </section>
-
-                  <section className="cleaner-profile-section" aria-labelledby="cleaner-experience-title">
-                    <div className="cleaner-profile-section-head">
-                      <h2 id="cleaner-experience-title">Experience</h2>
-                    </div>
-                    <div className="form-grid">
-                      <label>
-                        <span>Native language</span>
-                        <input value={profileNativeLanguage} onChange={(event) => setProfileNativeLanguage(event.target.value)} />
-                      </label>
-                      <label>
-                        <span>Cleaning experience</span>
-                        <select value={profileExperienceLevel} onChange={(event) => setProfileExperienceLevel(event.target.value)}>
-                          {experienceOptions.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                  </section>
-
-                  <section className="cleaner-profile-section" aria-labelledby="cleaner-availability-title">
-                    <div className="cleaner-profile-section-head">
-                      <h2 id="cleaner-availability-title">Availability</h2>
-                    </div>
-                    <label>
-                      <span>Job preference</span>
-                      <select
-                        value={profileJobTypePreference}
-                        onChange={(event) => setProfileJobTypePreference(event.target.value as JobTypePreference | "")}
-                      >
-                        {jobTypePreferenceOptions.map((option) => (
-                          <option key={option.value || "empty"} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="cleaner-weekly-availability-grid" role="group" aria-label="Weekly availability">
-                      <span className="cleaner-weekly-availability-corner" aria-hidden />
-                      {weeklyTimeOptions.map((slot) => (
-                        <span className="cleaner-weekly-availability-head" key={slot.value}>{slot.label}</span>
-                      ))}
-                      {weeklyDayOptions.map((day) => (
-                        <div className="cleaner-weekly-availability-row" key={day.value}>
-                          <span className="cleaner-weekly-availability-day">{day.label}</span>
-                          {weeklyTimeOptions.map((slot) => {
-                            const selected = profileWeeklyAvailability[day.value]?.includes(slot.value) ?? false;
+                  <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
+                    <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-availability-title">
+                      <div className="cleaner-profile-section-head">
+                        <h2 id="cleaner-availability-title">Availability</h2>
+                      </div>
+                      <section aria-labelledby="cleaner-job-type-preference-title">
+                        <h3 id="cleaner-job-type-preference-title">Job preference</h3>
+                        <div className="signup-availability-choice-grid signup-job-type-grid" role="radiogroup" aria-label="Job preference">
+                          {jobTypePreferenceOptions.filter((option) => option.value !== "").map((option) => {
+                            const selected = profileJobTypePreference === option.value;
                             return (
                               <button
                                 type="button"
-                                key={`${day.value}-${slot.value}`}
-                                className={selected ? "cleaner-weekly-availability-cell selected" : "cleaner-weekly-availability-cell"}
-                                aria-pressed={selected}
-                                aria-label={`${day.label} ${slot.label}`}
-                                onClick={() => toggleProfileWeeklyAvailability(day.value, slot.value)}
+                                key={option.value}
+                                className={selected ? "signup-experience-option selected" : "signup-experience-option"}
+                                role="radio"
+                                aria-checked={selected}
+                                onClick={() => setProfileJobTypePreference(option.value as JobTypePreference)}
                               >
-                                {selected ? <CheckCircle2 size={14} aria-hidden /> : null}
+                                <span>{option.label}</span>
+                                {selected ? <span className="signup-experience-check" aria-hidden><CheckCircle2 size={15} /></span> : null}
                               </button>
                             );
                           })}
                         </div>
-                      ))}
-                    </div>
-                  </section>
+                      </section>
+                      <div className="cleaner-weekly-availability-grid" role="group" aria-label="Weekly availability">
+                        <span className="cleaner-weekly-availability-corner" aria-hidden />
+                        {weeklyDayOptions.map((day) => (
+                          <span className="cleaner-weekly-availability-head" key={day.value}>{day.label}</span>
+                        ))}
+                        {weeklyTimeOptions.map((slot) => (
+                          <div className="cleaner-weekly-availability-row" key={slot.value}>
+                            <span className="cleaner-weekly-availability-slot">{slot.label}</span>
+                            {weeklyDayOptions.map((day) => {
+                              const selected = profileWeeklyAvailability[day.value]?.includes(slot.value) ?? false;
+                              return (
+                                <button
+                                  type="button"
+                                  key={`${day.value}-${slot.value}`}
+                                  className={selected ? "cleaner-weekly-availability-cell selected" : "cleaner-weekly-availability-cell"}
+                                  aria-pressed={selected}
+                                  aria-label={`${day.label} ${slot.label}`}
+                                  onClick={() => toggleProfileWeeklyAvailability(day.value, slot.value)}
+                                >
+                                  {selected ? <CheckCircle2 size={14} aria-hidden /> : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </form>
 
-                  <section className="cleaner-profile-section" aria-labelledby="cleaner-introduction-title">
-                    <div className="cleaner-profile-section-head">
-                      <h2 id="cleaner-introduction-title">Introduction</h2>
-                    </div>
-                    <label>
-                      <span>Your introduction</span>
-                      <textarea
-                        rows={5}
-                        maxLength={1500}
-                        value={profileBio}
-                        onChange={(event) => setProfileBio(event.target.value)}
-                        placeholder="Experience, property types, languages, availability..."
-                      />
-                    </label>
-                  </section>
-                  {profileError && <p className="form-error">{profileError}</p>}
-                  {profileSaved && <p className="cleaner-success"><CheckCircle2 size={15} aria-hidden />Profile saved.</p>}
-                  <div className="host-form-actions">
-                    <button className="primary-link auth-submit" type="submit" disabled={savingProfile}>
-                      {savingProfile ? "Saving..." : "Save profile"}
+                  <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
+                    <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-extra-services-title">
+                      <div className="cleaner-profile-section-head">
+                        <h2 id="cleaner-extra-services-title">Extra services offered</h2>
+                      </div>
+                      <div className="cleaner-preferences-grid" role="group" aria-label="Extra services offered">
+                        {personalPreferenceOptions.map((option) => {
+                          const selected = profilePersonalPreferences.includes(option.value);
+                          return (
+                            <label key={option.value} className="cleaner-switch-option">
+                              <span>{option.label}</span>
+                              <button
+                                type="button"
+                                className={selected ? "cleaner-switch-toggle selected" : "cleaner-switch-toggle"}
+                                role="switch"
+                                aria-checked={selected}
+                                aria-label={option.label}
+                                onClick={() => togglePersonalPreference(option.value)}
+                              >
+                                <span className="cleaner-switch-toggle-thumb" aria-hidden />
+                              </button>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  </form>
+
+                  <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
+                    <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-introduction-title">
+                      <div className="cleaner-profile-section-head">
+                        <h2 id="cleaner-introduction-title">Introduction</h2>
+                      </div>
+                      <label>
+                        <span>Your introduction</span>
+                        <textarea
+                          rows={5}
+                          maxLength={1500}
+                          value={profileBio}
+                          onChange={(event) => setProfileBio(event.target.value)}
+                          placeholder="Experience, property types, languages, availability..."
+                        />
+                      </label>
+                    </section>
+                  </form>
+
+                  <div className="host-form-actions cleaner-profile-save-actions">
+                    {profileSaved ? <p className="cleaner-success cleaner-profile-save-status" aria-live="polite"><CheckCircle2 size={15} aria-hidden />Profile saved.</p> : null}
+                    <button
+                      className="primary-link auth-submit"
+                      type="button"
+                      disabled={savingProfile || !hasProfileChanges || !hasSelectedDistricts}
+                      onClick={() => void submitAllProfileChanges()}
+                    >
+                      {savingProfile ? "Saving..." : "Save changes"}
                     </button>
                   </div>
-                </form>
+                </div>
 
                 <aside className="cleaner-profile-summary">
                   <div>
@@ -1402,6 +2186,25 @@ export default function CleanerDashboard() {
                   <div>
                     <span>Language</span>
                     <strong>{profileNativeLanguage || "Not set"}</strong>
+                  </div>
+                  <div>
+                    <span>Other languages</span>
+                    <strong>{profileOtherLanguages.length > 0 ? profileOtherLanguages.join(", ") : "Not set"}</strong>
+                  </div>
+                  <div>
+                    <span>Extra services</span>
+                    <strong>
+                      {profilePersonalPreferences.length > 0
+                        ? personalPreferenceOptions
+                          .filter((option) => profilePersonalPreferences.includes(option.value))
+                          .map((option) => option.label)
+                          .join(", ")
+                        : "Not set"}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Education</span>
+                    <strong>{labelFromOptions(educationOptions, profileEducation)}</strong>
                   </div>
                   <div>
                     <span>Experience</span>
@@ -1429,6 +2232,286 @@ export default function CleanerDashboard() {
           </div>
         )}
       </main>
+
+      {districtOverlayOpen ? (
+        <div className="host-modal-backdrop" onClick={closeDistrictOverlay} role="dialog" aria-modal="true" aria-label="Add districts">
+          <div className="host-modal host-modal--wide" onClick={(event) => event.stopPropagation()}>
+            <div className="host-modal-header">
+              <div>
+                <h2>Add districts</h2>
+                <p className="host-modal-subtitle">
+                  Select districts in {selectedDistrictCity?.label ?? "the selected city"} and add them to your service areas.
+                </p>
+              </div>
+              <button type="button" className="host-modal-close" onClick={closeDistrictOverlay} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="host-form cleaner-district-overlay-form">
+              {selectedDistrictCity ? (
+                <section className="zones-panel" aria-label={`${selectedDistrictCity.label} districts`}>
+                  <header className="zones-panel-head">
+                    <strong>Area selection</strong>
+                    <div className="zones-actions">
+                      <button type="button" onClick={selectAllDistricts}>Select all</button>
+                      <button type="button" onClick={clearAllDistricts}>Clear all</button>
+                    </div>
+                  </header>
+                  <div className="dual-zone-transfer">
+                    <label className="dual-zone-list">
+                      <span>List of Districts:</span>
+                      <div
+                        className="dual-zone-listbox"
+                        role="listbox"
+                        aria-label="List of Districts"
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={handleDropToAvailableDistricts}
+                      >
+                        <div className="dual-zone-listbox-search-wrap">
+                          <input
+                            className="dual-zone-search"
+                            type="text"
+                            placeholder="Search district"
+                            value={districtSearch}
+                            onChange={(event) => setDistrictSearch(event.target.value)}
+                          />
+                        </div>
+                        <div className="dual-zone-items">
+                          {filteredAvailableDistrictZones.map((zone) => (
+                            <button
+                              type="button"
+                              key={zone}
+                              className={districtAvailableChoice === zone ? "dual-zone-item selected" : "dual-zone-item"}
+                              onClick={() => setDistrictAvailableChoice(zone)}
+                              onDoubleClick={() => {
+                                setDistrictSelectedZones((current) => new Set(current).add(zone));
+                                setDistrictAvailableChoice("");
+                              }}
+                              draggable
+                              onDragStart={() => {
+                                setDistrictDraggedZone(zone);
+                                setDistrictDragSource("available");
+                              }}
+                              onDragEnd={() => {
+                                setDistrictDraggedZone(null);
+                                setDistrictDragSource(null);
+                              }}
+                            >
+                              {zone}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </label>
+                    <div className="dual-zone-controls">
+                      <button type="button" onClick={addSelectedDistrict} disabled={!districtAvailableChoice}>{">"}</button>
+                      <button type="button" onClick={removeSelectedDistrict} disabled={!districtSelectedChoice}>{"<"}</button>
+                    </div>
+                    <label className="dual-zone-list">
+                      <span>Selected Districts:</span>
+                      <div
+                        className="dual-zone-listbox"
+                        role="listbox"
+                        aria-label="Selected Districts"
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={handleDropToSelectedDistricts}
+                      >
+                        <div className="dual-zone-items">
+                          {selectedDistrictZoneList.map((zone) => (
+                            <button
+                              type="button"
+                              key={zone}
+                              className={districtSelectedChoice === zone ? "dual-zone-item selected" : "dual-zone-item"}
+                              onClick={() => setDistrictSelectedChoice(zone)}
+                              onDoubleClick={() => {
+                                setDistrictSelectedZones((current) => {
+                                  const next = new Set(current);
+                                  next.delete(zone);
+                                  return next;
+                                });
+                                setDistrictSelectedChoice("");
+                              }}
+                              draggable
+                              onDragStart={() => {
+                                setDistrictDraggedZone(zone);
+                                setDistrictDragSource("selected");
+                              }}
+                              onDragEnd={() => {
+                                setDistrictDraggedZone(null);
+                                setDistrictDragSource(null);
+                              }}
+                            >
+                              {zone}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </section>
+              ) : (
+                <p className="host-form-hint">Choose a city to select districts.</p>
+              )}
+
+              <div className="host-form-actions">
+                <button className="secondary-link" type="button" onClick={closeDistrictOverlay}>
+                  Cancel
+                </button>
+                <button className="primary-link auth-submit" type="button" onClick={applyDistrictsToServiceAreas} disabled={!selectedDistrictCity}>
+                  Add districts
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {otherLanguagesOverlayOpen ? (
+        <div className="host-modal-backdrop" onClick={closeOtherLanguagesOverlay} role="dialog" aria-modal="true" aria-label="Select other languages">
+          <div className="host-modal cleaner-other-languages-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="host-modal-header">
+              <div>
+                <h2>Select other languages</h2>
+                <p className="host-modal-subtitle">Choose additional languages you speak besides your native language.</p>
+              </div>
+              <button type="button" className="host-modal-close" onClick={closeOtherLanguagesOverlay} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="host-form cleaner-other-languages-overlay-form">
+              <div className="dual-zone-transfer">
+                <label className="dual-zone-list">
+                  <span>Available languages:</span>
+                  <div className="dual-zone-listbox" role="listbox" aria-label="Available languages">
+                    <div className="dual-zone-listbox-search-wrap">
+                      <input
+                        className="dual-zone-search"
+                        type="text"
+                        placeholder="Search language"
+                        value={otherLanguageSearch}
+                        onChange={(event) => setOtherLanguageSearch(event.target.value)}
+                      />
+                    </div>
+                    <div className="dual-zone-items">
+                      {filteredAvailableOtherLanguageOptions.map((language) => (
+                        <button
+                          type="button"
+                          key={language}
+                          className="dual-zone-item"
+                          onClick={() => addOtherLanguage(language)}
+                        >
+                          {language}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </label>
+                <label className="dual-zone-list">
+                  <span>Selected languages:</span>
+                  <div className="dual-zone-listbox" role="listbox" aria-label="Selected languages">
+                    <div className="dual-zone-items">
+                      {profileOtherLanguages.map((language) => (
+                        <button
+                          type="button"
+                          key={language}
+                          className="dual-zone-item selected"
+                          onClick={() => removeOtherLanguage(language)}
+                        >
+                          {language}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </label>
+              </div>
+              <p className="host-form-hint">Click an available language to add it. Click a selected language to remove it.</p>
+              <div className="host-form-actions cleaner-other-languages-actions">
+                <button className="primary-link auth-submit" type="button" onClick={closeOtherLanguagesOverlay}>
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {cropSource && (
+        <div
+          className="host-modal-backdrop"
+          onClick={closeCropEditor}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Crop profile image"
+        >
+          <div className="host-modal cleaner-crop-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="host-modal-header">
+              <h2>Adjust profile image</h2>
+              <button type="button" className="host-modal-close" onClick={closeCropEditor} aria-label="Close">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="cleaner-crop-modal-body">
+              <p className="cleaner-crop-hint">
+                Drag to center your photo. Use zoom to crop tighter or wider.
+              </p>
+              <div className="cleaner-crop-canvas-wrap">
+                <canvas
+                  ref={cropCanvasRef}
+                  className={cropDragging ? "cleaner-crop-canvas dragging" : "cleaner-crop-canvas"}
+                  width={PROFILE_CROP_PREVIEW_SIZE}
+                  height={PROFILE_CROP_PREVIEW_SIZE}
+                  onPointerDown={onCropPointerDown}
+                  onPointerMove={onCropPointerMove}
+                  onPointerUp={onCropPointerEnd}
+                  onPointerCancel={onCropPointerEnd}
+                  onPointerLeave={onCropPointerEnd}
+                />
+              </div>
+              <div className="cleaner-crop-controls">
+                <label className="cleaner-crop-zoom" htmlFor="profile-crop-zoom">
+                  <span>Zoom</span>
+                  <input
+                    id="profile-crop-zoom"
+                    type="range"
+                    min={PROFILE_CROP_MIN_ZOOM}
+                    max={PROFILE_CROP_MAX_ZOOM}
+                    step={0.01}
+                    value={cropZoom}
+                    onChange={(event) => setCropZoomLevel(Number(event.target.value))}
+                  />
+                  <strong>{cropZoom.toFixed(2)}x</strong>
+                </label>
+                <div className="cleaner-crop-actions cleaner-crop-actions--all">
+                  <div className="cleaner-crop-actions-left">
+                    <button type="button" className="secondary-link" onClick={resetCropPosition}>
+                      Center image
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-link"
+                      onClick={() => {
+                        setCropZoomLevel(PROFILE_CROP_MIN_ZOOM);
+                        resetCropPosition();
+                      }}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div className="cleaner-crop-actions-right">
+                    <button className="secondary-link" type="button" onClick={closeCropEditor}>
+                      Cancel
+                    </button>
+                    <button className="primary-link auth-submit" type="button" onClick={applyCropResult} disabled={cropBusy}>
+                      {cropBusy ? "Applying..." : "Use this image"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {cropError ? <p className="form-error">{cropError}</p> : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {applyJob && (
         <div

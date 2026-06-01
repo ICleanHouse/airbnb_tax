@@ -76,7 +76,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 | `/app` | ✅ Done | Generic workspace — auto-redirects hosts → `/host`, admins → `/admin` |
 | `/admin` | ✅ Done | Admin approval dashboard — list / filter / approve / reject; reads `?filter=pending` URL param |
 | `/host` | ✅ Done | Host dashboard — property CRUD, job posting, month calendar, publish jobs, **ICS import** |
-| `/cleaner` | ✅ Done | Cleaner dashboard — calendar, profile, open jobs, applications, assignments |
+| `/cleaner` | ✅ Done | Cleaner dashboard — calendar, profile forms, open jobs, applications, assignments |
 | `/agency` | ⬜ Not built | Agency dashboard — manage members, view assigned jobs |
 
 ### Shared infrastructure
@@ -98,6 +98,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - Cleaner language, experience, work preference, preferred time slots, and optional weekly availability are collected before account creation.
 - Date of birth uses a compact dropdown-style calendar.
 - Google and Apple buttons are UI-only placeholders; OAuth is not connected yet.
+- Cleaner profile editing includes city-scoped district selection (`Add districts`), selected-district tags, other-languages management, profile image cropping, driving-license/own-car fields, and `Extra services offered` toggles.
 
 ### Signup database notes
 

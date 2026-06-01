@@ -1,6 +1,6 @@
 # Current Progress Handoff
 
-Updated: 2026-05-29, after the React signup wizard, Motion transitions, native-language, experience, and cleaner availability step updates.
+Updated: 2026-06-01, after cleaner profile UX/data-model updates (location districts flow, language overlay, profile image crop, and extra services).
 
 ## User Goal
 
@@ -53,7 +53,18 @@ Current work is focused on completing the cleaner signup flow. The production-ho
   - `preferred_time_slots`
   - `weekly_availability`
   - Migration: `backend/apps/accounts/migrations/0010_cleanerprofile_work_availability.py`
-- Added cleaner dashboard/profile updates: calendar, profile picture upload preview, service-area dropdown, sex dropdown, applications, assignments, and open jobs.
+- Added cleaner dashboard/profile updates:
+  - Profile categories are split into separate forms with one shared `Save changes` action at the bottom.
+  - `Profile saved.` success state is shown near the shared save button and auto-hides after 5 seconds.
+  - Profile image upload now opens a crop overlay (reposition + zoom slider + reset + confirm).
+  - Location uses city-first district selection, with service areas managed through an `Add districts` overlay (city-scoped lists, drag-and-drop, and transfer controls).
+  - Service areas and other languages are displayed as selected tag lists in profile forms.
+  - Other languages uses a dedicated dual-list overlay with search and right-aligned `Done`.
+  - Experience form includes driving-license and conditional own-car dropdowns.
+  - Added a new cleaner profile section: `Extra services offered` with toggle switches.
+- Added backend cleaner profile fields and migrations:
+  - `other_languages` JSON field (migration: `backend/apps/accounts/migrations/0013_cleanerprofile_other_languages.py`).
+  - `personal_preferences` JSON field for extra services (migration: `backend/apps/accounts/migrations/0014_cleanerprofile_personal_preferences.py`).
 
 ## Current Local Development Notes
 

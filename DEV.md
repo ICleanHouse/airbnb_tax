@@ -69,7 +69,7 @@ frontend/
     app/            Generic workspace (auto-redirects hosts → /host, admins → /admin)
     admin/          Admin approval panel (list / approve / reject, URL filter param)
     host/           Host dashboard (properties, jobs, calendar, ICS import)
-    cleaner/        Cleaner dashboard (calendar, profile, open jobs, applications, assignments)
+    cleaner/        Cleaner dashboard (calendar, profile forms, open jobs, applications, assignments)
     components/     CookieConsentBanner
   lib/
     api.ts          apiFetch wrapper — CSRF + Content-Type, FormData-safe
@@ -298,7 +298,13 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 - Calendar view with open jobs, applications, and assignments.
 - Open jobs list with apply action gated by account approval and cleaner verification.
 - Applications and assigned jobs views.
-- Profile form with first/last name, service-area dropdown, sex dropdown, bio, verification status, and profile picture upload preview.
+- Profile forms with:
+  - shared `Save changes` action and 5-second success message near the save button.
+  - account/personal info with profile-image crop overlay.
+  - location management through city selection + `Add districts` dual-list overlay (drag/drop) and service-area tags.
+  - experience fields including driving-license and conditional own-car inputs.
+  - other-languages dual-list overlay and selected-language tags.
+  - extra-services-offered toggle switches.
 - Cleaner signup captures birth date, calculated age, sex, native language, experience level, work preference, preferred time slots, optional weekly availability, and any future verification fields added to the profile schema.
 
 ### CSS conventions

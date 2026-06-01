@@ -40,6 +40,8 @@ erDiagram
       string bio
       string sex
       string native_language
+      json other_languages
+      json personal_preferences
       string education
       string experience_level
       string work_preference
@@ -190,6 +192,7 @@ erDiagram
    - Optional cleaner fields: weekly availability, education, smoker status, own-car status, and driving-license details/categories unless made required by later verification policy.
    - Current cleaner flow: choose account type → personal information → location/service areas → native language → experience → availability → create account.
    - Current host/agency flow: choose account type → location/service areas → create account.
+   - Cleaner profile editing additionally supports other languages, city-scoped district/service-area management, and extra-services toggles stored as personal preferences.
    - If future signup questions are added for Cleaner, Host, or Agency, matching database fields, migrations, serializer validation, profile serialization, admin visibility, and signup tests must be added with the frontend change.
 5. **Property Management (Property Owner)**
    - Approved property owners add/manage properties.

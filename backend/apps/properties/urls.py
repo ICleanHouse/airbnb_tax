@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from apps.properties.views import (
     ExternalCalendarConnectionViewSet,
+    FetchIcsUrlView,
     ParseIcsView,
     PropertyImageViewSet,
     PropertyViewSet,
@@ -18,5 +19,6 @@ router.register("reservations", ReservationViewSet, basename="reservation")
 
 urlpatterns = router.urls + [
     path("parse-ics/", ParseIcsView.as_view(), name="parse-ics"),
+    path("fetch-ics-url/", FetchIcsUrlView.as_view(), name="fetch-ics-url"),
 ]
 

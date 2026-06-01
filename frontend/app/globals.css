@@ -2606,7 +2606,7 @@ img {
 /* ── Jobs + Calendar layout ──────────────────────────────── */
 .host-jobs-layout {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   gap: 20px;
   align-items: start;
 }
@@ -2614,92 +2614,110 @@ img {
 /* Calendar */
 .host-calendar {
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 14px;
   background: var(--surface);
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .host-cal-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
+  padding: 16px 18px;
   border-bottom: 1px solid var(--line);
 }
 
 .host-cal-title {
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--ink);
+  letter-spacing: -0.2px;
 }
 
 .host-cal-arrow {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 50%;
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 
 .host-cal-arrow:hover {
   background: var(--header-highlight);
+  border-color: var(--muted);
+  transform: scale(1.05);
+}
+
+.host-cal-arrow:active {
+  transform: scale(0.95);
 }
 
 .host-cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 1px;
-  background: var(--line);
-  border-top: 1px solid var(--line);
+  gap: 5px;
+  padding: 12px;
 }
 
 .host-cal-day-header {
-  padding: 7px 0;
-  background: #f9f9f9;
+  padding: 4px 0 8px;
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   text-align: center;
   text-transform: uppercase;
 }
 
 .host-cal-blank {
-  background: #fafafa;
-  min-height: 52px;
+  min-height: 74px;
 }
 
 .host-cal-day {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  min-height: 52px;
-  padding: 6px 4px 4px;
-  border: 0;
+  gap: 6px;
+  min-height: 74px;
+  padding: 9px 6px 7px;
+  border: 1px solid transparent;
+  border-radius: 12px;
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   text-align: center;
-  transition: background 0.1s;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.15s;
 }
 
 .host-cal-day:hover {
   background: var(--header-highlight);
+  border-color: var(--line);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.host-cal-day:active {
+  transform: translateY(0);
+}
+
+.host-cal-day-num {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
 }
 
 .host-cal-day.today .host-cal-day-num {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
   background: var(--brand);
   color: #ffffff;
   font-weight: 800;
@@ -2707,20 +2725,26 @@ img {
 
 .host-cal-day.selected {
   background: rgba(0, 132, 137, 0.08);
+  border-color: var(--teal);
+  box-shadow: inset 0 0 0 1px var(--teal);
+}
+
+.host-cal-day.selected:hover {
+  box-shadow: inset 0 0 0 1px var(--teal), 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 .host-cal-dots {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   min-height: 8px;
 }
 
 .host-cal-dot {
   display: block;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex: 0 0 auto;
 }
@@ -2729,8 +2753,9 @@ img {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
-  padding: 12px 14px;
+  padding: 14px 18px;
   border-top: 1px solid var(--line);
+  background: #fafafa;
 }
 
 .host-cal-legend-item {
@@ -2747,9 +2772,10 @@ img {
 /* Job list panel */
 .host-job-panel {
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 14px;
   background: var(--surface);
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .host-job-panel-header {
@@ -2757,9 +2783,9 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 13px 16px;
+  padding: 15px 18px;
   border-bottom: 1px solid var(--line);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--ink);
 }
@@ -2849,8 +2875,21 @@ img {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
+  gap: 10px;
   flex: 0 0 auto;
+}
+
+.host-job-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.host-job-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .host-job-badge {
@@ -2881,15 +2920,16 @@ img {
 .host-publish-btn {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
+  height: 30px;
   border: 1px solid var(--teal);
-  border-radius: 999px;
+  border-radius: 8px;
   background: transparent;
   color: var(--teal);
   cursor: pointer;
   font-size: 12px;
   font-weight: 800;
-  padding: 0 10px;
+  padding: 0 12px;
+  transition: background 0.15s, color 0.15s;
 }
 
 .host-publish-btn:hover {
@@ -3049,8 +3089,22 @@ img {
   }
 
   .host-cal-day {
-    min-height: 44px;
-    font-size: 12px;
+    min-height: 56px;
+    font-size: 13px;
+    border-radius: 9px;
+  }
+
+  .host-cal-blank {
+    min-height: 56px;
+  }
+
+  .host-cal-grid {
+    gap: 3px;
+    padding: 8px;
+  }
+
+  .host-job-right {
+    align-items: flex-start;
   }
 
   .host-form .form-grid {
@@ -4585,6 +4639,42 @@ img {
   font-size: 13px;
 }
 
+/* ICS input mode tabs */
+.host-ics-mode-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.host-ics-mode-tab {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.host-ics-mode-tab + .host-ics-mode-tab {
+  border-left: 1px solid var(--line);
+}
+
+.host-ics-mode-tab--active {
+  background: var(--brand);
+  color: #fff;
+}
+
+.host-ics-mode-tab:not(.host-ics-mode-tab--active):hover {
+  background: rgba(255, 56, 92, 0.06);
+  color: var(--brand);
+}
+
 /* File drop zone */
 .host-ics-file-label span:first-child {
   display: block;
@@ -5489,7 +5579,7 @@ img {
 /* ── Applications section summary dashboard ─────────────── */
 .host-appdash-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 28px;
 }
@@ -5529,19 +5619,40 @@ img {
   color: var(--ink);
 }
 
+/* Rating card value — slightly smaller to fit the decimal */
+.host-appdash-value--rating {
+  font-size: 26px;
+  color: var(--gold);
+}
+
+.host-appdash-stars {
+  display: flex;
+  gap: 1px;
+  margin-top: 2px;
+}
+
+.host-star--on  { color: var(--gold); font-size: 14px; line-height: 1; }
+.host-star--off { color: #ddd;        font-size: 14px; line-height: 1; }
+
 .host-appdash-sub {
   font-size: 12px;
   color: var(--muted);
   line-height: 1.3;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1060px) {
+  .host-appdash-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
   .host-appdash-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 380px) {
   .host-appdash-grid {
     grid-template-columns: 1fr;
   }
@@ -5559,15 +5670,37 @@ img {
 .host-job-activity--assigned { color: var(--gold); }
 .host-job-activity--apps     { color: var(--brand); }
 
+/* ── Edit job button (draft jobs only) ──────────────────── */
+.host-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.host-edit-btn:hover {
+  background: rgba(0, 132, 137, 0.08);
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
 /* ── Delete job button (job list panel) ──────────────────── */
 .host-delete-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -5583,15 +5716,16 @@ img {
 
 .host-delete-confirm {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   align-items: center;
 }
 
 .host-delete-confirm-yes {
+  height: 30px;
   font-size: 12px;
   font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 0 12px;
+  border-radius: 8px;
   border: none;
   background: var(--brand);
   color: #fff;
@@ -5605,10 +5739,11 @@ img {
 }
 
 .host-delete-confirm-no {
+  height: 30px;
   font-size: 12px;
   font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 0 12px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
@@ -5620,15 +5755,15 @@ img {
 .host-job-complete-btn {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  border: 1.5px solid #22c55e;
-  border-radius: 999px;
+  height: 30px;
+  border: 1px solid #22c55e;
+  border-radius: 8px;
   background: transparent;
   color: #15803d;
   cursor: pointer;
   font-size: 12px;
   font-weight: 800;
-  padding: 0 10px;
+  padding: 0 12px;
   white-space: nowrap;
   transition: background 0.15s, color 0.15s;
 }

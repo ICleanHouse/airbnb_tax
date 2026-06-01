@@ -310,6 +310,15 @@ class CleaningJobViewSet(MarketplaceQuerysetMixin, viewsets.ModelViewSet):
             raise PermissionDenied("Hosts can create jobs only for their own properties.")
         serializer.save(host=property.host)
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.status != CleaningJob.Status.DRAFT:
+            return Response(
+                {"detail": "Only draft jobs can be edited."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().update(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         if instance.status not in (CleaningJob.Status.DRAFT, CleaningJob.Status.OPEN):

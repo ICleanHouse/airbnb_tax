@@ -32,6 +32,7 @@ interface Review {
   id: number;
   job: number;
   reviewer: number;
+  reviewer_name: string;
   reviewee: number;
   rating: number;
   comment: string;
@@ -199,7 +200,7 @@ export default function HostDashboard() {
   const [reviewComment,   setReviewComment]   = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [hoveredStar,     setHoveredStar]     = useState(0);
-  const [appFilter, setAppFilter] = useState<"pending" | "active" | "completed" | "open" | null>(null);
+  const [appFilter, setAppFilter] = useState<"pending" | "active" | "completed" | "open" | "rating" | null>(null);
 
   const [section, setSection] = useState<"jobs" | "properties" | "applications">("jobs");
 
@@ -248,8 +249,10 @@ export default function HostDashboard() {
   // ── ICS import ─────────────────────────────────────────────────────────────
   const [showIcsModal,   setShowIcsModal]   = useState(false);
   const [icsStep,        setIcsStep]        = useState<1 | 2>(1);
+  const [icsInputMode,   setIcsInputMode]   = useState<"file" | "url">("file");
   const [icsPropId,      setIcsPropId]      = useState("");
   const [icsFile,        setIcsFile]        = useState<File | null>(null);
+  const [icsUrl,         setIcsUrl]         = useState("");
   const [icsEvents,      setIcsEvents]      = useState<IcsEvent[]>([]);
   const [icsSelected,    setIcsSelected]    = useState<Set<string>>(new Set());
   const [icsStartTime,   setIcsStartTime]   = useState("10:00");
@@ -257,6 +260,9 @@ export default function HostDashboard() {
   const [icsImporting,   setIcsImporting]   = useState(false);
   const [icsError,       setIcsError]       = useState("");
   const [icsImportDone,  setIcsImportDone]  = useState<{ created: number; skipped: number } | null>(null);
+
+  // ── Edit job ───────────────────────────────────────────────────────────────
+  const [editingJobId,   setEditingJobId]   = useState<number | null>(null);
 
   // ── Auth check ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -463,19 +469,32 @@ export default function HostDashboard() {
   }
 
   // ── Create job ─────────────────────────────────────────────────────────────
-  function openJobForm(day?: number) {
-    setJobPropId(properties.length === 1 ? String(properties[0].id) : "");
-    setJobTitle("");
-    setJobPrice("");
-    setJobDesc("");
-    setJobError("");
-    if (day !== undefined) {
-      setJobDate(`${calYear}-${pad(calMonth + 1)}-${pad(day)}`);
+  function openJobForm(day?: number, jobToEdit?: CleaningJob) {
+    setEditingJobId(jobToEdit?.id ?? null);
+    if (jobToEdit) {
+      setJobPropId(String(jobToEdit.property));
+      setJobTitle(jobToEdit.title);
+      setJobPrice(jobToEdit.proposed_price ?? "");
+      setJobDesc(jobToEdit.description ?? "");
+      const start = new Date(jobToEdit.scheduled_start);
+      const end   = new Date(jobToEdit.scheduled_end);
+      setJobDate(`${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`);
+      setJobStartTime(`${pad(start.getHours())}:${pad(start.getMinutes())}`);
+      setJobEndTime(`${pad(end.getHours())}:${pad(end.getMinutes())}`);
     } else {
-      setJobDate("");
+      setJobPropId(properties.length === 1 ? String(properties[0].id) : "");
+      setJobTitle("");
+      setJobPrice("");
+      setJobDesc("");
+      if (day !== undefined) {
+        setJobDate(`${calYear}-${pad(calMonth + 1)}-${pad(day)}`);
+      } else {
+        setJobDate("");
+      }
+      setJobStartTime("10:00");
+      setJobEndTime("12:00");
     }
-    setJobStartTime("10:00");
-    setJobEndTime("12:00");
+    setJobError("");
     setShowJobForm(true);
   }
 
@@ -484,27 +503,37 @@ export default function HostDashboard() {
     setJobError("");
     setSavingJob(true);
     try {
-      const res = await apiFetch("/api/marketplace/jobs/", {
-        method: "POST",
-        body: JSON.stringify({
-          property_id: parseInt(jobPropId),
-          title: jobTitle,
-          scheduled_start: new Date(`${jobDate}T${jobStartTime}`).toISOString(),
-          scheduled_end:   new Date(`${jobDate}T${jobEndTime}`).toISOString(),
-          proposed_price: jobPrice || null,
-          description: jobDesc,
-        }),
-      });
+      const payload = {
+        property_id: parseInt(jobPropId),
+        title: jobTitle,
+        scheduled_start: new Date(`${jobDate}T${jobStartTime}`).toISOString(),
+        scheduled_end:   new Date(`${jobDate}T${jobEndTime}`).toISOString(),
+        proposed_price: jobPrice || null,
+        description: jobDesc,
+      };
+      const isEdit = editingJobId !== null;
+      const res = await apiFetch(
+        isEdit ? `/api/marketplace/jobs/${editingJobId}/` : "/api/marketplace/jobs/",
+        { method: isEdit ? "PATCH" : "POST", body: JSON.stringify(payload) },
+      );
       if (!res.ok) {
         const data = await res.json() as Record<string, unknown>;
         const msgs = Object.values(data).flat().join(" ");
         setJobError(msgs || "Could not save job.");
         return;
       }
-      const newJob = await res.json() as CleaningJob;
-      setJobs((prev) =>
-        [...prev, newJob].sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start)),
-      );
+      const savedJob = await res.json() as CleaningJob;
+      if (isEdit) {
+        setJobs((prev) =>
+          prev.map((j) => j.id === savedJob.id ? savedJob : j)
+              .sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start)),
+        );
+      } else {
+        setJobs((prev) =>
+          [...prev, savedJob].sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start)),
+        );
+      }
+      setEditingJobId(null);
       setJobPropId(""); setJobTitle(""); setJobDate(""); setJobStartTime("10:00"); setJobEndTime("12:00"); setJobPrice(""); setJobDesc("");
       setShowJobForm(false);
     } finally {
@@ -617,8 +646,10 @@ export default function HostDashboard() {
   // ── ICS import handlers ────────────────────────────────────────────────────
   function openIcsModal() {
     setIcsStep(1);
+    setIcsInputMode("file");
     setIcsPropId(properties.length === 1 ? String(properties[0].id) : "");
     setIcsFile(null);
+    setIcsUrl("");
     setIcsEvents([]);
     setIcsSelected(new Set());
     setIcsStartTime("10:00");
@@ -628,21 +659,30 @@ export default function HostDashboard() {
   }
 
   async function parseIcs() {
-    if (!icsFile) { setIcsError("Please select an .ics file."); return; }
     setIcsParsing(true);
     setIcsError("");
     try {
-      const formData = new FormData();
-      formData.append("ics_file", icsFile);
-      const res = await apiFetch("/api/properties/parse-ics/", { method: "POST", body: formData });
+      let res: Response;
+      if (icsInputMode === "url") {
+        if (!icsUrl.trim()) { setIcsError("Please paste an Airbnb calendar URL."); setIcsParsing(false); return; }
+        res = await apiFetch("/api/properties/fetch-ics-url/", {
+          method: "POST",
+          body: JSON.stringify({ url: icsUrl.trim() }),
+        });
+      } else {
+        if (!icsFile) { setIcsError("Please select an .ics file."); setIcsParsing(false); return; }
+        const formData = new FormData();
+        formData.append("ics_file", icsFile);
+        res = await apiFetch("/api/properties/parse-ics/", { method: "POST", body: formData });
+      }
       const data = await res.json() as IcsEvent[] | { detail: string };
       if (!res.ok) {
-        setIcsError((data as { detail: string }).detail ?? "Failed to parse file.");
+        setIcsError((data as { detail: string }).detail ?? "Failed to parse calendar.");
         return;
       }
       const events = data as IcsEvent[];
       if (events.length === 0) {
-        setIcsError("No reservations found in this file. Blocked dates are excluded automatically.");
+        setIcsError("No reservations found. Blocked dates are excluded automatically.");
         return;
       }
       setIcsEvents(events);
@@ -762,6 +802,16 @@ export default function HostDashboard() {
     return properties.find((p) => p.id === id)?.name ?? `Property #${id}`;
   }
 
+  /** Reviews where this host is the reviewee (written by cleaners about the host). */
+  const hostReviews = useMemo(
+    () => reviews.filter((r) => r.reviewee === (me?.id ?? -1)),
+    [reviews, me],
+  );
+  const hostRatingAvg = useMemo(() => {
+    if (hostReviews.length === 0) return null;
+    return hostReviews.reduce((sum, r) => sum + r.rating, 0) / hostReviews.length;
+  }, [hostReviews]);
+
   // ── Gates ──────────────────────────────────────────────────────────────────
   if (loadingMe) {
     return <main className="host-page"><p className="host-loading">Loading…</p></main>;
@@ -792,16 +842,6 @@ export default function HostDashboard() {
 
   const isApproved = me.is_approved;
   const pendingCount = applications.filter((a) => a.status === "pending").length;
-
-  /** Reviews where this host is the reviewee (written by cleaners about the host). */
-  const hostReviews = useMemo(
-    () => reviews.filter((r) => r.reviewee === (me?.id ?? -1)),
-    [reviews, me],
-  );
-  const hostRatingAvg = useMemo(() => {
-    if (hostReviews.length === 0) return null;
-    return hostReviews.reduce((sum, r) => sum + r.rating, 0) / hostReviews.length;
-  }, [hostReviews]);
 
   // ══════════════════════════════════════════════════════════════════════════
   // Render
@@ -999,17 +1039,6 @@ export default function HostDashboard() {
               <div>
                 <p className="eyebrow" style={{ margin: "0 0 4px" }}>Cleaner requests</p>
                 <h1 className="host-section-title">Applications</h1>
-                {!loadingData && hostRatingAvg !== null && (
-                  <div className="host-rating-display">
-                    <span className="host-rating-stars">
-                      {"★".repeat(Math.round(hostRatingAvg))}{"☆".repeat(5 - Math.round(hostRatingAvg))}
-                    </span>
-                    <strong className="host-rating-score">{hostRatingAvg.toFixed(1)}</strong>
-                    <span className="host-rating-count">
-                      {hostReviews.length} review{hostReviews.length !== 1 ? "s" : ""} received
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1051,6 +1080,21 @@ export default function HostDashboard() {
                   <span className="host-appdash-label">Open jobs</span>
                   <strong className="host-appdash-value">{jobs.filter((j) => j.status === "open").length}</strong>
                   <span className="host-appdash-sub">awaiting cleaners</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--gold${appFilter === "rating" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "rating" ? null : "rating")}
+                >
+                  <span className="host-appdash-label">My rating</span>
+                  <strong className="host-appdash-value host-appdash-value--rating">
+                    {hostRatingAvg !== null ? hostRatingAvg.toFixed(1) : "—"}
+                  </strong>
+                  <span className="host-appdash-sub">
+                    {hostReviews.length > 0
+                      ? `${hostReviews.length} review${hostReviews.length !== 1 ? "s" : ""} received`
+                      : "no reviews yet"}
+                  </span>
                 </button>
               </div>
             )}
@@ -1345,6 +1389,36 @@ export default function HostDashboard() {
                   </div>
                 )}
 
+                {/* ── Reviews received ── */}
+                {appFilter === "rating" && (
+                  <div className="host-apps-subsection">
+                    <h2 className="host-apps-subtitle">Reviews received</h2>
+                    {hostReviews.length === 0 ? (
+                      <p className="host-empty">No reviews yet — ratings appear after a completed job.</p>
+                    ) : (
+                      <ul className="host-app-list">
+                        {hostReviews.map((r) => {
+                          const jobTitle = jobs.find((j) => j.id === r.job)?.title ?? `Job #${r.job}`;
+                          return (
+                            <li key={r.id} className="host-app-card">
+                              <div className="host-app-card-header">
+                                <span className="host-app-name">{r.reviewer_name}</span>
+                                <span className="host-appdash-stars">
+                                  {Array.from({ length: 5 }, (_, i) => (
+                                    <span key={i} className={i < r.rating ? "host-star--on" : "host-star--off"}>★</span>
+                                  ))}
+                                </span>
+                              </div>
+                              <p className="host-app-meta">{jobTitle} · {new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+                              {r.comment && <p className="host-app-message">&ldquo;{r.comment}&rdquo;</p>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
                 {/* ── Open jobs listing ── */}
                 {appFilter === "open" && (
                   <div className="host-apps-subsection">
@@ -1577,60 +1651,76 @@ export default function HostDashboard() {
                             })()}
                           </div>
                           <div className="host-job-right">
-                            <span className={`host-job-badge host-job-badge--${job.status}`}>
-                              {STATUS_LABEL[job.status]}
-                            </span>
-                            {job.proposed_price && (
-                              <span className="host-job-price">€{job.proposed_price}</span>
-                            )}
-                            {job.status === "draft" && (
-                              <button
-                                className="host-publish-btn"
-                                type="button"
-                                onClick={() => void publishJob(job.id)}
-                              >
-                                Publish
-                              </button>
-                            )}
-                            {job.status === "assigned" && (
-                              <button
-                                className="host-job-complete-btn"
-                                type="button"
-                                disabled={completingJobId === job.id}
-                                onClick={() => void completeJob(job.id)}
-                              >
-                                {completingJobId === job.id ? "…" : "Mark done"}
-                              </button>
-                            )}
-                            {(job.status === "draft" || job.status === "open") && (
-                              confirmDeleteJobId === job.id ? (
-                                <div className="host-delete-confirm">
+                            <div className="host-job-meta-row">
+                              <span className={`host-job-badge host-job-badge--${job.status}`}>
+                                {STATUS_LABEL[job.status]}
+                              </span>
+                              {job.proposed_price && (
+                                <span className="host-job-price">€{job.proposed_price}</span>
+                              )}
+                            </div>
+                            {(job.status === "draft" || job.status === "assigned" || job.status === "open") && (
+                              <div className="host-job-actions">
+                                {job.status === "draft" && (
+                                  <>
+                                    <button
+                                      className="host-publish-btn"
+                                      type="button"
+                                      onClick={() => void publishJob(job.id)}
+                                    >
+                                      Publish
+                                    </button>
+                                    <button
+                                      className="host-edit-btn"
+                                      type="button"
+                                      onClick={() => { setJobError(""); openJobForm(undefined, job); }}
+                                      aria-label="Edit job"
+                                    >
+                                      <Pencil size={14} aria-hidden />
+                                    </button>
+                                  </>
+                                )}
+                                {job.status === "assigned" && (
                                   <button
-                                    className="host-delete-confirm-yes"
+                                    className="host-job-complete-btn"
                                     type="button"
-                                    disabled={deletingJobId === job.id}
-                                    onClick={() => void deleteJob(job.id)}
+                                    disabled={completingJobId === job.id}
+                                    onClick={() => void completeJob(job.id)}
                                   >
-                                    {deletingJobId === job.id ? "…" : "Delete"}
+                                    {completingJobId === job.id ? "…" : "Mark done"}
                                   </button>
-                                  <button
-                                    className="host-delete-confirm-no"
-                                    type="button"
-                                    onClick={() => setConfirmDeleteJobId(null)}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  className="host-delete-btn"
-                                  type="button"
-                                  onClick={() => setConfirmDeleteJobId(job.id)}
-                                  aria-label="Delete job"
-                                >
-                                  <Trash2 size={13} aria-hidden />
-                                </button>
-                              )
+                                )}
+                                {(job.status === "draft" || job.status === "open") && (
+                                  confirmDeleteJobId === job.id ? (
+                                    <div className="host-delete-confirm">
+                                      <button
+                                        className="host-delete-confirm-yes"
+                                        type="button"
+                                        disabled={deletingJobId === job.id}
+                                        onClick={() => void deleteJob(job.id)}
+                                      >
+                                        {deletingJobId === job.id ? "…" : "Delete"}
+                                      </button>
+                                      <button
+                                        className="host-delete-confirm-no"
+                                        type="button"
+                                        onClick={() => setConfirmDeleteJobId(null)}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      className="host-delete-btn"
+                                      type="button"
+                                      onClick={() => setConfirmDeleteJobId(job.id)}
+                                      aria-label="Delete job"
+                                    >
+                                      <Trash2 size={14} aria-hidden />
+                                    </button>
+                                  )
+                                )}
+                              </div>
                             )}
                           </div>
                         </li>
@@ -1873,7 +1963,7 @@ export default function HostDashboard() {
               </button>
             </div>
 
-            {/* ── Step 1: Upload ── */}
+            {/* ── Step 1: Upload / URL ── */}
             {icsStep === 1 && (
               <div className="host-form">
                 <label>
@@ -1889,22 +1979,62 @@ export default function HostDashboard() {
                     ))}
                   </select>
                 </label>
-                <label className="host-ics-file-label">
-                  <span>Airbnb calendar file (.ics) *</span>
-                  <div className="host-ics-drop-zone">
-                    <Upload size={28} className="host-ics-drop-icon" aria-hidden />
-                    <span>{icsFile ? icsFile.name : "Click to choose file or drop here"}</span>
-                    <input
-                      type="file"
-                      accept=".ics,text/calendar"
-                      className="host-ics-file-input"
-                      onChange={(e) => setIcsFile(e.target.files?.[0] ?? null)}
-                    />
-                  </div>
-                </label>
-                <p className="host-form-hint">
-                  In Airbnb → Calendar → Export calendar → download the .ics file and upload it here.
-                </p>
+
+                {/* Mode toggle */}
+                <div className="host-ics-mode-tabs">
+                  <button
+                    type="button"
+                    className={`host-ics-mode-tab${icsInputMode === "file" ? " host-ics-mode-tab--active" : ""}`}
+                    onClick={() => { setIcsInputMode("file"); setIcsError(""); }}
+                  >
+                    Upload file
+                  </button>
+                  <button
+                    type="button"
+                    className={`host-ics-mode-tab${icsInputMode === "url" ? " host-ics-mode-tab--active" : ""}`}
+                    onClick={() => { setIcsInputMode("url"); setIcsError(""); }}
+                  >
+                    Paste link
+                  </button>
+                </div>
+
+                {icsInputMode === "file" ? (
+                  <>
+                    <label className="host-ics-file-label">
+                      <span>Airbnb calendar file (.ics) *</span>
+                      <div className="host-ics-drop-zone">
+                        <Upload size={28} className="host-ics-drop-icon" aria-hidden />
+                        <span>{icsFile ? icsFile.name : "Click to choose file or drop here"}</span>
+                        <input
+                          type="file"
+                          accept=".ics,text/calendar"
+                          className="host-ics-file-input"
+                          onChange={(e) => setIcsFile(e.target.files?.[0] ?? null)}
+                        />
+                      </div>
+                    </label>
+                    <p className="host-form-hint">
+                      Airbnb → Calendar → Export calendar → download the .ics file and upload it here.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <label>
+                      <span>Airbnb calendar link *</span>
+                      <input
+                        type="url"
+                        value={icsUrl}
+                        onChange={(e) => setIcsUrl(e.target.value)}
+                        placeholder="https://www.airbnb.com/calendar/ical/…"
+                        autoComplete="off"
+                      />
+                    </label>
+                    <p className="host-form-hint">
+                      Airbnb → Listing → Calendar → Connect other calendars → Export calendar → copy the link and paste it above.
+                    </p>
+                  </>
+                )}
+
                 {icsError && <p className="form-error">{icsError}</p>}
                 <div className="host-form-actions">
                   <button className="secondary-link" type="button" onClick={() => setShowIcsModal(false)}>
@@ -1913,10 +2043,10 @@ export default function HostDashboard() {
                   <button
                     className="primary-link auth-submit"
                     type="button"
-                    disabled={icsParsing || !icsFile || !icsPropId}
+                    disabled={icsParsing || !icsPropId || (icsInputMode === "file" ? !icsFile : !icsUrl.trim())}
                     onClick={() => void parseIcs()}
                   >
-                    {icsParsing ? "Reading file…" : "Continue"}
+                    {icsParsing ? "Reading…" : "Continue"}
                   </button>
                 </div>
               </div>
@@ -2027,11 +2157,11 @@ export default function HostDashboard() {
           onClick={() => setShowJobForm(false)}
           role="dialog"
           aria-modal="true"
-          aria-label="Post a cleaning job"
+          aria-label={editingJobId !== null ? "Edit job" : "Post a cleaning job"}
         >
           <div className="host-modal" onClick={(e) => e.stopPropagation()}>
             <div className="host-modal-header">
-              <h2>Post a cleaning job</h2>
+              <h2>{editingJobId !== null ? "Edit job" : "Post a cleaning job"}</h2>
               <button type="button" className="host-modal-close" onClick={() => setShowJobForm(false)} aria-label="Close">
                 <X size={18} />
               </button>
@@ -2110,16 +2240,18 @@ export default function HostDashboard() {
                   placeholder="Any access notes, key location, special requirements…"
                 />
               </label>
-              <p className="host-form-hint">
-                Jobs are saved as <strong>Draft</strong> first. Publish to make them visible to cleaners.
-              </p>
+              {editingJobId === null && (
+                <p className="host-form-hint">
+                  Jobs are saved as <strong>Draft</strong> first. Publish to make them visible to cleaners.
+                </p>
+              )}
               {jobError && <p className="form-error">{jobError}</p>}
               <div className="host-form-actions">
                 <button className="secondary-link" type="button" onClick={() => setShowJobForm(false)}>
                   Cancel
                 </button>
                 <button className="primary-link auth-submit" type="submit" disabled={savingJob}>
-                  {savingJob ? "Saving…" : "Save as draft"}
+                  {savingJob ? "Saving…" : editingJobId !== null ? "Save changes" : "Save as draft"}
                 </button>
               </div>
             </form>

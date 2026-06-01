@@ -1,9 +1,10 @@
 import datetime as dt
+import urllib.request
 
 from icalendar import Calendar
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -19,17 +20,59 @@ from apps.properties.serializers import (
 _ICS_SKIP_KEYWORDS = ("not available", "blocked", "unavailable")
 
 
+def _parse_ics_bytes(content: bytes):
+    """
+    Parse raw ICS bytes and return a sorted list of reservation event dicts.
+    Raises ValueError on parse failure.
+    """
+    try:
+        cal = Calendar.from_ical(content)
+    except Exception as exc:
+        raise ValueError(f"Could not parse ICS content: {exc}") from exc
+
+    events = []
+    for component in cal.walk():
+        if component.name != "VEVENT":
+            continue
+
+        summary = str(component.get("SUMMARY", "")).strip()
+        uid = str(component.get("UID", ""))
+        dtstart = component.get("DTSTART")
+        dtend = component.get("DTEND")
+
+        if not dtstart or not dtend:
+            continue
+
+        summary_lower = summary.lower()
+        if any(kw in summary_lower for kw in _ICS_SKIP_KEYWORDS):
+            continue
+
+        start_val = dtstart.dt
+        end_val = dtend.dt
+        start_date = start_val.date() if isinstance(start_val, dt.datetime) else start_val
+        end_date = end_val.date() if isinstance(end_val, dt.datetime) else end_val
+
+        nights = (end_date - start_date).days
+
+        events.append({
+            "uid": uid,
+            "summary": summary or "Reservation",
+            "checkin": start_date.isoformat(),
+            "checkout": end_date.isoformat(),
+            "nights": nights,
+        })
+
+    events.sort(key=lambda e: e["checkin"])
+    return events
+
+
 class ParseIcsView(APIView):
     """
-    Parse an Airbnb / iCal .ics file and return the list of reservation events.
+    Parse an uploaded Airbnb / iCal .ics file and return reservation events.
 
     POST /api/properties/parse-ics/
     Body:  multipart/form-data   field: ics_file
     Returns: list of {uid, summary, checkin, checkout, nights}
-
-    Entries whose summary contains "not available", "blocked", or "unavailable"
-    are filtered out — these are Airbnb blocked-date placeholders, not real
-    guest reservations.
     """
 
     parser_classes = [MultiPartParser]
@@ -41,50 +84,49 @@ class ParseIcsView(APIView):
                 {"detail": "ics_file is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        try:
+            events = _parse_ics_bytes(ics_file.read())
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(events)
+
+
+class FetchIcsUrlView(APIView):
+    """
+    Fetch an Airbnb / iCal URL server-side and return the reservation events.
+
+    POST /api/properties/fetch-ics-url/
+    Body:  { "url": "https://www.airbnb.com/calendar/ical/..." }
+    Returns: list of {uid, summary, checkin, checkout, nights}
+
+    The fetch is done server-side to avoid browser CORS restrictions on
+    Airbnb's calendar export URLs.
+    """
+
+    parser_classes = [JSONParser]
+
+    def post(self, request):
+        url = (request.data.get("url") or "").strip()
+        if not url:
+            return Response({"detail": "url is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not url.startswith(("http://", "https://")):
+            return Response({"detail": "url must start with http:// or https://."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            cal = Calendar.from_ical(ics_file.read())
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=15) as response:
+                content = response.read()
         except Exception as exc:
             return Response(
-                {"detail": f"Could not parse ICS file: {exc}"},
+                {"detail": f"Could not fetch the calendar URL: {exc}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        events = []
-        for component in cal.walk():
-            if component.name != "VEVENT":
-                continue
+        try:
+            events = _parse_ics_bytes(content)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-            summary = str(component.get("SUMMARY", "")).strip()
-            uid = str(component.get("UID", ""))
-            dtstart = component.get("DTSTART")
-            dtend = component.get("DTEND")
-
-            if not dtstart or not dtend:
-                continue
-
-            # Skip Airbnb blocked-date placeholders
-            summary_lower = summary.lower()
-            if any(kw in summary_lower for kw in _ICS_SKIP_KEYWORDS):
-                continue
-
-            # Normalise to date — DTSTART/DTEND can be date or datetime
-            start_val = dtstart.dt
-            end_val = dtend.dt
-            start_date = start_val.date() if isinstance(start_val, dt.datetime) else start_val
-            end_date = end_val.date() if isinstance(end_val, dt.datetime) else end_val
-
-            nights = (end_date - start_date).days
-
-            events.append({
-                "uid": uid,
-                "summary": summary or "Reservation",
-                "checkin": start_date.isoformat(),
-                "checkout": end_date.isoformat(),
-                "nights": nights,
-            })
-
-        events.sort(key=lambda e: e["checkin"])
         return Response(events)
 
 

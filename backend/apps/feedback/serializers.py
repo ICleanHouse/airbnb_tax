@@ -20,6 +20,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     reviewer = serializers.PrimaryKeyRelatedField(read_only=True)
+    reviewer_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
@@ -28,6 +29,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             "job_id",
             "job",
             "reviewer",
+            "reviewer_name",
             "reviewee_id",
             "reviewee",
             "rating",
@@ -38,4 +40,9 @@ class ReviewSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "job", "reviewer", "reviewee", "created_at", "updated_at"]
+
+    def get_reviewer_name(self, obj) -> str:
+        u = obj.reviewer
+        full = f"{u.first_name} {u.last_name}".strip()
+        return full or u.username
 

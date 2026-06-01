@@ -117,6 +117,12 @@ Key variables and their defaults:
 | `BACKEND_URL` | `http://localhost:8000` | Base URL used by legacy email-confirmation links |
 | `FRONTEND_TRUSTED_ORIGINS` | `http://localhost:3000,...` | CSRF trusted origins |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | API base URL for the frontend |
+| `APP_ENV` | `local` | Environment label included in JSON logs |
+| `LOG_LEVEL` | `INFO` | Backend/Celery log verbosity |
+| `SENTRY_DSN` | *(empty)* | Enables Django/Celery crash reporting |
+| `NEXT_PUBLIC_SENTRY_DSN` | *(empty)* | Enables Next.js browser crash reporting |
+| `SENTRY_ENVIRONMENT` / `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | `local` | Sentry environment labels |
+| `SENTRY_TRACES_SAMPLE_RATE` / `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | `0.0` | Keep disabled unless performance tracing is needed |
 
 ### Local vs Docker DATABASE_URL
 
@@ -195,6 +201,14 @@ python -m celery -A config worker --loglevel=info --pool=solo
 ```
 
 Signup email delivery requires Redis and the Celery worker when Celery is installed. The `_FakeTask` fallback only applies when Celery is not installed.
+
+## Logging And Observability
+
+- Backend and Celery logs are JSON on stdout. Each request gets `X-Request-ID`; pass/search that value when debugging.
+- Startup emits `django.started` for server/worker commands only.
+- Important account/marketplace actions create read-only `AuditLog` rows in Django admin at `/admin/core/auditlog/`.
+- Use normal `logging.getLogger("apps.<area>")` for technical logs; use `write_audit_log(...)` only for important business history.
+- Sentry reports backend/Celery crashes when `SENTRY_DSN` is set and frontend crashes/API failures when `NEXT_PUBLIC_SENTRY_DSN` is set.
 
 ## Frontend Local Commands
 

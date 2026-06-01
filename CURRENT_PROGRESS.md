@@ -1,6 +1,6 @@
 # Current Progress Handoff
 
-Updated: 2026-06-01, after host dashboard job-flow features and applications panel.
+Updated: 2026-06-01, after logging/observability implementation.
 
 ## User Goal
 
@@ -65,6 +65,10 @@ Current work is focused on completing the cleaner signup flow. The production-ho
 - Added backend cleaner profile fields and migrations:
   - `other_languages` JSON field (migration: `backend/apps/accounts/migrations/0013_cleanerprofile_other_languages.py`).
   - `personal_preferences` JSON field for extra services (migration: `backend/apps/accounts/migrations/0014_cleanerprofile_personal_preferences.py`).
+- Added logging/observability:
+  - JSON backend/Celery logs with request IDs and automatic startup/request/task logging.
+  - Read-only `AuditLog` admin for key business actions.
+  - Sentry wiring for Django, Celery, and Next.js when DSNs are configured.
 
 ## Current Local Development Notes
 
@@ -87,6 +91,7 @@ python -m celery -A config worker --loglevel=info --pool=solo
 ```
 
 - Restart both Django and Celery after changes to notification tasks, templates, or `.env`.
+- For debugging, search technical logs by `request_id`; view business history at `/admin/core/auditlog/`.
 
 ## Verified
 
@@ -116,6 +121,12 @@ python backend/manage.py test apps.accounts.tests.test_auth_agency_consent.Accou
   - Targeted cleaner signup tests passed.
 
 - Full `apps.accounts.tests.test_auth_agency_consent` still has one existing unrelated failure: the host signup test expects `pending`, while current signup code creates `approved`.
+
+- Latest observability checks:
+  - `python manage.py check` passed.
+  - `python manage.py test apps.core.tests.test_observability` passed.
+  - `npm run typecheck` passed.
+  - `npm run lint` / `npm run build` currently stop on pre-existing frontend lint issues.
 
 - Docker CLI exists at `C:\Program Files\Docker\Docker\resources\bin\docker.exe`.
 - Docker Desktop daemon is running on the `desktop-linux` context.

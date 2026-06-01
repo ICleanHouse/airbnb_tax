@@ -50,6 +50,19 @@ EMAIL_RESEND_APIKEY=re_...
 EMAIL_RESEND_FROM_EMAIL=you@your-verified-domain.com
 ```
 
+For crash reporting, configure Sentry:
+
+```dotenv
+APP_ENV=production
+LOG_LEVEL=INFO
+SENTRY_DSN=https://...
+NEXT_PUBLIC_SENTRY_DSN=https://...
+SENTRY_ENVIRONMENT=production
+NEXT_PUBLIC_SENTRY_ENVIRONMENT=production
+SENTRY_TRACES_SAMPLE_RATE=0.0
+NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.0
+```
+
 `FRONTEND_URL` is used for frontend redirects and admin approval links. `BACKEND_URL` remains available for legacy backend links. Django's configurable mail backend may still be used by non-signup notification paths until those are migrated.
 
 Signup is a single React wizard at `/signup`; old signup step URLs redirect there. Cleaner signup writes additional profile fields (`native_language`, `experience_level`, `work_preference`, `preferred_time_slots`, and optional `weekly_availability`). Before deploying signup-flow changes for Cleaner, Host, or Agency, ensure the matching Django migrations are included and applied so production profile tables match the final frontend payloads.
@@ -134,3 +147,5 @@ docker compose -f docker-compose.prod.yml logs -f backend
 docker compose -f docker-compose.prod.yml logs -f frontend
 docker compose -f docker-compose.prod.yml ps
 ```
+
+Backend/Celery logs are JSON and include `request_id`. Business audit events are visible in Django admin at `/admin/core/auditlog/`. Sentry receives crashes only when DSNs are configured.

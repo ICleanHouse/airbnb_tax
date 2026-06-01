@@ -64,6 +64,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - **Airbnb ICS parsing** — `POST /api/properties/parse-ics/` accepts a multipart-uploaded `.ics` file, filters blocked-date placeholders, returns parsed reservation list.
 - Marketplace service functions: publish jobs, submit applications, accept applications, complete jobs, two-way reviews.
 - Notification records; signup email codes are sent through Resend only and require `EMAIL_RESEND_APIKEY` plus `EMAIL_RESEND_FROM_EMAIL`.
+- Observability: JSON backend/Celery logs with request IDs, Sentry crash reporting, and read-only `AuditLog` records for key account/marketplace actions.
 - Calendar conflict API; Google Calendar sync and iCal export are planned.
 
 ### Frontend (Next.js App Router)
@@ -121,3 +122,9 @@ BACKEND_URL=http://localhost:8000
 Use a Resend verified sender/domain for `EMAIL_RESEND_FROM_EMAIL`.
 
 See `DEV.md` for full environment variable reference.
+
+## Logging
+
+- Technical logs go to stdout/Docker logs as JSON. Search by `request_id`, `user_id`, `event`, or route.
+- Business history is stored in Django admin at `/admin/core/auditlog/`.
+- Sentry is enabled only when `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` are set.

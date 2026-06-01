@@ -38,6 +38,7 @@ Future extraction into microservices should be possible without rewriting core b
 - `apps.calendars`: conflict checks and placeholder background sync tasks.
 - `apps.feedback`: two-way reviews and cleaner reputation updates.
 - `apps.notifications`: in-app notification records, Resend-only signup-code email delivery, Django mail-backend admin emails, and Celery task for admin signup alerts.
+- `apps.core`: timestamp base model, request-ID middleware, JSON logging helpers, read-only `AuditLog`, health check, and CSRF failure view.
 
 ### Backend — `backend/config/`
 
@@ -50,12 +51,13 @@ Future extraction into microservices should be possible without rewriting core b
   - `BACKEND_URL`: base URL used by legacy email-confirmation links.
   - `EMAIL_RESEND_APIKEY`, `EMAIL_RESEND_FROM_EMAIL`: Resend signup-code delivery settings.
   - `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`: Redis connection strings.
+  - `APP_ENV`, `LOG_LEVEL`, `SENTRY_DSN`: JSON logging and backend/Celery crash reporting.
 - `celery.py`: Celery application wiring.
 - `manage.py`, `wsgi.py`, `asgi.py`: all load `.env` via `python-dotenv` before Django starts.
 
 ### Frontend — `frontend/`
 
-- `frontend/lib/api.ts`: shared HTTP client. All pages use `apiFetch` — it injects `Content-Type: application/json` for string bodies only (not FormData), reads the Django `csrftoken` cookie, and sets `X-CSRFToken` on state-changing requests. Never call `fetch` directly.
+- `frontend/lib/api.ts`: shared HTTP client. All pages use `apiFetch` — it injects JSON `Content-Type` only when safe, sets CSRF headers, adds `X-Request-ID`, and reports failed API responses to Sentry when configured. Never call `fetch` directly.
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
 - `frontend/app/page.tsx`: public landing page. Auth-aware header shows role-correct dashboard link (`/admin` for admins, `/host` for hosts, `/cleaner` for cleaners, `/app` fallback). Search form uses local state only — not yet connected to backend.
 - `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
@@ -265,7 +267,7 @@ The implemented schema covers these concepts:
 - Assignment (accepted application, assigned cleaner or agency member).
 - Review (two-way, rating, comment, post-completion only).
 - Notification (channel, type, title, body, read/sent timestamps).
-- Audit log (for verification changes, assignment cancellations, dispute transitions, review moderation).
+- AuditLog (implemented in `apps.core`; append-only admin history for key account/marketplace actions).
 
 Use explicit audit logging for important marketplace decisions.
 
@@ -365,8 +367,8 @@ Target EU managed cloud infrastructure:
 - Managed PostgreSQL with automated backups.
 - Managed Redis.
 - Managed object storage (planned for uploaded photos/documents).
-- Centralized logs.
-- Error tracking.
+- JSON app logs with request IDs; centralized log storage is still future work.
+- Sentry error tracking when DSNs are configured.
 - Basic metrics and uptime monitoring.
 
 The system is GDPR-conscious from the start. Store only necessary personal data, avoid secrets in source control, and document retention/deletion decisions when they are implemented.

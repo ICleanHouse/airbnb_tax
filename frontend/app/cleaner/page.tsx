@@ -397,7 +397,7 @@ function choiceToBool(value: "" | "yes" | "no"): boolean | null {
 }
 
 function sanitizePersonalPreferences(value: string[]) {
-  const allowed = new Set(personalPreferenceOptions.map((option) => option.value));
+  const allowed = new Set<string>(personalPreferenceOptions.map((option) => option.value));
   return Array.from(new Set(value.filter((item) => allowed.has(item))));
 }
 

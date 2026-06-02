@@ -93,13 +93,13 @@ docker-compose.yml
 
 | Route | Auth required | Who can access | Status |
 |---|---|---|---|
-| `/` | No | All | ✅ Live |
-| `/login` | No | All | ✅ Live |
+| `/` | No | All | ✅ Live — minimal landing: compact photo hero + public `CleanerBrowser` (city/district filters over verified cleaner cards). Top-right keeps Log in/Sign up (or role-aware Dashboard + user chip + Log out) and language picker. |
+| `/login` | No | All | ✅ Live — on success fetches `/me/` and forwards to the role's dashboard (admin→`/admin`, host→`/host`, cleaner→`/cleaner`, agency→`/agency`, else `/app`) |
 | `/signup` | No | All | 🟨 In progress — single React wizard with Motion transitions, email-code verification, role selection, cleaner personal/language/experience/availability steps, and final account creation. Old step URLs redirect to `/signup`. |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role only | ✅ Live — reads `?filter=pending` URL param |
 | `/host` | Yes | `host` role only | ✅ Live — properties, jobs + calendar, ICS import, applications panel (filter cards, accept/reject, active assignments, completed + reviews), host rating display, favourites + "My cleaners" + direct job offers, notification bell |
-| `/cleaners` | Yes | `host` / `admin` | ✅ Live — public cleaner directory with city/rating filters; profile cards + detail modal (rating + review history, safe fields only) |
+| `/cleaners` | Yes | `host` / `admin` | ✅ Live — cleaner directory via shared `CleanerBrowser` (city + dependent district dropdowns); narrow header band; profile cards + detail modal (rating + review history, safe fields only) |
 | `/cleaner` | Yes | `cleaner` role only | ✅ Live — open jobs, applications, Offers tab (host-offered jobs: accept/decline), assignments, calendar, profile, notification bell |
 | `/agency` | Yes | `agency` role only | ⬜ Not built yet (deferred) |
 
@@ -138,6 +138,8 @@ Roadmap "Review-Based Marketplace" (Phases 1–3). Goal: hosts browse cleaners b
 **Phase 1 — Browsable cleaner profiles & reviews**
 - **Public cleaner profile API** (safe fields only — no email/phone/birth_date): `GET /api/accounts/cleaners/` (directory; verified + approved only; `?city=&min_rating=&service_area=` filters) and `GET /api/accounts/cleaners/<id>/` (detail + that cleaner's received reviews via `ReviewSerializer` filtered on `reviewee`). In `apps/accounts/views.py` + `serializers.py`.
 - **Frontend**: shared components `RatingStars.tsx`, `CleanerProfileCard.tsx`, `CleanerProfileModal.tsx` in `frontend/app/components/`. New `/cleaners` directory route. "View profile" entry points on host applicant cards; landing-page featured cleaners wired to the list endpoint. `PublicCleaner` / `CleanerReview` types in `lib/api.ts`.
+- **Landing redesign + shared `CleanerBrowser.tsx` (2026-06-02)**: stripped the old marketing landing (hero search panel, how-it-works, trust band, join, market strip) down to a **compact photo hero + public cleaner browser**. New `CleanerBrowser.tsx` fetches all verified+approved cleaners once and filters **client-side by City + dependent District** dropdowns sourced from `lib/cityDistricts.ts` (built a reverse `zone → city` map since cleaners store districts in `service_areas` and have no separate city field). Same component powers both `/` and `/cleaners`, so they stay in sync. Landing top-right keeps Log in/Sign up (or role-aware Dashboard + user chip + Log out) + language picker; dead hamburger removed and `.site-header` grid set to `1fr auto` so actions pin right.
+- **Property card "Post a job" (2026-06-02)**: host Properties tab cards now have Edit (left, outline) + **Post a job** (right, brand-filled) buttons; `openJobForm(day?, jobToEdit?, presetPropId?)` opens the job modal pre-scoped to that property. Card restyled — 18px radius, hover lift, stat chips.
 
 **Phase 2 — Direct offers + favourites (side by side with open pool)**
 - **Reuses `CleanerApplication`** (not a parallel model): new `origin` field (`cleaner_applied` default / `host_offered`). A host offer = a `CleanerApplication` row with `origin=host_offered, status=pending`. Migration `apps/marketplace/migrations/0003_cleanerapplication_origin_favouritecleaner.py`.
@@ -231,6 +233,11 @@ All UI is written in plain CSS with these shared tokens and classes. **Do not ad
 - `.host-tab-count--gold` — gold count badge (e.g. cleaner Offers tab)
 - `.cleaner-offer-card` / `.cleaner-offer-badge` — host-offered job cards in the cleaner Offers tab (gold accent), Accept / Decline actions
 - Notification bell + offer/calendar states reuse the gold token (`--gold`) for pending offers and brand-red (`--brand`) for favourites
+- `.cleaner-browser` / `.cleaner-browser-filters` / `.cleaner-browser-field` / `.cleaner-browser-clear` / `.cleaner-browser-count` — shared city/district directory browser (landing + `/cleaners`); rounded pill selects
+- `.hero--compact` — short variant of `.hero` (photo + headline) used on the minimal landing so the browser sits just below
+- `.landing-directory` — centered max-width wrapper for the landing cleaner browser
+- `.cleaners-directory` (inner wrapper, NOT the grid `main`) / `.cleaners-directory-head` — narrow header band on the `/cleaners` page
+- `.host-prop-edit-btn` (left, outline) + `.host-prop-postjob-btn` (right, brand-filled) — matching 40px pill buttons in the property card action row; `.host-property-stats > div` are rounded grey stat chips
 
 ## Git / GitHub
 

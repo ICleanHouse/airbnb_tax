@@ -1,6 +1,15 @@
 # Current Progress Handoff
 
-Updated: 2026-06-01, after marketplace stickiness layer (profiles, notifications, direct offers, favourites) + Sentry sanitizer fix.
+Updated: 2026-06-02, after landing-page redesign + cleaner browser + UI refinements.
+
+## Latest Work — Landing Redesign, Cleaner Browser & UI Refinements (2026-06-02)
+
+- **Minimal landing page** (`frontend/app/page.tsx`): removed the old marketing sections (hero search panel, how-it-works, trust band, join, market strip). Now a **compact photo hero + public cleaner browser**. Top-right keeps Log in/Sign up (or role-aware Dashboard + user chip + Log out) + language picker; removed the dead hamburger menu and set `.site-header` grid to `1fr auto` so actions pin right.
+- **Shared `CleanerBrowser.tsx`**: fetches all verified+approved cleaners once and filters **client-side by City + dependent District** dropdowns from `lib/cityDistricts.ts` (reverse `zone → city` map, since cleaners store districts in `service_areas` with no separate city field). Powers both `/` and `/cleaners`. Replaced the buggy free-text search bar on `/cleaners`; fixed a layout bug where `display:grid` + `min-height` on the same `<main>` pushed content far down (moved grid/padding to an inner `.cleaners-directory` wrapper). `/cleaners` header is now a narrow band.
+- **Login redirect** (`frontend/app/login/page.tsx`): on success fetches `/me/` and forwards to the role dashboard (admin→`/admin`, host→`/host`, cleaner→`/cleaner`, agency→`/agency`, else `/app`).
+- **Property card "Post a job"** (`frontend/app/host/page.tsx`): Properties-tab cards now have Edit (left, outline) + Post a job (right, brand-filled) pill buttons; `openJobForm` takes an optional `presetPropId` to pre-scope the job modal to that property. Card restyled (18px radius, hover lift, rounded stat chips).
+- **Sentry sanitizer fix** (carried from prior session): recreated missing `frontend/lib/sentry-sanitize.ts`; Sentry env vars in gitignored `frontend/.env.local`.
+- Verified: `npm.cmd run typecheck` passes; lint clean for all new/changed files.
 
 ## Latest Work — Review-Based Marketplace Stickiness Layer
 

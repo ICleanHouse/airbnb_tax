@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { LogIn, UserPlus } from "lucide-react";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, type CurrentUser } from "../../lib/api";
+
+/** Route a freshly logged-in user to their role's dashboard. */
+function dashboardPath(user: CurrentUser | null): string {
+  if (!user) return "/";
+  if (user.is_platform_admin) return "/admin";
+  if (user.role === "host") return "/host";
+  if (user.role === "cleaner") return "/cleaner";
+  if (user.role === "agency") return "/agency";
+  return "/app";
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -33,7 +43,10 @@ export default function LoginPage() {
         setError("Check your email and password and try again.");
         return;
       }
-      window.location.href = "/";
+      // Forward to the dashboard that matches the user's role.
+      const meRes = await apiFetch("/api/accounts/me/");
+      const me: CurrentUser | null = meRes.ok ? await meRes.json() : null;
+      window.location.href = dashboardPath(me);
     } finally {
       setSubmitting(false);
     }

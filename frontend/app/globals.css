@@ -66,7 +66,7 @@ img {
   z-index: 30;
   top: 0;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto;
   align-items: center;
   min-height: 80px;
   border-bottom: 1px solid var(--line);
@@ -6197,8 +6197,12 @@ img {
 
 /* Directory page */
 .cleaners-directory {
-  display: grid;
-  gap: 20px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px clamp(16px, 3vw, 40px) 64px;
+}
+.cleaners-directory > .cleaner-browser {
+  margin-top: 16px;
 }
 .cleaners-filters {
   display: flex;
@@ -6249,6 +6253,122 @@ img {
 @keyframes cleaner-skeleton {
   0% { background-position: 100% 50%; }
   100% { background-position: 0 50%; }
+}
+
+/* ── Cleaner browser (shared: landing + directory) ───────── */
+.cleaner-browser {
+  display: grid;
+  gap: 20px;
+}
+.cleaner-browser-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04);
+}
+.cleaner-browser-field {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+.cleaner-browser-field > span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+}
+.cleaner-browser-field select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.cleaner-browser-field select:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+.cleaner-browser-field select:disabled {
+  color: var(--muted);
+  background: #f7f7f7;
+  cursor: not-allowed;
+}
+.cleaner-browser-clear {
+  height: 42px;
+  padding: 0 18px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.cleaner-browser-clear:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.cleaner-browser-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.cleaner-browser-count svg {
+  color: var(--teal);
+}
+
+/* ── Minimal landing page ────────────────────────────────── */
+/* Compact hero: keep the photo + headline, but short so the
+   cleaner browser sits just underneath it. */
+.hero--compact {
+  min-height: 0;
+}
+.hero--compact .hero-content {
+  padding: 56px 0 64px;
+}
+.hero--compact h1 {
+  font-size: clamp(32px, 5vw, 56px);
+}
+.landing-directory {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 24px 64px;
+}
+
+/* Narrow header band on the Find a Cleaner directory page */
+.cleaners-directory-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.cleaners-directory-head .host-section-title {
+  font-size: 22px;
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .cleaner-browser-count {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 /* Profile modal */

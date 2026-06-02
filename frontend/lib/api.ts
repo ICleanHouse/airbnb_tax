@@ -1,29 +1,22 @@
-/**
- * API client for the Host Cleaner Marketplace backend.
- *
- * All paths must start with /api/ so Next.js rewrites them to the Django
- * backend (configured in next.config.mjs → rewrites → /api/:path*).
- */
+import * as Sentry from "@sentry/nextjs";
 
-/** Matches the Role choices on the Django User model. */
+export type AccountStatus = "pending" | "approved" | "rejected" | "suspended";
 export type UserRole = "host" | "cleaner" | "agency" | "admin";
 
-/** Matches the AccountStatus choices on the Django User model. */
-export type AccountStatus = "pending" | "approved" | "rejected" | "suspended";
-
-/** Shape returned by /api/accounts/me/ */
 export interface CurrentUser {
   id: number;
+  username: string;
   email: string;
   first_name: string;
   last_name: string;
+  phone_number: string;
+  preferred_language: "bg" | "en";
   role: UserRole;
   account_status: AccountStatus;
   is_approved: boolean;
   is_platform_admin: boolean;
 }
 
-/** A public, PII-safe cleaner card from /api/accounts/public-cleaners/. */
 export interface PublicCleaner {
   id: number;
   user_id: number;
@@ -47,7 +40,6 @@ export interface PublicCleaner {
   is_verified: boolean;
 }
 
-/** A received review embedded in a cleaner's public detail payload. */
 export interface CleanerReview {
   id: number;
   rating: number;
@@ -56,12 +48,10 @@ export interface CleanerReview {
   created_at: string;
 }
 
-/** Public cleaner detail = card fields + the cleaner's received reviews. */
 export interface PublicCleanerDetail extends PublicCleaner {
   reviews: CleanerReview[];
 }
 
-/** A saved/favourite cleaner from /api/marketplace/favourites/. */
 export interface FavouriteCleaner {
   id: number;
   cleaner: number;
@@ -74,7 +64,6 @@ export interface FavouriteCleaner {
   created_at: string;
 }
 
-/** An in-app notification from /api/notifications/notifications/. */
 export interface AppNotification {
   id: number;
   notification_type: string;
@@ -93,53 +82,109 @@ const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Admin",
 };
 
-/** Human-readable label for a user role. */
+const CSRF_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function getCookie(name: string): string {
+  if (typeof document === "undefined") {
+    return "";
+  }
+
+  return (
+    document.cookie
+      .split("; ")
+      .find((row) => row.startsWith(`${name}=`))
+      ?.split("=")[1] ?? ""
+  );
+}
+
+function createRequestId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `req_${crypto.randomUUID().replaceAll("-", "")}`;
+  }
+
+  return `req_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function currentRoute(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return `${window.location.pathname}${window.location.search}`;
+}
+
+function reportApiFailure({
+  path,
+  method,
+  requestId,
+  status,
+  error,
+}: {
+  path: string;
+  method: string;
+  requestId: string;
+  status?: number;
+  error?: unknown;
+}): void {
+  const context = {
+    path,
+    method,
+    request_id: requestId,
+    route: currentRoute(),
+    status_code: status,
+  };
+
+  if (error) {
+    Sentry.captureException(error, {
+      tags: { event: "frontend.api_network_error" },
+      extra: context,
+    });
+    return;
+  }
+
+  Sentry.captureMessage("API request failed", {
+    level: status && status >= 500 ? "error" : "warning",
+    tags: { event: "frontend.api_response_failed" },
+    extra: context,
+  });
+}
+
 export function roleLabel(role: UserRole): string {
   return ROLE_LABELS[role] ?? role;
 }
 
-/**
- * Read the Django CSRF token from the csrftoken cookie.
- * Django sets this cookie on any response from a view decorated with
- * ensure_csrf_cookie. DRF's SessionAuthentication requires it as the
- * X-CSRFToken header on all state-changing requests when a session exists.
- */
-function getCsrfToken(): string {
-  if (typeof document === "undefined") return "";
-  const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : "";
-}
+export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const method = options.method?.toUpperCase() ?? "GET";
+  const headers = new Headers(options.headers);
+  const requestId = headers.get("X-Request-ID") || createRequestId();
 
-const CSRF_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+  headers.set("X-Request-ID", requestId);
 
-/**
- * Thin fetch wrapper that:
- * - Adds Content-Type: application/json when a body is present.
- * - Adds X-CSRFToken on state-changing requests so DRF SessionAuthentication
- *   does not reject them with 403 after a session has been established.
- * - Returns the raw Response so callers can check .ok and call .json() themselves.
- */
-export async function apiFetch(
-  path: string,
-  options: RequestInit = {},
-): Promise<Response> {
-  const method = (options.method ?? "GET").toUpperCase();
-
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string> | undefined),
-  };
-
-  // Only inject JSON content-type for string bodies (JSON.stringify output).
-  // FormData bodies must not have Content-Type set — the browser adds the
-  // multipart boundary automatically.
-  if (typeof options.body === "string" && !headers["Content-Type"]) {
-    headers["Content-Type"] = "application/json";
+  if (typeof options.body === "string" && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
 
-  if (CSRF_METHODS.has(method) && !headers["X-CSRFToken"]) {
-    const csrf = getCsrfToken();
-    if (csrf) headers["X-CSRFToken"] = csrf;
+  if (CSRF_METHODS.has(method)) {
+    const csrfToken = decodeURIComponent(getCookie("csrftoken"));
+    if (csrfToken && !headers.has("X-CSRFToken")) {
+      headers.set("X-CSRFToken", csrfToken);
+    }
   }
 
-  return fetch(path, { ...options, headers });
+  try {
+    const response = await fetch(path, {
+      ...options,
+      credentials: "include",
+      headers,
+    });
+
+    if (!response.ok) {
+      reportApiFailure({ path, method, requestId, status: response.status });
+    }
+
+    return response;
+  } catch (error) {
+    reportApiFailure({ path, method, requestId, error });
+    throw error;
+  }
 }

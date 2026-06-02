@@ -33,7 +33,7 @@ The product direction for v1 is:
 
 - Treat `BUSINESS.md` as the source of truth for business strategy, target users, marketplace assumptions, monetization hypotheses, and open business questions.
 - Preserve the service-ready modular architecture described in `architecture.md`.
-- Keep the unauthenticated `/` frontend experience as a public marketing/lead-generation landing page, not an internal dashboard.
+- Keep the unauthenticated `/` frontend experience as a public, lead-generation entry point (currently a minimal cleaner directory: compact hero + `CleanerBrowser`), not an internal dashboard.
 - Keep changes scoped to the user request.
 - Do not introduce unrelated refactors.
 - Do not add payment processing, payouts, wallets, invoices, or platform fees unless the user explicitly asks for that change.
@@ -86,6 +86,27 @@ When code exists:
 - Never call `fetch` directly in the frontend — always use `apiFetch` from `frontend/lib/api.ts`.
 - Never set `Content-Type: application/json` for `FormData` bodies — let the browser set the multipart boundary.
 - Keep signup field changes end-to-end: React wizard state and payloads, backend model fields, migrations, serializer validation, profile serializers, and tests must change together for Cleaner, Host, and Agency onboarding.
+
+## Environment & Tooling Conventions
+
+This is a Windows dev machine. Commands and paths must match it.
+
+- Frontend lives in `frontend/`. Use `npm.cmd` / `npx.cmd` (not bare `npm`/`npx`). Verify changes with `npm.cmd run typecheck` and `npm.cmd run lint`.
+- Backend runs under PowerShell: `cd backend; .\.venv\Scripts\Activate.ps1; python manage.py <cmd>`. Run `makemigrations`, `migrate`, `check`, and `test` when touching models/services.
+- Do not run `npm.cmd run build` while the dev server (`npm.cmd run dev`) is running against the same `frontend/.next` — it produces stale-runtime errors.
+- Prefer the dedicated file tools; the repo path contains spaces, so always quote paths in shell commands.
+
+## Frontend Structure Conventions
+
+- Extract reusable UI into `frontend/app/components/` rather than inlining into the large dashboards (`host/page.tsx` ~2.3k lines, `cleaner/page.tsx` ~2.6k lines). Existing shared pieces: `CleanerBrowser`, `CleanerProfileCard`, `CleanerProfileModal`.
+- All styles go in `frontend/app/globals.css` using the existing design tokens (`--brand` #ff385c, `--teal` #008489, `--gold` #b7791f, `--ink`, `--muted`, `--line`, `--surface`, `--radius`). No CSS library.
+- City/district filtering is client-side: cleaner `service_areas` is a flat `string[]` of Cyrillic district names with no city field; map districts → city via the reverse zone map built from `frontend/lib/cityDistricts.ts`.
+- CSS Grid pitfall to avoid: `display:grid` + `min-height` on the same element defaults to `align-content: stretch` and inflates rows; put grid/padding on an inner wrapper instead.
+
+## Secrets Handling
+
+- Real secrets (Sentry DSNs/auth tokens, account credentials, API keys) go only in gitignored env files — `frontend/.env.local` for the frontend, `backend/.env` for the backend. Never commit them, never echo them into tracked files, logs, or doc examples.
+- Committed example files (`.env.example`) carry placeholder values only.
 
 ## Marketplace Rules To Preserve
 
@@ -185,11 +206,18 @@ When code exists:
 - `trailingSlash: true` — required so Next.js does not strip slashes before Django sees them.
 - Two rewrite rules matching `/api/:path*/` and `/api/:path*` — required to preserve trailing slashes through to Django's `APPEND_SLASH`.
 
-**`frontend/app/page.tsx`** — public landing page:
+**`frontend/app/page.tsx`** — public landing page (minimal cleaner directory):
 
-- Auth-aware header: shows role-correct dashboard link when logged in.
+- Stripped-down public entry point — no marketing sections. A compact photo+text hero (`hero hero--compact`) over the shared `CleanerBrowser`, which lists public cleaner profiles filterable by city and district.
+- Auth-aware header (pinned top-right): logged-out shows Log in / Sign up; logged-in shows a role-correct Dashboard link, the user chip (`name · role`), Log out, plus the language picker.
 
-**`frontend/app/login/page.tsx`** — session login, redirects to `/` after success.
+**`frontend/app/components/CleanerBrowser.tsx`** — shared public cleaner directory:
+
+- Reused by both `/` and `/cleaners`. Fetches `/api/accounts/public-cleaners/` once, then filters client-side by City and a dependent District dropdown (built from `lib/cityDistricts.ts`, reverse-mapping each cleaner's flat Cyrillic `service_areas` to cities). Renders loading skeletons, empty states, a `CleanerProfileCard` grid, and `CleanerProfileModal`.
+
+**`frontend/app/cleaners/page.tsx`** — host/admin cleaner directory: same `CleanerBrowser`, gated to host/admin, with a narrow `cleaners-directory-head` band on top.
+
+**`frontend/app/login/page.tsx`** — session login. On success it calls `/api/accounts/me/` and forwards to the role's dashboard via `dashboardPath` (admin → `/admin`, host → `/host`, cleaner → `/cleaner`, agency → `/agency`, else `/app`).
 
 **`frontend/app/signup/*`** — signup is centered on `frontend/app/signup/page.tsx`, a single client-side React wizard at `/signup`. It uses custom field errors, email validation, Resend 6-digit email-code confirmation, live password checklist, role selection, cleaner personal details, location/service areas, native language, experience, availability, and final account creation. Continue and Back update React state and animate with Motion instead of loading new pages. Old step route files redirect to `/signup`. Google and Apple buttons are UI-only placeholders.
 
@@ -208,8 +236,9 @@ When code exists:
 
 **`frontend/app/host/page.tsx`** — host dashboard:
 
-- Properties section: add property via modal.
+- Properties section: add property via modal. Each property card has two pill buttons — Edit (outline, left) and Post a job (brand-filled, right) that opens the job form preset to that property.
 - Jobs & Calendar section: month calendar grid, post job, publish job.
+- Applications panel: host reviews per-job applications and accepts/rejects via `POST /api/marketplace/applications/{id}/accept/` (and reject).
 - **ICS import** — two-step modal:
   - Step 1: upload `.ics` file, select property, set default cleaning start time.
   - Step 2: review parsed events (checkin, checkout, nights), select/deselect, confirm.
@@ -232,13 +261,15 @@ When code exists:
 
 ### What is NOT built yet (next priorities)
 
-1. **Applications panel in host dashboard** — host sees applications per job, calls `POST /api/marketplace/applications/{id}/accept/`.
-2. **`/agency` dashboard** — agency manages members, views assigned jobs.
-3. **Cleaner verification** — admin marks cleaner as verified before they can apply.
-4. **Real search on landing page** — connect to `GET /api/accounts/cleaners/` with location filter.
+1. **`/agency` dashboard** — agency manages members, views assigned jobs. (Deferred per the active roadmap.)
+2. **Cleaner verification** — admin marks cleaner as verified before they can apply.
+3. **Direct offers + favourites** — host offers a job to a chosen cleaner (reuse `CleanerApplication` with an `origin` field); cleaner Accept/Decline; "My cleaners" favourites list.
+4. **In-app notification center** — surface the persisted `Notification` model: list + mark-read endpoints and a shared `NotificationBell` in host/cleaner topbars.
 5. **Google Calendar sync** — OAuth flow and feed polling (backend placeholders exist).
 6. **iCal export** — generate `.ics` for host and cleaner calendars.
-7. **Additional notification triggers** — application submitted, application accepted/rejected, assignment created, upcoming reminder, review prompt.
+7. **Additional notification triggers** — assignment created, upcoming reminder, review prompt.
+
+Done since earlier handoffs: applications panel in host dashboard; public cleaner directory with real city/district filtering (`CleanerBrowser` against `GET /api/accounts/public-cleaners/`); role-based post-login routing.
 
 ## Before Making Changes
 

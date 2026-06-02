@@ -511,7 +511,7 @@ export default function HostDashboard() {
   }
 
   // ── Create job ─────────────────────────────────────────────────────────────
-  function openJobForm(day?: number, jobToEdit?: CleaningJob) {
+  function openJobForm(day?: number, jobToEdit?: CleaningJob, presetPropId?: number) {
     setEditingJobId(jobToEdit?.id ?? null);
     if (jobToEdit) {
       setJobPropId(String(jobToEdit.property));
@@ -524,7 +524,11 @@ export default function HostDashboard() {
       setJobStartTime(`${pad(start.getHours())}:${pad(start.getMinutes())}`);
       setJobEndTime(`${pad(end.getHours())}:${pad(end.getMinutes())}`);
     } else {
-      setJobPropId(properties.length === 1 ? String(properties[0].id) : "");
+      setJobPropId(
+        presetPropId != null
+          ? String(presetPropId)
+          : properties.length === 1 ? String(properties[0].id) : "",
+      );
       setJobTitle("");
       setJobPrice("");
       setJobDesc("");
@@ -1067,6 +1071,14 @@ export default function HostDashboard() {
                             >
                               <Pencil size={13} aria-hidden />
                               Edit
+                            </button>
+                            <button
+                              className="host-prop-postjob-btn"
+                              type="button"
+                              onClick={() => openJobForm(undefined, undefined, p.id)}
+                            >
+                              <Plus size={15} aria-hidden />
+                              Post a job
                             </button>
                           </div>
                         )}

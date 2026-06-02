@@ -70,6 +70,8 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "agreed_price",
             "assigned_at",
             "cancelled_at",
+            "host_completed_at",
+            "cleaner_completed_at",
             "completed_at",
             "created_at",
             "updated_at",
@@ -102,6 +104,8 @@ class MarketplaceCalendarItemSerializer(serializers.Serializer):
     job_status = serializers.CharField()
     application_status = serializers.CharField(required=False, allow_blank=True)
     application_origin = serializers.CharField(required=False, allow_blank=True)
+    host_completed_at = serializers.DateTimeField(required=False, allow_null=True)
+    cleaner_completed_at = serializers.DateTimeField(required=False, allow_null=True)
     completed_at = serializers.DateTimeField(required=False, allow_null=True)
     can_apply = serializers.BooleanField()
     can_complete = serializers.BooleanField()

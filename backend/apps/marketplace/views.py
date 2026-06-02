@@ -91,6 +91,8 @@ def job_calendar_payload(job, item_type, user, application=None, assignment=None
         "job_status": job.status,
         "application_status": getattr(application, "status", ""),
         "application_origin": getattr(application, "origin", ""),
+        "host_completed_at": getattr(assignment, "host_completed_at", None),
+        "cleaner_completed_at": getattr(assignment, "cleaner_completed_at", None),
         "completed_at": completed_at,
         "can_apply": item_type == "open_job" and job.status == CleaningJob.Status.OPEN and user_can_apply_to_calendar_job(user),
         "can_complete": user_can_complete_calendar_assignment(user, assignment, job),
@@ -116,12 +118,13 @@ def user_can_apply_to_calendar_job(user):
 def user_can_complete_calendar_assignment(user, assignment, job):
     if assignment is None or assignment.completed_at is not None or job.status != CleaningJob.Status.ASSIGNED:
         return False
-    return (
-        user.is_platform_admin
-        or user.id == job.host_id
-        or user.id == assignment.cleaner_id
-        or user.id == assignment.assigned_member_id
-    )
+    if user.is_platform_admin:
+        return True
+    if user.id == job.host_id:
+        return assignment.host_completed_at is None
+    if user.id == assignment.cleaner_id or user.id == assignment.assigned_member_id:
+        return assignment.cleaner_completed_at is None
+    return False
 
 
 class MarketplaceQuerysetMixin:

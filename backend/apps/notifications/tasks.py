@@ -62,6 +62,9 @@ def send_admin_new_account_email(self, user_id: int) -> None:
 
     User = get_user_model()
 
+    if not getattr(settings, "EMAIL_NOTIF_ADMIN_NEW_ACCOUNT", True):
+        return
+
     try:
         new_user = User.objects.get(id=user_id)
     except User.DoesNotExist:
@@ -123,6 +126,9 @@ def send_account_confirmation_email(self, user_id: int) -> None:
     from apps.accounts.tokens import email_verification_token
 
     User = get_user_model()
+
+    if not getattr(settings, "EMAIL_VER_USER_CONFIRMATION", True):
+        return
 
     try:
         user = User.objects.get(id=user_id)
@@ -243,6 +249,9 @@ def send_application_submitted_email(self, application_id: int) -> None:
 
     from apps.marketplace.models import CleanerApplication
 
+    if not getattr(settings, "EMAIL_NOTIF_HOST_APPLICATION_SUBMITTED", True):
+        return
+
     try:
         application = (
             CleanerApplication.objects
@@ -334,6 +343,9 @@ def send_job_completed_email(self, job_id: int) -> None:
 
     from apps.marketplace.models import CleaningJob
 
+    if not getattr(settings, "EMAIL_NOTIF_HOST_JOB_COMPLETED", True):
+        return
+
     try:
         job = (
             CleaningJob.objects
@@ -417,6 +429,9 @@ def send_signup_email_code(self, verification_id: int, code: str) -> None:
     from django.template.loader import render_to_string
 
     from apps.accounts.models import SignupEmailVerification
+
+    if not getattr(settings, "EMAIL_VER_USER_SIGNUP", True):
+        return
 
     try:
         verification = SignupEmailVerification.objects.get(id=verification_id)

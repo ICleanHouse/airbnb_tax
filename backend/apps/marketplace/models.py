@@ -143,6 +143,8 @@ class Assignment(TimeStampedModel):
     agreed_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     assigned_at = models.DateTimeField(auto_now_add=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    host_completed_at = models.DateTimeField(null=True, blank=True)
+    cleaner_completed_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self) -> str:

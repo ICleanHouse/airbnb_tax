@@ -34,7 +34,13 @@ def submit_review(
     if not hasattr(job, "assignment"):
         raise FeedbackError("Reviewed job must have an assignment.")
 
-    involved_user_ids = {job.host_id, job.assignment.cleaner_id}
+    assignment = job.assignment
+    if not (assignment.host_completed_at and assignment.cleaner_completed_at):
+        raise FeedbackError("Reviews are allowed only after both host and cleaner mark the job complete.")
+
+    involved_user_ids = {job.host_id, assignment.cleaner_id}
+    if assignment.assigned_member_id:
+        involved_user_ids.add(assignment.assigned_member_id)
     if reviewer.id not in involved_user_ids or reviewee.id not in involved_user_ids:
         raise FeedbackError("Only users involved in the job can review each other.")
 

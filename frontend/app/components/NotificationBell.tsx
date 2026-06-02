@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, Check } from "lucide-react";
 import { apiFetch, type AppNotification } from "../../lib/api";
 
@@ -25,6 +26,7 @@ function timeAgo(iso: string): string {
  * mark-all-read against the persisted Notification model.
  */
 export default function NotificationBell() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
@@ -86,6 +88,57 @@ export default function NotificationBell() {
     setUnread(0);
   }
 
+  function notificationHref(notification: AppNotification): string | null {
+    const jobId = typeof notification.metadata?.job_id === "number"
+      ? notification.metadata.job_id
+      : typeof notification.metadata?.job_id === "string"
+        ? Number(notification.metadata.job_id)
+        : null;
+    const reviewId = typeof notification.metadata?.review_id === "number"
+      ? notification.metadata.review_id
+      : typeof notification.metadata?.review_id === "string"
+        ? Number(notification.metadata.review_id)
+        : null;
+    const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+
+    if (notification.notification_type === "review.requested" && jobId) {
+      return `/cleaner?section=assignments&reviewJob=${jobId}`;
+    }
+
+    if (notification.notification_type === "review.submitted" && jobId) {
+      if (pathname.startsWith("/host")) {
+        const params = new URLSearchParams({
+          section: "applications",
+          appFilter: "rating",
+          reviewJob: String(jobId),
+        });
+        if (reviewId) params.set("reviewId", String(reviewId));
+        return `/host?${params.toString()}`;
+      }
+
+      const params = new URLSearchParams({
+        section: "assignments",
+        reviewJob: String(jobId),
+      });
+      if (reviewId) params.set("reviewId", String(reviewId));
+      return `/cleaner?${params.toString()}`;
+    }
+
+    return null;
+  }
+
+  async function handleNotificationClick(notification: AppNotification) {
+    if (notification.read_at === null) {
+      await markRead(notification.id);
+    }
+
+    const href = notificationHref(notification);
+    if (href) {
+      setOpen(false);
+      router.push(href);
+    }
+  }
+
   return (
     <div className="notif-bell" ref={ref}>
       <button
@@ -125,7 +178,7 @@ export default function NotificationBell() {
                     <button
                       type="button"
                       className="notif-item-btn"
-                      onClick={() => n.read_at === null && void markRead(n.id)}
+                      onClick={() => void handleNotificationClick(n)}
                     >
                       <span className="notif-item-title">{n.title}</span>
                       {n.body && <span className="notif-item-body">{n.body}</span>}

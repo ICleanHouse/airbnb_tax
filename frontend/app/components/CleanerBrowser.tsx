@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MapPin } from "lucide-react";
 import { apiFetch, type PublicCleaner } from "../../lib/api";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { cities } from "../../lib/cityDistricts";
 import CleanerProfileCard from "./CleanerProfileCard";
 import CleanerProfileModal from "./CleanerProfileModal";
@@ -45,23 +46,39 @@ export default function CleanerBrowser() {
   const [district, setDistrict] = useState("");
   const [openId, setOpenId] = useState<number | null>(null);
 
+  async function loadCleaners(silent = false) {
+    if (!silent) {
+      setLoading(true);
+      setError("");
+    }
+    try {
+      const res = await apiFetch("/api/accounts/public-cleaners/");
+      if (!res.ok) {
+        if (!silent) setError("Could not load cleaners right now.");
+        return;
+      }
+      const data: unknown = await res.json();
+      const list = Array.isArray(data)
+        ? (data as PublicCleaner[])
+        : ((data as { results?: PublicCleaner[] }).results ?? []);
+      setCleaners(list);
+    } catch {
+      if (!silent) setError("Could not load cleaners right now.");
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    let active = true;
-    apiFetch("/api/accounts/public-cleaners/")
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("load failed"))))
-      .then((data: unknown) => {
-        if (!active) return;
-        const list = Array.isArray(data)
-          ? (data as PublicCleaner[])
-          : ((data as { results?: PublicCleaner[] }).results ?? []);
-        setCleaners(list);
-      })
-      .catch(() => active && setError("Could not load cleaners right now."))
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
+    void loadCleaners();
   }, []);
+
+  useLiveRefresh(
+    () => {
+      void loadCleaners(true);
+    },
+    {},
+  );
 
   const selectedCity = useMemo(
     () => cities.find((c) => c.value === cityValue) ?? null,

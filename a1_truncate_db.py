@@ -4,6 +4,20 @@ from pathlib import Path
 
 
 TABLES = [
+    "feedback_review",
+    "marketplace_assignment",
+    "marketplace_cleanerapplication",
+    "marketplace_cleaningjob",
+    "marketplace_cleaningbatch",
+    "marketplace_favouritecleaner",
+    "properties_propertyimage",
+    "properties_reservation",
+    "properties_externalcalendarconnection",
+    "properties_property",
+    "notifications_notification",
+    "accounts_agencymembership",
+    "accounts_agencyinvitation",
+    "accounts_agencyprofile",
     "accounts_cleanerprofile",
     "accounts_cookieconsent",
     "accounts_hostprofile",
@@ -25,13 +39,8 @@ def truncate_tables(db_path: Path) -> None:
             TABLES,
         )
         existing = {row[0] for row in cur.fetchall()}
-        missing = [table for table in TABLES if table not in existing]
-        if missing:
-            raise RuntimeError(
-                f"Missing tables in {db_path}: {', '.join(missing)}"
-            )
 
-        for table in TABLES:
+        for table in [name for name in TABLES if name in existing]:
             cur.execute(f"DELETE FROM {table};")
 
         # Reset AUTOINCREMENT counters only if sqlite_sequence exists.
@@ -39,10 +48,12 @@ def truncate_tables(db_path: Path) -> None:
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='sqlite_sequence';"
         )
         if cur.fetchone():
-            placeholders = ",".join("?" for _ in TABLES)
-            cur.execute(
-                f"DELETE FROM sqlite_sequence WHERE name IN ({placeholders});", TABLES
-            )
+            existing_tables = [name for name in TABLES if name in existing]
+            if existing_tables:
+                placeholders = ",".join("?" for _ in existing_tables)
+                cur.execute(
+                    f"DELETE FROM sqlite_sequence WHERE name IN ({placeholders});", existing_tables
+                )
 
         conn.commit()
     except Exception:

@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import CleanerProfile, HostProfile, User
-from apps.feedback.services import submit_review
+from apps.feedback.services import FeedbackError, submit_review
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
 from apps.marketplace.services import (
     MarketplaceError,
@@ -114,10 +114,25 @@ class MarketplaceServiceTests(TestCase):
         self.assertEqual(response.data["status"], CleanerApplication.Status.WITHDRAWN)
         self.assertEqual(application.status, CleanerApplication.Status.WITHDRAWN)
 
-    def test_completed_job_can_receive_two_way_review(self):
+    def test_job_requires_host_and_cleaner_completion_before_review(self):
         publish_job(self.job)
         application = submit_application(job=self.job, cleaner=self.cleaner)
-        accept_application(application=application, accepted_by=self.host)
+        assignment = accept_application(application=application, accepted_by=self.host)
+
+        cleaner_ack = complete_job(job=self.job, completed_by=self.cleaner)
+        assignment.refresh_from_db()
+        self.assertEqual(cleaner_ack.status, CleaningJob.Status.ASSIGNED)
+        self.assertIsNotNone(assignment.cleaner_completed_at)
+        self.assertIsNone(assignment.host_completed_at)
+
+        with self.assertRaises(FeedbackError):
+            submit_review(
+                job=cleaner_ack,
+                reviewer=self.cleaner,
+                reviewee=self.host,
+                rating=5,
+                comment="Clear instructions.",
+            )
 
         completed = complete_job(job=self.job, completed_by=self.host)
         review = submit_review(
@@ -132,6 +147,25 @@ class MarketplaceServiceTests(TestCase):
         self.assertEqual(completed.status, CleaningJob.Status.COMPLETED)
         self.assertEqual(review.rating, 5)
         self.assertEqual(self.cleaner.cleaner_profile.average_rating, 5)
+
+        cleaner_review = submit_review(
+            job=completed,
+            reviewer=self.cleaner,
+            reviewee=self.host,
+            rating=5,
+            comment="Clear instructions.",
+        )
+        self.assertEqual(cleaner_review.comment, "Clear instructions.")
+
+    def test_cleaner_cannot_mark_completion_twice(self):
+        publish_job(self.job)
+        application = submit_application(job=self.job, cleaner=self.cleaner)
+        accept_application(application=application, accepted_by=self.host)
+
+        complete_job(job=self.job, completed_by=self.cleaner)
+
+        with self.assertRaises(MarketplaceError):
+            complete_job(job=self.job, completed_by=self.cleaner)
 
     def test_cleaner_calendar_tracks_open_application_and_assignment_states(self):
         publish_job(self.job)

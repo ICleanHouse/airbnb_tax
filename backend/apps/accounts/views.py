@@ -80,14 +80,26 @@ class SignupEmailCodeRequestView(APIView):
         serializer = SignupEmailCodeRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         verification, code = SignupEmailVerification.create_for_email(serializer.validated_data["email"])
-        send_signup_email_code.delay(verification.id, code)
+        verification_required = getattr(settings, "EMAIL_VER_USER_SIGNUP", True)
+        if verification_required:
+            send_signup_email_code.delay(verification.id, code)
+        else:
+            verification.verified_at = timezone.now()
+            verification.save(update_fields=["verified_at", "updated_at"])
         write_audit_log(
             action="user.signup_email_code_requested",
             entity_type="SignupEmailVerification",
             entity_id=verification.id,
             request=request,
         )
-        return Response({"email": verification.email, "expires_at": verification.expires_at}, status=status.HTTP_201_CREATED)
+        response_data = {
+            "email": verification.email,
+            "expires_at": verification.expires_at,
+            "verification_required": verification_required,
+        }
+        if not verification_required:
+            response_data["email_verification_token"] = str(verification.token)
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")

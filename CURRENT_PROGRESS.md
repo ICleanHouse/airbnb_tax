@@ -1,6 +1,28 @@
 # Current Progress Handoff
 
-Updated: 2026-06-02, after landing-page redesign + cleaner browser + UI refinements.
+Updated: 2026-06-02, after cleaner dashboard/profile polish + landing-page redesign + cleaner browser + UI refinements.
+
+## Latest Work — Cleaner Dashboard/Profile Polish (2026-06-02)
+
+- **Cleaner completion + feedback flow**:
+  - Job completion now tracks both cleaner and host confirmation before feedback is unlocked.
+  - Cleaner can leave host feedback only after both sides mark the assignment completed.
+  - Cleaner notifications route directly into the matching feedback form / received review location.
+  - Cleaner calendar shows completed assignments as `Completed` instead of `Assigned`.
+- **Cleaner calendar/application UI fixes**:
+  - Merged the duplicate `Applications` bar into `Calendar`.
+  - Rejected application chips and calendar markers now use a warning-orange state instead of the generic brand/neutral styling.
+- **Live refresh behavior tuned**:
+  - Removed timed auto-refresh polling that was wiping in-progress form input.
+  - Focus/visibility/online refresh behavior remains.
+- **Cleaner profile validation + UX**:
+  - Profile field errors now render inline on the actual offending field instead of only at the top of the form.
+  - Birth date on the cleaner profile now uses the same compact picker pattern as signup.
+  - Cleaner profile birth date enforces the 18+ rule during editing/saving.
+  - Fixed cleaner profile birthdate picker layout issues inside the profile form (double-field look, narrow-screen overflow, flex sizing bugs).
+  - Fixed cutoff-year birthdate picker behavior so month/year navigation no longer gets stuck in confusing states.
+- **Cleaner account menu/header**:
+  - Cleaner topbar account control now uses an icon trigger with the cleaner name shown inside the opened dropdown above `Profile`.
 
 ## Latest Work — Landing Redesign, Cleaner Browser & UI Refinements (2026-06-02)
 

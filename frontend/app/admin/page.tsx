@@ -14,6 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { apiFetch, CurrentUser, roleLabel, UserRole } from "../../lib/api";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 
 interface AdminUser {
   id: number;
@@ -66,13 +67,15 @@ function AdminPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);
 
-  async function loadUsers() {
-    setLoadingUsers(true);
-    setFetchError("");
+  async function loadUsers(silent = false) {
+    if (!silent) {
+      setLoadingUsers(true);
+      setFetchError("");
+    }
     try {
       const res = await apiFetch("/api/accounts/users/");
       if (!res.ok) {
-        setFetchError("Failed to load accounts.");
+        if (!silent) setFetchError("Failed to load accounts.");
         return;
       }
       const data: unknown = await res.json();
@@ -83,11 +86,19 @@ function AdminPageContent() {
           : ((data as { results: AdminUser[] }).results ?? []),
       );
     } catch {
-      setFetchError("Network error — check the backend is running.");
+      if (!silent) setFetchError("Network error — check the backend is running.");
     } finally {
-      setLoadingUsers(false);
+      if (!silent) setLoadingUsers(false);
     }
   }
+
+  useLiveRefresh(
+    () => {
+      if (!me?.is_platform_admin) return;
+      void loadUsers(true);
+    },
+    { enabled: me?.is_platform_admin },
+  );
 
   async function approve(id: number) {
     setActioning(id);

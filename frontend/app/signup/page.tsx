@@ -642,6 +642,13 @@ export default function SignupPage() {
         setSubmitting(false);
         return;
       }
+      const data = await response.json().catch(() => ({}));
+      if (typeof data.email_verification_token === "string") {
+        setEmailVerificationToken(data.email_verification_token);
+        setSubmitting(false);
+        goTo("role", 1);
+        return;
+      }
       setSubmitting(false);
       goTo("confirm_email", 1);
     } catch {
@@ -705,6 +712,14 @@ export default function SignupPage() {
       if (!response.ok) {
         setCodeError("Could not send a new code. Try again.");
         setResending(false);
+        return;
+      }
+      const data = await response.json().catch(() => ({}));
+      if (typeof data.email_verification_token === "string") {
+        setEmailVerificationToken(data.email_verification_token);
+        setCodeNotice("Email verification is disabled. You can continue.");
+        setResending(false);
+        goTo("role", 1);
         return;
       }
       setCodeNotice("A new confirmation code was sent.");

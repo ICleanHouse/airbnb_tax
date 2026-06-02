@@ -113,6 +113,11 @@ Key variables and their defaults:
 | `DEFAULT_FROM_EMAIL` | `noreply@example.local` | Sender address for outbound emails |
 | `EMAIL_RESEND_APIKEY` | *(empty)* | Required Resend API key for signup email-code delivery |
 | `EMAIL_RESEND_FROM_EMAIL` | *(empty)* | Required verified Resend sender address for signup codes |
+| `EMAIL_VER_USER_SIGNUP` | `True` | Sends the 6-digit signup email verification code when enabled |
+| `EMAIL_VER_USER_CONFIRMATION` | `True` | Sends the legacy link-based account confirmation email when enabled |
+| `EMAIL_NOTIF_ADMIN_NEW_ACCOUNT` | `True` | Sends admin/staff new-account notification emails when enabled |
+| `EMAIL_NOTIF_HOST_APPLICATION_SUBMITTED` | `True` | Sends host emails when a cleaner applies to a job |
+| `EMAIL_NOTIF_HOST_JOB_COMPLETED` | `True` | Sends host emails when a cleaner marks a job complete |
 | `FRONTEND_URL` | `http://localhost:3000` | Base URL used to build links in outbound emails |
 | `BACKEND_URL` | `http://localhost:8000` | Base URL used by legacy email-confirmation links |
 | `FRONTEND_TRUSTED_ORIGINS` | `http://localhost:3000,...` | CSRF trusted origins |
@@ -145,6 +150,8 @@ FRONTEND_URL=http://localhost:3000
 ```
 
 Use a verified Resend sender/domain for `EMAIL_RESEND_FROM_EMAIL`. Restart both the backend and Celery after changing `.env`.
+
+If `EMAIL_VER_USER_SIGNUP=False`, the backend auto-verifies the signup email request and returns `email_verification_token` immediately so the frontend skips the email-code step.
 
 The signup code email body is rendered from:
 

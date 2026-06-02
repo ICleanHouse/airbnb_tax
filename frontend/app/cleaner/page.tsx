@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { ChangeEvent, FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Briefcase,
@@ -23,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { apiFetch, CurrentUser } from "../../lib/api";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import NotificationBell from "../components/NotificationBell";
 import { cities } from "../../lib/cityDistricts";
 
@@ -71,6 +73,8 @@ interface AssignmentSummary {
   job_property_neighborhood?: string;
   agreed_price: string | null;
   assigned_at: string;
+  host_completed_at: string | null;
+  cleaner_completed_at: string | null;
   completed_at: string | null;
 }
 
@@ -133,9 +137,22 @@ interface CalendarItem {
   job_status: JobStatus;
   application_status: ApplicationStatus | "";
   application_origin?: ApplicationOrigin | "";
+  host_completed_at: string | null;
+  cleaner_completed_at: string | null;
   completed_at: string | null;
   can_apply: boolean;
   can_complete: boolean;
+}
+
+interface Review {
+  id: number;
+  job: number;
+  reviewer: number;
+  reviewer_name: string;
+  reviewee: number;
+  rating: number;
+  comment: string;
+  created_at: string;
 }
 
 type CropSource = {
@@ -164,13 +181,36 @@ type ProfileFormSnapshot = {
   bio: string;
 };
 
-type Section = "calendar" | "jobs" | "offers" | "applications" | "assignments" | "profile";
+type ProfileFieldErrorKey =
+  | "first_name"
+  | "last_name"
+  | "sex"
+  | "birth_date"
+  | "district_city"
+  | "service_areas"
+  | "native_language"
+  | "other_languages"
+  | "personal_preferences"
+  | "education"
+  | "experience_level"
+  | "has_driving_license"
+  | "has_own_car"
+  | "job_type_preference"
+  | "weekly_availability"
+  | "profile_image"
+  | "bio";
+
+type ProfileFieldErrors = Partial<Record<ProfileFieldErrorKey, string>>;
+
+type Section = "calendar" | "jobs" | "offers" | "assignments" | "profile";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const BIRTHDATE_MONTH_NAMES = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+const BIRTHDATE_WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 const sexOptions: Array<{ value: CleanerSex; label: string }> = [
   { value: "male", label: "Male" },
   { value: "female", label: "Female" },
@@ -291,6 +331,28 @@ function dateOnly(iso: string) {
   return iso.slice(0, 10);
 }
 
+function dateValue(date: Date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function adultCutoffDate() {
+  const today = new Date();
+  return new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+}
+
+function isAdultBirthDate(value: string) {
+  if (!value) return false;
+  if (!isValidDateValue(value)) return false;
+  return value <= dateValue(adultCutoffDate());
+}
+
+function isValidDateValue(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
 const STATUS_LABEL: Record<JobStatus, string> = {
   draft: "Draft",
   open: "Open",
@@ -323,7 +385,7 @@ function calendarItemColor(item: CalendarItem) {
   }
   if (item.item_type === "application") {
     if (item.application_status === "accepted") return "var(--teal)";
-    if (item.application_status === "rejected" || item.application_status === "withdrawn") return "var(--brand)";
+    if (item.application_status === "rejected" || item.application_status === "withdrawn") return "var(--warning)";
     return "var(--gold)";
   }
   return "var(--teal)";
@@ -446,6 +508,55 @@ function messageFromResponse(data: unknown, fallback: string) {
   return fallback;
 }
 
+function firstValidationMessage(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const message = firstValidationMessage(item);
+      if (message) return message;
+    }
+    return null;
+  }
+  if (value && typeof value === "object") {
+    for (const nested of Object.values(value as Record<string, unknown>)) {
+      const message = firstValidationMessage(nested);
+      if (message) return message;
+    }
+  }
+  return null;
+}
+
+function extractFieldErrors(
+  data: unknown,
+  fieldMap: Partial<Record<string, ProfileFieldErrorKey>>,
+  fallback: string,
+): { fieldErrors: ProfileFieldErrors; formError: string } {
+  const fieldErrors: ProfileFieldErrors = {};
+  if (typeof data === "string") {
+    return { fieldErrors, formError: data };
+  }
+  if (data && typeof data === "object") {
+    let formError = "";
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      const message = firstValidationMessage(value);
+      if (!message) continue;
+      const mappedField = fieldMap[key];
+      if (mappedField) {
+        fieldErrors[mappedField] = message;
+      } else if (!formError && (key === "detail" || key === "non_field_errors")) {
+        formError = message;
+      }
+    }
+    if (Object.keys(fieldErrors).length > 0 || formError) {
+      return { fieldErrors, formError: formError || fallback };
+    }
+  }
+  return { fieldErrors, formError: fallback };
+}
+
 function fmtDateTime(iso?: string | null) {
   if (!iso) return "Date not set";
   return new Date(iso).toLocaleString("en-GB", {
@@ -474,6 +585,13 @@ function jobPlace(job?: Pick<CleaningJob, "property_name" | "property_city" | "p
 }
 
 export default function CleanerDashboard() {
+  const searchParams = useSearchParams();
+  const cutoffDate = useMemo(() => adultCutoffDate(), []);
+  const cutoffYear = cutoffDate.getFullYear();
+  const cutoffMonth = cutoffDate.getMonth();
+  const yearOptions = useMemo(() => Array.from({ length: 83 }, (_, index) => cutoffDate.getFullYear() - index), [cutoffDate]);
+  const minBirthDate = `${yearOptions[yearOptions.length - 1]}-01-01`;
+  const maxBirthDate = dateValue(cutoffDate);
   const [me, setMe] = useState<CurrentUser | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
 
@@ -481,6 +599,7 @@ export default function CleanerDashboard() {
   const [jobs, setJobs] = useState<CleaningJob[]>([]);
   const [applications, setApplications] = useState<CleanerApplication[]>([]);
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [calendarItems, setCalendarItems] = useState<CalendarItem[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(false);
@@ -497,6 +616,9 @@ export default function CleanerDashboard() {
   const [profileLastName, setProfileLastName] = useState("");
   const [profileSex, setProfileSex] = useState<CleanerSex>("prefer_not_to_say");
   const [profileBirthDate, setProfileBirthDate] = useState("");
+  const [profileBirthCalendarOpen, setProfileBirthCalendarOpen] = useState(false);
+  const [profileBirthCalendarYear, setProfileBirthCalendarYear] = useState(cutoffYear);
+  const [profileBirthCalendarMonth, setProfileBirthCalendarMonth] = useState(0);
   const [profileNativeLanguage, setProfileNativeLanguage] = useState("");
   const [profileOtherLanguages, setProfileOtherLanguages] = useState<string[]>([]);
   const [profilePersonalPreferences, setProfilePersonalPreferences] = useState<string[]>([]);
@@ -512,6 +634,7 @@ export default function CleanerDashboard() {
   const [profileBio, setProfileBio] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState("");
+  const [profileFieldErrors, setProfileFieldErrors] = useState<ProfileFieldErrors>({});
   const [profileSaved, setProfileSaved] = useState(false);
   const [savedProfileSnapshot, setSavedProfileSnapshot] = useState<string | null>(null);
   const [districtOverlayOpen, setDistrictOverlayOpen] = useState(false);
@@ -539,11 +662,21 @@ export default function CleanerDashboard() {
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState("");
   const [completingJobId, setCompletingJobId] = useState<number | null>(null);
+  const [reviewJobId, setReviewJobId] = useState<number | null>(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [hoveredReviewStar, setHoveredReviewStar] = useState(0);
+  const [reviewError, setReviewError] = useState("");
   const [cancelingApplicationId, setCancelingApplicationId] = useState<number | null>(null);
   const [offerActionId, setOfferActionId] = useState<number | null>(null);
   const [applicationActionError, setApplicationActionError] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const requestedSection = searchParams.get("section");
+  const reviewJobParam = searchParams.get("reviewJob");
+  const requestedReviewJobId = reviewJobParam ? Number(reviewJobParam) : null;
 
   useEffect(() => {
     apiFetch("/api/accounts/me/")
@@ -561,6 +694,12 @@ export default function CleanerDashboard() {
     if (me?.role === "cleaner" && me.is_approved) void loadCalendar(calYear, calMonth);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, calYear, calMonth]);
+
+  useEffect(() => {
+    if (requestedSection === "assignments") {
+      setSection("assignments");
+    }
+  }, [requestedSection]);
 
   useEffect(() => {
     if (!cropSource) {
@@ -623,6 +762,63 @@ export default function CleanerDashboard() {
     }
   }, [profileHasDrivingLicense, profileHasOwnCar]);
 
+  useEffect(() => {
+    if (!isValidDateValue(profileBirthDate)) return;
+    const [year, month] = profileBirthDate.split("-").map(Number);
+    setProfileBirthCalendarPosition(year, month - 1);
+  }, [profileBirthDate]);
+
+  function clearProfileFieldError(field: ProfileFieldErrorKey) {
+    setProfileFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function setProfileBirthCalendarPosition(year: number, month: number) {
+    const clampedYear = Math.min(year, cutoffYear);
+    const clampedMonth = clampedYear === cutoffYear ? Math.min(month, cutoffMonth) : month;
+    setProfileBirthCalendarYear(clampedYear);
+    setProfileBirthCalendarMonth(Math.max(0, Math.min(11, clampedMonth)));
+  }
+
+  function moveProfileBirthMonth(offset: number) {
+    const next = new Date(profileBirthCalendarYear, profileBirthCalendarMonth + offset, 1);
+    if (next.getFullYear() > cutoffYear) return;
+    setProfileBirthCalendarPosition(next.getFullYear(), next.getMonth());
+  }
+
+  function selectProfileBirthDay(day: number) {
+    const selected = new Date(profileBirthCalendarYear, profileBirthCalendarMonth, day);
+    const value = dateValue(selected);
+    if (!isAdultBirthDate(value)) return;
+    setProfileBirthDate(value);
+    setProfileBirthCalendarOpen(false);
+    clearProfileFieldError("birth_date");
+  }
+
+  function changeProfileBirthDate(value: string) {
+    setProfileBirthDate(value);
+    if (!value) {
+      clearProfileFieldError("birth_date");
+      return;
+    }
+    if (isValidDateValue(value)) {
+      const [year, month] = value.split("-").map(Number);
+      setProfileBirthCalendarPosition(year, month - 1);
+      if (isAdultBirthDate(value)) {
+        clearProfileFieldError("birth_date");
+      } else {
+        setProfileFieldErrors((current) => ({
+          ...current,
+          birth_date: "You must be at least 18 years old to work as a cleaner.",
+        }));
+      }
+    }
+  }
+
   function syncProfileForm(nextProfile: CleanerProfile, nextUserNames?: { first_name: string; last_name: string }) {
     const firstName = nextUserNames?.first_name ?? me?.first_name ?? "";
     const lastName = nextUserNames?.last_name ?? me?.last_name ?? "";
@@ -634,6 +830,7 @@ export default function CleanerDashboard() {
     setProfileLastName(lastName);
     setProfileSex(nextProfile.sex || "prefer_not_to_say");
     setProfileBirthDate(nextProfile.birth_date || "");
+    setProfileBirthCalendarOpen(false);
     setProfileNativeLanguage(nextProfile.native_language || "");
     setProfileOtherLanguages((nextProfile.other_languages || []).filter(Boolean));
     setProfilePersonalPreferences(sanitizePersonalPreferences((nextProfile.personal_preferences || []).filter(Boolean)));
@@ -647,6 +844,7 @@ export default function CleanerDashboard() {
     setProfileServiceAreas(serviceAreasText);
     setProfileImage(nextProfile.profile_image || "");
     setProfileBio(nextProfile.bio || "");
+    setProfileFieldErrors({});
     setSavedProfileSnapshot(buildProfileSnapshot({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
@@ -674,8 +872,8 @@ export default function CleanerDashboard() {
     return { start, end };
   }
 
-  async function loadCalendar(year = calYear, month = calMonth) {
-    setLoadingCalendar(true);
+  async function loadCalendar(year = calYear, month = calMonth, silent = false) {
+    if (!silent) setLoadingCalendar(true);
     const range = calendarRange(year, month);
     try {
       const res = await apiFetch(
@@ -685,19 +883,22 @@ export default function CleanerDashboard() {
         setCalendarItems(readList<CalendarItem>(await res.json()));
       }
     } finally {
-      setLoadingCalendar(false);
+      if (!silent) setLoadingCalendar(false);
     }
   }
 
-  async function loadAll() {
-    setLoadingData(true);
-    setDataError("");
+  async function loadAll(silent = false) {
+    if (!silent) {
+      setLoadingData(true);
+      setDataError("");
+    }
     try {
-      const [profileRes, jobsRes, applicationsRes, assignmentsRes] = await Promise.all([
+      const [profileRes, jobsRes, applicationsRes, assignmentsRes, reviewsRes] = await Promise.all([
         apiFetch("/api/accounts/cleaners/"),
         apiFetch("/api/marketplace/jobs/"),
         apiFetch("/api/marketplace/applications/"),
         apiFetch("/api/marketplace/assignments/"),
+        apiFetch("/api/feedback/reviews/"),
       ]);
 
       if (profileRes.ok) {
@@ -722,12 +923,29 @@ export default function CleanerDashboard() {
       if (assignmentsRes.ok) {
         setAssignments(readList<AssignmentSummary>(await assignmentsRes.json()));
       }
+
+      if (reviewsRes.ok) {
+        setReviews(readList<Review>(await reviewsRes.json()));
+      }
     } catch {
-      setDataError("Network error. Check that the backend is running.");
+      if (!silent) {
+        setDataError("Network error. Check that the backend is running.");
+      }
     } finally {
-      setLoadingData(false);
+      if (!silent) setLoadingData(false);
     }
   }
+
+  useLiveRefresh(
+    () => {
+      if (me?.role !== "cleaner") return;
+      void loadAll(true);
+      if (me.is_approved) {
+        void loadCalendar(calYear, calMonth, true);
+      }
+    },
+    { enabled: me?.role === "cleaner" },
+  );
 
   async function logout() {
     await apiFetch("/api/accounts/logout/", { method: "POST" });
@@ -785,6 +1003,35 @@ export default function CleanerDashboard() {
       }
     } finally {
       setCompletingJobId(null);
+    }
+  }
+
+  async function submitHostReview(assignment: AssignmentSummary, hostId?: number) {
+    if (!hostId || reviewRating === 0) return;
+    setSubmittingReview(true);
+    setReviewError("");
+    try {
+      const res = await apiFetch("/api/feedback/reviews/", {
+        method: "POST",
+        body: JSON.stringify({
+          job_id: assignment.job,
+          reviewee_id: hostId,
+          rating: reviewRating,
+          comment: reviewComment,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setReviewError(messageFromResponse(data, "Could not submit feedback."));
+        return;
+      }
+      setReviews((prev) => [...prev, data as Review]);
+      setReviewJobId(null);
+      setReviewRating(0);
+      setReviewComment("");
+      setHoveredReviewStar(0);
+    } finally {
+      setSubmittingReview(false);
     }
   }
 
@@ -965,12 +1212,14 @@ export default function CleanerDashboard() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setProfileError("Please choose a valid image file.");
+      setProfileError("");
+      setProfileFieldErrors((current) => ({ ...current, profile_image: "Please choose a valid image file." }));
       event.target.value = "";
       return;
     }
 
     setProfileError("");
+    clearProfileFieldError("profile_image");
     setProfileSaved(false);
     setCropError("");
     setCropBusy(false);
@@ -989,7 +1238,11 @@ export default function CleanerDashboard() {
           });
         };
         image.onerror = () => {
-          setProfileError("Could not open this image. Please choose another file.");
+          setProfileError("");
+          setProfileFieldErrors((current) => ({
+            ...current,
+            profile_image: "Could not open this image. Please choose another file.",
+          }));
         };
         image.src = reader.result;
       }
@@ -1009,7 +1262,31 @@ export default function CleanerDashboard() {
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      setProfileError(messageFromResponse(await res.json(), fallbackError));
+      const data = await res.json().catch(() => null);
+      const { fieldErrors, formError } = extractFieldErrors(
+        data,
+        {
+          service_areas: "service_areas",
+          sex: "sex",
+          birth_date: "birth_date",
+          native_language: "native_language",
+          other_languages: "other_languages",
+          personal_preferences: "personal_preferences",
+          education: "education",
+          experience_level: "experience_level",
+          has_driving_license: "has_driving_license",
+          has_own_car: "has_own_car",
+          job_type_preference: "job_type_preference",
+          work_preference: "job_type_preference",
+          preferred_time_slots: "weekly_availability",
+          weekly_availability: "weekly_availability",
+          profile_image: "profile_image",
+          bio: "bio",
+        },
+        fallbackError,
+      );
+      setProfileFieldErrors((current) => ({ ...current, ...fieldErrors }));
+      setProfileError(Object.keys(fieldErrors).length > 0 ? "" : formError);
       return false;
     }
     const updated = (await res.json()) as CleanerProfile;
@@ -1021,23 +1298,25 @@ export default function CleanerDashboard() {
   async function submitAllProfileChanges(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     if (!profile || !me) return;
-    if (!profileFirstName.trim() || !profileLastName.trim()) {
-      setProfileError("First name and last name are required.");
-      return;
-    }
-    if (!profileDistrictCity) {
-      setProfileError("Choose a city before saving location details.");
-      return;
-    }
     const serviceAreas = normalizeServiceAreasByCity(profileServiceAreas, profileDistrictCity);
-    if (serviceAreas.length === 0) {
-      setProfileError("Add at least one district from the selected city.");
+    const nextFieldErrors: ProfileFieldErrors = {};
+    if (!profileFirstName.trim()) nextFieldErrors.first_name = "First name is required.";
+    if (!profileLastName.trim()) nextFieldErrors.last_name = "Last name is required.";
+    if (!profileBirthDate) nextFieldErrors.birth_date = "Birth date is required.";
+    else if (!isValidDateValue(profileBirthDate)) nextFieldErrors.birth_date = "Enter a valid birth date.";
+    else if (!isAdultBirthDate(profileBirthDate)) nextFieldErrors.birth_date = "You must be at least 18 years old to work as a cleaner.";
+    if (!profileDistrictCity) nextFieldErrors.district_city = "Choose a city before saving location details.";
+    if (serviceAreas.length === 0) nextFieldErrors.service_areas = "Add at least one district from the selected city.";
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setProfileFieldErrors(nextFieldErrors);
+      setProfileError("");
       return;
     }
     setProfileServiceAreas(serviceAreas.join("\n"));
 
     setSavingProfile(true);
     setProfileError("");
+    setProfileFieldErrors({});
     setProfileSaved(false);
     try {
       const userRes = await apiFetch(`/api/accounts/users/${me.id}/`, {
@@ -1048,7 +1327,17 @@ export default function CleanerDashboard() {
         }),
       });
       if (!userRes.ok) {
-        setProfileError(messageFromResponse(await userRes.json(), "Could not save name details."));
+        const data = await userRes.json().catch(() => null);
+        const { fieldErrors, formError } = extractFieldErrors(
+          data,
+          {
+            first_name: "first_name",
+            last_name: "last_name",
+          },
+          "Could not save name details.",
+        );
+        setProfileFieldErrors((current) => ({ ...current, ...fieldErrors }));
+        setProfileError(Object.keys(fieldErrors).length > 0 ? "" : formError);
         return;
       }
       const updatedUser = (await userRes.json()) as CurrentUser;
@@ -1121,7 +1410,8 @@ export default function CleanerDashboard() {
 
   function openDistrictOverlay() {
     if (!selectedDistrictCity) {
-      setProfileError("Choose a city first.");
+      setProfileError("");
+      setProfileFieldErrors((current) => ({ ...current, district_city: "Choose a city first." }));
       return;
     }
     const existingAreas = serviceAreasFromText(profileServiceAreas);
@@ -1135,6 +1425,7 @@ export default function CleanerDashboard() {
     setDistrictSelectedChoice("");
     setDistrictOverlayOpen(true);
     setProfileError("");
+    clearProfileFieldError("district_city");
   }
 
   function closeDistrictOverlay() {
@@ -1279,6 +1570,36 @@ export default function CleanerDashboard() {
     () => assignments.filter((assignment) => !assignment.completed_at),
     [assignments],
   );
+
+  useEffect(() => {
+    if (!requestedReviewJobId || Number.isNaN(requestedReviewJobId)) return;
+    const targetAssignment = assignments.find((assignment) => assignment.job === requestedReviewJobId);
+    const targetJob = jobs.find((job) => job.id === requestedReviewJobId);
+    if (!targetAssignment || !targetJob?.host) return;
+
+    const jobStatus = targetJob.status || targetAssignment.job_status || "assigned";
+    const isComplete = Boolean(targetAssignment.completed_at || jobStatus === "completed");
+    const existingHostReview = reviews.find(
+      (review) => review.job === requestedReviewJobId && review.reviewee === targetJob.host,
+    );
+
+    if (!isComplete || existingHostReview) return;
+
+    setSection("assignments");
+    setReviewJobId(requestedReviewJobId);
+    setReviewRating(0);
+    setReviewComment("");
+    setHoveredReviewStar(0);
+    setReviewError("");
+  }, [assignments, jobs, requestedReviewJobId, reviews]);
+
+  useEffect(() => {
+    if (!requestedReviewJobId || reviewJobId !== requestedReviewJobId) return;
+    const card = document.getElementById(`assignment-${requestedReviewJobId}`);
+    if (card) {
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [requestedReviewJobId, reviewJobId]);
 
   const blanks = firstWeekday(calYear, calMonth);
   const totalDays = daysInMonth(calYear, calMonth);
@@ -1450,15 +1771,6 @@ export default function CleanerDashboard() {
           </button>
           <button
             type="button"
-            className={`host-tab${section === "applications" ? " active" : ""}`}
-            onClick={() => setSection("applications")}
-          >
-            <Send size={15} aria-hidden />
-            Applications
-            {pendingApplications > 0 && <span className="host-tab-count">{pendingApplications}</span>}
-          </button>
-          <button
-            type="button"
             className={`host-tab${section === "assignments" ? " active" : ""}`}
             onClick={() => setSection("assignments")}
           >
@@ -1470,11 +1782,6 @@ export default function CleanerDashboard() {
 
         <div className="host-topbar-right">
           <NotificationBell />
-          <span className="user-chip">
-            {displayName}
-            <span className="user-chip-dot" aria-hidden>·</span>
-            Cleaner
-          </span>
           <div className="cleaner-account-menu" ref={accountMenuRef}>
             <button
               className="cleaner-account-menu-trigger"
@@ -1488,6 +1795,10 @@ export default function CleanerDashboard() {
             </button>
             {accountMenuOpen ? (
               <div className="cleaner-account-menu-dropdown" role="menu" aria-label="Account menu">
+                <div className="cleaner-account-menu-identity">
+                  <strong>{displayName}</strong>
+                  <span>Cleaner</span>
+                </div>
                 <button type="button" className="cleaner-account-menu-item" role="menuitem" onClick={openProfileFromMenu}>
                   <UserRoundCheck size={16} aria-hidden />
                   Profile
@@ -1646,10 +1957,14 @@ export default function CleanerDashboard() {
                               </span>
                             </div>
                             <div className="host-job-right">
-                              <span className={`cleaner-application-chip cleaner-calendar-chip cleaner-calendar-${item.item_type}`}>
+                              <span
+                                className={`cleaner-application-chip cleaner-calendar-chip cleaner-calendar-${item.item_type}${item.item_type === "application" && item.application_status ? ` cleaner-calendar-application-${item.application_status}` : ""}`}
+                              >
                                 {item.item_type === "application" && item.application_status
                                   ? APPLICATION_LABEL[item.application_status]
-                                  : CALENDAR_LABEL[item.item_type]}
+                                  : item.item_type === "assignment" && (item.completed_at || item.job_status === "completed")
+                                    ? "Completed"
+                                    : CALENDAR_LABEL[item.item_type]}
                               </span>
                               {item.price && <span className="host-job-price">{money(item.price, item.currency)}</span>}
                               {itemCanApply && linkedJob && (
@@ -1879,66 +2194,6 @@ export default function CleanerDashboard() {
           </div>
         )}
 
-        {section === "applications" && (
-          <div className="host-section">
-            <div className="host-section-header">
-              <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{selfApplications.length} total</p>
-                <h1 className="host-section-title">Applications</h1>
-              </div>
-            </div>
-
-            {loadingData ? (
-              <p className="host-empty">Loading applications...</p>
-            ) : selfApplications.length === 0 ? (
-              <div className="host-empty-state">
-                <Send size={40} />
-                <p>Your applications will appear here.</p>
-              </div>
-            ) : (
-              <>
-                {applicationActionError ? <p className="form-error">{applicationActionError}</p> : null}
-                <ul className="cleaner-job-list">
-                  {selfApplications.map((application) => {
-                    const job = jobById.get(application.job);
-                    return (
-                      <li key={application.id} className="cleaner-job-card cleaner-compact-card">
-                        <div className="cleaner-job-main">
-                          <div>
-                            <strong>{application.job_title || job?.title || `Job #${application.job}`}</strong>
-                            <span>{application.job_property_name || jobPlace(job)}</span>
-                          </div>
-                          <div className="cleaner-job-meta">
-                            <span><CalendarDays size={14} aria-hidden />{fmtDateTime(application.job_scheduled_start || job?.scheduled_start)}</span>
-                            <span>{money(application.proposed_price, job?.currency)}</span>
-                          </div>
-                          {application.message && <p>{application.message}</p>}
-                        </div>
-                        <div className="cleaner-job-actions">
-                          <span className={`cleaner-application-chip cleaner-application-${application.status}`}>
-                            {APPLICATION_LABEL[application.status]}
-                          </span>
-                          {application.status === "pending" ? (
-                            <button
-                              className="cleaner-action-primary cleaner-action-cancel"
-                              type="button"
-                              disabled={cancelingApplicationId === application.id}
-                              onClick={() => void cancelApplication(application.id)}
-                            >
-                              <X size={14} aria-hidden />
-                              {cancelingApplicationId === application.id ? "Canceling..." : "Cancel application"}
-                            </button>
-                          ) : null}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
-          </div>
-        )}
-
         {section === "assignments" && (
           <div className="host-section">
             <div className="host-section-header">
@@ -1961,8 +2216,21 @@ export default function CleanerDashboard() {
                   const job = jobById.get(assignment.job);
                   const jobStatus = job?.status || assignment.job_status || "assigned";
                   const isComplete = Boolean(assignment.completed_at || jobStatus === "completed");
+                  const cleanerDone = Boolean(assignment.cleaner_completed_at);
+                  const hostDone = Boolean(assignment.host_completed_at);
+                  const hostId = job?.host;
+                  const existingHostReview = hostId
+                    ? reviews.find((review) => review.job === assignment.job && review.reviewee === hostId)
+                    : undefined;
+                  const statusText = isComplete
+                    ? "Done"
+                    : cleanerDone && !hostDone
+                      ? "Waiting for host"
+                      : hostDone && !cleanerDone
+                        ? "Host confirmed"
+                        : STATUS_LABEL[jobStatus];
                   return (
-                    <li key={assignment.id} className="cleaner-job-card">
+                    <li id={`assignment-${assignment.job}`} key={assignment.id} className="cleaner-job-card">
                       <div className="cleaner-job-main">
                         <div>
                           <strong>{assignment.job_title || job?.title || `Job #${assignment.job}`}</strong>
@@ -1975,9 +2243,9 @@ export default function CleanerDashboard() {
                       </div>
                       <div className="cleaner-job-actions">
                         <span className={`host-job-badge host-job-badge--${jobStatus}`}>
-                          {isComplete ? "Done" : STATUS_LABEL[jobStatus]}
+                          {statusText}
                         </span>
-                        {!isComplete && (
+                        {!cleanerDone && !isComplete && (
                           <button
                             className="cleaner-action-primary cleaner-action-complete"
                             type="button"
@@ -1989,6 +2257,81 @@ export default function CleanerDashboard() {
                           </button>
                         )}
                       </div>
+                      {isComplete && hostId ? (
+                        <div className="host-app-review-row">
+                          {existingHostReview ? (
+                            <div className="host-review-given">
+                              <span className="host-review-given-stars">
+                                {"★".repeat(existingHostReview.rating)}{"☆".repeat(5 - existingHostReview.rating)}
+                              </span>
+                              {existingHostReview.comment ? (
+                                <span className="host-review-given-comment">&quot;{existingHostReview.comment}&quot;</span>
+                              ) : null}
+                            </div>
+                          ) : reviewJobId === assignment.job ? (
+                            <div className="host-review-form">
+                              <div className="host-stars">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <button
+                                    key={star}
+                                    type="button"
+                                    className={`host-star${(hoveredReviewStar || reviewRating) >= star ? " host-star--on" : ""}`}
+                                    onMouseEnter={() => setHoveredReviewStar(star)}
+                                    onMouseLeave={() => setHoveredReviewStar(0)}
+                                    onClick={() => setReviewRating(star)}
+                                    aria-label={`${star} star${star !== 1 ? "s" : ""}`}
+                                  >★</button>
+                                ))}
+                              </div>
+                              <textarea
+                                className="host-review-textarea"
+                                placeholder="Leave feedback for the host..."
+                                rows={2}
+                                value={reviewComment}
+                                onChange={(event) => setReviewComment(event.target.value)}
+                              />
+                              {reviewError ? <p className="form-error cleaner-page-error">{reviewError}</p> : null}
+                              <div className="host-review-actions">
+                                <button
+                                  className="host-review-cancel"
+                                  type="button"
+                                  onClick={() => {
+                                    setReviewJobId(null);
+                                    setReviewRating(0);
+                                    setReviewComment("");
+                                    setHoveredReviewStar(0);
+                                    setReviewError("");
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  className="host-review-submit"
+                                  type="button"
+                                  disabled={reviewRating === 0 || submittingReview}
+                                  onClick={() => void submitHostReview(assignment, hostId)}
+                                >
+                                  {submittingReview ? "Saving..." : "Submit feedback"}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              className="host-review-trigger"
+                              type="button"
+                              onClick={() => {
+                                setReviewJobId(assignment.job);
+                                setReviewRating(0);
+                                setReviewComment("");
+                                setHoveredReviewStar(0);
+                                setReviewError("");
+                              }}
+                            >
+                              ★ Leave host feedback
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
                     </li>
                   );
                 })}
@@ -2037,15 +2380,34 @@ export default function CleanerDashboard() {
                               <Plus size={18} aria-hidden />
                             </span>
                           </span>
+                          {profileFieldErrors.profile_image ? <small className="field-error-text">{profileFieldErrors.profile_image}</small> : null}
                         </label>
                         <div className="form-grid">
                           <label>
                             <span>First name</span>
-                            <input value={profileFirstName} onChange={(event) => setProfileFirstName(event.target.value)} />
+                            <input
+                              aria-invalid={Boolean(profileFieldErrors.first_name)}
+                              className={profileFieldErrors.first_name ? "input-invalid" : ""}
+                              value={profileFirstName}
+                              onChange={(event) => {
+                                setProfileFirstName(event.target.value);
+                                clearProfileFieldError("first_name");
+                              }}
+                            />
+                            {profileFieldErrors.first_name ? <small className="field-error-text">{profileFieldErrors.first_name}</small> : null}
                           </label>
                           <label>
                             <span>Last name</span>
-                            <input value={profileLastName} onChange={(event) => setProfileLastName(event.target.value)} />
+                            <input
+                              aria-invalid={Boolean(profileFieldErrors.last_name)}
+                              className={profileFieldErrors.last_name ? "input-invalid" : ""}
+                              value={profileLastName}
+                              onChange={(event) => {
+                                setProfileLastName(event.target.value);
+                                clearProfileFieldError("last_name");
+                              }}
+                            />
+                            {profileFieldErrors.last_name ? <small className="field-error-text">{profileFieldErrors.last_name}</small> : null}
                           </label>
                           <label className="cleaner-account-email-field">
                             <span>Email</span>
@@ -2053,15 +2415,111 @@ export default function CleanerDashboard() {
                           </label>
                           <label className="cleaner-sex-picker">
                             <span>Sex</span>
-                            <select value={profileSex} onChange={(event) => setProfileSex(event.target.value as CleanerSex)}>
+                            <select
+                              aria-invalid={Boolean(profileFieldErrors.sex)}
+                              className={profileFieldErrors.sex ? "input-invalid" : ""}
+                              value={profileSex}
+                              onChange={(event) => {
+                                setProfileSex(event.target.value as CleanerSex);
+                                clearProfileFieldError("sex");
+                              }}
+                            >
                               {sexOptions.map((option) => (
                                 <option key={option.value} value={option.value}>{option.label}</option>
                               ))}
                             </select>
+                            {profileFieldErrors.sex ? <small className="field-error-text">{profileFieldErrors.sex}</small> : null}
                           </label>
                           <label>
                             <span>Date of birth</span>
-                            <input type="date" value={profileBirthDate} onChange={(event) => setProfileBirthDate(event.target.value)} />
+                            <div className={profileFieldErrors.birth_date ? "birthdate-picker input-invalid" : "birthdate-picker"}>
+                              <div className="birthdate-input-row">
+                                <input
+                                  type="date"
+                                  value={profileBirthDate}
+                                  min={minBirthDate}
+                                  max={maxBirthDate}
+                                  onChange={(event) => changeProfileBirthDate(event.target.value)}
+                                aria-label="Date of birth"
+                                  className="birthdate-input"
+                                />
+                                <button
+                                  type="button"
+                                  className="birthdate-toggle"
+                                  onClick={() => setProfileBirthCalendarOpen((open) => !open)}
+                                  aria-label="Choose birth date from calendar"
+                                  aria-expanded={profileBirthCalendarOpen}
+                                >
+                                  <CalendarDays size={18} aria-hidden />
+                                </button>
+                              </div>
+                              {profileBirthCalendarOpen ? (
+                                <div className="birthdate-calendar">
+                                  <div className="birthdate-calendar-head">
+                                    <div className="birthdate-month-selectors">
+                                      <select
+                                        value={profileBirthCalendarMonth}
+                                        onChange={(event) => setProfileBirthCalendarPosition(profileBirthCalendarYear, Number(event.target.value))}
+                                        aria-label="Birth month"
+                                      >
+                                        {BIRTHDATE_MONTH_NAMES.map((month, index) => (
+                                          <option
+                                            key={month}
+                                            value={index}
+                                            disabled={profileBirthCalendarYear === cutoffYear && index > cutoffMonth}
+                                          >
+                                            {month}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <select
+                                        value={profileBirthCalendarYear}
+                                        onChange={(event) => {
+                                          const nextYear = Number(event.target.value);
+                                          setProfileBirthCalendarPosition(nextYear, profileBirthCalendarMonth);
+                                        }}
+                                        aria-label="Birth year"
+                                      >
+                                        {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+                                      </select>
+                                    </div>
+                                    <div className="birthdate-month-arrows">
+                                      <button type="button" onClick={() => moveProfileBirthMonth(-1)} aria-label="Previous month"><ChevronLeft size={22} aria-hidden /></button>
+                                      <button
+                                        type="button"
+                                        onClick={() => moveProfileBirthMonth(1)}
+                                        aria-label="Next month"
+                                        disabled={profileBirthCalendarYear === cutoffYear && profileBirthCalendarMonth >= cutoffMonth}
+                                      >
+                                        <ChevronRight size={22} aria-hidden />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="birthdate-weekdays">
+                                    {BIRTHDATE_WEEKDAY_LABELS.map((weekday, index) => <span key={`${weekday}-${index}`}>{weekday}</span>)}
+                                  </div>
+                                  <div className="birthdate-days">
+                                    {Array.from({ length: firstWeekday(profileBirthCalendarYear, profileBirthCalendarMonth) }, (_, index) => <span className="birthdate-empty-day" key={`empty-${index}`} />)}
+                                    {Array.from({ length: daysInMonth(profileBirthCalendarYear, profileBirthCalendarMonth) }, (_, index) => {
+                                      const day = index + 1;
+                                      const value = dateValue(new Date(profileBirthCalendarYear, profileBirthCalendarMonth, day));
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={value}
+                                          className={profileBirthDate === value ? "birthdate-day selected" : "birthdate-day"}
+                                          onClick={() => selectProfileBirthDay(day)}
+                                          disabled={!isAdultBirthDate(value)}
+                                        >
+                                          {day}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                            {profileFieldErrors.birth_date ? <small className="field-error-text">{profileFieldErrors.birth_date}</small> : null}
                           </label>
                         </div>
                       </div>
@@ -2076,10 +2534,13 @@ export default function CleanerDashboard() {
                       <label className="cleaner-district-city-picker">
                         <span>City</span>
                         <select
+                          aria-invalid={Boolean(profileFieldErrors.district_city)}
+                          className={profileFieldErrors.district_city ? "input-invalid" : ""}
                           value={profileDistrictCity}
                           onChange={(event) => {
                             const nextCity = event.target.value;
                             setProfileDistrictCity(nextCity);
+                            clearProfileFieldError("district_city");
                             setDistrictSelectedZones(new Set());
                             setDistrictAvailableChoice("");
                             setDistrictSelectedChoice("");
@@ -2090,6 +2551,7 @@ export default function CleanerDashboard() {
                           <option value="">Choose city</option>
                           {cities.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                         </select>
+                        {profileFieldErrors.district_city ? <small className="field-error-text">{profileFieldErrors.district_city}</small> : null}
                       </label>
                       <div className="cleaner-service-areas-section">
                         <div className="cleaner-service-areas-header">
@@ -2112,6 +2574,7 @@ export default function CleanerDashboard() {
                         ) : (
                           <p className="host-form-hint">No service areas selected.</p>
                         )}
+                        {profileFieldErrors.service_areas ? <small className="field-error-text">{profileFieldErrors.service_areas}</small> : null}
                       </div>
                       <p className="host-form-hint">Select a <strong>City</strong> and then use <strong>Add districts</strong> to manage service areas.</p>
                     </section>
@@ -2125,44 +2588,89 @@ export default function CleanerDashboard() {
                       <div className="form-grid">
                         <label>
                           <span>My Native language</span>
-                          <select value={profileNativeLanguage} onChange={(event) => setProfileNativeLanguage(event.target.value)}>
+                          <select
+                            aria-invalid={Boolean(profileFieldErrors.native_language)}
+                            className={profileFieldErrors.native_language ? "input-invalid" : ""}
+                            value={profileNativeLanguage}
+                            onChange={(event) => {
+                              setProfileNativeLanguage(event.target.value);
+                              clearProfileFieldError("native_language");
+                            }}
+                          >
                             {nativeLanguageOptions.map((option) => (
                               <option key={option.value} value={option.value}>{option.label}</option>
                             ))}
                           </select>
+                          {profileFieldErrors.native_language ? <small className="field-error-text">{profileFieldErrors.native_language}</small> : null}
                         </label>
                         <label>
                           <span>Education</span>
-                          <select value={profileEducation} onChange={(event) => setProfileEducation(event.target.value)}>
+                          <select
+                            aria-invalid={Boolean(profileFieldErrors.education)}
+                            className={profileFieldErrors.education ? "input-invalid" : ""}
+                            value={profileEducation}
+                            onChange={(event) => {
+                              setProfileEducation(event.target.value);
+                              clearProfileFieldError("education");
+                            }}
+                          >
                             {educationOptions.map((option) => (
                               <option key={option.value} value={option.value}>{option.label}</option>
                             ))}
                           </select>
+                          {profileFieldErrors.education ? <small className="field-error-text">{profileFieldErrors.education}</small> : null}
                         </label>
                         <label>
                           <span>Cleaning experience</span>
-                          <select value={profileExperienceLevel} onChange={(event) => setProfileExperienceLevel(event.target.value)}>
+                          <select
+                            aria-invalid={Boolean(profileFieldErrors.experience_level)}
+                            className={profileFieldErrors.experience_level ? "input-invalid" : ""}
+                            value={profileExperienceLevel}
+                            onChange={(event) => {
+                              setProfileExperienceLevel(event.target.value);
+                              clearProfileFieldError("experience_level");
+                            }}
+                          >
                             {experienceOptions.map((option) => (
                               <option key={option.value} value={option.value}>{option.label}</option>
                             ))}
                           </select>
+                          {profileFieldErrors.experience_level ? <small className="field-error-text">{profileFieldErrors.experience_level}</small> : null}
                         </label>
                         <label>
                           <span>Driving license</span>
-                          <select value={profileHasDrivingLicense} onChange={(event) => setProfileHasDrivingLicense(event.target.value as "" | "yes" | "no")}>
+                          <select
+                            aria-invalid={Boolean(profileFieldErrors.has_driving_license)}
+                            className={profileFieldErrors.has_driving_license ? "input-invalid" : ""}
+                            value={profileHasDrivingLicense}
+                            onChange={(event) => {
+                              setProfileHasDrivingLicense(event.target.value as "" | "yes" | "no");
+                              clearProfileFieldError("has_driving_license");
+                            }}
+                          >
                             {profileHasDrivingLicense === "" ? <option value="">Select</option> : null}
                             <option value="yes">I have a driving license</option>
                             <option value="no">I don&apos;t have a driving license</option>
                           </select>
+                          {profileFieldErrors.has_driving_license ? <small className="field-error-text">{profileFieldErrors.has_driving_license}</small> : null}
                         </label>
                         {profileHasDrivingLicense === "yes" ? (
                           <label>
                             <span>Personal car</span>
-                            <select value={profileHasOwnCar} onChange={(event) => setProfileHasOwnCar(event.target.value as "" | "yes" | "no")}>
+                            <select
+                              aria-invalid={Boolean(profileFieldErrors.has_own_car)}
+                              className={profileFieldErrors.has_own_car ? "input-invalid" : ""}
+                              value={profileHasOwnCar}
+                              onChange={(event) => {
+                                setProfileHasOwnCar(event.target.value as "" | "yes" | "no");
+                                clearProfileFieldError("has_own_car");
+                              }}
+                            >
                               {profileHasOwnCar === "" ? <option value="">Select</option> : null}
                               <option value="yes">I have a personal car</option>
                               <option value="no">I don&apos;t have a personal car</option>
                             </select>
+                            {profileFieldErrors.has_own_car ? <small className="field-error-text">{profileFieldErrors.has_own_car}</small> : null}
                           </label>
                         ) : null}
                       </div>
@@ -2182,6 +2690,7 @@ export default function CleanerDashboard() {
                         ) : (
                           <p className="host-form-hint">No additional languages selected.</p>
                         )}
+                        {profileFieldErrors.other_languages ? <small className="field-error-text">{profileFieldErrors.other_languages}</small> : null}
                       </div>
                     </section>
                   </form>
@@ -2203,7 +2712,10 @@ export default function CleanerDashboard() {
                                 className={selected ? "signup-experience-option selected" : "signup-experience-option"}
                                 role="radio"
                                 aria-checked={selected}
-                                onClick={() => setProfileJobTypePreference(option.value as JobTypePreference)}
+                                onClick={() => {
+                                  setProfileJobTypePreference(option.value as JobTypePreference);
+                                  clearProfileFieldError("job_type_preference");
+                                }}
                               >
                                 <span>{option.label}</span>
                                 {selected ? <span className="signup-experience-check" aria-hidden><CheckCircle2 size={15} /></span> : null}
@@ -2211,6 +2723,7 @@ export default function CleanerDashboard() {
                             );
                           })}
                         </div>
+                        {profileFieldErrors.job_type_preference ? <small className="field-error-text">{profileFieldErrors.job_type_preference}</small> : null}
                       </section>
                       <div className="cleaner-weekly-availability-grid" role="group" aria-label="Weekly availability">
                         <span className="cleaner-weekly-availability-corner" aria-hidden />
@@ -2229,7 +2742,10 @@ export default function CleanerDashboard() {
                                   className={selected ? "cleaner-weekly-availability-cell selected" : "cleaner-weekly-availability-cell"}
                                   aria-pressed={selected}
                                   aria-label={`${day.label} ${slot.label}`}
-                                  onClick={() => toggleProfileWeeklyAvailability(day.value, slot.value)}
+                                  onClick={() => {
+                                    toggleProfileWeeklyAvailability(day.value, slot.value);
+                                    clearProfileFieldError("weekly_availability");
+                                  }}
                                 >
                                   {selected ? <CheckCircle2 size={14} aria-hidden /> : null}
                                 </button>
@@ -2238,6 +2754,7 @@ export default function CleanerDashboard() {
                           </div>
                         ))}
                       </div>
+                      {profileFieldErrors.weekly_availability ? <small className="field-error-text">{profileFieldErrors.weekly_availability}</small> : null}
                     </section>
                   </form>
 
@@ -2258,7 +2775,10 @@ export default function CleanerDashboard() {
                                 role="switch"
                                 aria-checked={selected}
                                 aria-label={option.label}
-                                onClick={() => togglePersonalPreference(option.value)}
+                                onClick={() => {
+                                  togglePersonalPreference(option.value);
+                                  clearProfileFieldError("personal_preferences");
+                                }}
                               >
                                 <span className="cleaner-switch-toggle-thumb" aria-hidden />
                               </button>
@@ -2266,6 +2786,7 @@ export default function CleanerDashboard() {
                           );
                         })}
                       </div>
+                      {profileFieldErrors.personal_preferences ? <small className="field-error-text">{profileFieldErrors.personal_preferences}</small> : null}
                     </section>
                   </form>
 
@@ -2277,12 +2798,18 @@ export default function CleanerDashboard() {
                       <label>
                         <span>Your introduction</span>
                         <textarea
+                          aria-invalid={Boolean(profileFieldErrors.bio)}
+                          className={profileFieldErrors.bio ? "input-invalid" : ""}
                           rows={5}
                           maxLength={1500}
                           value={profileBio}
-                          onChange={(event) => setProfileBio(event.target.value)}
+                          onChange={(event) => {
+                            setProfileBio(event.target.value);
+                            clearProfileFieldError("bio");
+                          }}
                           placeholder="Experience, property types, languages, availability..."
                         />
+                        {profileFieldErrors.bio ? <small className="field-error-text">{profileFieldErrors.bio}</small> : null}
                       </label>
                     </section>
                   </form>

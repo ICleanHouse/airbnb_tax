@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { LocationResult } from "../components/PropertyLocationPicker";
 
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import { Upload } from "lucide-react";
 import { apiFetch, CurrentUser, type FavouriteCleaner } from "../../lib/api";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import CleanerProfileModal from "../components/CleanerProfileModal";
 import NotificationBell from "../components/NotificationBell";
 import JobOfferModal from "../components/JobOfferModal";
@@ -113,6 +115,8 @@ interface HostAssignment {
   cleaner_name: string;
   cleaner_email: string;
   agreed_price: string | null;
+  host_completed_at: string | null;
+  cleaner_completed_at: string | null;
   completed_at: string | null;
   assigned_at: string;
 }
@@ -187,6 +191,7 @@ function dateOnly(iso: string) { return iso.slice(0, 10); }
 // ══════════════════════════════════════════════════════════════════════════════
 
 export default function HostDashboard() {
+  const searchParams = useSearchParams();
   const [me, setMe]           = useState<CurrentUser | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
 
@@ -279,6 +284,13 @@ export default function HostDashboard() {
   const [favourites, setFavourites] = useState<FavouriteCleaner[]>([]);
   const [offerTarget, setOfferTarget] = useState<{ userId: number; name: string } | null>(null);
 
+  const requestedSection = searchParams.get("section");
+  const requestedAppFilter = searchParams.get("appFilter");
+  const reviewJobParam = searchParams.get("reviewJob");
+  const reviewIdParam = searchParams.get("reviewId");
+  const requestedReviewJobId = reviewJobParam ? Number(reviewJobParam) : null;
+  const requestedReviewId = reviewIdParam ? Number(reviewIdParam) : null;
+
   // ── Auth check ─────────────────────────────────────────────────────────────
   useEffect(() => {
     apiFetch("/api/accounts/me/")
@@ -293,45 +305,80 @@ export default function HostDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);
 
-  async function loadAll() {
-    setLoadingData(true);
-    setDataError("");
-    const [pRes, jRes, aRes, asRes, rvRes, fvRes] = await Promise.all([
-      apiFetch("/api/properties/properties/"),
-      apiFetch("/api/marketplace/jobs/"),
-      apiFetch("/api/marketplace/applications/"),
-      apiFetch("/api/marketplace/assignments/"),
-      apiFetch("/api/feedback/reviews/"),
-      apiFetch("/api/marketplace/favourites/"),
-    ]);
-    if (pRes.ok) {
-      const d: unknown = await pRes.json();
-      setProperties(Array.isArray(d) ? d as Property[] : (d as { results: Property[] }).results ?? []);
-    } else {
-      setDataError("Could not load properties.");
+  useEffect(() => {
+    if (requestedSection === "applications" || requestedSection === "jobs" || requestedSection === "properties") {
+      setSection(requestedSection);
     }
-    if (jRes.ok) {
-      const d: unknown = await jRes.json();
-      setJobs(Array.isArray(d) ? d as CleaningJob[] : (d as { results: CleaningJob[] }).results ?? []);
+  }, [requestedSection]);
+
+  useEffect(() => {
+    if (
+      requestedAppFilter === "pending"
+      || requestedAppFilter === "active"
+      || requestedAppFilter === "completed"
+      || requestedAppFilter === "open"
+      || requestedAppFilter === "rating"
+    ) {
+      setAppFilter(requestedAppFilter);
     }
-    if (aRes.ok) {
-      const d: unknown = await aRes.json();
-      setApplications(Array.isArray(d) ? d as CleanerApplication[] : (d as { results: CleanerApplication[] }).results ?? []);
+  }, [requestedAppFilter]);
+
+  async function loadAll(silent = false) {
+    if (!silent) {
+      setLoadingData(true);
+      setDataError("");
     }
-    if (asRes.ok) {
-      const d: unknown = await asRes.json();
-      setAssignments(Array.isArray(d) ? d as HostAssignment[] : (d as { results: HostAssignment[] }).results ?? []);
+    try {
+      const [pRes, jRes, aRes, asRes, rvRes, fvRes] = await Promise.all([
+        apiFetch("/api/properties/properties/"),
+        apiFetch("/api/marketplace/jobs/"),
+        apiFetch("/api/marketplace/applications/"),
+        apiFetch("/api/marketplace/assignments/"),
+        apiFetch("/api/feedback/reviews/"),
+        apiFetch("/api/marketplace/favourites/"),
+      ]);
+      if (pRes.ok) {
+        const d: unknown = await pRes.json();
+        setProperties(Array.isArray(d) ? d as Property[] : (d as { results: Property[] }).results ?? []);
+      } else if (!silent) {
+        setDataError("Could not load properties.");
+      }
+      if (jRes.ok) {
+        const d: unknown = await jRes.json();
+        setJobs(Array.isArray(d) ? d as CleaningJob[] : (d as { results: CleaningJob[] }).results ?? []);
+      }
+      if (aRes.ok) {
+        const d: unknown = await aRes.json();
+        setApplications(Array.isArray(d) ? d as CleanerApplication[] : (d as { results: CleanerApplication[] }).results ?? []);
+      }
+      if (asRes.ok) {
+        const d: unknown = await asRes.json();
+        setAssignments(Array.isArray(d) ? d as HostAssignment[] : (d as { results: HostAssignment[] }).results ?? []);
+      }
+      if (rvRes.ok) {
+        const d: unknown = await rvRes.json();
+        setReviews(Array.isArray(d) ? d as Review[] : (d as { results: Review[] }).results ?? []);
+      }
+      if (fvRes.ok) {
+        const d: unknown = await fvRes.json();
+        setFavourites(Array.isArray(d) ? d as FavouriteCleaner[] : (d as { results: FavouriteCleaner[] }).results ?? []);
+      }
+    } catch {
+      if (!silent) {
+        setDataError("Network error. Check that the backend is running.");
+      }
+    } finally {
+      if (!silent) setLoadingData(false);
     }
-    if (rvRes.ok) {
-      const d: unknown = await rvRes.json();
-      setReviews(Array.isArray(d) ? d as Review[] : (d as { results: Review[] }).results ?? []);
-    }
-    if (fvRes.ok) {
-      const d: unknown = await fvRes.json();
-      setFavourites(Array.isArray(d) ? d as FavouriteCleaner[] : (d as { results: FavouriteCleaner[] }).results ?? []);
-    }
-    setLoadingData(false);
   }
+
+  useLiveRefresh(
+    () => {
+      if (me?.role !== "host" || !me.is_approved) return;
+      void loadAll(true);
+    },
+    { enabled: me?.role === "host" && me.is_approved },
+  );
 
   // ── Favourite (saved cleaner) helpers ──────────────────────────────────────
   function isFavourited(cleanerUserId: number): boolean {
@@ -679,11 +726,7 @@ export default function HostDashboard() {
       if (!res.ok) return;
       const updated = await res.json() as CleaningJob;
       setJobs((prev) => prev.map((j) => (j.id === jobId ? updated : j)));
-      setAssignments((prev) =>
-        prev.map((a) =>
-          a.job === jobId ? { ...a, completed_at: new Date().toISOString(), job_status: "completed" } : a,
-        ),
-      );
+      void loadAll();
     } finally {
       setCompletingJobId(null);
     }
@@ -857,6 +900,32 @@ export default function HostDashboard() {
     if (hostReviews.length === 0) return null;
     return hostReviews.reduce((sum, r) => sum + r.rating, 0) / hostReviews.length;
   }, [hostReviews]);
+
+  useEffect(() => {
+    if (!requestedReviewId || Number.isNaN(requestedReviewId)) return;
+    const targetReview = hostReviews.find((review) => review.id === requestedReviewId);
+    if (!targetReview) return;
+    setSection("applications");
+    setAppFilter("rating");
+  }, [hostReviews, requestedReviewId]);
+
+  useEffect(() => {
+    if (section !== "applications" || appFilter !== "rating") return;
+
+    let targetId: string | null = null;
+    if (requestedReviewId && !Number.isNaN(requestedReviewId)) {
+      targetId = `host-review-${requestedReviewId}`;
+    } else if (requestedReviewJobId && !Number.isNaN(requestedReviewJobId)) {
+      const review = hostReviews.find((item) => item.job === requestedReviewJobId);
+      if (review) targetId = `host-review-${review.id}`;
+    }
+
+    if (!targetId) return;
+    const card = document.getElementById(targetId);
+    if (card) {
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [appFilter, hostReviews, requestedReviewId, requestedReviewJobId, section]);
 
   // ── Gates ──────────────────────────────────────────────────────────────────
   if (loadingMe) {
@@ -1299,7 +1368,7 @@ export default function HostDashboard() {
                               </div>
 
                               {app.message && (
-                                <p className="host-app-message">"{app.message}"</p>
+                                <p className="host-app-message">&quot;{app.message}&quot;</p>
                               )}
                             </div>
 
@@ -1359,7 +1428,15 @@ export default function HostDashboard() {
                       {assignments
                         .filter((a) => !a.completed_at)
                         .sort((a, b) => a.job_scheduled_start.localeCompare(b.job_scheduled_start))
-                        .map((asgn) => (
+                        .map((asgn) => {
+                          const hostDone = Boolean(asgn.host_completed_at);
+                          const cleanerDone = Boolean(asgn.cleaner_completed_at);
+                          const completionLabel = hostDone
+                            ? "Waiting for cleaner"
+                            : cleanerDone
+                              ? "Cleaner confirmed"
+                              : "Assigned";
+                          return (
                           <li key={asgn.id} className="host-app-card host-app-card--assigned">
                             <div className="host-app-card-left">
                               <div className="host-app-job-info">
@@ -1390,18 +1467,21 @@ export default function HostDashboard() {
                               {asgn.agreed_price && (
                                 <span className="host-app-price">€{asgn.agreed_price}</span>
                               )}
-                              <span className="host-app-badge host-app-badge--assigned">Assigned</span>
-                              <button
-                                className="host-app-complete-btn"
-                                type="button"
-                                disabled={completingJobId === asgn.job}
-                                onClick={() => void completeJob(asgn.job)}
-                              >
-                                {completingJobId === asgn.job ? "…" : "Mark complete"}
-                              </button>
+                              <span className="host-app-badge host-app-badge--assigned">{completionLabel}</span>
+                              {!hostDone && (
+                                <button
+                                  className="host-app-complete-btn"
+                                  type="button"
+                                  disabled={completingJobId === asgn.job}
+                                  onClick={() => void completeJob(asgn.job)}
+                                >
+                                  {completingJobId === asgn.job ? "…" : "Mark complete"}
+                                </button>
+                              )}
                             </div>
                           </li>
-                        ))}
+                          );
+                        })}
                     </ul>
                   )}
                 </div>
@@ -1458,7 +1538,7 @@ export default function HostDashboard() {
                                         {"★".repeat(existing.rating)}{"☆".repeat(5 - existing.rating)}
                                       </span>
                                       {existing.comment && (
-                                        <span className="host-review-given-comment">"{existing.comment}"</span>
+                                        <span className="host-review-given-comment">&quot;{existing.comment}&quot;</span>
                                       )}
                                     </div>
                                   );
@@ -1545,7 +1625,7 @@ export default function HostDashboard() {
                         {hostReviews.map((r) => {
                           const jobTitle = jobs.find((j) => j.id === r.job)?.title ?? `Job #${r.job}`;
                           return (
-                            <li key={r.id} className="host-app-card">
+                            <li id={`host-review-${r.id}`} key={r.id} className="host-app-card">
                               <div className="host-app-card-header">
                                 <span className="host-app-name">{r.reviewer_name}</span>
                                 <span className="host-appdash-stars">
@@ -1787,7 +1867,12 @@ export default function HostDashboard() {
                                 return <span className="host-job-activity host-job-activity--done">✓ {act.assignment.cleaner_name}</span>;
                               }
                               if (act.assignment) {
-                                return <span className="host-job-activity host-job-activity--assigned">👤 {act.assignment.cleaner_name}</span>;
+                                const completion = act.assignment.host_completed_at
+                                  ? "waiting for cleaner"
+                                  : act.assignment.cleaner_completed_at
+                                    ? "cleaner confirmed"
+                                    : "assigned";
+                                return <span className="host-job-activity host-job-activity--assigned">👤 {act.assignment.cleaner_name} · {completion}</span>;
                               }
                               if (act.pendingApps > 0) {
                                 return <span className="host-job-activity host-job-activity--apps">{act.pendingApps} application{act.pendingApps !== 1 ? "s" : ""}</span>;
@@ -1825,7 +1910,7 @@ export default function HostDashboard() {
                                     </button>
                                   </>
                                 )}
-                                {job.status === "assigned" && (
+                                {job.status === "assigned" && !jobActivityMap.get(job.id)?.assignment?.host_completed_at && (
                                   <button
                                     className="host-job-complete-btn"
                                     type="button"

@@ -77,7 +77,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 | `/app` | ✅ Done | Generic workspace — auto-redirects hosts → `/host`, admins → `/admin` |
 | `/admin` | ✅ Done | Admin approval dashboard — list / filter / approve / reject; reads `?filter=pending` URL param |
 | `/host` | ✅ Done | Host dashboard — property CRUD, job posting, month calendar, publish jobs, **ICS import** |
-| `/cleaner` | ✅ Done | Cleaner dashboard — calendar, profile forms, open jobs, applications, assignments |
+| `/cleaner` | ✅ Done | Cleaner dashboard — calendar, profile forms, open jobs, offers, assignments, inline validation, host feedback, and notification deep-links |
 | `/agency` | ⬜ Not built | Agency dashboard — manage members, view assigned jobs |
 
 ### Shared infrastructure
@@ -90,6 +90,8 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 
 - Signup email confirmation uses a 6-digit code delivered through Resend only.
 - The email HTML is rendered from `backend/apps/notifications/templates/notifications/signup_code_email.html`.
+- Per-email toggles live in `.env` / `.env.example`: `EMAIL_VER_USER_SIGNUP`, `EMAIL_VER_USER_CONFIRMATION`, `EMAIL_NOTIF_ADMIN_NEW_ACCOUNT`, `EMAIL_NOTIF_HOST_APPLICATION_SUBMITTED`, `EMAIL_NOTIF_HOST_JOB_COMPLETED`.
+- When `EMAIL_VER_USER_SIGNUP=False`, the signup email-code step is bypassed and the backend returns the verification token immediately instead of sending an email.
 - `/signup` stays on one browser route during onboarding. Continue and Back update React state and animate the current form out while the next form enters.
 - Motion animations use `motion/react`; reduced-motion users get non-animated transitions.
 - Progress tracking starts at `Choose account type`, not at credentials or email confirmation.
@@ -99,7 +101,10 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - Cleaner language, experience, work preference, preferred time slots, and optional weekly availability are collected before account creation.
 - Date of birth uses a compact dropdown-style calendar.
 - Google and Apple buttons are UI-only placeholders; OAuth is not connected yet.
-- Cleaner profile editing includes city-scoped district selection (`Add districts`), selected-district tags, other-languages management, profile image cropping, driving-license/own-car fields, and `Extra services offered` toggles.
+- Cleaner profile editing includes city-scoped district selection (`Add districts`), selected-district tags, other-languages management, profile image cropping, driving-license/own-car fields, `Extra services offered` toggles, inline field validation, and an account menu dropdown with the cleaner identity shown above `Profile`.
+- Cleaner profile birth date editing uses the compact calendar picker and enforces the 18+ rule during profile updates as well as signup.
+- Cleaner feedback flow is gated by dual completion confirmation: cleaner and host must both mark the job complete before host feedback is available.
+- Cleaner notifications deep-link into the relevant feedback/review location in the dashboard.
 
 ### Signup database notes
 

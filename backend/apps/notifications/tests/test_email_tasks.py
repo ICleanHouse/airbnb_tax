@@ -157,6 +157,15 @@ class SendAdminNewAccountEmailTaskTests(TestCase):
         self.assertNotIn(inactive_admin.email, recipients)
         self.assertIn("active_admin@example.com", recipients)
 
+    @override_settings(EMAIL_NOTIF_ADMIN_NEW_ACCOUNT=False)
+    def test_no_email_sent_when_admin_notifications_disabled(self):
+        _make_user(email="admin@example.com", role=User.Role.ADMIN)
+        new_user = _make_user(email="host5@example.com", role=User.Role.HOST)
+
+        self._run_task(new_user.id)
+
+        self.assertEqual(len(mail.outbox), 0)
+
 
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
@@ -221,4 +230,21 @@ class SignupEmailTriggerTests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(EMAIL_VER_USER_SIGNUP=False)
+    def test_signup_email_code_request_returns_token_when_verification_disabled(self):
+        response = self.client.post(
+            reverse("account-signup-email-code"),
+            {
+                "first_name": "Test",
+                "last_name": "User",
+                "email": "autoverify@example.com",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["verification_required"], False)
+        self.assertIsInstance(response.data["email_verification_token"], str)
         self.assertEqual(len(mail.outbox), 0)

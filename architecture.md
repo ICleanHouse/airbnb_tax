@@ -392,8 +392,15 @@ The system is GDPR-conscious from the start. Store only necessary personal data,
 | `EMAIL_HOST_PASSWORD` | *(empty)* | Optional SMTP password |
 | `EMAIL_RESEND_APIKEY` | *(empty)* | Required Resend API key for signup email-code delivery |
 | `EMAIL_RESEND_FROM_EMAIL` | *(empty)* | Required verified Resend sender address for signup codes |
+| `EMAIL_VER_USER_SIGNUP` | `True` | Enables or disables the signup email-code send |
+| `EMAIL_VER_USER_CONFIRMATION` | `True` | Enables or disables the legacy link-based confirmation email |
+| `EMAIL_NOTIF_ADMIN_NEW_ACCOUNT` | `True` | Enables or disables admin/staff new-account email alerts |
+| `EMAIL_NOTIF_HOST_APPLICATION_SUBMITTED` | `True` | Enables or disables host application notification emails |
+| `EMAIL_NOTIF_HOST_JOB_COMPLETED` | `True` | Enables or disables host job-completed notification emails |
 | `FRONTEND_URL` | `http://localhost:3000` | Base URL for links in outbound emails |
 | `BACKEND_URL` | `http://localhost:8000` | Base URL for legacy email confirmation links |
+
+If `EMAIL_VER_USER_SIGNUP=False`, `POST /api/accounts/signup/email-code/` auto-verifies the pending signup email and returns `email_verification_token` immediately instead of dispatching a Resend email.
 | `FRONTEND_TRUSTED_ORIGINS` | `http://localhost:3000,...` | CSRF trusted origins |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | API base URL for frontend |
 

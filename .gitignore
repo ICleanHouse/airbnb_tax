@@ -226,3 +226,5 @@ pnpm-debug.log*
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+#images
+*.jpg

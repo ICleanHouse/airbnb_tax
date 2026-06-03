@@ -271,6 +271,27 @@ class OfferJobSerializer(serializers.Serializer):
     message = serializers.CharField(required=False, allow_blank=True, default="")
 
 
+class OfferToCleanerSerializer(serializers.Serializer):
+    """Input for offering a job to a cleaner by property + time slot.
+
+    The job is found-or-created server-side for the exact (property, start, end)
+    slot, so the caller never has to create the job first and risk colliding with
+    the unique-slot constraint on a re-offer.
+    """
+
+    property_id = serializers.PrimaryKeyRelatedField(
+        source="property", queryset=Property.objects.all()
+    )
+    cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all())
+    scheduled_start = serializers.DateTimeField()
+    scheduled_end = serializers.DateTimeField()
+    title = serializers.CharField(required=False, allow_blank=True, default="")
+    proposed_price = serializers.DecimalField(
+        max_digits=8, decimal_places=2, required=False, allow_null=True
+    )
+    message = serializers.CharField(required=False, allow_blank=True, default="")
+
+
 class FavouriteCleanerSerializer(serializers.ModelSerializer):
     cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all())
     cleaner_name = serializers.SerializerMethodField()

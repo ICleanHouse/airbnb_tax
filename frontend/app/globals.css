@@ -5625,6 +5625,12 @@ img {
   color: #15803d;
 }
 
+/* Host-sent direct offer awaiting the cleaner's decision (gold = pending offer) */
+.host-app-badge--offer {
+  background: rgba(183, 121, 31, 0.12);
+  color: var(--gold);
+}
+
 /* Accept / Decline action button group */
 .host-app-actions {
   display: flex;

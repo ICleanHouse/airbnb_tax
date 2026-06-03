@@ -26,6 +26,7 @@ from apps.marketplace.serializers import (
     FavouriteCleanerSerializer,
     MarketplaceCalendarItemSerializer,
     OfferJobSerializer,
+    OfferToCleanerSerializer,
 )
 from apps.marketplace.services import (
     MarketplaceError,
@@ -35,6 +36,7 @@ from apps.marketplace.services import (
     complete_job,
     decline_offer,
     offer_job,
+    offer_job_to_cleaner,
     publish_job,
     reject_application,
     submit_application,
@@ -419,6 +421,36 @@ class CleaningJobViewSet(MarketplaceQuerysetMixin, viewsets.ModelViewSet):
                 job=serializer.validated_data["job"],
                 host=request.user,
                 cleaner=serializer.validated_data["cleaner"],
+                proposed_price=serializer.validated_data.get("proposed_price"),
+                message=serializer.validated_data.get("message", ""),
+                request=request,
+            )
+        except MarketplaceError as exc:
+            logger.warning(
+                "Job offer blocked",
+                extra={"event": "job.offer_blocked", "metadata": {"reason": str(exc)}},
+            )
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            CleanerApplicationSerializer(application, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["post"], url_path="offer-to-cleaner")
+    def offer_to_cleaner(self, request):
+        """Offer a job to a cleaner by property + time slot (find-or-create the job)."""
+        if not request.user.is_platform_admin and not request.user.is_approved:
+            raise PermissionDenied("Account must be approved before offering jobs.")
+        serializer = OfferToCleanerSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            application = offer_job_to_cleaner(
+                host=request.user,
+                cleaner=serializer.validated_data["cleaner"],
+                property=serializer.validated_data["property"],
+                scheduled_start=serializer.validated_data["scheduled_start"],
+                scheduled_end=serializer.validated_data["scheduled_end"],
+                title=serializer.validated_data.get("title", ""),
                 proposed_price=serializer.validated_data.get("proposed_price"),
                 message=serializer.validated_data.get("message", ""),
                 request=request,

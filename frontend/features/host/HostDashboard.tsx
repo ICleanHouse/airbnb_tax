@@ -97,6 +97,7 @@ interface CleanerApplication {
   cleaner_email: string;
   cleaner_profile_id: number | null;
   status: ApplicationStatus;
+  origin: "cleaner_applied" | "host_offered";
   proposed_price: string | null;
   message: string;
   created_at: string;
@@ -1387,15 +1388,23 @@ export default function HostDashboard() {
                               ) : null}
 
                               <div className="host-app-actions">
-                                <button
-                                  className="host-app-accept-btn"
-                                  type="button"
-                                  disabled={actingAppId === app.id}
-                                  onClick={() => void acceptApplication(app.id)}
-                                >
-                                  <Check size={13} aria-hidden />
-                                  {actingAppId === app.id ? "…" : "Accept"}
-                                </button>
+                                {app.origin === "host_offered" ? (
+                                  // The host sent this offer — only the cleaner can accept it,
+                                  // so there's no Accept button here, just a withdraw option.
+                                  <span className="host-app-badge host-app-badge--offer">
+                                    Offer sent · awaiting cleaner
+                                  </span>
+                                ) : (
+                                  <button
+                                    className="host-app-accept-btn"
+                                    type="button"
+                                    disabled={actingAppId === app.id}
+                                    onClick={() => void acceptApplication(app.id)}
+                                  >
+                                    <Check size={13} aria-hidden />
+                                    {actingAppId === app.id ? "…" : "Accept"}
+                                  </button>
+                                )}
                                 <button
                                   className="host-app-reject-btn"
                                   type="button"
@@ -1403,7 +1412,7 @@ export default function HostDashboard() {
                                   onClick={() => void rejectApplication(app.id)}
                                 >
                                   <X size={13} aria-hidden />
-                                  Decline
+                                  {app.origin === "host_offered" ? "Withdraw" : "Decline"}
                                 </button>
                               </div>
                             </div>

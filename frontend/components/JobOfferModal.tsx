@@ -19,10 +19,24 @@ interface JobOfferModalProps {
   onOffered?: () => void;
 }
 
+/** Pull a human-readable message out of a DRF error body (detail or non_field_errors). */
+function extractError(data: unknown): string | null {
+  if (data && typeof data === "object") {
+    const d = data as Record<string, unknown>;
+    if (typeof d.detail === "string") return d.detail;
+    const nfe = d.non_field_errors;
+    if (Array.isArray(nfe) && typeof nfe[0] === "string") return nfe[0];
+  }
+  return null;
+}
+
 /**
- * Lets a host send a direct job offer to a specific cleaner. Creates a draft
- * CleaningJob from the picked property + date/time + price, then immediately
- * offers it to the cleaner (origin=host_offered) via the job `offer` action.
+ * Lets a host send a direct job offer to a specific cleaner. Reuses an existing
+ * CleaningJob for the same property + exact time slot when one exists (e.g. a
+ * draft left over from a previously declined offer), otherwise creates a draft
+ * job, then offers it to the cleaner (origin=host_offered) via the job `offer`
+ * action. The backend `offer_job` service blocks duplicate pending offers and
+ * re-activates declined ones.
  */
 export default function JobOfferModal({
   cleanerUserId,
@@ -60,36 +74,27 @@ export default function JobOfferModal({
 
     setSubmitting(true);
     try {
-      // 1. Create the job as a draft.
-      const jobRes = await apiFetch("/api/marketplace/jobs/", {
+      // Single server-side call: the backend finds-or-creates the draft job for
+      // this exact (property, start, end) slot — reusing a draft left from a
+      // previously declined offer instead of creating a duplicate (which would
+      // 400 on the unique-slot constraint) — then offers it. `offer_job` blocks a
+      // duplicate *pending* offer with a clear message and re-activates a declined
+      // one, so no client-side slot matching is needed.
+      const res = await apiFetch("/api/marketplace/jobs/offer-to-cleaner/", {
         method: "POST",
         body: JSON.stringify({
           property_id: parseInt(propId, 10),
+          cleaner_id: cleanerUserId,
           title,
           scheduled_start: startIso,
           scheduled_end: endIso,
           proposed_price: price ? price : null,
-        }),
-      });
-      if (!jobRes.ok) {
-        const data = await jobRes.json().catch(() => ({}));
-        setError(data.detail ?? "Could not create the job.");
-        return;
-      }
-      const job = (await jobRes.json()) as { id: number };
-
-      // 2. Offer the freshly created job to the chosen cleaner.
-      const offerRes = await apiFetch(`/api/marketplace/jobs/${job.id}/offer/`, {
-        method: "POST",
-        body: JSON.stringify({
-          cleaner_id: cleanerUserId,
-          proposed_price: price ? price : null,
           message,
         }),
       });
-      if (!offerRes.ok) {
-        const data = await offerRes.json().catch(() => ({}));
-        setError(data.detail ?? "Could not send the offer.");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(extractError(data) ?? "Could not send the offer.");
         return;
       }
       onOffered?.();

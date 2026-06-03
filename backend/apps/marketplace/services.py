@@ -62,6 +62,9 @@ def submit_application(
     if job.status != CleaningJob.Status.OPEN:
         raise MarketplaceError("Cleaner can apply only to open jobs.")
 
+    _ensure_no_assigned_job_same_property_day(cleaner, job)
+    _ensure_no_pending_offer_same_property_day(cleaner, job)
+
     application, created = CleanerApplication.objects.get_or_create(
         job=job,
         cleaner=cleaner,
@@ -346,6 +349,59 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
     return job
 
 
+def _ensure_no_assigned_job_same_property_day(cleaner: User, job: CleaningJob) -> None:
+    """Block new offers/applications when the cleaner already holds an active
+    assignment for the *same property on the same calendar day* (Europe/Sofia).
+
+    A cleaner can't be in two places for the same property on one day, so once
+    they're assigned there for that date we refuse further offers/applications —
+    regardless of the exact time slot. Cancelled assignments don't count, so a
+    freed-up slot can be re-offered.
+    """
+    local_day = timezone.localtime(job.scheduled_start).date()
+    conflict = (
+        Assignment.objects.filter(
+            cleaner=cleaner,
+            cancelled_at__isnull=True,
+            job__property_id=job.property_id,
+            job__scheduled_start__date=local_day,
+        )
+        .exclude(job_id=job.id)
+        .exists()
+    )
+    if conflict:
+        raise MarketplaceError(
+            "This cleaner already has an assigned job for this property on that day."
+        )
+
+
+def _ensure_no_pending_offer_same_property_day(cleaner: User, job: CleaningJob) -> None:
+    """Block a new offer/application when the cleaner already has a *pending*
+    offer or application for the *same property on the same calendar day*
+    (Europe/Sofia), regardless of the exact time slot.
+
+    The exact-slot duplicate (the same job) is handled separately by the
+    get_or_create path in ``offer_job`` / ``submit_application``; this catches a
+    *different* time slot on the same property and day, which would otherwise
+    let two pending offers pile up and both get accepted (double-booking).
+    """
+    local_day = timezone.localtime(job.scheduled_start).date()
+    conflict = (
+        CleanerApplication.objects.filter(
+            cleaner=cleaner,
+            status=CleanerApplication.Status.PENDING,
+            job__property_id=job.property_id,
+            job__scheduled_start__date=local_day,
+        )
+        .exclude(job_id=job.id)
+        .exists()
+    )
+    if conflict:
+        raise MarketplaceError(
+            "This cleaner already has a pending offer or application for this property on that day."
+        )
+
+
 def _ensure_cleaner_workable(cleaner: User) -> None:
     """Validate that a user can receive/accept cleaning work (verified + approved)."""
     if not cleaner.is_approved:
@@ -392,6 +448,8 @@ def offer_job(
         raise MarketplaceError("This job already has an assignment.")
 
     _ensure_cleaner_workable(cleaner)
+    _ensure_no_assigned_job_same_property_day(cleaner, job)
+    _ensure_no_pending_offer_same_property_day(cleaner, job)
 
     application, created = CleanerApplication.objects.get_or_create(
         job=job,
@@ -430,6 +488,63 @@ def offer_job(
         metadata={"job_id": job.id, "cleaner_id": cleaner.id},
     )
     return application
+
+
+@transaction.atomic
+def offer_job_to_cleaner(
+    *,
+    host: User,
+    cleaner: User,
+    property,
+    scheduled_start,
+    scheduled_end,
+    title: str = "",
+    proposed_price: Decimal | None = None,
+    message: str = "",
+    request=None,
+) -> CleanerApplication:
+    """Offer a job to a cleaner by property + time slot, find-or-creating the job.
+
+    Reuses an existing job in the exact (property, scheduled_start, scheduled_end)
+    slot — e.g. a draft left behind by a previously declined offer — instead of
+    creating a duplicate that would violate the unique-slot constraint. The actual
+    offer (including "already pending" guarding and re-activating a declined
+    application) is delegated to ``offer_job``.
+    """
+    if not (host.is_platform_admin or property.host_id == host.id):
+        raise MarketplaceError("Hosts can offer jobs only for their own properties.")
+
+    if scheduled_end <= scheduled_start:
+        raise MarketplaceError("scheduled_end must be after scheduled_start.")
+
+    job = (
+        CleaningJob.objects.select_for_update()
+        .filter(
+            property=property,
+            scheduled_start=scheduled_start,
+            scheduled_end=scheduled_end,
+        )
+        .first()
+    )
+    if job is None:
+        job = CleaningJob.objects.create(
+            property=property,
+            host=property.host,
+            title=title or "Turnover cleaning",
+            scheduled_start=scheduled_start,
+            scheduled_end=scheduled_end,
+            proposed_price=proposed_price,
+            status=CleaningJob.Status.DRAFT,
+        )
+
+    return offer_job(
+        job=job,
+        host=host,
+        cleaner=cleaner,
+        proposed_price=proposed_price,
+        message=message,
+        request=request,
+    )
 
 
 @transaction.atomic

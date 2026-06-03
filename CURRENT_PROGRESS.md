@@ -1,6 +1,16 @@
 # Current Progress Handoff
 
-Updated: 2026-06-03, after cleaner city filtering, seed data, property-media, completion-timing, and duplicate-job fixes.
+Updated: 2026-06-03, after offer-conflict guards (property + same-day), the direct-offer find-or-create endpoint, and the host Applications offer UI fix.
+
+## Latest Work — Direct-Offer Conflicts & Host Applications UI (2026-06-03)
+
+- **Robust direct-offer endpoint**: `POST /api/marketplace/jobs/offer-to-cleaner/` (action `offer_to_cleaner` on `CleaningJobViewSet`, `OfferToCleanerSerializer`). The `offer_job_to_cleaner` service find-or-creates the draft `CleaningJob` for the exact `(property, scheduled_start, scheduled_end)` slot, then delegates to `offer_job`. This fixed the prior 400 where the frontend created a duplicate job that collided with the `unique_property_job_time` constraint on a re-offer. `frontend/components/JobOfferModal.tsx` now makes a single POST to this endpoint (removed the old create-then-offer + client-side slot matching).
+- **Same property + same-day conflict guards** (`apps/marketplace/services.py`), applied to **both** `offer_job` (host offers) and `submit_application` (cleaner applications), day computed in Europe/Sofia:
+  - `_ensure_no_assigned_job_same_property_day` — blocks when the cleaner already holds an active (non-cancelled) `Assignment` for that property on that day.
+  - `_ensure_no_pending_offer_same_property_day` — blocks when the cleaner already has a **pending** offer/application for that property on that day (any time slot), preventing two pending offers from both being accepted (double-booking).
+  - The existing exact-slot duplicate ("...for this job.") and declined-offer reactivation in `offer_job` are unchanged.
+- **Host Applications — sent offers can't be self-approved** (`frontend/features/host/HostDashboard.tsx`): pending rows with `origin=host_offered` no longer show an **Accept** button (only the cleaner accepts those). They show a gold "Offer sent · awaiting cleaner" badge (`.host-app-badge--offer` in `globals.css`) and a relabeled **Withdraw** button. Added `origin` to the `CleanerApplication` TS interface.
+- **Tests**: `apps/marketplace/tests/test_offers.py` adds `test_offer_blocked_when_cleaner_assigned_same_property_same_day` and `test_offer_blocked_when_cleaner_has_pending_offer_same_property_same_day` (fixed 09:00/13:00 same-day window to avoid midnight straddle). Full `test_offers` suite (13 tests) passes; `manage.py check` clean; frontend `npm.cmd run typecheck` + `lint` clean.
 
 ## Latest Work — Marketplace Correctness Fixes (2026-06-03)
 

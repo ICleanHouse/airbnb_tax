@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-06-01
+**Last updated:** 2026-06-03
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -162,7 +162,9 @@ AuditLog ──[references]────────► (any entity — polymorph
 
 **Rules:**
 - Only one `Assignment` per job (enforced at service layer).
+- Only one job per property can exist for the exact same `scheduled_start` and `scheduled_end` (serializer validation plus database constraint).
 - Competing applications are rejected when one is accepted.
+- Completion is time-gated: cleaners can mark done once `scheduled_start` is in the past; hosts/admins can complete once `scheduled_end` is in the past. Final job completion requires both host and cleaner acknowledgements, except admin completion can acknowledge both sides.
 - Reviews only allowed after `completed`.
 - `disputed` requires admin inspection (not yet built).
 
@@ -250,8 +252,10 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
 / (landing)
   auth: optional
   reads: GET /api/accounts/me/   (to set header link)
+         GET /api/accounts/public-cleaners/   (verified cleaner directory)
   writes: none
-  next: /login, /signup, /host, /admin, /app
+  behavior: compact hero + CleanerBrowser city/district filters
+  next: /login, /signup, /host, /admin, /cleaner, /agency, /app
 
 /login
   auth: no
@@ -356,6 +360,8 @@ Full API surface with implementation state.
 | POST | `/api/accounts/users/{id}/suspend/` | Admin | ✅ |
 | GET/POST | `/api/accounts/hosts/` | Required | ✅ |
 | GET/POST | `/api/accounts/cleaners/` | Required | ✅ |
+| GET | `/api/accounts/public-cleaners/` | None | ✅ |
+| GET | `/api/accounts/public-cleaners/{id}/` | None | ✅ |
 | GET/POST | `/api/accounts/agencies/` | Required | ✅ |
 | POST | `/api/accounts/agencies/{id}/invite-cleaner/` | Agency | ✅ |
 | GET | `/api/accounts/agency-invitations/` | Required | ✅ |
@@ -446,7 +452,8 @@ EVENT: assignment.cancelled                        ⬜ planned
 
 EVENT: job.completed                               ✅ partial
   ├──► TASK: send_job_completed_email              sends via Resend to host
-  ├──► SIDE EFFECT: assignment.completed_at set
+  ├──► SIDE EFFECT: assignment.host_completed_at / cleaner_completed_at recorded
+  ├──► SIDE EFFECT: assignment reaches full completion after both sides acknowledge
   ├──► SIDE EFFECT: in-app Notifications to host + cleaner
   └──► ⬜ planned: review-prompt task (scheduled delay)
 
@@ -499,7 +506,7 @@ language_preference: [bg | en]
 
 ### CleanerProfile
 ```
-user (1:1), kind, display_name, bio, service_areas[],
+user (1:1), kind, display_name, bio, city, service_areas[],
 verification_status: [pending | verified | rejected | suspended],
 sex: [male | female | prefer_not_to_say],
 birth_date, age (calculated), native_language, experience_level,
@@ -545,6 +552,9 @@ batch (FK→CleaningBatch, nullable),
 source: [manual | ics_import | batch]
 ```
 
+Uniqueness rule:
+- `(property, scheduled_start, scheduled_end)` must be unique.
+
 ### CleanerApplication
 ```
 job (FK), cleaner (FK→CleanerProfile, nullable),
@@ -556,9 +566,10 @@ submitted_at
 
 ### Assignment
 ```
-job (1:1), application (FK), assigned_cleaner (FK→CleanerProfile),
-assigned_at, completed_at, cancelled_at,
-cancellation_reason, dispute_flag
+job (1:1), application (FK), cleaner (FK→User),
+assigned_member (FK→User, nullable),
+assigned_at, host_completed_at, cleaner_completed_at,
+completed_at, cancelled_at
 ```
 
 ### Review
@@ -670,7 +681,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Host dashboard `/host` — ICS import modal | ✅ Complete |
 | Host dashboard — job form (date + start/end time fields) | ✅ Complete |
 | Host dashboard — delete job (two-step confirm; draft/open only) | ✅ Complete |
-| Host dashboard — host can mark job complete (calendar + apps panel) | ✅ Complete |
+| Host/Cleaner dashboards — time-gated job completion controls | ✅ Complete |
 | Host dashboard — job completion email to host via Resend | ✅ Complete |
 | Host dashboard — application submitted email to host via Resend | ✅ Complete |
 | Host dashboard — applications panel (summary cards, filter, pending/active/completed/open) | ✅ Complete |
@@ -681,7 +692,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 | `apiFetch` — CSRF, Content-Type, FormData-safe | ✅ Complete |
 | Cleaner dashboard `/cleaner` | ✅ Complete |
 | Agency dashboard `/agency` | ⬜ Not built |
-| Real cleaner search on landing page | ⬜ Not built |
+| Landing cleaner browser with city/district filtering | ✅ Complete |
 | Cleaner verification in admin panel | ⬜ Not built |
 
 ---
@@ -708,3 +719,5 @@ Rules that must never be broken regardless of task scope.
 | R14 | Public `/` is marketing only — never a dashboard | Frontend routing |
 | R15 | Timezone `Europe/Sofia`; store UTC, display local | All datetime handling |
 | R16 | Signup field changes must update database models, migrations, serializers, frontend payloads, and tests together | Accounts signup/profile workflow |
+| R17 | A property cannot have two jobs for the exact same start/end time | `CleaningJob` unique constraint + serializer validation |
+| R18 | Cleaner completion is allowed after start time; host/admin completion is allowed after end time | `marketplace/services.py` + dashboard guards |

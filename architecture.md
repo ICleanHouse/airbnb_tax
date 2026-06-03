@@ -59,7 +59,7 @@ Future extraction into microservices should be possible without rewriting core b
 
 - `frontend/lib/api.ts`: shared HTTP client. All pages use `apiFetch` — it injects JSON `Content-Type` only when safe, sets CSRF headers, adds `X-Request-ID`, and reports failed API responses to Sentry when configured. Never call `fetch` directly.
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
-- `frontend/app/page.tsx`: public landing page. Auth-aware header shows role-correct dashboard link (`/admin` for admins, `/host` for hosts, `/cleaner` for cleaners, `/app` fallback). Search form uses local state only — not yet connected to backend.
+- `frontend/app/page.tsx`: public landing page. Auth-aware header shows role-correct dashboard link (`/admin` for admins, `/host` for hosts, `/cleaner` for cleaners, `/agency` for agencies, `/app` fallback). The first screen is a compact photo hero plus the shared `CleanerBrowser`, which loads `/api/accounts/public-cleaners/` and filters verified cleaners by city and district.
 - `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
 - `frontend/app/signup/page.tsx`: single-route signup wizard. It handles credentials, Resend 6-digit email-code verification, role selection, cleaner personal details, location/service-area selection, native language, experience, availability, and final account creation without full page reloads between steps. It uses Motion (`motion/react`) for reusable panel transitions and keeps `sessionStorage` only for refresh recovery.
 - `frontend/app/signup/confirm-email/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`, `frontend/app/signup/personal-info/page.tsx`, `frontend/app/signup/native-language/page.tsx`, `frontend/app/signup/experience/page.tsx`: lightweight compatibility redirects to `/signup`.
@@ -171,6 +171,11 @@ assigned -> disputed
 
 Applications exist between `open` and `assigned`. A job should have at most one accepted cleaner assignment.
 
+Rules:
+
+- A property cannot have two jobs with the exact same `scheduled_start` and `scheduled_end`.
+- Assigned jobs use two-sided completion: cleaners can mark done once `scheduled_start` is in the past, while hosts and admins can complete only once `scheduled_end` is in the past.
+
 ### Applications
 
 Responsibilities:
@@ -253,7 +258,7 @@ The implemented schema covers these concepts:
 
 - User account (role, account status, approval metadata, language preference).
 - Host profile.
-- Cleaner profile (verification status, service areas, birth date, calculated age, sex, native language, other languages, personal preferences/extra services, experience level, work preference, preferred time slots, weekly availability, education, driving-license details, own-car status, smoker status, rating summary).
+- Cleaner profile (verification status, city, service areas, birth date, calculated age, sex, native language, other languages, personal preferences/extra services, experience level, work preference, preferred time slots, weekly availability, education, driving-license details, own-car status, smoker status, rating summary).
 - Agency profile (company name, service areas, member count).
 - Agency invitation (token, expiry, status).
 - Agency membership (status, active/revoked).
@@ -294,6 +299,8 @@ REST APIs through Django REST Framework.
 | `POST /api/accounts/users/{id}/suspend/` | Admin: suspend account |
 | `GET/POST /api/accounts/hosts/` | Host profiles |
 | `GET/POST /api/accounts/cleaners/` | Cleaner profiles |
+| `GET /api/accounts/public-cleaners/` | Public verified-cleaner directory. Safe fields only; supports `city`, `service_area`, `min_rating`, and `q` filters. |
+| `GET /api/accounts/public-cleaners/{id}/` | Public cleaner detail with received reviews. |
 | `GET/POST /api/accounts/agencies/` | Agency profiles |
 | `POST /api/accounts/agencies/{id}/invite-cleaner/` | Agency: invite a cleaner |
 | `GET /api/accounts/agency-invitations/` | List invitations |
@@ -306,6 +313,7 @@ REST APIs through Django REST Framework.
 | `GET/POST /api/marketplace/batches/` | Monthly cleaning batches |
 | `GET/POST /api/marketplace/jobs/` | Cleaning jobs CRUD |
 | `POST /api/marketplace/jobs/{id}/publish/` | Transition Draft → Open |
+| `POST /api/marketplace/jobs/{id}/complete/` | Mark assigned work complete. Cleaner side allowed after start time; host/admin side allowed after end time. |
 | `GET/POST /api/marketplace/applications/` | Cleaner applications |
 | `POST /api/marketplace/applications/{id}/accept/` | Host: accept application → creates assignment |
 | `GET/POST /api/marketplace/assignments/` | Assignments |

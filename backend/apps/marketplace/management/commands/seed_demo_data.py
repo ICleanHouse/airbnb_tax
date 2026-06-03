@@ -27,8 +27,8 @@ class Command(BaseCommand):
         cleaner2 = User.objects.create_user(username="demo_cleaner2", email="demo_cleaner2@example.com", password="demo1234", role="cleaner", first_name="Elena", last_name="Petrova")
 
         # Create cleaner profiles
-        profile1 = CleanerProfile.objects.create(user=cleaner1, kind="agency", verification_status="verified", display_name="Mira Cleaning Agency", bio="Top-rated agency in Sofia.", service_areas=["Sofia"], average_rating=4.9, completed_jobs_count=120)
-        profile2 = CleanerProfile.objects.create(user=cleaner2, kind="individual", verification_status="verified", display_name="Elena Petrova", bio="Experienced individual cleaner.", service_areas=["Plovdiv"], average_rating=4.8, completed_jobs_count=80)
+        profile1 = CleanerProfile.objects.create(user=cleaner1, kind="agency", verification_status="verified", display_name="Mira Cleaning Agency", bio="Top-rated agency in Sofia.", city="Sofia", service_areas=["Sofia"], average_rating=4.9, completed_jobs_count=120)
+        profile2 = CleanerProfile.objects.create(user=cleaner2, kind="individual", verification_status="verified", display_name="Elena Petrova", bio="Experienced individual cleaner.", city="Plovdiv", service_areas=["Plovdiv"], average_rating=4.8, completed_jobs_count=80)
 
         # Create properties
         prop1 = Property.objects.create(host=host1, name="Studio near NDK", address="NDK, Sofia", city="Sofia", country="Bulgaria", timezone="Europe/Sofia", access_notes="", cleaning_instructions="", default_cleaning_duration_minutes=120, default_price_eur=40)

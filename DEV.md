@@ -271,9 +271,9 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 
 ### Landing page (`/`)
 
-- Audience toggle for hosts and cleaners.
-- Search-style lead form with city, month, and property/capacity inputs.
-- Local demo results only — not yet connected to backend cleaner search.
+- Compact public hero plus the shared `CleanerBrowser`.
+- `CleanerBrowser` fetches `/api/accounts/public-cleaners/` and filters verified cleaners by selected city and dependent district.
+- City matching uses the cleaner profile `city` field first and falls back to district inference from `service_areas` for older blank-city profiles.
 - Auth-aware header: when logged in, shows the correct dashboard link for the current role.
 
 ### Admin panel (`/admin`)
@@ -380,7 +380,8 @@ Implemented service-level behavior:
 - Allow hosts/admins to accept one application.
 - Allow assigned agencies to delegate accepted work to active member cleaners.
 - Reject competing applications after assignment.
-- Mark assigned jobs completed.
+- Mark assigned jobs complete with timing guards: cleaners can mark done after the scheduled start time; hosts/admins can complete after the scheduled end time.
+- Prevent duplicate jobs for the same property at the exact same start and end time.
 - Allow two-way reviews only after completion.
 - Update cleaner rating summaries after reviews.
 

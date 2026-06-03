@@ -11,6 +11,7 @@ def make_cleaner(
     display_name: str,
     verification_status: str = CleanerProfile.VerificationStatus.VERIFIED,
     account_status: str = User.AccountStatus.APPROVED,
+    city: str = "",
     service_areas=None,
     average_rating: str = "0",
     completed_jobs_count: int = 0,
@@ -29,6 +30,7 @@ def make_cleaner(
         user=user,
         display_name=display_name,
         verification_status=verification_status,
+        city=city,
         service_areas=service_areas or [],
         average_rating=average_rating,
         completed_jobs_count=completed_jobs_count,
@@ -71,6 +73,7 @@ class PublicCleanerDirectoryTests(TestCase):
         for forbidden in ("email", "phone_number", "birth_date", "age", "sex", "user"):
             self.assertNotIn(forbidden, row)
         self.assertIn("display_name", row)
+        self.assertIn("city", row)
         self.assertIn("average_rating", row)
 
     def test_filters_by_min_rating(self):
@@ -98,6 +101,26 @@ class PublicCleanerDirectoryTests(TestCase):
         ids = [row["id"] for row in results]
         self.assertEqual(ids, [sofia.id])
         self.assertNotIn(plovdiv.id, ids)
+
+    def test_filters_by_city_uses_profile_city(self):
+        sofia = make_cleaner(
+            email="sofia-city@example.com",
+            display_name="Sofia Center",
+            city="Sofia",
+            service_areas=["Център"],
+        )
+        make_cleaner(
+            email="varna-city@example.com",
+            display_name="Varna Center",
+            city="Varna",
+            service_areas=["Център"],
+        )
+
+        response = self.client.get(self.list_url, {"city": "Sofia"})
+
+        results = response.data["results"] if isinstance(response.data, dict) else response.data
+        ids = [row["id"] for row in results]
+        self.assertEqual(ids, [sofia.id])
 
     def test_detail_embeds_received_reviews_without_pii(self):
         cleaner = make_cleaner(email="reviewed@example.com", display_name="Reviewed")

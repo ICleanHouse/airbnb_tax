@@ -1,4 +1,3 @@
-from django.conf import settings as django_settings
 from rest_framework import serializers
 
 from apps.properties.models import ExternalCalendarConnection, Property, PropertyImage, Reservation
@@ -18,12 +17,8 @@ class PropertyImageSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        # DRF's ImageField uses request.build_absolute_uri(), which picks up the
-        # proxy Host header (localhost:3000) instead of the real Django host.
-        # Always build the image URL from BACKEND_URL so it points at Django.
         if instance.image:
-            backend = django_settings.BACKEND_URL.rstrip("/")
-            ret["image"] = f"{backend}{instance.image.url}"
+            ret["image"] = instance.image.url
         return ret
 
 

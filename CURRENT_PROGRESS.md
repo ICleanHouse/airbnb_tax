@@ -1,11 +1,20 @@
 # Current Progress Handoff
 
-Updated: 2026-06-02, after cleaner dashboard/profile polish + landing-page redesign + cleaner browser + UI refinements.
+Updated: 2026-06-03, after cleaner city filtering, seed data, property-media, completion-timing, and duplicate-job fixes.
+
+## Latest Work — Marketplace Correctness Fixes (2026-06-03)
+
+- **Cleaner city filtering**: cleaner profiles now persist and expose `city`. The public `CleanerBrowser` filters by saved city first and keeps service-area district inference only as a fallback for older blank-city cleaner profiles.
+- **Seed data guarantees**: `a1_populate_tables_test.py` now asserts unique host/cleaner names and emails, creates one or more properties per host at different addresses, and gives every cleaner at least one service district.
+- **Seeded property photos**: property seed photos are generated as visible JPEGs and old `property_*.*` seed media is cleaned before re-seeding. Property image API responses use relative `/media/...` URLs so the frontend proxy can load them reliably.
+- **Completion timing**: after acceptance, nobody can mark a job done before its scheduled start. Cleaners can mark done once start time is in the past, even if the end time is still ahead; hosts/admins can confirm completion only after the scheduled end time.
+- **Duplicate jobs**: a host cannot create the same job twice for the same property and exact start/end time; this is enforced by serializer validation and a database unique constraint.
 
 ## Latest Work — Cleaner Dashboard/Profile Polish (2026-06-02)
 
 - **Cleaner completion + feedback flow**:
-  - Job completion now tracks both cleaner and host confirmation before feedback is unlocked.
+  - Job completion tracks both cleaner and host confirmation before feedback is unlocked.
+  - Cleaner can mark done after scheduled start time; host/admin completion is blocked until scheduled end time.
   - Cleaner can leave host feedback only after both sides mark the assignment completed.
   - Cleaner notifications route directly into the matching feedback form / received review location.
   - Cleaner calendar shows completed assignments as `Completed` instead of `Assigned`.
@@ -27,7 +36,7 @@ Updated: 2026-06-02, after cleaner dashboard/profile polish + landing-page redes
 ## Latest Work — Landing Redesign, Cleaner Browser & UI Refinements (2026-06-02)
 
 - **Minimal landing page** (`frontend/app/page.tsx`): removed the old marketing sections (hero search panel, how-it-works, trust band, join, market strip). Now a **compact photo hero + public cleaner browser**. Top-right keeps Log in/Sign up (or role-aware Dashboard + user chip + Log out) + language picker; removed the dead hamburger menu and set `.site-header` grid to `1fr auto` so actions pin right.
-- **Shared `CleanerBrowser.tsx`**: fetches all verified+approved cleaners once and filters **client-side by City + dependent District** dropdowns from `lib/cityDistricts.ts` (reverse `zone → city` map, since cleaners store districts in `service_areas` with no separate city field). Powers both `/` and `/cleaners`. Replaced the buggy free-text search bar on `/cleaners`; fixed a layout bug where `display:grid` + `min-height` on the same `<main>` pushed content far down (moved grid/padding to an inner `.cleaners-directory` wrapper). `/cleaners` header is now a narrow band.
+- **Shared `CleanerBrowser.tsx`**: fetches all verified+approved cleaners once and filters **client-side by City + dependent District** dropdowns from `lib/cityDistricts.ts`. City filtering uses each cleaner's saved `city` first and falls back to reverse `zone → city` inference from `service_areas` for older blank-city profiles. Powers both `/` and `/cleaners`. Replaced the buggy free-text search bar on `/cleaners`; fixed a layout bug where `display:grid` + `min-height` on the same `<main>` pushed content far down (moved grid/padding to an inner `.cleaners-directory` wrapper). `/cleaners` header is now a narrow band.
 - **Login redirect** (`frontend/app/login/page.tsx`): on success fetches `/me/` and forwards to the role dashboard (admin→`/admin`, host→`/host`, cleaner→`/cleaner`, agency→`/agency`, else `/app`).
 - **Property card "Post a job"** (`frontend/app/host/page.tsx`): Properties-tab cards now have Edit (left, outline) + Post a job (right, brand-filled) pill buttons; `openJobForm` takes an optional `presetPropId` to pre-scope the job modal to that property. Card restyled (18px radius, hover lift, rounded stat chips).
 - **Sentry sanitizer fix** (carried from prior session): recreated missing `frontend/lib/sentry-sanitize.ts`; Sentry env vars in gitignored `frontend/.env.local`.

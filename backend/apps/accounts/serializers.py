@@ -245,6 +245,7 @@ class SignupSerializer(serializers.Serializer):
             CleanerProfile.objects.create(
                 user=user,
                 display_name=display_name,
+                city=city,
                 service_areas=service_areas,
                 age=age,
                 birth_date=birth_date,
@@ -357,6 +358,7 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "verification_status",
             "display_name",
             "bio",
+            "city",
             "service_areas",
             "sex",
             "native_language",
@@ -411,6 +413,7 @@ class PublicCleanerSerializer(serializers.ModelSerializer):
             "kind",
             "display_name",
             "bio",
+            "city",
             "service_areas",
             "native_language",
             "other_languages",

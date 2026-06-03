@@ -64,7 +64,6 @@ function AdminPageContent() {
   // ── Load users once we know we're an admin ──────────────────────────────────
   useEffect(() => {
     if (me?.is_platform_admin) void loadUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);
 
   async function loadUsers(silent = false) {

@@ -34,6 +34,7 @@ erDiagram
       int user_id FK
       string type
       string verification_status
+      string city
       json service_areas
       date birth_date
       int age
@@ -118,6 +119,8 @@ erDiagram
       int assigned_member_id FK
       decimal agreed_price
       datetime assigned_at
+      datetime host_completed_at
+      datetime cleaner_completed_at
       datetime completed_at
     }
     FEEDBACK {
@@ -210,6 +213,8 @@ erDiagram
    - Agency work can be assigned only to active member cleaners with approved and verified accounts.
 10. **Job Execution**
    - Job status updates as scheduled, assigned, completed, cancelled, or disputed.
+   - A host cannot create duplicate jobs for the same property with the exact same start and end time.
+   - Cleaners can mark assigned work done after the scheduled start time; hosts/admins can mark completion only after the scheduled end time.
 11. **Calendar Sync**
    - Internal calendar is the source of truth; Google/iCal sync remains available through the calendar domain.
 12. **Notifications**

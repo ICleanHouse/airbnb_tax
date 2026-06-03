@@ -100,7 +100,7 @@ This is a Windows dev machine. Commands and paths must match it.
 
 - Extract reusable UI into `frontend/app/components/` rather than inlining into the large dashboards (`host/page.tsx` ~2.3k lines, `cleaner/page.tsx` ~2.6k lines). Existing shared pieces: `CleanerBrowser`, `CleanerProfileCard`, `CleanerProfileModal`.
 - All styles go in `frontend/app/globals.css` using the existing design tokens (`--brand` #ff385c, `--teal` #008489, `--gold` #b7791f, `--ink`, `--muted`, `--line`, `--surface`, `--radius`). No CSS library.
-- City/district filtering is client-side: cleaner `service_areas` is a flat `string[]` of Cyrillic district names with no city field; map districts → city via the reverse zone map built from `frontend/lib/cityDistricts.ts`.
+- City/district filtering is client-side: cleaner profiles expose `city` plus a flat `string[]` of Cyrillic district names in `service_areas`. Prefer the saved `city` for city filtering; keep the reverse district → city map from `frontend/lib/cityDistricts.ts` only as a compatibility fallback for old profiles with blank city values.
 - CSS Grid pitfall to avoid: `display:grid` + `min-height` on the same element defaults to `align-content: stretch` and inflates rows; put grid/padding on an inner wrapper instead.
 
 ## Secrets Handling
@@ -213,7 +213,7 @@ This is a Windows dev machine. Commands and paths must match it.
 
 **`frontend/app/components/CleanerBrowser.tsx`** — shared public cleaner directory:
 
-- Reused by both `/` and `/cleaners`. Fetches `/api/accounts/public-cleaners/` once, then filters client-side by City and a dependent District dropdown (built from `lib/cityDistricts.ts`, reverse-mapping each cleaner's flat Cyrillic `service_areas` to cities). Renders loading skeletons, empty states, a `CleanerProfileCard` grid, and `CleanerProfileModal`.
+- Reused by both `/` and `/cleaners`. Fetches `/api/accounts/public-cleaners/` once, then filters client-side by City and a dependent District dropdown. City filtering uses the cleaner's saved `city` first and falls back to district inference from `lib/cityDistricts.ts` for older blank-city profiles. Renders loading skeletons, empty states, a `CleanerProfileCard` grid, and `CleanerProfileModal`.
 
 **`frontend/app/cleaners/page.tsx`** — host/admin cleaner directory: same `CleanerBrowser`, gated to host/admin, with a narrow `cleaners-directory-head` band on top.
 
@@ -250,7 +250,7 @@ This is a Windows dev machine. Commands and paths must match it.
 - Calendar view, open jobs, applications, assigned jobs, and profile sections.
 - Profile form supports first/last name, service-area dropdown, sex dropdown, bio, and profile picture upload preview.
 - Cleaner applications call `POST /api/marketplace/applications/`.
-- Assigned jobs can be marked complete through `POST /api/marketplace/jobs/{id}/complete/`.
+- Assigned jobs can be marked complete through `POST /api/marketplace/jobs/{id}/complete/`. Cleaners can mark done after the scheduled start time; hosts/admins can complete only after the scheduled end time.
 
 ### Cleaner signup state
 
@@ -263,13 +263,11 @@ This is a Windows dev machine. Commands and paths must match it.
 
 1. **`/agency` dashboard** — agency manages members, views assigned jobs. (Deferred per the active roadmap.)
 2. **Cleaner verification** — admin marks cleaner as verified before they can apply.
-3. **Direct offers + favourites** — host offers a job to a chosen cleaner (reuse `CleanerApplication` with an `origin` field); cleaner Accept/Decline; "My cleaners" favourites list.
-4. **In-app notification center** — surface the persisted `Notification` model: list + mark-read endpoints and a shared `NotificationBell` in host/cleaner topbars.
-5. **Google Calendar sync** — OAuth flow and feed polling (backend placeholders exist).
-6. **iCal export** — generate `.ics` for host and cleaner calendars.
-7. **Additional notification triggers** — assignment created, upcoming reminder, review prompt.
+3. **Google Calendar sync** — OAuth flow and feed polling (backend placeholders exist).
+4. **iCal export** — generate `.ics` for host and cleaner calendars.
+5. **Additional notification triggers** — assignment created, upcoming reminder, review prompt.
 
-Done since earlier handoffs: applications panel in host dashboard; public cleaner directory with real city/district filtering (`CleanerBrowser` against `GET /api/accounts/public-cleaners/`); role-based post-login routing.
+Done since earlier handoffs: applications panel in host dashboard; public cleaner directory with real city/district filtering (`CleanerBrowser` against `GET /api/accounts/public-cleaners/`); role-based post-login routing; direct offers, favourites, and the notification center.
 
 ## Before Making Changes
 

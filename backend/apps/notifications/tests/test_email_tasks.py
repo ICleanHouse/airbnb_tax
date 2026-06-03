@@ -29,7 +29,11 @@ def _make_user(**kwargs) -> User:
     return User.objects.create_user(**defaults)
 
 
-@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    EMAIL_NOTIF_ADMIN_NEW_ACCOUNT=True,
+    SENTRY_DSN="",
+)
 class SendAdminNewAccountEmailTaskTests(TestCase):
     """Unit tests for the task function itself."""
 
@@ -170,6 +174,10 @@ class SendAdminNewAccountEmailTaskTests(TestCase):
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     EMAIL_RESEND_APIKEY="",
+    EMAIL_NOTIF_ADMIN_NEW_ACCOUNT=True,
+    EMAIL_VER_USER_SIGNUP=True,
+    EMAIL_VER_USER_CONFIRMATION=True,
+    SENTRY_DSN="",
     CELERY_TASK_ALWAYS_EAGER=True,
     CELERY_TASK_EAGER_PROPAGATES=True,
 )

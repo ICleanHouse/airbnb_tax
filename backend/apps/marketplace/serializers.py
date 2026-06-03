@@ -170,15 +170,29 @@ class CleaningJobSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        validators = []
 
     def get_host_name(self, obj):
         return obj.host.get_full_name() or obj.host.get_username()
 
     def validate(self, attrs):
+        property_obj = attrs.get("property", getattr(self.instance, "property", None))
         scheduled_start = attrs.get("scheduled_start", getattr(self.instance, "scheduled_start", None))
         scheduled_end = attrs.get("scheduled_end", getattr(self.instance, "scheduled_end", None))
         if scheduled_start and scheduled_end and scheduled_end <= scheduled_start:
             raise serializers.ValidationError("scheduled_end must be after scheduled_start.")
+        if property_obj and scheduled_start and scheduled_end:
+            duplicate = CleaningJob.objects.filter(
+                property=property_obj,
+                scheduled_start=scheduled_start,
+                scheduled_end=scheduled_end,
+            )
+            if self.instance is not None:
+                duplicate = duplicate.exclude(id=self.instance.id)
+            if duplicate.exists():
+                raise serializers.ValidationError({
+                    "scheduled_start": "This property already has a job scheduled for that exact time.",
+                })
         return attrs
 
 

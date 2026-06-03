@@ -72,6 +72,12 @@ class CleaningJob(TimeStampedModel):
 
     class Meta:
         ordering = ["scheduled_start"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["property", "scheduled_start", "scheduled_end"],
+                name="unique_property_job_time",
+            )
+        ]
 
     def __str__(self) -> str:
         return f"{self.title} - {self.scheduled_start:%Y-%m-%d %H:%M}"

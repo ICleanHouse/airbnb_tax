@@ -118,12 +118,13 @@ def user_can_apply_to_calendar_job(user):
 def user_can_complete_calendar_assignment(user, assignment, job):
     if assignment is None or assignment.completed_at is not None or job.status != CleaningJob.Status.ASSIGNED:
         return False
+    now = timezone.now()
     if user.is_platform_admin:
-        return True
+        return job.scheduled_end <= now
     if user.id == job.host_id:
-        return assignment.host_completed_at is None
+        return assignment.host_completed_at is None and job.scheduled_end <= now
     if user.id == assignment.cleaner_id or user.id == assignment.assigned_member_id:
-        return assignment.cleaner_completed_at is None
+        return assignment.cleaner_completed_at is None and job.scheduled_start <= now
     return False
 
 

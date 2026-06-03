@@ -383,9 +383,21 @@ class PublicCleanerViewSet(viewsets.ReadOnlyModelViewSet):
                 Q(display_name__icontains=q) | Q(bio__icontains=q)
             )
 
-        # service_area / city: JSON list membership filtered in Python for DB portability.
+        # service_area: JSON list membership filtered in Python for DB portability.
         # Only for list (detail/get_object needs a real queryset with .filter()).
-        area = (params.get("service_area") or params.get("city") or "").strip().lower()
+        city = params.get("city", "").strip().lower()
+        if city and self.action == "list":
+            queryset = [
+                cleaner
+                for cleaner in queryset
+                if cleaner.city.strip().lower() == city
+                or (
+                    not cleaner.city
+                    and any(city == str(area).strip().lower() for area in (cleaner.service_areas or []))
+                )
+            ]
+
+        area = params.get("service_area", "").strip().lower()
         if area and self.action == "list":
             queryset = [
                 cleaner

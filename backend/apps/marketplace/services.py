@@ -261,6 +261,16 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
 
     assignment = Assignment.objects.select_for_update().get(job=job)
     now = timezone.now()
+    is_cleaner_completion = (
+        completed_by.id == assignment.cleaner_id
+        or completed_by.id == assignment.assigned_member_id
+    )
+    if is_cleaner_completion:
+        if job.scheduled_start > now:
+            raise MarketplaceError("Cleaner can mark this job done only after its scheduled start time has passed.")
+    elif job.scheduled_end > now:
+        raise MarketplaceError("This job can be completed only after its scheduled end time has passed.")
+
     completed_side = ""
 
     if completed_by.is_platform_admin:

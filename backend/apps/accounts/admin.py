@@ -68,13 +68,14 @@ class CleanerProfileAdmin(admin.ModelAdmin):
     list_display = (
         "user",
         "display_name",
+        "city",
         "kind",
         "verification_status",
         "average_rating",
         "completed_jobs_count",
     )
-    list_filter = ("kind", "verification_status")
-    search_fields = ("user__username", "display_name", "service_areas")
+    list_filter = ("kind", "verification_status", "city")
+    search_fields = ("user__username", "display_name", "city", "service_areas")
 
 
 @admin.register(AgencyProfile)

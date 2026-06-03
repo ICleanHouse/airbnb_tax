@@ -26,6 +26,10 @@ from apps.properties.models import Property
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     EMAIL_RESEND_APIKEY="test-resend-key",
     EMAIL_RESEND_FROM_EMAIL="onboarding@example.test",
+    EMAIL_NOTIF_ADMIN_NEW_ACCOUNT=True,
+    EMAIL_VER_USER_SIGNUP=True,
+    EMAIL_VER_USER_CONFIRMATION=True,
+    SENTRY_DSN="",
     CELERY_TASK_ALWAYS_EAGER=True,
     CELERY_TASK_EAGER_PROPAGATES=True,
 )
@@ -39,7 +43,7 @@ class AccountAuthTests(TestCase):
         verification.save(update_fields=["verified_at"])
         return str(verification.token)
 
-    def test_signup_creates_pending_user_and_profile_session(self):
+    def test_signup_creates_approved_user_and_profile_session(self):
         email = "owner@example.com"
         response = self.client.post(
             reverse("account-signup"),
@@ -57,13 +61,13 @@ class AccountAuthTests(TestCase):
 
         self.assertEqual(response.status_code, 201)
         user = User.objects.get(email=email)
-        self.assertEqual(user.account_status, User.AccountStatus.PENDING)
+        self.assertEqual(user.account_status, User.AccountStatus.APPROVED)
         self.assertIsNotNone(user.email_verified_at)
         self.assertTrue(HostProfile.objects.filter(user=user).exists())
 
         me_response = self.client.get(reverse("account-me"))
         self.assertEqual(me_response.status_code, 200)
-        self.assertEqual(me_response.data["account_status"], User.AccountStatus.PENDING)
+        self.assertEqual(me_response.data["account_status"], User.AccountStatus.APPROVED)
         self.assertFalse(me_response.data["is_platform_admin"])
 
     def test_signup_does_not_allow_admin_role(self):
@@ -131,6 +135,7 @@ class AccountAuthTests(TestCase):
 
         self.assertEqual(response.status_code, 201)
         profile = CleanerProfile.objects.get(user__email=email)
+        self.assertEqual(profile.city, "Sofia")
         self.assertEqual(profile.service_areas, ["Lozenets", "Center"])
         self.assertEqual(profile.age, 32)
         self.assertEqual(profile.birth_date.isoformat(), "1994-04-30")

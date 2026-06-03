@@ -41,6 +41,13 @@ class MarketplaceServiceTests(TestCase):
             verification_status=CleanerProfile.VerificationStatus.VERIFIED,
             display_name="Verified Cleaner",
         )
+        self.admin = User.objects.create_user(
+            username="admin",
+            password="password123",
+            role=User.Role.ADMIN,
+            account_status=User.AccountStatus.APPROVED,
+            is_staff=True,
+        )
         self.property = Property.objects.create(
             host=self.host,
             name="Center Apartment",
@@ -55,6 +62,16 @@ class MarketplaceServiceTests(TestCase):
             scheduled_end=timezone.now() + timedelta(days=1, hours=2),
             proposed_price=Decimal("45.00"),
         )
+
+    def move_job_to_past(self):
+        self.job.scheduled_start = timezone.now() - timedelta(hours=3)
+        self.job.scheduled_end = timezone.now() - timedelta(hours=1)
+        self.job.save(update_fields=["scheduled_start", "scheduled_end", "updated_at"])
+
+    def move_job_to_in_progress(self):
+        self.job.scheduled_start = timezone.now() - timedelta(hours=1)
+        self.job.scheduled_end = timezone.now() + timedelta(hours=1)
+        self.job.save(update_fields=["scheduled_start", "scheduled_end", "updated_at"])
 
     def test_verified_cleaner_can_apply_and_host_can_accept(self):
         publish_job(self.job)
@@ -79,6 +96,22 @@ class MarketplaceServiceTests(TestCase):
         self.assertEqual(assignment.cleaner, self.cleaner)
         self.assertEqual(Assignment.objects.count(), 1)
         self.assertEqual(Notification.objects.filter(user=self.cleaner).count(), 1)
+
+    def test_host_cannot_create_duplicate_job_for_same_property_and_time(self):
+        self.api_client.force_authenticate(self.host)
+        payload = {
+            "property_id": self.property.id,
+            "title": "Duplicate turnover",
+            "scheduled_start": self.job.scheduled_start.isoformat(),
+            "scheduled_end": self.job.scheduled_end.isoformat(),
+            "proposed_price": "45.00",
+        }
+
+        response = self.api_client.post("/api/marketplace/jobs/", payload, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("scheduled_start", response.data)
+        self.assertEqual(CleaningJob.objects.filter(property=self.property).count(), 1)
 
     def test_unverified_cleaner_cannot_apply(self):
         unverified = User.objects.create_user(
@@ -115,6 +148,7 @@ class MarketplaceServiceTests(TestCase):
         self.assertEqual(application.status, CleanerApplication.Status.WITHDRAWN)
 
     def test_job_requires_host_and_cleaner_completion_before_review(self):
+        self.move_job_to_past()
         publish_job(self.job)
         application = submit_application(job=self.job, cleaner=self.cleaner)
         assignment = accept_application(application=application, accepted_by=self.host)
@@ -158,6 +192,7 @@ class MarketplaceServiceTests(TestCase):
         self.assertEqual(cleaner_review.comment, "Clear instructions.")
 
     def test_cleaner_cannot_mark_completion_twice(self):
+        self.move_job_to_past()
         publish_job(self.job)
         application = submit_application(job=self.job, cleaner=self.cleaner)
         accept_application(application=application, accepted_by=self.host)
@@ -166,6 +201,46 @@ class MarketplaceServiceTests(TestCase):
 
         with self.assertRaises(MarketplaceError):
             complete_job(job=self.job, completed_by=self.cleaner)
+
+    def test_future_job_cannot_be_marked_complete_before_start(self):
+        publish_job(self.job)
+        application = submit_application(job=self.job, cleaner=self.cleaner)
+        accept_application(application=application, accepted_by=self.host)
+
+        with self.assertRaisesMessage(MarketplaceError, "scheduled start time has passed"):
+            complete_job(job=self.job, completed_by=self.cleaner)
+
+        with self.assertRaisesMessage(MarketplaceError, "scheduled end time has passed"):
+            complete_job(job=self.job, completed_by=self.host)
+
+    def test_cleaner_can_mark_in_progress_job_done_before_end_time(self):
+        self.move_job_to_in_progress()
+        publish_job(self.job)
+        application = submit_application(job=self.job, cleaner=self.cleaner)
+        assignment = accept_application(application=application, accepted_by=self.host)
+
+        acknowledged = complete_job(job=self.job, completed_by=self.cleaner)
+        assignment.refresh_from_db()
+
+        self.assertEqual(acknowledged.status, CleaningJob.Status.ASSIGNED)
+        self.assertIsNotNone(assignment.cleaner_completed_at)
+        self.assertIsNone(assignment.host_completed_at)
+        with self.assertRaisesMessage(MarketplaceError, "scheduled end time has passed"):
+            complete_job(job=self.job, completed_by=self.host)
+
+    def test_admin_completion_marks_both_sides_complete(self):
+        self.move_job_to_past()
+        publish_job(self.job)
+        application = submit_application(job=self.job, cleaner=self.cleaner)
+        assignment = accept_application(application=application, accepted_by=self.host)
+
+        completed = complete_job(job=self.job, completed_by=self.admin)
+        assignment.refresh_from_db()
+
+        self.assertEqual(completed.status, CleaningJob.Status.COMPLETED)
+        self.assertIsNotNone(assignment.host_completed_at)
+        self.assertIsNotNone(assignment.cleaner_completed_at)
+        self.assertIsNotNone(assignment.completed_at)
 
     def test_cleaner_calendar_tracks_open_application_and_assignment_states(self):
         publish_job(self.job)
@@ -198,4 +273,24 @@ class MarketplaceServiceTests(TestCase):
         self.assertEqual(assignment_response.status_code, 200)
         self.assertEqual(assignment_response.data[0]["item_type"], "assignment")
         self.assertEqual(assignment_response.data[0]["assignment"], assignment.id)
-        self.assertTrue(assignment_response.data[0]["can_complete"])
+        self.assertFalse(assignment_response.data[0]["can_complete"])
+
+        self.job.scheduled_start = timezone.now() - timedelta(hours=1)
+        self.job.scheduled_end = timezone.now() + timedelta(hours=1)
+        self.job.save(update_fields=["scheduled_start", "scheduled_end", "updated_at"])
+        in_progress_response = self.api_client.get("/api/marketplace/calendar/", params)
+        self.assertEqual(in_progress_response.status_code, 200)
+        self.assertEqual(in_progress_response.data[0]["item_type"], "assignment")
+        self.assertTrue(in_progress_response.data[0]["can_complete"])
+
+        self.job.scheduled_start = timezone.now() - timedelta(hours=3)
+        self.job.scheduled_end = timezone.now() - timedelta(hours=1)
+        self.job.save(update_fields=["scheduled_start", "scheduled_end", "updated_at"])
+        past_params = {
+            "start": (timezone.now() - timedelta(days=1)).isoformat(),
+            "end": (timezone.now() + timedelta(days=1)).isoformat(),
+        }
+        past_assignment_response = self.api_client.get("/api/marketplace/calendar/", past_params)
+        self.assertEqual(past_assignment_response.status_code, 200)
+        self.assertEqual(past_assignment_response.data[0]["item_type"], "assignment")
+        self.assertTrue(past_assignment_response.data[0]["can_complete"])

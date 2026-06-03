@@ -62,7 +62,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - Cookie consent records for optional analytics and marketing cookies.
 - Property management: CRUD, external calendar connections, reservations.
 - **Airbnb ICS parsing** — `POST /api/properties/parse-ics/` accepts a multipart-uploaded `.ics` file, filters blocked-date placeholders, returns parsed reservation list.
-- Marketplace service functions: publish jobs, submit applications, accept applications, complete jobs, two-way reviews.
+- Marketplace service functions: publish jobs, submit applications, accept applications, complete jobs, direct offers, favourites, and two-way reviews. Duplicate jobs for the same property and exact time range are rejected.
 - Notification records; signup email codes are sent through Resend only and require `EMAIL_RESEND_APIKEY` plus `EMAIL_RESEND_FROM_EMAIL`.
 - Observability: JSON backend/Celery logs with request IDs, Sentry crash reporting, and read-only `AuditLog` records for key account/marketplace actions.
 - Calendar conflict API; Google Calendar sync and iCal export are planned.
@@ -71,7 +71,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 
 | Route | Status | Description |
 |---|---|---|
-| `/` | ✅ Done | Public landing page — auth-aware header with role-based dashboard link |
+| `/` | ✅ Done | Public landing page — auth-aware header plus public cleaner browser with city/district filters |
 | `/login` | ✅ Done | Session login |
 | `/signup` | 🟨 In progress | Single React signup wizard with Motion transitions, Resend email code confirmation, role selection, cleaner personal details, location/service areas, native language, experience, availability, and final account creation. Old step URLs redirect back to `/signup`. |
 | `/app` | ✅ Done | Generic workspace — auto-redirects hosts → `/host`, admins → `/admin` |
@@ -103,7 +103,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - Google and Apple buttons are UI-only placeholders; OAuth is not connected yet.
 - Cleaner profile editing includes city-scoped district selection (`Add districts`), selected-district tags, other-languages management, profile image cropping, driving-license/own-car fields, `Extra services offered` toggles, inline field validation, and an account menu dropdown with the cleaner identity shown above `Profile`.
 - Cleaner profile birth date editing uses the compact calendar picker and enforces the 18+ rule during profile updates as well as signup.
-- Cleaner feedback flow is gated by dual completion confirmation: cleaner and host must both mark the job complete before host feedback is available.
+- Cleaner completion flow is time-aware: the cleaner can mark done after the scheduled start time, even if the end time is still ahead; the host can confirm completion only after the scheduled end time.
 - Cleaner notifications deep-link into the relevant feedback/review location in the dashboard.
 
 ### Signup database notes

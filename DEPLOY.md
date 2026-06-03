@@ -26,7 +26,13 @@ Edit `.env.production` before exposing the app publicly. For current local/manua
 For LAN testing, the local defaults use:
 
 ```dotenv
+APP_ENV=production
+DJANGO_DEBUG=false
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.14,backend
+POSTGRES_DB=airbnb_cleaners
+POSTGRES_USER=airbnb_cleaners
+POSTGRES_PASSWORD=<strong-random-password>
+DATABASE_URL=postgres://airbnb_cleaners:<strong-random-password>@db:5432/airbnb_cleaners
 FRONTEND_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1,http://192.168.1.14
 FRONTEND_URL=http://192.168.1.14
 BACKEND_URL=http://192.168.1.14
@@ -42,6 +48,13 @@ BACKEND_URL=http://<public-ip>
 ```
 
 Keep `SESSION_COOKIE_SECURE=false` and `CSRF_COOKIE_SECURE=false` while serving raw-IP HTTP. Change them to `true` only after HTTPS is working through a real domain.
+
+Production settings fail fast when `APP_ENV=production` and any required value is unsafe or missing. Before starting the stack, confirm:
+
+- `DJANGO_DEBUG=false`
+- `DJANGO_SECRET_KEY` is unique and at least 32 characters
+- `DATABASE_URL`, `DJANGO_ALLOWED_HOSTS`, and `FRONTEND_TRUSTED_ORIGINS` are set
+- `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` match `DATABASE_URL`
 
 For signup email-code delivery, configure Resend. Do not use Gmail or SMTP for signup confirmation:
 
@@ -96,6 +109,9 @@ The public reverse proxy exposes:
 - Frontend: `http://localhost/`
 - Backend health check: `http://localhost/api/health/`
 - Django admin: `http://localhost/admin/`
+- Uploaded media: `http://localhost/media/...`
+
+Production media uploads are stored in the Docker volume `django_media` and served read-only by Caddy. This is acceptable for the first VPS deployment. For a larger SaaS deployment, move uploads to S3-compatible object storage and change Django's default storage backend instead of serving media from the VPS filesystem.
 
 Apply database migrations whenever signup/profile fields change:
 
@@ -149,3 +165,29 @@ docker compose -f docker-compose.prod.yml ps
 ```
 
 Backend/Celery logs are JSON and include `request_id`. Business audit events are visible in Django admin at `/admin/core/auditlog/`. Sentry receives crashes only when DSNs are configured.
+
+## 7. Release quality gates
+
+Run these before deploying a larger change:
+
+```powershell
+cd frontend
+npm run typecheck
+npm run lint
+npm run build
+cd ..
+```
+
+```powershell
+cd backend
+python manage.py check --deploy
+python manage.py makemigrations --check --dry-run
+pytest
+cd ..
+```
+
+```powershell
+docker compose --env-file .env.production -f docker-compose.prod.yml build
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+docker compose --env-file .env.production -f docker-compose.prod.yml ps
+```

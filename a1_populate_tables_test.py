@@ -3,6 +3,7 @@ import random
 import sys
 import uuid
 from datetime import timedelta
+from io import BytesIO
 from pathlib import Path
 
 
@@ -25,12 +26,40 @@ def setup_django() -> None:
     django.setup()
 
 
+def assert_unique_people(label: str, people: list[tuple[str, str, str]]) -> None:
+    emails = [email.lower() for email, _, _ in people]
+    full_names = [f"{first_name} {last_name}".strip().lower() for _, first_name, last_name in people]
+
+    duplicate_emails = sorted({email for email in emails if emails.count(email) > 1})
+    duplicate_names = sorted({name for name in full_names if full_names.count(name) > 1})
+
+    if duplicate_emails or duplicate_names:
+        details = []
+        if duplicate_emails:
+            details.append(f"duplicate emails: {', '.join(duplicate_emails)}")
+        if duplicate_names:
+            details.append(f"duplicate names: {', '.join(duplicate_names)}")
+        raise ValueError(f"{label} must be unique ({'; '.join(details)}).")
+
+
+def remove_old_seed_property_images(media_root: Path) -> None:
+    property_images_dir = media_root / "property_images"
+    if not property_images_dir.exists():
+        return
+
+    for image_path in property_images_dir.rglob("property_*.*"):
+        if image_path.is_file():
+            image_path.unlink()
+
+
 def main() -> None:
     setup_django()
 
+    from django.conf import settings
     from django.core.files.base import ContentFile
     from django.db import transaction
     from django.utils import timezone
+    from PIL import Image, ImageDraw
 
     from apps.accounts.models import (
         CleanerProfile,
@@ -44,6 +73,7 @@ def main() -> None:
 
     rng = random.Random()
     now = timezone.now()
+    media_root = Path(settings.MEDIA_ROOT)
 
     cleaner_people = [
         ("alina.petrov@example.test", "Alina", "Petrova"),
@@ -71,6 +101,10 @@ def main() -> None:
     admin_person = ("lora.vasileva@example.test", "Lora", "Vasileva")
 
     all_people = cleaner_people + host_people + [admin_person]
+    assert_unique_people("Cleaners", cleaner_people)
+    assert_unique_people("Hosts", host_people)
+    assert_unique_people("All seeded users", all_people)
+
     emails = [p[0] for p in all_people]
     people_by_email = {email: (first_name, last_name) for email, first_name, last_name in all_people}
 
@@ -113,14 +147,50 @@ def main() -> None:
     ]
     matching_neighborhoods = [item[1] for item in sofia_locations]
 
-    tiny_png = (
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDAT\x08\xd7c\xf8\xff"
-        b"\xff?\x00\x05\xfe\x02\xfeA\x8d\xd8\xf1\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
+    photo_palettes = [
+        ("#f7f1e8", "#2f6f73", "#e3b04b"),
+        ("#eef3f7", "#6b7a8f", "#c76f51"),
+        ("#f5efe6", "#3d405b", "#81b29a"),
+        ("#f8f4ec", "#8d6e63", "#4f86c6"),
+        ("#edf6f2", "#2d5d7b", "#f2cc8f"),
+    ]
+
+    def property_photo_bytes(property_index: int, image_index: int) -> bytes:
+        wall, accent, light = photo_palettes[(property_index + image_index) % len(photo_palettes)]
+        image = Image.new("RGB", (960, 640), wall)
+        draw = ImageDraw.Draw(image)
+
+        draw.rectangle((0, 0, 960, 430), fill=wall)
+        draw.rectangle((0, 430, 960, 640), fill="#b98f68")
+        draw.polygon([(0, 430), (960, 430), (760, 640), (180, 640)], fill="#d2aa84")
+
+        draw.rectangle((54, 60, 424, 322), fill="#fdfdfb", outline=accent, width=14)
+        draw.rectangle((82, 88, 396, 294), fill="#a7d3ee")
+        draw.rectangle((82, 198, 396, 294), fill="#7db3d5")
+        draw.line((239, 88, 239, 294), fill="#fdfdfb", width=10)
+        draw.line((82, 194, 396, 194), fill="#fdfdfb", width=10)
+
+        draw.rectangle((540, 130, 870, 408), fill="#4b5563")
+        draw.rectangle((570, 165, 840, 380), fill=accent)
+        draw.rectangle((594, 192, 816, 354), fill="#f8fafc")
+        draw.ellipse((690, 238, 724, 272), fill=light)
+
+        draw.rectangle((105, 365, 525, 520), fill="#625246")
+        draw.rectangle((135, 332, 495, 392), fill="#fbf7ef")
+        draw.rectangle((130, 392, 215, 535), fill=accent)
+        draw.rectangle((415, 392, 500, 535), fill=accent)
+        draw.rectangle((585, 472, 860, 535), fill=light)
+        draw.rectangle((616, 430, 829, 488), fill="#f7f1e7")
+        draw.ellipse((670, 380, 760, 470), fill="#f8fafc", outline=accent, width=8)
+        draw.rectangle((680, 470, 750, 535), fill=accent)
+
+        buffer = BytesIO()
+        image.save(buffer, format="JPEG", quality=88)
+        return buffer.getvalue()
 
     with transaction.atomic():
         # Clean only data created by this script if re-run.
+        remove_old_seed_property_images(media_root)
         CookieConsent.objects.filter(user__email__in=emails).delete()
         SignupEmailVerification.objects.filter(email__in=emails).delete()
         User.objects.filter(email__in=emails).delete()
@@ -160,10 +230,13 @@ def main() -> None:
             user = create_confirmed_user(email, User.Role.CLEANER)
             age = rng.randint(23, 55)
             cleaner_districts = rng.sample(matching_neighborhoods, k=3)
+            if not cleaner_districts:
+                raise ValueError(f"Cleaner {user.email} must have at least one service district.")
             CleanerProfile.objects.create(
                 user=user,
                 kind=CleanerProfile.Kind.INDIVIDUAL,
                 verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+                city="Sofia",
                 display_name=f"{user.first_name} {user.last_name}",
                 bio=f"Cleaner based in Sofia, serving districts: {', '.join(cleaner_districts[:2])}.",
                 service_areas=cleaner_districts,
@@ -238,13 +311,19 @@ def main() -> None:
 
         for host in created_hosts:
             property_count = rng.randint(1, 3)
-            for order in range(property_count):
-                district, neighborhood, street, number = rng.choice(sofia_locations)
+            host_locations = rng.sample(sofia_locations, k=property_count)
+            host_addresses: set[str] = set()
+            for order, (district, neighborhood, street, number) in enumerate(host_locations):
+                address = f"{street} {number}, {district}, Sofia"
+                if address in host_addresses:
+                    raise ValueError(f"Host {host.email} has duplicate property address: {address}")
+                host_addresses.add(address)
+
                 name = f"{rng.choice(property_prefixes)} {rng.choice(property_types)} {district}"
                 property_obj = Property.objects.create(
                     host=host,
                     name=name,
-                    address=f"{street} {number}, {district}, Sofia",
+                    address=address,
                     city="Sofia",
                     neighborhood=neighborhood,
                     latitude=round(rng.uniform(42.62, 42.74), 6),
@@ -263,10 +342,10 @@ def main() -> None:
 
                 image_count = rng.randint(2, 4)
                 for image_index in range(image_count):
-                    file_name = f"property_{property_obj.id}_{image_index + 1}.png"
+                    file_name = f"property_{property_obj.id}_{image_index + 1}.jpg"
                     PropertyImage.objects.create(
                         property=property_obj,
-                        image=ContentFile(tiny_png, name=file_name),
+                        image=ContentFile(property_photo_bytes(property_obj.id, image_index), name=file_name),
                         caption=rng.choice(
                             [
                                 "Living room view",

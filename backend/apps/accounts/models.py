@@ -188,6 +188,7 @@ class CleanerProfile(TimeStampedModel):
     )
     display_name = models.CharField(max_length=255, blank=True)
     bio = models.CharField(max_length=1500, blank=True, validators=[MaxLengthValidator(1500)])
+    city = models.CharField(max_length=120, blank=True)
     service_areas = models.JSONField(default=list, blank=True)
     sex = models.CharField(
         max_length=32,

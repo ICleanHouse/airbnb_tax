@@ -3,6 +3,7 @@
 // Leaflet requires the browser's window object, so it must not run on the server.
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
+import type { DivIcon, LeafletMouseEvent, Map as LeafletMap, Marker } from "leaflet";
 
 export interface LocationResult {
   lat: number;
@@ -80,18 +81,15 @@ function formatSuggestion(s: NominatimResult): { main: string; sub: string } {
 const PIN_HTML = `<span style="display:block;width:22px;height:22px;background:#ff385c;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35)"></span>`;
 
 const NOMINATIM_HEADERS = { "User-Agent": "HostCleaners/1.0 (hostcleaners.bg)" };
+type LeafletModule = typeof import("leaflet");
 
 export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapRef      = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const leafletRef = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapRef     = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const markerRef  = useRef<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const iconRef    = useRef<any>(null);
+  const leafletRef = useRef<LeafletModule | null>(null);
+  const mapRef     = useRef<LeafletMap | null>(null);
+  const markerRef  = useRef<Marker | null>(null);
+  const iconRef    = useRef<DivIcon | null>(null);
 
   const [geocoding,    setGeocoding]    = useState(false);
   const [searchQuery,  setSearchQuery]  = useState("");
@@ -144,7 +142,6 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
     }
     const timer = setTimeout(() => void fetchSuggestions(q), 350);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   // ── Close suggestions when clicking outside ──────────────────────────────
@@ -187,11 +184,9 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
         markerRef.current = L.marker([lat, lng], { icon }).addTo(map);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      map.on("click", (e: any) => {
-        const { lat: clickLat, lng: clickLng } = e.latlng as { lat: number; lng: number };
+      map.on("click", (e: LeafletMouseEvent) => {
+        const { lat: clickLat, lng: clickLng } = e.latlng;
         if (markerRef.current) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           markerRef.current.setLatLng([clickLat, clickLng]);
         } else {
           markerRef.current = L.marker([clickLat, clickLng], { icon }).addTo(map);
@@ -204,7 +199,6 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
 
     return () => {
       if (mapRef.current) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         mapRef.current.remove();
         mapRef.current = null;
         markerRef.current = null;
@@ -217,7 +211,6 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
   useEffect(() => {
     if (!mapRef.current || lat !== null) return;
     const center = CITY_CENTERS[city] ?? DEFAULT_CENTER;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     mapRef.current.panTo(center);
   }, [city, lat]);
 
@@ -229,12 +222,10 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
     const icon = iconRef.current;
     if (L && map && icon) {
       if (markerRef.current) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         markerRef.current.setLatLng([result.lat, result.lng]);
       } else {
         markerRef.current = L.marker([result.lat, result.lng], { icon }).addTo(map);
       }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       map.setView([result.lat, result.lng], 17);
     }
     onSelect(result);
@@ -312,10 +303,12 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
           <div className="prop-map-search-field">
             <input
               type="search"
+              role="combobox"
               className="prop-map-search-input"
               placeholder="Search address in Bulgaria…"
               value={searchQuery}
               autoComplete="off"
+              aria-haspopup="listbox"
               aria-autocomplete="list"
               aria-controls="prop-map-suggestions"
               aria-expanded={showDropdown}

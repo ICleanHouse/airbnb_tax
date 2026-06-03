@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { ChangeEvent, FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Briefcase,
   CalendarDays,
@@ -26,7 +26,10 @@ import {
 import { apiFetch, CurrentUser } from "../../lib/api";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import NotificationBell from "../components/NotificationBell";
+import DistrictMapSelector from "../components/DistrictMapSelector";
 import { cities } from "../../lib/cityDistricts";
+import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
+import type { ServiceZone } from "../../types/locations";
 
 type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "disputed";
 type ApplicationStatus = "pending" | "accepted" | "rejected" | "withdrawn";
@@ -475,10 +478,6 @@ function sanitizePersonalPreferences(value: string[]) {
   return Array.from(new Set(value.filter((item) => allowed.has(item))));
 }
 
-function labelFromOptions(options: Array<{ value: string; label: string }>, value?: string | null) {
-  return options.find((option) => option.value === value)?.label || "Not set";
-}
-
 function readList<T>(data: unknown): T[] {
   if (Array.isArray(data)) {
     return data as T[];
@@ -638,12 +637,8 @@ export default function CleanerDashboard() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [savedProfileSnapshot, setSavedProfileSnapshot] = useState<string | null>(null);
   const [districtOverlayOpen, setDistrictOverlayOpen] = useState(false);
-  const [districtSearch, setDistrictSearch] = useState("");
-  const [districtAvailableChoice, setDistrictAvailableChoice] = useState("");
-  const [districtSelectedChoice, setDistrictSelectedChoice] = useState("");
   const [districtSelectedZones, setDistrictSelectedZones] = useState<Set<string>>(new Set());
-  const [districtDraggedZone, setDistrictDraggedZone] = useState<string | null>(null);
-  const [districtDragSource, setDistrictDragSource] = useState<"available" | "selected" | null>(null);
+  const [districtSelectorZones, setDistrictSelectorZones] = useState<ServiceZone[]>([]);
   const [otherLanguagesOverlayOpen, setOtherLanguagesOverlayOpen] = useState(false);
   const [otherLanguageSearch, setOtherLanguageSearch] = useState("");
   const [cropSource, setCropSource] = useState<CropSource | null>(null);
@@ -655,6 +650,7 @@ export default function CleanerDashboard() {
   const [cropDragging, setCropDragging] = useState(false);
   const cropCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const cropDragStateRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const districtSelectorTouchedRef = useRef(false);
 
   const [applyJob, setApplyJob] = useState<CleaningJob | null>(null);
   const [applyPrice, setApplyPrice] = useState("");
@@ -768,14 +764,14 @@ export default function CleanerDashboard() {
     setProfileBirthCalendarPosition(year, month - 1);
   }, [profileBirthDate]);
 
-  function clearProfileFieldError(field: ProfileFieldErrorKey) {
+  const clearProfileFieldError = useCallback((field: ProfileFieldErrorKey) => {
     setProfileFieldErrors((current) => {
       if (!current[field]) return current;
       const next = { ...current };
       delete next[field];
       return next;
     });
-  }
+  }, []);
 
   function setProfileBirthCalendarPosition(year: number, month: number) {
     const clampedYear = Math.min(year, cutoffYear);
@@ -1392,21 +1388,23 @@ export default function CleanerDashboard() {
     [profileDistrictCity],
   );
 
-  const availableDistrictZones = useMemo(
-    () => selectedDistrictCity?.zones.filter((zone) => !districtSelectedZones.has(zone)) ?? [],
-    [selectedDistrictCity, districtSelectedZones],
+  const districtSelectedZoneIds = useMemo(
+    () => Array.from(districtSelectedZones),
+    [districtSelectedZones],
   );
 
-  const selectedDistrictZoneList = useMemo(
-    () => selectedDistrictCity?.zones.filter((zone) => districtSelectedZones.has(zone)) ?? [],
-    [selectedDistrictCity, districtSelectedZones],
-  );
+  const handleDistrictSelectorChange = useCallback((nextZoneIds: string[]) => {
+    districtSelectorTouchedRef.current = true;
+    setDistrictSelectedZones(new Set(nextZoneIds));
+    clearProfileFieldError("service_areas");
+  }, [clearProfileFieldError]);
 
-  const filteredAvailableDistrictZones = useMemo(() => {
-    const query = districtSearch.trim().toLocaleLowerCase();
-    if (!query) return availableDistrictZones;
-    return availableDistrictZones.filter((zone) => zone.toLocaleLowerCase().includes(query));
-  }, [availableDistrictZones, districtSearch]);
+  const handleDistrictZonesLoaded = useCallback((zones: ServiceZone[]) => {
+    setDistrictSelectorZones(zones);
+    if (districtSelectorTouchedRef.current) return;
+    const existingAreas = serviceAreasFromText(profileServiceAreas);
+    setDistrictSelectedZones(new Set(serviceAreaNamesToZoneIds(existingAreas, zones)));
+  }, [profileServiceAreas]);
 
   function openDistrictOverlay() {
     if (!selectedDistrictCity) {
@@ -1415,14 +1413,10 @@ export default function CleanerDashboard() {
       return;
     }
     const existingAreas = serviceAreasFromText(profileServiceAreas);
-    const zoneSet = new Set<string>();
-    for (const zone of selectedDistrictCity.zones) {
-      if (existingAreas.includes(zone)) zoneSet.add(zone);
-    }
-    setDistrictSelectedZones(zoneSet);
-    setDistrictSearch("");
-    setDistrictAvailableChoice("");
-    setDistrictSelectedChoice("");
+    const fallbackZones = fallbackServiceZones(selectedDistrictCity.value);
+    setDistrictSelectorZones(fallbackZones);
+    setDistrictSelectedZones(new Set(serviceAreaNamesToZoneIds(existingAreas, fallbackZones)));
+    districtSelectorTouchedRef.current = false;
     setDistrictOverlayOpen(true);
     setProfileError("");
     clearProfileFieldError("district_city");
@@ -1430,61 +1424,15 @@ export default function CleanerDashboard() {
 
   function closeDistrictOverlay() {
     setDistrictOverlayOpen(false);
-    setDistrictSearch("");
-    setDistrictAvailableChoice("");
-    setDistrictSelectedChoice("");
-  }
-
-  function addSelectedDistrict() {
-    if (!districtAvailableChoice) return;
-    setDistrictSelectedZones((current) => new Set(current).add(districtAvailableChoice));
-    setDistrictAvailableChoice("");
-  }
-
-  function removeSelectedDistrict() {
-    if (!districtSelectedChoice) return;
-    setDistrictSelectedZones((current) => {
-      const next = new Set(current);
-      next.delete(districtSelectedChoice);
-      return next;
-    });
-    setDistrictSelectedChoice("");
-  }
-
-  function selectAllDistricts() {
-    if (!selectedDistrictCity) return;
-    setDistrictSelectedZones(new Set(selectedDistrictCity.zones));
-  }
-
-  function clearAllDistricts() {
-    setDistrictSelectedZones(new Set());
+    districtSelectorTouchedRef.current = false;
   }
 
   function applyDistrictsToServiceAreas() {
     if (!selectedDistrictCity) return;
-    const nextAreas = [...selectedDistrictZoneList];
+    const nextAreas = zoneIdsToServiceAreaNames(districtSelectedZoneIds, districtSelectorZones);
     setProfileServiceAreas(nextAreas.join("\n"));
+    if (nextAreas.length > 0) clearProfileFieldError("service_areas");
     closeDistrictOverlay();
-  }
-
-  function handleDropToSelectedDistricts() {
-    if (districtDragSource !== "available" || !districtDraggedZone) return;
-    setDistrictSelectedZones((current) => new Set(current).add(districtDraggedZone));
-    setDistrictDraggedZone(null);
-    setDistrictDragSource(null);
-    setDistrictAvailableChoice("");
-  }
-
-  function handleDropToAvailableDistricts() {
-    if (districtDragSource !== "selected" || !districtDraggedZone) return;
-    setDistrictSelectedZones((current) => {
-      const next = new Set(current);
-      next.delete(districtDraggedZone);
-      return next;
-    });
-    setDistrictDraggedZone(null);
-    setDistrictDragSource(null);
-    setDistrictSelectedChoice("");
   }
 
   const availableOtherLanguageOptions = useMemo(() => {
@@ -2354,8 +2302,7 @@ export default function CleanerDashboard() {
                 <p>Cleaner profile was not found for this account.</p>
               </div>
             ) : (
-              <div className="cleaner-profile-layout">
-                <div className="cleaner-profile-forms">
+              <div className="cleaner-profile-forms">
                   {profileError ? <p className="form-error cleaner-profile-feedback">{profileError}</p> : null}
 
                   <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
@@ -2542,8 +2489,7 @@ export default function CleanerDashboard() {
                             setProfileDistrictCity(nextCity);
                             clearProfileFieldError("district_city");
                             setDistrictSelectedZones(new Set());
-                            setDistrictAvailableChoice("");
-                            setDistrictSelectedChoice("");
+                            setDistrictSelectorZones([]);
                             const normalizedAreas = normalizeServiceAreasByCity(profileServiceAreas, nextCity);
                             setProfileServiceAreas(normalizedAreas.join("\n"));
                           }}
@@ -2825,61 +2771,6 @@ export default function CleanerDashboard() {
                       {savingProfile ? "Saving..." : "Save changes"}
                     </button>
                   </div>
-                </div>
-
-                <aside className="cleaner-profile-summary">
-                  <div>
-                    <span>Verification</span>
-                    <strong>{profile.verification_status}</strong>
-                  </div>
-                  <div>
-                    <span>Age</span>
-                    <strong>{profile.age ?? "Not set"}</strong>
-                  </div>
-                  <div>
-                    <span>Language</span>
-                    <strong>{profileNativeLanguage || "Not set"}</strong>
-                  </div>
-                  <div>
-                    <span>Other languages</span>
-                    <strong>{profileOtherLanguages.length > 0 ? profileOtherLanguages.join(", ") : "Not set"}</strong>
-                  </div>
-                  <div>
-                    <span>Extra services</span>
-                    <strong>
-                      {profilePersonalPreferences.length > 0
-                        ? personalPreferenceOptions
-                          .filter((option) => profilePersonalPreferences.includes(option.value))
-                          .map((option) => option.label)
-                          .join(", ")
-                        : "Not set"}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Education</span>
-                    <strong>{labelFromOptions(educationOptions, profileEducation)}</strong>
-                  </div>
-                  <div>
-                    <span>Experience</span>
-                    <strong>{labelFromOptions(experienceOptions, profileExperienceLevel)}</strong>
-                  </div>
-                  <div>
-                    <span>Job preference</span>
-                    <strong>{labelFromOptions(jobTypePreferenceOptions, profileJobTypePreference)}</strong>
-                  </div>
-                  <div>
-                    <span>Service areas</span>
-                    <strong>{serviceAreasFromText(profileServiceAreas).length}</strong>
-                  </div>
-                  <div>
-                    <span>Completed jobs</span>
-                    <strong>{profile.completed_jobs_count}</strong>
-                  </div>
-                  <div>
-                    <span>Average rating</span>
-                    <strong>{Number(profile.average_rating || 0).toFixed(1)}</strong>
-                  </div>
-                </aside>
               </div>
             )}
           </div>
@@ -2903,104 +2794,14 @@ export default function CleanerDashboard() {
             <div className="host-form cleaner-district-overlay-form">
               {selectedDistrictCity ? (
                 <section className="zones-panel" aria-label={`${selectedDistrictCity.label} districts`}>
-                  <header className="zones-panel-head">
-                    <strong>Area selection</strong>
-                    <div className="zones-actions">
-                      <button type="button" onClick={selectAllDistricts}>Select all</button>
-                      <button type="button" onClick={clearAllDistricts}>Clear all</button>
-                    </div>
-                  </header>
-                  <div className="dual-zone-transfer">
-                    <label className="dual-zone-list">
-                      <span>List of Districts:</span>
-                      <div
-                        className="dual-zone-listbox"
-                        role="listbox"
-                        aria-label="List of Districts"
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={handleDropToAvailableDistricts}
-                      >
-                        <div className="dual-zone-listbox-search-wrap">
-                          <input
-                            className="dual-zone-search"
-                            type="text"
-                            placeholder="Search district"
-                            value={districtSearch}
-                            onChange={(event) => setDistrictSearch(event.target.value)}
-                          />
-                        </div>
-                        <div className="dual-zone-items">
-                          {filteredAvailableDistrictZones.map((zone) => (
-                            <button
-                              type="button"
-                              key={zone}
-                              className={districtAvailableChoice === zone ? "dual-zone-item selected" : "dual-zone-item"}
-                              onClick={() => setDistrictAvailableChoice(zone)}
-                              onDoubleClick={() => {
-                                setDistrictSelectedZones((current) => new Set(current).add(zone));
-                                setDistrictAvailableChoice("");
-                              }}
-                              draggable
-                              onDragStart={() => {
-                                setDistrictDraggedZone(zone);
-                                setDistrictDragSource("available");
-                              }}
-                              onDragEnd={() => {
-                                setDistrictDraggedZone(null);
-                                setDistrictDragSource(null);
-                              }}
-                            >
-                              {zone}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </label>
-                    <div className="dual-zone-controls">
-                      <button type="button" onClick={addSelectedDistrict} disabled={!districtAvailableChoice}>{">"}</button>
-                      <button type="button" onClick={removeSelectedDistrict} disabled={!districtSelectedChoice}>{"<"}</button>
-                    </div>
-                    <label className="dual-zone-list">
-                      <span>Selected Districts:</span>
-                      <div
-                        className="dual-zone-listbox"
-                        role="listbox"
-                        aria-label="Selected Districts"
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={handleDropToSelectedDistricts}
-                      >
-                        <div className="dual-zone-items">
-                          {selectedDistrictZoneList.map((zone) => (
-                            <button
-                              type="button"
-                              key={zone}
-                              className={districtSelectedChoice === zone ? "dual-zone-item selected" : "dual-zone-item"}
-                              onClick={() => setDistrictSelectedChoice(zone)}
-                              onDoubleClick={() => {
-                                setDistrictSelectedZones((current) => {
-                                  const next = new Set(current);
-                                  next.delete(zone);
-                                  return next;
-                                });
-                                setDistrictSelectedChoice("");
-                              }}
-                              draggable
-                              onDragStart={() => {
-                                setDistrictDraggedZone(zone);
-                                setDistrictDragSource("selected");
-                              }}
-                              onDragEnd={() => {
-                                setDistrictDraggedZone(null);
-                                setDistrictDragSource(null);
-                              }}
-                            >
-                              {zone}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </label>
-                  </div>
+                  <DistrictMapSelector
+                    citySlug={selectedDistrictCity.value}
+                    selectedZoneIds={districtSelectedZoneIds}
+                    onChange={handleDistrictSelectorChange}
+                    language="bg"
+                    showListFallback
+                    onZonesLoaded={handleDistrictZonesLoaded}
+                  />
                 </section>
               ) : (
                 <p className="host-form-hint">Choose a city to select districts.</p>
@@ -3010,7 +2811,12 @@ export default function CleanerDashboard() {
                 <button className="secondary-link" type="button" onClick={closeDistrictOverlay}>
                   Cancel
                 </button>
-                <button className="primary-link auth-submit" type="button" onClick={applyDistrictsToServiceAreas} disabled={!selectedDistrictCity}>
+                <button
+                  className="primary-link auth-submit"
+                  type="button"
+                  onClick={applyDistrictsToServiceAreas}
+                  disabled={!selectedDistrictCity || districtSelectedZoneIds.length === 0}
+                >
                   Add districts
                 </button>
               </div>

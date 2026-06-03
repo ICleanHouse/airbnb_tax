@@ -46,6 +46,7 @@ export default function CleanersDirectoryPage() {
           <span className="brand-symbol"><ChevronLeft size={18} aria-hidden={true} /></span>
           <strong>Find a cleaner</strong>
         </Link>
+        <div aria-hidden="true" />
         <div className="host-topbar-right">
           <Link className="text-link" href="/host">Dashboard</Link>
           <NotificationBell />
@@ -62,10 +63,4 @@ export default function CleanersDirectoryPage() {
           <div className="cleaners-directory-head">
             <p className="eyebrow" style={{ margin: "0 0 4px" }}>Verified supply</p>
             <h1 className="host-section-title">Browse cleaners</h1>
-          </div>
-          <CleanerBrowser offerEnabled />
-        </div>
-      </main>
-    </>
-  );
-}
+   

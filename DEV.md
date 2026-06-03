@@ -60,7 +60,7 @@ Use this baseline stack unless the architecture document is intentionally update
 ```text
 backend/
   config/           Django project config (settings, celery, wsgi, asgi)
-  apps/             accounts, properties, marketplace, calendars, feedback, notifications
+  apps/             accounts, properties, marketplace, calendars, feedback, notifications, locations
 frontend/
   app/
     page.tsx        Public landing page (auth-aware header)
@@ -269,6 +269,8 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 
 **`frontend/app/globals.css`** — single CSS file for the entire app. All new pages should add their styles here following existing naming conventions (`.host-*`, `.admin-*`, etc.).
 
+**`frontend/app/components/DistrictMapSelector.tsx`** — reusable district selector for city service areas. It uses MapLibre when GeoJSON boundaries exist and always provides a searchable checklist fallback. Cleaner profile integration still saves legacy `service_areas` strings.
+
 ### Landing page (`/`)
 
 - Compact public hero plus the shared `CleanerBrowser`.
@@ -366,6 +368,7 @@ The backend has initial domain models, migrations, admin registrations, serializ
 Implemented service-level behavior:
 
 - Signup, login, logout, and current-user APIs using Django sessions.
+- Public read-only location APIs: `GET /api/locations/cities/`, `GET /api/locations/cities/<city_slug>/zones/`, and `GET /api/locations/cities/<city_slug>/zones.geojson/`.
 - Pending, approved, rejected, and suspended account status.
 - Admin approval, rejection, and suspension actions.
 - **Email-code confirmation before account creation** — `POST /api/accounts/signup/email-code/` creates a hashed 6-digit code record and `send_signup_email_code` sends it through Resend only. `POST /api/accounts/signup/verify-email-code/` returns the token required by final signup.

@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "apps.core",
     "apps.accounts",
+    "apps.locations",
     "apps.properties",
     "apps.marketplace",
     "apps.feedback",

@@ -38,6 +38,7 @@ Future extraction into microservices should be possible without rewriting core b
 - `apps.calendars`: conflict checks and placeholder background sync tasks.
 - `apps.feedback`: two-way reviews and cleaner reputation updates.
 - `apps.notifications`: in-app notification records, Resend-only signup-code email delivery, Django mail-backend admin emails, and Celery task for admin signup alerts.
+- `apps.locations`: canonical cities, service zones, optional GeoJSON district geometry, and public read-only location APIs for city/district selectors.
 - `apps.core`: timestamp base model, request-ID middleware, JSON logging helpers, read-only `AuditLog`, health check, and CSRF failure view.
 
 ### Backend — `backend/config/`
@@ -68,8 +69,9 @@ Future extraction into microservices should be possible without rewriting core b
 - `frontend/app/host/page.tsx`: host dashboard with two sections toggled in the topbar:
   - **Properties** — lists host properties as cards with job counts. "Add property" modal POSTs to `POST /api/properties/properties/`.
   - **Jobs & Calendar** — custom month calendar grid with coloured status dots per day. "Post a job" modal POSTs to `POST /api/marketplace/jobs/` (saved as Draft). Publish button calls `POST /api/marketplace/jobs/{id}/publish/` to transition Draft → Open. **"Import ICS"** button opens a two-step modal: upload an Airbnb `.ics` file → review parsed reservations → bulk-create draft cleaning jobs (one per selected checkout date) via repeated `POST /api/marketplace/jobs/`.
-- `frontend/app/cleaner/page.tsx`: cleaner dashboard with calendar, open jobs, applications, assigned jobs, and modular profile forms (city-scoped service areas, district picker overlay with drag/drop, other-languages overlay, profile-image crop editor, driving-license/own-car inputs, and extra-services toggles).
+- `frontend/app/cleaner/page.tsx`: cleaner dashboard with calendar, open jobs, applications, assigned jobs, and modular profile forms (city-scoped service areas, district map/checklist selector overlay, other-languages overlay, profile-image crop editor, driving-license/own-car inputs, and extra-services toggles).
 - `frontend/app/components/CookieConsentBanner.tsx`: consent-first GDPR cookie banner.
+- `frontend/app/components/DistrictMapSelector.tsx`: reusable MapLibre district selector with selected tags and checklist fallback for city service areas.
 - `frontend/app/globals.css`: single CSS file for all routes using plain CSS variables and named component classes. No CSS library.
 
 ### Not yet built
@@ -132,6 +134,8 @@ Responsibilities:
 - Native language and experience level.
 - Broad preferred time slots and optional weekly availability.
 - Other languages and extra services offered.
+
+Service-area selection now has a canonical location foundation. `apps.locations` exposes active cities, city-scoped service zones, and optional GeoJSON polygons. Cleaner profile editing can use canonical zone IDs internally while continuing to save legacy `CleanerProfile.service_areas` district-name strings until profile normalization is implemented.
 
 ### Agencies
 

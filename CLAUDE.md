@@ -249,7 +249,7 @@ All UI is written in plain CSS with these shared tokens and classes. **Do not ad
 
 ## Git / GitHub
 
-Primary remote: `https://github.com/DjimitarYo/airbnb_tax.git`
+Primary remote: `https://github.com/ICleanHouse/airbnb_tax`
 Team remote: `https://github.com/ICleanHouse/airbnb_tax` (user pulls from this)
 
 If Git reports a safe-directory ownership warning, run:

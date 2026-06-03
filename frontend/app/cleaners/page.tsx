@@ -46,7 +46,7 @@ export default function CleanersDirectoryPage() {
           <span className="brand-symbol"><ChevronLeft size={18} aria-hidden={true} /></span>
           <strong>Find a cleaner</strong>
         </Link>
-        <div className="host-topbar-right">
+        <div className="host-topbar-right" style={{ gridColumn: 3 }}>
           <Link className="text-link" href="/host">Dashboard</Link>
           <NotificationBell />
           <span className="user-chip">

@@ -140,6 +140,7 @@ celerybeat.pid
 .env.example
 .env.production
 .env.production.local
+.env.secrets
 .envrc
 .venv
 env/

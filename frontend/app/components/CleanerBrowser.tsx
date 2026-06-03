@@ -1,6 +1,5 @@
 "use client";
 
-export { default } from "../../components/CleanerBrowser";
 import { useEffect, useMemo, useState } from "react";
 import { MapPin } from "lucide-react";
 import { apiFetch, type PublicCleaner } from "../../lib/api";

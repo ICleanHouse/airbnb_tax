@@ -1,7 +1,5 @@
 "use client";
 
-export { default } from "../../components/PropertyLocationPicker";
-export type { LocationResult } from "../../components/PropertyLocationPicker";
 // This component is always loaded with { ssr: false } via next/dynamic.
 // Leaflet requires the browser's window object, so it must not run on the server.
 import "leaflet/dist/leaflet.css";

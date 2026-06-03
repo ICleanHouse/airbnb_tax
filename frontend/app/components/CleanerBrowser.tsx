@@ -7,6 +7,7 @@ import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { cities } from "../../lib/cityDistricts";
 import CleanerProfileCard from "./CleanerProfileCard";
 import CleanerProfileModal from "./CleanerProfileModal";
+import JobOfferModal, { type OfferProperty } from "./JobOfferModal";
 
 /** Reverse lookup: district (zone) name → owning city label. */
 const ZONE_TO_CITY: Record<string, string> = (() => {
@@ -22,10 +23,10 @@ function cleanerCities(cleaner: PublicCleaner): Set<string> {
   const set = new Set<string>();
   for (const area of cleaner.service_areas || []) {
     const lower = area.trim().toLowerCase();
-    // The area can be a district name…
+    // The area can be a district name...
     const fromZone = ZONE_TO_CITY[lower];
     if (fromZone) set.add(fromZone);
-    // …or the city label itself.
+    // ...or the city label itself.
     const cityMatch = cities.find((c) => c.label.toLowerCase() === lower);
     if (cityMatch) set.add(cityMatch.label);
   }
@@ -36,8 +37,11 @@ function cleanerCities(cleaner: PublicCleaner): Set<string> {
  * Public, reputation-first cleaner directory: city + district filters over a
  * grid of profile cards. Fetches all verified+approved cleaners once and
  * filters client-side so both the landing page and /cleaners stay in sync.
+ *
+ * Pass `offerEnabled` on the /cleaners page to show an "Offer a job" CTA
+ * inside the profile modal (host-only).
  */
-export default function CleanerBrowser() {
+export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?: boolean }) {
   const [cleaners, setCleaners] = useState<PublicCleaner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -68,6 +72,22 @@ export default function CleanerBrowser() {
       if (!silent) setLoading(false);
     }
   }
+  // Offer flow -- only used when offerEnabled=true
+  const [properties, setProperties] = useState<OfferProperty[]>([]);
+  const [offerCleaner, setOfferCleaner] = useState<{ id: number; name: string } | null>(null);
+
+  useEffect(() => {
+    if (!offerEnabled) return;
+    apiFetch("/api/properties/properties/")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: unknown) => {
+        const list = Array.isArray(data)
+          ? (data as OfferProperty[])
+          : ((data as { results?: OfferProperty[] }).results ?? []);
+        setProperties(list);
+      })
+      .catch(() => { /* silently ignore -- offer button will still appear */ });
+  }, [offerEnabled]);
 
   useEffect(() => {
     void loadCleaners();
@@ -172,7 +192,7 @@ export default function CleanerBrowser() {
       ) : filtered.length === 0 ? (
         <div className="host-empty-state">
           {cleaners.length === 0
-            ? "No cleaners have joined yet — check back soon."
+            ? "No cleaners have joined yet -- check back soon."
             : "No cleaners match these filters yet."}
         </div>
       ) : (
@@ -188,7 +208,36 @@ export default function CleanerBrowser() {
       )}
 
       {openId !== null && (
-        <CleanerProfileModal cleanerId={openId} onClose={() => setOpenId(null)} />
+        <CleanerProfileModal
+          cleanerId={openId}
+          onClose={() => setOpenId(null)}
+          footer={
+            offerEnabled ? (
+              <button
+                type="button"
+                className="host-offer-trigger"
+                onClick={() => {
+                  const cleaner = cleaners.find((c) => c.id === openId);
+                  if (cleaner) {
+                    setOfferCleaner({ id: cleaner.user_id, name: cleaner.display_name });
+                    setOpenId(null);
+                  }
+                }}
+              >
+                Offer a job
+              </button>
+            ) : undefined
+          }
+        />
+      )}
+
+      {offerCleaner && (
+        <JobOfferModal
+          cleanerUserId={offerCleaner.id}
+          cleanerName={offerCleaner.name}
+          properties={properties}
+          onClose={() => setOfferCleaner(null)}
+        />
       )}
     </div>
   );

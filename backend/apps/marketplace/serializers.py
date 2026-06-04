@@ -49,6 +49,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
     job_property_neighborhood = serializers.CharField(source="job.property.neighborhood", read_only=True)
     cleaner_name = serializers.SerializerMethodField()
     cleaner_email = serializers.EmailField(source="cleaner.email", read_only=True)
+    cleaner_profile_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Assignment
@@ -65,6 +66,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "cleaner",
             "cleaner_name",
             "cleaner_email",
+            "cleaner_profile_image",
             "assigned_member",
             "application",
             "agreed_price",
@@ -80,6 +82,10 @@ class AssignmentSerializer(serializers.ModelSerializer):
 
     def get_cleaner_name(self, obj):
         return obj.cleaner.get_full_name() or obj.cleaner.get_username()
+
+    def get_cleaner_profile_image(self, obj):
+        profile = getattr(obj.cleaner, "cleaner_profile", None)
+        return (getattr(profile, "profile_image", "") or "") or None
 
 
 class AssignMemberSerializer(serializers.Serializer):

@@ -1,6 +1,18 @@
 # Current Progress Handoff
 
-Updated: 2026-06-03, after offer-conflict guards (property + same-day), the direct-offer find-or-create endpoint, and the host Applications offer UI fix.
+Updated: 2026-06-03, after the host calendar thumbnail redesign and host calendar/notification UX follow-ups.
+
+## Latest Work — Host Calendar Thumbnails & UX Follow-ups (2026-06-03)
+
+ClickUp task: "Host calendar redesign — compact thumbnail-driven day grid" (`869djg405`).
+
+- **Calendar day thumbnails** (`frontend/features/host/HostDashboard.tsx` + `frontend/app/globals.css`): the Jobs & Calendar day grid now renders up to **3** compact job thumbnails per day (then a `+N` chip) instead of flat status dots. Draft/open jobs show the **property** photo (or a `Building2` icon fallback); **assigned** jobs add a small **cleaner-avatar badge** (avatar image, or the cleaner's initial). Job status is preserved as an inline `box-shadow` color ring using the existing `STATUS_COLOR` tokens; the legend still uses `.host-cal-dot`. New classes `.host-cal-thumbs` / `.host-cal-thumb` / `.host-cal-thumb--icon` / `.host-cal-thumb-avatar` / `.host-cal-thumb-more` + `≤620px` responsive shrink. Tokens/typography unchanged.
+- **Backend avatar field** (`backend/apps/marketplace/serializers.py`): `AssignmentSerializer` exposes a read-only `cleaner_profile_image` (safe `SerializerMethodField`; returns the cleaner's `profile_image` string or `null`, handles agency cleaners with no `cleaner_profile`). Flows into the nested `CleaningJobSerializer.assignment` too. No migration. `profile_image` is a `TextField` data-URL/URL string used directly as `<img src>`.
+- **"Post a job" date prefill** (`HostDashboard.tsx → openJobForm`): creating a job without an explicit day now defaults the date to the **selected calendar day** if one is selected, else **today**. Covers the right-side "Post a job" button, property-card "Post a job", and side-panel "Post one" (date no longer blank); clicking a specific empty day still uses that day.
+- **Notification bell → Applications** (`frontend/components/NotificationBell.tsx → notificationHref`): on the host, application/offer notifications deep-link into the Applications section — `application.submitted` / `application.withdrawn` → `?section=applications&appFilter=pending`; `offer.accepted` → `appFilter=active`; `offer.declined` → `section=applications`. Review notifications keep their existing routing.
+- **Pending-application dot on the calendar** (`HostDashboard.tsx` + `globals.css`): a small brand-pink dot (top-right of the thumbnail, white-ringed, like the notification badge) appears on any calendar job that has pending cleaner applications, sourced from `jobActivityMap.pendingApps`. New `.host-cal-thumb-pending` class + responsive shrink; hover shows "N pending application(s)".
+- **Verification**: `python manage.py check` clean (serializer-only); `npm.cmd run typecheck` + `npm.cmd run lint` clean.
+- **Follow-up (out of scope)**: `FavouriteCleanerSerializer.get_profile_image` calls `.url` on the `profile_image` TextField — would `AttributeError` if a favourited cleaner ever has a non-empty image; worth fixing later.
 
 ## Latest Work — Direct-Offer Conflicts & Host Applications UI (2026-06-03)
 

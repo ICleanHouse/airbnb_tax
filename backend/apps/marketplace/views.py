@@ -75,6 +75,12 @@ def job_calendar_payload(job, item_type, user, application=None, assignment=None
     if assignment is not None:
         price = assignment.agreed_price or price
 
+    first_image = min(
+        job.property.images.all(),
+        key=lambda img: (img.order, img.id),
+        default=None,
+    )
+
     return {
         "id": f"{item_type}:{job.id}:{getattr(application, 'id', '') or getattr(assignment, 'id', '') or job.id}",
         "item_type": item_type,
@@ -87,6 +93,7 @@ def job_calendar_payload(job, item_type, user, application=None, assignment=None
         "currency": job.currency,
         "price": price,
         "property_name": job.property.name,
+        "property_image": first_image.image.url if first_image else None,
         "property_city": job.property.city,
         "property_neighborhood": job.property.neighborhood,
         "host_name": job.host.get_full_name() or job.host.get_username(),
@@ -164,7 +171,9 @@ class MarketplaceCalendarView(views.APIView):
 
         if user.is_platform_admin:
             jobs = in_calendar_window(
-                CleaningJob.objects.select_related("property", "host", "assignment").all(),
+                CleaningJob.objects.select_related("property", "host", "assignment")
+                .prefetch_related("property__images")
+                .all(),
                 start,
                 end,
             )
@@ -177,7 +186,9 @@ class MarketplaceCalendarView(views.APIView):
 
         if user.is_host:
             jobs = in_calendar_window(
-                CleaningJob.objects.select_related("property", "host", "assignment").filter(host=user),
+                CleaningJob.objects.select_related("property", "host", "assignment")
+                .prefetch_related("property__images")
+                .filter(host=user),
                 start,
                 end,
             )
@@ -205,9 +216,9 @@ class MarketplaceCalendarView(views.APIView):
 
         if user.is_cleaner:
             assignment_queryset = in_calendar_window(
-                Assignment.objects.select_related("job", "job__property", "job__host", "application").filter(
-                    Q(cleaner=user) | Q(assigned_member=user)
-                ),
+                Assignment.objects.select_related("job", "job__property", "job__host", "application")
+                .prefetch_related("job__property__images")
+                .filter(Q(cleaner=user) | Q(assigned_member=user)),
                 start,
                 end,
                 "job__",
@@ -227,6 +238,7 @@ class MarketplaceCalendarView(views.APIView):
 
             application_queryset = in_calendar_window(
                 CleanerApplication.objects.select_related("job", "job__property", "job__host")
+                .prefetch_related("job__property__images")
                 .filter(cleaner=user)
                 .exclude(status=CleanerApplication.Status.WITHDRAWN),
                 start,
@@ -246,6 +258,7 @@ class MarketplaceCalendarView(views.APIView):
 
             open_jobs = in_calendar_window(
                 CleaningJob.objects.select_related("property", "host")
+                .prefetch_related("property__images")
                 .filter(status=CleaningJob.Status.OPEN)
                 .exclude(id__in=assigned_job_ids | applied_job_ids),
                 start,
@@ -259,7 +272,9 @@ class MarketplaceCalendarView(views.APIView):
 
         if user.is_agency:
             assignment_queryset = in_calendar_window(
-                Assignment.objects.select_related("job", "job__property", "job__host", "application").filter(cleaner=user),
+                Assignment.objects.select_related("job", "job__property", "job__host", "application")
+                .prefetch_related("job__property__images")
+                .filter(cleaner=user),
                 start,
                 end,
                 "job__",
@@ -279,6 +294,7 @@ class MarketplaceCalendarView(views.APIView):
 
             application_queryset = in_calendar_window(
                 CleanerApplication.objects.select_related("job", "job__property", "job__host")
+                .prefetch_related("job__property__images")
                 .filter(cleaner=user)
                 .exclude(status=CleanerApplication.Status.WITHDRAWN),
                 start,
@@ -298,6 +314,7 @@ class MarketplaceCalendarView(views.APIView):
 
             open_jobs = in_calendar_window(
                 CleaningJob.objects.select_related("property", "host")
+                .prefetch_related("property__images")
                 .filter(status=CleaningJob.Status.OPEN)
                 .exclude(id__in=assigned_job_ids | applied_job_ids),
                 start,

@@ -104,6 +104,7 @@ class MarketplaceCalendarItemSerializer(serializers.Serializer):
     currency = serializers.CharField()
     price = serializers.DecimalField(max_digits=8, decimal_places=2, required=False, allow_null=True)
     property_name = serializers.CharField()
+    property_image = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     property_city = serializers.CharField(allow_blank=True)
     property_neighborhood = serializers.CharField(allow_blank=True)
     host_name = serializers.CharField()

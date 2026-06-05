@@ -898,7 +898,8 @@ export default function CleanerDashboard() {
         `/api/marketplace/calendar/?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`,
       );
       if (res.ok) {
-        setCalendarItems(readList<CalendarItem>(await res.json()));
+        const items = readList<CalendarItem>(await res.json());
+        setCalendarItems(items.filter((item) => item.item_type === "assignment"));
       }
     } finally {
       if (!silent) setLoadingCalendar(false);

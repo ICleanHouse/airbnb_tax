@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ClipboardList,
   Home as HomeIcon,
+  LayoutGrid,
   LogOut,
   Pencil,
   Plus,
@@ -29,9 +30,11 @@ import {
 } from "lucide-react";
 import { Upload } from "lucide-react";
 import { apiFetch, CurrentUser, type FavouriteCleaner } from "../../lib/api";
+import { formatMoney } from "../../lib/money";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import CleanerProfileModal from "../../components/CleanerProfileModal";
 import NotificationBell from "../../components/NotificationBell";
+import Connections from "../../components/Connections";
 import JobOfferModal from "../../components/JobOfferModal";
 import RatingStars from "../../components/RatingStars";
 
@@ -203,9 +206,13 @@ export default function HostDashboard() {
   const [loadingMe, setLoadingMe] = useState(true);
 
   const [properties,   setProperties]   = useState<Property[]>([]);
-  const [jobs,         setJobs]         = useState<CleaningJob[]>([]);
-  const [applications, setApplications] = useState<CleanerApplication[]>([]);
-  const [assignments,  setAssignments]  = useState<HostAssignment[]>([]);
+  // Full datasets from the API; the dashboard renders SCOPED views derived below
+  // (filtered by the selected property in the left rail). Keep the originals as
+  // `all*` and re-derive `jobs`/`applications`/`assignments` as memos.
+  const [allJobs,         setAllJobs]         = useState<CleaningJob[]>([]);
+  const [allApplications, setAllApplications] = useState<CleanerApplication[]>([]);
+  const [allAssignments,  setAllAssignments]  = useState<HostAssignment[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
   const [loadingData,  setLoadingData]  = useState(false);
   const [dataError,    setDataError]    = useState("");
   const [actingAppId,  setActingAppId]  = useState<number | null>(null);   // which app is being accepted/rejected
@@ -222,7 +229,28 @@ export default function HostDashboard() {
   const [hoveredStar,     setHoveredStar]     = useState(0);
   const [appFilter, setAppFilter] = useState<"pending" | "active" | "completed" | "open" | "rating" | null>(null);
 
-  const [section, setSection] = useState<"jobs" | "properties" | "applications">("jobs");
+  const [section, setSection] = useState<"jobs" | "applications">("jobs");
+
+  // ── Property-scoped views (left rail) ───────────────────────────────────────
+  // When a property is selected, every downstream consumer of jobs/applications/
+  // assignments automatically scopes to it (calendar, Applications, appdash, the
+  // "Spent" card). When null, the full datasets pass through unchanged.
+  const jobs = useMemo(
+    () => (selectedPropertyId == null ? allJobs : allJobs.filter((j) => j.property === selectedPropertyId)),
+    [allJobs, selectedPropertyId],
+  );
+  const scopedJobIds = useMemo(() => new Set(jobs.map((j) => j.id)), [jobs]);
+  const applications = useMemo(
+    () => (selectedPropertyId == null ? allApplications : allApplications.filter((a) => scopedJobIds.has(a.job))),
+    [allApplications, scopedJobIds, selectedPropertyId],
+  );
+  const assignments = useMemo(
+    () => (selectedPropertyId == null ? allAssignments : allAssignments.filter((a) => scopedJobIds.has(a.job))),
+    [allAssignments, scopedJobIds, selectedPropertyId],
+  );
+  const selectedProperty = selectedPropertyId != null
+    ? properties.find((p) => p.id === selectedPropertyId) ?? null
+    : null;
 
   // ── Calendar ───────────────────────────────────────────────────────────────
   const now = useMemo(() => new Date(), []);
@@ -312,7 +340,7 @@ export default function HostDashboard() {
   }, [me]);
 
   useEffect(() => {
-    if (requestedSection === "applications" || requestedSection === "jobs" || requestedSection === "properties") {
+    if (requestedSection === "applications" || requestedSection === "jobs") {
       setSection(requestedSection);
     }
   }, [requestedSection]);
@@ -351,15 +379,15 @@ export default function HostDashboard() {
       }
       if (jRes.ok) {
         const d: unknown = await jRes.json();
-        setJobs(Array.isArray(d) ? d as CleaningJob[] : (d as { results: CleaningJob[] }).results ?? []);
+        setAllJobs(Array.isArray(d) ? d as CleaningJob[] : (d as { results: CleaningJob[] }).results ?? []);
       }
       if (aRes.ok) {
         const d: unknown = await aRes.json();
-        setApplications(Array.isArray(d) ? d as CleanerApplication[] : (d as { results: CleanerApplication[] }).results ?? []);
+        setAllApplications(Array.isArray(d) ? d as CleanerApplication[] : (d as { results: CleanerApplication[] }).results ?? []);
       }
       if (asRes.ok) {
         const d: unknown = await asRes.json();
-        setAssignments(Array.isArray(d) ? d as HostAssignment[] : (d as { results: HostAssignment[] }).results ?? []);
+        setAllAssignments(Array.isArray(d) ? d as HostAssignment[] : (d as { results: HostAssignment[] }).results ?? []);
       }
       if (rvRes.ok) {
         const d: unknown = await rvRes.json();
@@ -628,12 +656,12 @@ export default function HostDashboard() {
       }
       const savedJob = await res.json() as CleaningJob;
       if (isEdit) {
-        setJobs((prev) =>
+        setAllJobs((prev) =>
           prev.map((j) => j.id === savedJob.id ? savedJob : j)
               .sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start)),
         );
       } else {
-        setJobs((prev) =>
+        setAllJobs((prev) =>
           [...prev, savedJob].sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start)),
         );
       }
@@ -650,7 +678,7 @@ export default function HostDashboard() {
     const res = await apiFetch(`/api/marketplace/jobs/${id}/publish/`, { method: "POST" });
     if (res.ok) {
       const updated = await res.json() as CleaningJob;
-      setJobs((prev) => prev.map((j) => (j.id === id ? updated : j)));
+      setAllJobs((prev) => prev.map((j) => (j.id === id ? updated : j)));
     }
   }
 
@@ -664,15 +692,15 @@ export default function HostDashboard() {
       // Remove the accepted application (and all others for the same job are rejected by the service)
       const acceptedApp = applications.find((a) => a.id === appId);
       if (acceptedApp) {
-        setApplications((prev) =>
+        setAllApplications((prev) =>
           prev.filter((a) => a.job !== acceptedApp.job),
         );
         // Update the job status in the jobs list
-        setJobs((prev) =>
+        setAllJobs((prev) =>
           prev.map((j) => j.id === acceptedApp.job ? { ...j, status: "assigned" as JobStatus } : j),
         );
       }
-      setAssignments((prev) => [...prev, newAssignment]);
+      setAllAssignments((prev) => [...prev, newAssignment]);
     } finally {
       setActingAppId(null);
     }
@@ -683,7 +711,7 @@ export default function HostDashboard() {
     try {
       const res = await apiFetch(`/api/marketplace/applications/${appId}/reject/`, { method: "POST" });
       if (!res.ok) return;
-      setApplications((prev) => prev.filter((a) => a.id !== appId));
+      setAllApplications((prev) => prev.filter((a) => a.id !== appId));
     } finally {
       setActingAppId(null);
     }
@@ -695,7 +723,7 @@ export default function HostDashboard() {
     try {
       const res = await apiFetch(`/api/marketplace/jobs/${id}/`, { method: "DELETE" });
       if (res.ok || res.status === 204) {
-        setJobs((prev) => prev.filter((j) => j.id !== id));
+        setAllJobs((prev) => prev.filter((j) => j.id !== id));
       }
     } finally {
       setDeletingJobId(null);
@@ -736,7 +764,7 @@ export default function HostDashboard() {
       const res = await apiFetch(`/api/marketplace/jobs/${jobId}/complete/`, { method: "POST" });
       if (!res.ok) return;
       const updated = await res.json() as CleaningJob;
-      setJobs((prev) => prev.map((j) => (j.id === jobId ? updated : j)));
+      setAllJobs((prev) => prev.map((j) => (j.id === jobId ? updated : j)));
       void loadAll();
     } finally {
       setCompletingJobId(null);
@@ -821,7 +849,7 @@ export default function HostDashboard() {
       });
       if (res.ok) {
         const newJob = await res.json() as CleaningJob;
-        setJobs((prev) => [...prev, newJob].sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start)));
+        setAllJobs((prev) => [...prev, newJob].sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start)));
         created++;
       } else {
         skipped++;
@@ -917,6 +945,16 @@ export default function HostDashboard() {
     return hostReviews.reduce((sum, r) => sum + r.rating, 0) / hostReviews.length;
   }, [hostReviews]);
 
+  /** Total spent = sum of agreed_price across fully-completed assignments. */
+  const completedAssignments = useMemo(
+    () => assignments.filter((a) => a.completed_at),
+    [assignments],
+  );
+  const totalSpent = useMemo(
+    () => completedAssignments.reduce((sum, a) => sum + Number(a.agreed_price ?? 0), 0),
+    [completedAssignments],
+  );
+
   useEffect(() => {
     if (!requestedReviewId || Number.isNaN(requestedReviewId)) return;
     const targetReview = hostReviews.find((review) => review.id === requestedReviewId);
@@ -1006,17 +1044,7 @@ export default function HostDashboard() {
               <span className="host-tab-count host-tab-count--alert">{pendingCount}</span>
             )}
           </button>
-          <button
-            type="button"
-            className={`host-tab${section === "properties" ? " active" : ""}`}
-            onClick={() => setSection("properties")}
-          >
-            <Building2 size={15} aria-hidden />
-            Properties
-            {properties.length > 0 && (
-              <span className="host-tab-count">{properties.length}</span>
-            )}
-          </button>
+          <Connections meId={me.id} />
         </nav>
 
         <div className="host-topbar-right">
@@ -1038,6 +1066,87 @@ export default function HostDashboard() {
       </header>
 
       <main className="host-page">
+       <div className="host-workspace">
+        {/* ── Property navigation rail (desktop) ── */}
+        {isApproved && (
+          <aside className="host-rail" aria-label="Your properties">
+            <button
+              type="button"
+              className={`host-rail-item host-rail-item--all${selectedPropertyId == null ? " host-rail-item--active" : ""}`}
+              onClick={() => setSelectedPropertyId(null)}
+              title="All properties"
+              aria-label="All properties"
+            >
+              <LayoutGrid size={20} aria-hidden />
+            </button>
+            <div className="host-rail-list">
+              {properties.map((p) => {
+                const railThumb = p.images?.[0]?.image ?? null;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`host-rail-item${selectedPropertyId === p.id ? " host-rail-item--active" : ""}`}
+                    onClick={() => setSelectedPropertyId(p.id)}
+                    title={p.name}
+                    aria-label={p.name}
+                  >
+                    {railThumb ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={railThumb} alt="" />
+                    ) : (
+                      <span className="host-rail-thumb--empty"><Building2 size={18} aria-hidden /></span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="host-rail-footer">
+              {selectedProperty && (
+                <button
+                  type="button"
+                  className="host-rail-foot-btn"
+                  onClick={() => openEditProp(selectedProperty)}
+                  title={`Edit ${selectedProperty.name}`}
+                  aria-label="Edit selected property"
+                >
+                  <Pencil size={17} aria-hidden />
+                </button>
+              )}
+              <button
+                type="button"
+                className="host-rail-foot-btn host-rail-foot-btn--add"
+                onClick={openCreateProp}
+                title="Add property"
+                aria-label="Add property"
+              >
+                <Plus size={18} aria-hidden />
+              </button>
+            </div>
+          </aside>
+        )}
+
+        <div className="host-workspace-main">
+        {/* ── Property selector (mobile — rail collapses to a dropdown) ── */}
+        {isApproved && (
+          <div className="host-rail-mobile">
+            <select
+              className="host-rail-mobile-select"
+              value={selectedPropertyId ?? ""}
+              onChange={(e) => setSelectedPropertyId(e.target.value ? Number(e.target.value) : null)}
+              aria-label="Filter by property"
+            >
+              <option value="">All properties</option>
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <button type="button" className="host-rail-mobile-add" onClick={openCreateProp}>
+              <Plus size={15} aria-hidden /> Add
+            </button>
+          </div>
+        )}
+
         {/* ── Pending banner ── */}
         {!isApproved && (
           <div className="host-pending-banner">
@@ -1046,135 +1155,6 @@ export default function HostDashboard() {
           </div>
         )}
         {dataError && <p className="form-error" style={{ margin: "16px 24px 0" }}>{dataError}</p>}
-
-        {/* ══ PROPERTIES SECTION ══ */}
-        {section === "properties" && (
-          <div className="host-section">
-            <div className="host-section-header">
-              <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Your listings</p>
-                <h1 className="host-section-title">Properties</h1>
-              </div>
-              {isApproved && (
-                <button
-                  className="primary-link"
-                  type="button"
-                  onClick={openCreateProp}
-                >
-                  <Plus size={16} aria-hidden />
-                  Add property
-                </button>
-              )}
-            </div>
-
-            {loadingData ? (
-              <p className="host-empty">Loading…</p>
-            ) : properties.length === 0 ? (
-              <div className="host-empty-state">
-                <Building2 size={40} />
-                <p>No properties yet.</p>
-                {isApproved && (
-                  <button
-                    className="secondary-link"
-                    type="button"
-                    onClick={openCreateProp}
-                  >
-                    Add your first property
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="host-property-grid">
-                {properties.map((p) => {
-                  const pJobs    = jobs.filter((j) => j.property === p.id);
-                  const active   = pJobs.filter((j) => ["open", "assigned"].includes(j.status)).length;
-                  const thumb    = p.images?.[0];
-                  return (
-                    <article key={p.id} className="host-property-card">
-                      {/* Photo thumbnail */}
-                      {thumb ? (
-                        <div className="host-property-thumb">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={thumb.image} alt={p.name} />
-                          {p.images.length > 1 && (
-                            <span className="host-property-thumb-count">+{p.images.length - 1}</span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="host-property-thumb host-property-thumb--empty">
-                          <Building2 size={28} />
-                        </div>
-                      )}
-
-                      <div className="host-property-card-body">
-                        <div className="host-property-card-top">
-                          <div>
-                            <strong>{p.name}</strong>
-                            <span>
-                              {p.city}
-                              {p.neighborhood ? ` · ${p.neighborhood}` : ""}
-                              {p.address ? ` · ${p.address}` : ""}
-                            </span>
-                            {(p.bedrooms != null || p.square_meters != null) && (
-                              <span className="host-property-meta">
-                                {p.bedrooms != null && `${p.bedrooms} bed${p.bedrooms !== 1 ? "s" : ""}`}
-                                {p.bedrooms != null && p.square_meters != null && " · "}
-                                {p.square_meters != null && `${p.square_meters} m²`}
-                              </span>
-                            )}
-                            {p.description && (
-                              <span className="host-property-desc">{p.description}</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="host-property-stats">
-                          <div>
-                            <strong>{pJobs.length}</strong>
-                            <small>Total jobs</small>
-                          </div>
-                          <div>
-                            <strong>{active}</strong>
-                            <small>Active</small>
-                          </div>
-                          <div>
-                            <strong>{p.default_cleaning_duration_minutes} min</strong>
-                            <small>Default clean</small>
-                          </div>
-                          {p.default_price_eur && (
-                            <div>
-                              <strong>€{p.default_price_eur}</strong>
-                              <small>Default price</small>
-                            </div>
-                          )}
-                        </div>
-                        {isApproved && (
-                          <div className="host-property-card-actions">
-                            <button
-                              className="host-prop-edit-btn"
-                              type="button"
-                              onClick={() => openEditProp(p)}
-                            >
-                              <Pencil size={13} aria-hidden />
-                              Edit
-                            </button>
-                            <button
-                              className="host-prop-postjob-btn"
-                              type="button"
-                              onClick={() => openJobForm(undefined, undefined, p.id)}
-                            >
-                              <Plus size={15} aria-hidden />
-                              Post a job
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ══ APPLICATIONS SECTION ══ */}
         {section === "applications" && (
@@ -1240,6 +1220,17 @@ export default function HostDashboard() {
                       : "no reviews yet"}
                   </span>
                 </button>
+                <div className="host-appdash-card host-appdash-card--money host-appdash-card--static">
+                  <span className="host-appdash-label">Spent</span>
+                  <strong className="host-appdash-value host-appdash-value--money">
+                    {formatMoney(totalSpent)}
+                  </strong>
+                  <span className="host-appdash-sub">
+                    {completedAssignments.length > 0
+                      ? `from ${completedAssignments.length} cleaning${completedAssignments.length !== 1 ? "s" : ""}`
+                      : "no completed jobs yet"}
+                  </span>
+                </div>
               </div>
             )}
 
@@ -1743,7 +1734,7 @@ export default function HostDashboard() {
                   <button
                     className="primary-link"
                     type="button"
-                    onClick={() => { setJobError(""); openJobForm(); }}
+                    onClick={() => { setJobError(""); openJobForm(undefined, undefined, selectedPropertyId ?? undefined); }}
                   >
                     <Plus size={16} aria-hidden />
                     Post a job
@@ -1761,7 +1752,7 @@ export default function HostDashboard() {
               <div className="host-empty-state">
                 <CalendarDays size={40} />
                 <p>Add a property first to start posting jobs.</p>
-                <button className="secondary-link" type="button" onClick={() => setSection("properties")}>
+                <button className="secondary-link" type="button" onClick={openCreateProp}>
                   Add a property
                 </button>
               </div>
@@ -1806,7 +1797,7 @@ export default function HostDashboard() {
                             setSelectedDay(day);
                             // If empty day clicked, pre-fill job form with that date
                             if (dayJobs.length === 0) {
-                              setJobError(""); openJobForm(day);
+                              setJobError(""); openJobForm(day, undefined, selectedPropertyId ?? undefined);
                             }
                           }}
                           title={dayJobs.length > 0 ? `${dayJobs.length} job(s)` : "Click to post a job"}
@@ -1900,7 +1891,7 @@ export default function HostDashboard() {
                       <button
                         className="secondary-link"
                         type="button"
-                        onClick={() => { setJobError(""); openJobForm(selectedDay ?? undefined); }}
+                        onClick={() => { setJobError(""); openJobForm(selectedDay ?? undefined, undefined, selectedPropertyId ?? undefined); }}
                       >
                         <Plus size={14} aria-hidden />
                         Post one
@@ -2024,6 +2015,8 @@ export default function HostDashboard() {
             )}
           </div>
         )}
+        </div>
+       </div>
       </main>
 
       {/* ══ PROPERTY FORM MODAL ══ */}

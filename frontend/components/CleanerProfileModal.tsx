@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Car, MapPin, MessageSquare, X } from "lucide-react";
 import { apiFetch, type PublicCleanerDetail } from "../lib/api";
 import RatingStars from "./RatingStars";
+import ConnectButton from "./ConnectButton";
 import { experienceLabel } from "./CleanerProfileCard";
 
 function initials(name: string): string {
@@ -120,6 +121,9 @@ export default function CleanerProfileModal({
                       <MapPin size={14} aria-hidden="true" /> {areas}
                     </p>
                   )}
+                  <div className="cleaner-profile-connect">
+                    <ConnectButton targetUserId={detail.user_id} />
+                  </div>
                 </div>
               </div>
 

@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     "apps.feedback",
     "apps.notifications",
     "apps.calendars",
+    "apps.connections",
 ]
 
 MIDDLEWARE = [

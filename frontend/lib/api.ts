@@ -7,3 +7,10 @@ export type {
   PublicCleanerDetail,
 } from "../types/cleaner";
 export type { AppNotification } from "../types/notification";
+export type {
+  ChatMessage,
+  Connection,
+  ConnectionDirection,
+  ConnectionStatus,
+  SharedContext,
+} from "../types/connection";

@@ -70,7 +70,7 @@ npm.cmd run typecheck && npm.cmd run lint
 ```
 backend/
   config/           Django project config (settings, celery, wsgi, asgi)
-  apps/             accounts, properties, marketplace, calendars, feedback, notifications
+  apps/             accounts, properties, marketplace, calendars, feedback, notifications, connections
 frontend/
   app/
     page.tsx        Public landing page (auth-aware header)
@@ -98,9 +98,9 @@ docker-compose.yml
 | `/signup` | No | All | 🟨 In progress — single React wizard with Motion transitions, email-code verification, role selection, cleaner personal/language/experience/availability steps, and final account creation. Old step URLs redirect to `/signup`. |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role only | ✅ Live — reads `?filter=pending` URL param |
-| `/host` | Yes | `host` role only | ✅ Live — properties, jobs + calendar, ICS import, applications panel (filter cards, accept/reject, active assignments, completed + reviews), host rating display, favourites + "My cleaners" + direct job offers, notification bell |
-| `/cleaners` | Yes | `host` / `admin` | ✅ Live — cleaner directory via shared `CleanerBrowser` (city + dependent district dropdowns); narrow header band; profile cards + detail modal (rating + review history, safe fields only) |
-| `/cleaner` | Yes | `cleaner` role only | ✅ Live — open jobs, applications, Offers tab (host-offered jobs: accept/decline), assignments, calendar, profile, notification bell |
+| `/host` | Yes | `host` role only | ✅ Live — tabs are **Jobs & Calendar + Applications** (+ a **Connections** button); a slim left **property rail** (All · thumbnails · pencil-edit/plus-add) filters both tabs in place via `selectedPropertyId` (mobile → dropdown). Applications panel = 6 appdash cards incl. **Spent** + host rating; thumbnail calendar; ICS import; favourites + "My cleaners" + direct offers; notification bell. (The old `/host/properties/[id]` route was removed.) |
+| `/cleaners` | Yes | `host` / `admin` | ✅ Live — cleaner directory via shared `CleanerBrowser` (city + dependent district dropdowns); narrow header band; profile cards + detail modal (rating + review history + **Connect** button, safe fields only) |
+| `/cleaner` | Yes | `cleaner` role only | ✅ Live — mirrors host: tabs **Jobs & Calendar · Applications · Offers** (+ Connections button), Profile in the account menu. Thumbnail calendar; Applications = appdash cards incl. **Income**; notification bell. |
 | `/agency` | Yes | `agency` role only | ⬜ Not built yet (deferred) |
 
 ## Implemented Features
@@ -112,6 +112,10 @@ docker-compose.yml
 - **Property card "Post a job"**: host Properties tab cards have Edit (outline) + Post a job (brand-filled) buttons; `openJobForm(day?, jobToEdit?, presetPropId?)` opens the job modal pre-scoped to that property.
 - **Direct offers + favourites**: `CleanerApplication.origin` field (`cleaner_applied` / `host_offered`). Host offer = `CleanerApplication` row with `origin=host_offered, status=pending`. Services: `offer_job`, `accept_offer`, `decline_offer`. Endpoints: `offer` action on `CleaningJobViewSet`; `accept-offer`/`decline-offer` on `CleanerApplicationViewSet`; `FavouriteCleaner` CRUD. Cleaner Offers tab (gold accent). Tests: `apps/marketplace/tests/test_offers.py`.
 - **Notification center**: `GET /api/notifications/`, `POST /api/notifications/<id>/read/`, `POST /api/notifications/read-all/`. `NotificationBell.tsx` shared component (polled via `apiFetch`) in host and cleaner topbars.
+- **Connections + in-app chat (`apps.connections`)**: LinkedIn-style host↔cleaner relationship. `Connection` (requester/addressee, status pending/accepted/declined/removed, unique pair) + `Message`. Services guard host↔cleaner-only pairing, no self-connect, reverse-request auto-accepts, messaging only on accepted. Endpoints under `/api/connections/`: list · create(request) · `accept`/`decline` · DELETE(remove) · `messages` (GET marks read / POST send) · `read` · `unread-count` · `shared` (collaborated properties+cleanings, derived from `Assignment`s). Frontend: `components/Connections.tsx` = a **"Connections" button next to Applications** in both navs (polled badge) → right drawer (Requests/Connected/Pending) → polled chat thread + Shared panel; reusable `components/ConnectButton.tsx` in the cleaner profile modal. Chat is **polled** (no websockets). Tests: `apps/connections/tests/test_connections.py`.
+- **Property navigation rail (host)**: replaced the Properties tab/grid with a slim left `.host-rail` (All · property thumbnails · pencil-edit + plus-add footer); selecting a property filters Jobs & Calendar + Applications in place (`selectedPropertyId`; state is `all*` with derived scoped `jobs/applications/assignments` memos). Mobile → dropdown.
+- **Income/Expenditure card**: 6th appdash card — host **Spent** / cleaner **Income** = Σ `agreed_price` of completed assignments. Shared `frontend/lib/money.ts` (`money`, `formatMoney`).
+- **Calendar property thumbnails**: `MarketplaceCalendarItemSerializer.property_image` + `AssignmentSerializer.cleaner_profile_image` power photo thumbnails in host/cleaner calendar day cells.
 - **Observability**: `frontend/lib/sentry-sanitize.ts` strips PII before Sentry events ship. Sentry env vars live in gitignored `frontend/.env.local`.
 
 ## ClickUp Integration
@@ -259,7 +263,20 @@ All UI is written in plain CSS with these shared tokens and classes. **Do not ad
 - `.hero--compact` — short variant of `.hero` (photo + headline) used on the minimal landing so the browser sits just below
 - `.landing-directory` — centered max-width wrapper for the landing cleaner browser
 - `.cleaners-directory` (inner wrapper, NOT the grid `main`) / `.cleaners-directory-head` — narrow header band on the `/cleaners` page
-- `.host-prop-edit-btn` (left, outline) + `.host-prop-postjob-btn` (right, brand-filled) — matching 40px pill buttons in the property card action row; `.host-property-stats > div` are rounded grey stat chips
+- `.host-prop-edit-btn` (left, outline) + `.host-prop-postjob-btn` (right, brand-filled) — matching 40px pill buttons (now used in the rail/job header); `.host-property-stats > div` are borderless stat cells (hairline separator)
+
+**Property rail + workspace classes (host):**
+- `.host-workspace` (flex row) / `.host-workspace-main` (flex:1) — wraps the rail + the sections
+- `.host-rail` (sticky slim left column) / `.host-rail-item`(`--all`/`--active`) / `.host-rail-thumb--empty` / `.host-rail-list` / `.host-rail-footer` / `.host-rail-foot-btn`(`--add`)
+- `.host-rail-mobile` / `.host-rail-mobile-select` / `.host-rail-mobile-add` — ≤860px dropdown selector
+- `.host-appdash-card--money` / `--static` + `.host-appdash-value--money` — the static Spent/Income card
+
+**Connections + chat classes:**
+- `.connections-tab` (nav button) / `.connections-overlay` / `.connections-drawer` (right slide-in)
+- `.connections-head` / `.connections-body` / `.connections-group(-title)` / `.connection-row`(`--btn`) / `.connection-avatar` / `.connection-unread`(`-dot`) / `.connections-accept` / `.connections-decline` / `.connections-cancel`
+- `.connections-chat(-head/-who)` / `.connections-thread` / `.chat-bubble`(`--me`) / `.chat-bubble-body/-time` / `.connections-composer`
+- `.connections-shared(-toggle/-title/-list/-count)` / `.connections-remove`
+- `.connect-btn` (+ `--pending` / `--done`) — reusable Connect button; `.cleaner-profile-connect` wrapper in the profile modal
 
 ## Git / GitHub
 

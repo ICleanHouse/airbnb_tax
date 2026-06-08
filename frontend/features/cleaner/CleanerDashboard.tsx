@@ -25,9 +25,11 @@ import {
   X,
 } from "lucide-react";
 import { apiFetch, CurrentUser } from "../../lib/api";
+import { money, formatMoney } from "../../lib/money";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import DistrictMapSelector from "../../app/components/DistrictMapSelector";
 import NotificationBell from "../../components/NotificationBell";
+import Connections from "../../components/Connections";
 import RatingStars from "../../components/RatingStars";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
@@ -584,11 +586,6 @@ function fmtTime(iso?: string | null) {
 function isPastDateTime(iso?: string | null, now = new Date()) {
   if (!iso) return false;
   return new Date(iso).getTime() <= now.getTime();
-}
-
-function money(value?: string | null, currency = "EUR") {
-  if (!value) return "Price open";
-  return `${currency === "EUR" ? "€" : `${currency} `}${value}`;
 }
 
 function jobPlace(job?: Pick<CleaningJob, "property_name" | "property_city" | "property"> | null) {
@@ -1537,6 +1534,12 @@ export default function CleanerDashboard() {
     [assignments],
   );
 
+  /** Total income = sum of agreed_price across fully-completed assignments. */
+  const totalIncome = useMemo(
+    () => completedAssignments.reduce((sum, a) => sum + Number(a.agreed_price ?? 0), 0),
+    [completedAssignments],
+  );
+
   useEffect(() => {
     if (!requestedReviewJobId || Number.isNaN(requestedReviewJobId)) return;
     const targetAssignment = assignments.find((assignment) => assignment.job === requestedReviewJobId);
@@ -1745,6 +1748,7 @@ export default function CleanerDashboard() {
             Offers
             {pendingOffers.length > 0 && <span className="host-tab-count host-tab-count--gold">{pendingOffers.length}</span>}
           </button>
+          <Connections meId={me.id} />
         </nav>
 
         <div className="host-topbar-right">
@@ -2048,6 +2052,17 @@ export default function CleanerDashboard() {
                       : "no reviews yet"}
                   </span>
                 </button>
+                <div className="host-appdash-card host-appdash-card--money host-appdash-card--static">
+                  <span className="host-appdash-label">Income</span>
+                  <strong className="host-appdash-value host-appdash-value--money">
+                    {formatMoney(totalIncome)}
+                  </strong>
+                  <span className="host-appdash-sub">
+                    {completedAssignments.length > 0
+                      ? `from ${completedAssignments.length} cleaning${completedAssignments.length !== 1 ? "s" : ""}`
+                      : "no completed jobs yet"}
+                  </span>
+                </div>
               </div>
             )}
 

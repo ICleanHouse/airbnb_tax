@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-06-03
+**Last updated:** 2026-06-08
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -57,8 +57,24 @@ Review ──[belongs_to]──────────► CleaningJob
 Review ──[has_one author]──────► User
 Review ──[has_one subject]─────► User
 
+FavouriteCleaner ──[belongs_to]► User[host]      (saved cleaner; one-way)
+FavouriteCleaner ──[targets]───► User[cleaner]
+
+Connection ──[belongs_to]──────► User (requester)   (host↔cleaner relationship — LinkedIn-style)
+Connection ──[belongs_to]──────► User (addressee)
+Connection ──[has_many]────────► Message
+Message ──[belongs_to]─────────► Connection
+Message ──[has_one sender]─────► User
+
 AuditLog ──[references]────────► (any entity — polymorphic)
 ```
+
+> **Connections layer (apps.connections):** a `Connection` is a mutual host↔cleaner/agency
+> relationship: one side requests, the other accepts (`pending → accepted`; also
+> `declined`/`removed`). Only `accepted` connections may exchange `Message`s (polled
+> in-app chat). Unique on `(requester, addressee)`. The `/shared/` endpoint derives the
+> properties + cleanings the two have collaborated on from existing `Assignment`s — it
+> stores no extra link. No payments.
 
 ### Entity ownership summary
 
@@ -78,6 +94,9 @@ AuditLog ──[references]────────► (any entity — polymorph
 | `Review` | User (both directions) | After job completion only |
 | `Notification` | System | Triggered by domain events |
 | `CookieConsent` | User / visitor | Consent banner interaction |
+| `FavouriteCleaner` | User[host] | Host saves a cleaner (one-way) |
+| `Connection` | User (requester) | Host/cleaner sends a connect request |
+| `Message` | User (sender) | Sent within an accepted connection |
 | `AgencyInvitation` | AgencyProfile | Agency invites cleaner |
 | `AgencyMembership` | System | Cleaner accepts invitation |
 | `AuditLog` | System | On key marketplace decisions |
@@ -395,6 +414,20 @@ Full API surface with implementation state.
 | GET/READ | `/api/marketplace/assignments/` | Required | ✅ |
 | POST | `/api/marketplace/assignments/{id}/assign-member/` | Agency | ✅ |
 
+### Connections (apps.connections — LinkedIn-style relationship + polled in-app chat)
+
+| Method | Route | Auth | Status |
+|---|---|---|---|
+| GET | `/api/connections/` | Required | ✅ — my accepted + incoming/outgoing pending |
+| POST | `/api/connections/` (body: `user_id`) | Host/Cleaner | ✅ — send request (host↔cleaner only) |
+| POST | `/api/connections/{id}/accept/` | Addressee | ✅ |
+| POST | `/api/connections/{id}/decline/` | Addressee | ✅ |
+| DELETE | `/api/connections/{id}/` | Participant | ✅ — remove |
+| GET/POST | `/api/connections/{id}/messages/` | Participant | ✅ — GET marks read; POST sends (accepted only) |
+| POST | `/api/connections/{id}/read/` | Participant | ✅ |
+| GET | `/api/connections/unread-count/` | Required | ✅ — `{ unread, pending_requests }` |
+| GET | `/api/connections/{id}/shared/` | Participant | ✅ — shared properties + cleanings |
+
 ### Other
 
 | Method | Route | Auth | Status |
@@ -459,6 +492,12 @@ EVENT: job.completed                               ✅ partial
 
 EVENT: review.submitted                            ⬜ planned
   └──► SIDE EFFECT: CleanerProfile.rating recalculated
+
+EVENT: connection.request / connection.accepted    ✅ implemented (apps.connections)
+  └──► SIDE EFFECT: create_notification to the other user; Connections badge polls unread-count
+
+EVENT: connection.message_sent                     ✅ implemented
+  └──► SIDE EFFECT: create_notification (message.received) to the recipient; bumps Connection.updated_at
 
 EVENT: calendar.sync_failed                        ⬜ planned
   └──► TASK: notify affected user + admins

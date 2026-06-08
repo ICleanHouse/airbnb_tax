@@ -1,6 +1,16 @@
 # Current Progress Handoff
 
-Updated: 2026-06-03, after the host calendar thumbnail redesign and host calendar/notification UX follow-ups.
+Updated: 2026-06-08, after the property navigation rail, income/expenditure cards, and the Connections + in-app chat layer.
+
+## Latest Work — Property Rail · Income/Expenditure · Connections + Chat (2026-06-08)
+
+ClickUp: "Property rail · Income/Expenditure · Connections & in-app chat (3 phases)" (`869dky9yp`, complete). Verified: Django `check` clean; `apps.connections` + `apps.marketplace` = 34 tests OK; frontend `typecheck` + `lint` clean.
+
+- **Cleaner dashboard rebuilt to mirror host (earlier in session)**: tabs are now **Jobs & Calendar · Applications · Offers** (Profile in the account menu). Calendar reuses the host design with **property thumbnails** in day cells (needs `property_image` on calendar items — see below); Applications is a host-style 5/6-card `host-appdash-grid` (Pending/Active/Completed/Open/Rating + Income). `features/cleaner/CleanerDashboard.tsx`.
+- **Calendar `property_image`**: `job_calendar_payload` + `MarketplaceCalendarItemSerializer` expose a first-photo `property_image` (relative `/media/...`); calendar querysets `prefetch_related` property images. `AssignmentSerializer` exposes `cleaner_profile_image`. No payment fields.
+- **Phase 1 — Property navigation rail (host)**: replaced the Properties topbar tab + card grid with a slim left **rail** (`.host-rail`): All → property thumbnails → footer pencil(edit)+plus(add). Selecting a property filters Jobs & Calendar + Applications **in place** via `selectedPropertyId` (state renamed to `all*` with derived scoped `jobs/applications/assignments` memos). "Post a job" pre-scopes to the selection. Mobile ≤860px → dropdown selector. Topbar tabs now Jobs & Calendar + Applications. `features/host/HostDashboard.tsx`, `globals.css` (`.host-rail*`, `.host-workspace*`). NOTE: the earlier `/host/properties/[id]` route was **removed**.
+- **Phase 2 — Income/Expenditure card**: 6th appdash card next to "My rating" — host **Spent** / cleaner **Income** = Σ `agreed_price` of completed assignments (+ "from N cleanings"). Shared `frontend/lib/money.ts` (`money`, `formatMoney`); `.host-appdash-card--money/--static`.
+- **Phase 3 — Connections + in-app chat (LinkedIn-style)**: new `backend/apps/connections/` app — `Connection` (requester/addressee, status pending/accepted/declined/removed, unique pair) + `Message` (body, read_at). Services (host↔cleaner-only pairing, no self-connect, reverse-request auto-accepts, messaging only on accepted) + audit + notifications. Endpoints `/api/connections/`: list · create(request) · `accept`/`decline` · DELETE(remove) · `messages` (GET marks read / POST send) · `read` · `unread-count` · `shared` (collaborated properties+cleanings). Migration `0001_initial`; registered in settings + root urls. Frontend: **"Connections" button next to Applications** in both navs (`components/Connections.tsx`, polled badge) → right drawer (Requests / Connected / Pending) → polled chat thread + Shared panel; reusable `components/ConnectButton.tsx` wired into the cleaner profile modal. Chat is **polled** (no websockets). Types `frontend/types/connection.ts`; CSS `.connections-*`/`.chat-bubble*`/`.connect-btn*`.
 
 ## Latest Work — Host Calendar Thumbnails & UX Follow-ups (2026-06-03)
 

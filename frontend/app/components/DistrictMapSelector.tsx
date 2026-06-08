@@ -46,10 +46,6 @@ function boundsFromGeoJSON(geojson: ZoneFeatureCollection): [[number, number], [
   ];
 }
 
-function emptyFeatureCollection(): ZoneFeatureCollection {
-  return { type: "FeatureCollection", features: [] };
-}
-
 export default function DistrictMapSelector({
   citySlug,
   selectedZoneIds,
@@ -65,6 +61,7 @@ export default function DistrictMapSelector({
   const selectedRef = useRef(selectedZoneIds);
   const disabledRef = useRef(disabledZoneIds);
   const onChangeRef = useRef(onChange);
+  const onZonesLoadedRef = useRef(onZonesLoaded);
   const [cities, setCities] = useState<LocationCity[]>([]);
   const [zones, setZones] = useState<ServiceZone[]>([]);
   const [geojson, setGeojson] = useState<ZoneFeatureCollection | null>(null);
@@ -75,6 +72,7 @@ export default function DistrictMapSelector({
   selectedRef.current = selectedZoneIds;
   disabledRef.current = disabledZoneIds;
   onChangeRef.current = onChange;
+  onZonesLoadedRef.current = onZonesLoaded;
 
   const disabled = useMemo(() => new Set(disabledZoneIds), [disabledZoneIds]);
   const selected = useMemo(() => new Set(selectedZoneIds), [selectedZoneIds]);
@@ -103,7 +101,7 @@ export default function DistrictMapSelector({
     if (!citySlug) {
       setZones([]);
       setGeojson(null);
-      onZonesLoaded?.([]);
+      onZonesLoadedRef.current?.([]);
       return;
     }
 
@@ -115,7 +113,7 @@ export default function DistrictMapSelector({
         if (!active) return;
         setZones(zoneResult.zones);
         setGeojson(nextGeojson);
-        onZonesLoaded?.(zoneResult.zones);
+        onZonesLoadedRef.current?.(zoneResult.zones);
         setStatus(nextGeojson?.features.length ? "" : "Map boundaries are not loaded for this city yet. Use the checklist below.");
       })
       .catch(() => {
@@ -128,112 +126,120 @@ export default function DistrictMapSelector({
     return () => {
       active = false;
     };
-  }, [citySlug, onZonesLoaded]);
+  }, [citySlug]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !hasMapFeatures) return;
     let cancelled = false;
 
     async function buildMap() {
-      const maplibregl = await import("maplibre-gl");
-      if (cancelled || !mapContainerRef.current || !geojson) return;
+      try {
+        const maplibregl = await import("maplibre-gl");
+        if (cancelled || !mapContainerRef.current || !geojson) return;
 
-      mapRef.current?.remove();
-      const center = selectedCity?.center ?? [23.3219, 42.6977];
-      const map = new maplibregl.Map({
-        container: mapContainerRef.current,
-        style: {
-          version: 8,
-          sources: {},
-          layers: [
-            {
-              id: "district-selector-background",
-              type: "background",
-              paint: { "background-color": "#f7faf9" },
+        mapRef.current?.remove();
+        const center = selectedCity?.center ?? [23.3219, 42.6977];
+        const map = new maplibregl.Map({
+          container: mapContainerRef.current,
+          style: {
+            version: 8,
+            sources: {},
+            layers: [
+              {
+                id: "district-selector-background",
+                type: "background",
+                paint: { "background-color": "#f7faf9" },
+              },
+            ],
+          },
+          center,
+          zoom: selectedCity?.default_zoom ?? 11,
+          attributionControl: false,
+        });
+        mapRef.current = map;
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+        map.on("error", () => {
+          if (!cancelled) setStatus("District map failed to render. Use the checklist below.");
+        });
+
+        map.on("load", () => {
+          map.addSource("districts", {
+            type: "geojson",
+            data: geojson as unknown as FeatureCollection<Geometry, GeoJsonProperties>,
+            promoteId: "zone_id",
+          });
+          map.addLayer({
+            id: "district-fills",
+            type: "fill",
+            source: "districts",
+            paint: {
+              "fill-color": [
+                "case",
+                ["in", ["get", "zone_id"], ["literal", disabledRef.current]],
+                "#d6d6d6",
+                ["in", ["get", "zone_id"], ["literal", selectedRef.current]],
+                "#008489",
+                ["==", ["get", "zone_id"], ""],
+                "#b8e4e2",
+                "#eef3f2",
+              ],
+              "fill-opacity": [
+                "case",
+                ["in", ["get", "zone_id"], ["literal", selectedRef.current]],
+                0.72,
+                0.58,
+              ],
             },
-          ],
-        },
-        center,
-        zoom: selectedCity?.default_zoom ?? 11,
-        attributionControl: false,
-      });
-      mapRef.current = map;
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+          });
+          map.addLayer({
+            id: "district-lines",
+            type: "line",
+            source: "districts",
+            paint: {
+              "line-color": [
+                "case",
+                ["in", ["get", "zone_id"], ["literal", selectedRef.current]],
+                "#006c70",
+                "#6a8f8d",
+              ],
+              "line-width": [
+                "case",
+                ["in", ["get", "zone_id"], ["literal", selectedRef.current]],
+                2,
+                1,
+              ],
+            },
+          });
+          const bounds = boundsFromGeoJSON(geojson);
+          if (bounds) map.fitBounds(bounds, { padding: 28, duration: 0 });
 
-      map.on("load", () => {
-        map.addSource("districts", {
-          type: "geojson",
-          data: geojson as unknown as FeatureCollection<Geometry, GeoJsonProperties>,
-          promoteId: "zone_id",
+          map.on("mousemove", "district-fills", (event: MapLayerMouseEvent) => {
+            map.getCanvas().style.cursor = "pointer";
+            const zoneId = String(event.features?.[0]?.properties?.zone_id ?? "");
+            setHoveredZoneId(zoneId);
+          });
+          map.on("mouseleave", "district-fills", () => {
+            map.getCanvas().style.cursor = "";
+            setHoveredZoneId("");
+          });
+          map.on("click", "district-fills", (event: MapLayerMouseEvent) => {
+            const zoneId = String(event.features?.[0]?.properties?.zone_id ?? "");
+            if (!zoneId || disabledRef.current.includes(zoneId)) return;
+            const next = new Set(selectedRef.current);
+            if (mode === "single") {
+              onChangeRef.current(next.has(zoneId) ? [] : [zoneId]);
+              return;
+            }
+            if (next.has(zoneId)) next.delete(zoneId);
+            else next.add(zoneId);
+            const ordered = zones.filter((zone) => next.has(zone.zone_id)).map((zone) => zone.zone_id);
+            onChangeRef.current(ordered);
+          });
         });
-        map.addLayer({
-          id: "district-fills",
-          type: "fill",
-          source: "districts",
-          paint: {
-            "fill-color": [
-              "case",
-              ["in", ["get", "zone_id"], ["literal", disabledRef.current]],
-              "#d6d6d6",
-              ["in", ["get", "zone_id"], ["literal", selectedRef.current]],
-              "#008489",
-              ["==", ["get", "zone_id"], ""],
-              "#b8e4e2",
-              "#eef3f2",
-            ],
-            "fill-opacity": [
-              "case",
-              ["in", ["get", "zone_id"], ["literal", selectedRef.current]],
-              0.72,
-              0.58,
-            ],
-          },
-        });
-        map.addLayer({
-          id: "district-lines",
-          type: "line",
-          source: "districts",
-          paint: {
-            "line-color": [
-              "case",
-              ["in", ["get", "zone_id"], ["literal", selectedRef.current]],
-              "#006c70",
-              "#6a8f8d",
-            ],
-            "line-width": [
-              "case",
-              ["in", ["get", "zone_id"], ["literal", selectedRef.current]],
-              2,
-              1,
-            ],
-          },
-        });
-        const bounds = boundsFromGeoJSON(geojson);
-        if (bounds) map.fitBounds(bounds, { padding: 28, duration: 0 });
-      });
-
-      map.on("mousemove", "district-fills", (event: MapLayerMouseEvent) => {
-        map.getCanvas().style.cursor = "pointer";
-        const zoneId = String(event.features?.[0]?.properties?.zone_id ?? "");
-        setHoveredZoneId(zoneId);
-      });
-      map.on("mouseleave", "district-fills", () => {
-        map.getCanvas().style.cursor = "";
-        setHoveredZoneId("");
-      });
-      map.on("click", "district-fills", (event: MapLayerMouseEvent) => {
-        const zoneId = String(event.features?.[0]?.properties?.zone_id ?? "");
-        if (!zoneId || disabledRef.current.includes(zoneId)) return;
-        const next = new Set(selectedRef.current);
-        if (mode === "single") {
-          onChangeRef.current(next.has(zoneId) ? [] : [zoneId]);
-          return;
-        }
-        if (next.has(zoneId)) next.delete(zoneId);
-        else next.add(zoneId);
-        const ordered = zones.filter((zone) => next.has(zone.zone_id)).map((zone) => zone.zone_id);
-        onChangeRef.current(ordered);
-      });
+      } catch {
+        if (!cancelled) setStatus("District map failed to load. Use the checklist below.");
+      }
     }
 
     void buildMap();

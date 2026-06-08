@@ -2689,6 +2689,7 @@ img {
 }
 
 .host-property-card-top {
+  flex: 1;                  /* absorbs slack so every card-top is the same height → stats align */
   display: flex;
   align-items: flex-start;
   gap: 13px;
@@ -2796,33 +2797,35 @@ img {
 
 .host-property-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
-  gap: 8px;
-  margin: 14px 16px 4px;
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+  gap: 4px;
+  margin: 12px 16px 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
 }
 
 .host-property-stats > div {
   display: grid;
-  gap: 2px;
-  padding: 10px 8px;
+  gap: 1px;
+  min-width: 0;            /* allow the cell to shrink so values can't spill */
+  padding: 4px 2px;
   text-align: center;
-  background: var(--canvas);
-  border-radius: 12px;
 }
 
 .host-property-stats strong {
   color: var(--ink);
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
-  line-height: 1.1;
+  line-height: 1.15;
+  overflow-wrap: anywhere; /* long prices wrap inside the cell instead of overflowing */
 }
 
 .host-property-stats small {
   color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
 }
 
 /* ── Jobs + Calendar layout ──────────────────────────────── */

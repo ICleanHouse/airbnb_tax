@@ -1,21 +1,83 @@
 @import "maplibre-gl/dist/maplibre-gl.css";
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&display=swap");
 
+/* ============================================================================
+   Design tokens — adapted from the "Host Cleaners Design System" export.
+   Warm ecru canvas + crisp white surfaces, coral as the single hero accent,
+   status-only supporting accents, Geist type, refined 600-weight headings.
+   ========================================================================= */
 :root {
-  --background: #ffffff;
-  --surface: #ffffff;
-  --surface-soft: #c2c2c2;
+  /* ---- Brand ---- */
+  --brand: #ff385c;          /* coral — primary action, hero accent */
+  --brand-strong: #e21d48;   /* coral pressed / hover */
+  --brand-tint: rgba(255, 56, 92, 0.10);
+
+  /* ---- Supporting accents (status only) ---- */
+  --teal: #008489;
+  --teal-tint: rgba(0, 132, 137, 0.10);
+  --gold: #b7791f;
+  --gold-tint: rgba(183, 121, 31, 0.12);
+  --success: #15803d;
+  --success-tint: rgba(34, 197, 94, 0.12);
+  --warning: #c2410c;
+  --warning-tint: rgba(249, 115, 22, 0.12);
+
+  /* ---- Neutrals — warm ecru canvas, white surfaces ---- */
+  --canvas: #f7f4ee;         /* warm ecru page background */
+  --canvas-2: #f1ece3;       /* deeper ecru band / alt section */
+  --paper: #ffffff;          /* original white canvas (kept available) */
+  --background: var(--canvas);
+  --surface: #ffffff;        /* cards, modals, inputs */
+  --surface-soft: #c2c2c2;   /* existing mid-grey inset (unchanged) */
+  --surface-inset: #faf8f4;  /* design-system soft inset surface */
+  --header-highlight: #e6e6e6;
+
+  /* ---- Ink & text ---- */
+  --ink: #111111;
   --text: #222222;
   --muted: #6a6a6a;
   --line: #dddddd;
-  --header-highlight: #e6e6e6;
-  --brand: #ff385c;
-  --brand-strong: #e21d48;
-  --ink: #111111;
-  --teal: #008489;
-  --gold: #b7791f;
-  --warning: #c2410c;
+  --line-soft: #ececec;
+
+  /* ---- Radii ---- */
+  --radius-sm: 8px;
   --radius: 8px;
-  --shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
+  --radius-card: 16px;
+  --radius-lg: 20px;
+  --radius-img: 14px;
+  --radius-pill: 999px;
+
+  /* ---- Shadows / elevation ---- */
+  --shadow-xs: 0 1px 2px rgba(17, 17, 17, 0.04);
+  --shadow-sm: 0 2px 8px rgba(17, 17, 17, 0.05);
+  --shadow-card: 0 6px 20px rgba(17, 17, 17, 0.08);
+  --shadow-md: 0 12px 40px rgba(17, 17, 17, 0.10);
+  --shadow-modal: 0 24px 64px rgba(17, 17, 17, 0.22);
+  --shadow: 0 18px 48px rgba(0, 0, 0, 0.14);   /* existing alias (unchanged) */
+
+  /* ---- Focus ring ---- */
+  --focus-ring: 0 0 0 3px rgba(255, 56, 92, 0.14);
+
+  /* ---- Motion ---- */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 0.12s;
+  --dur: 0.2s;
+
+  /* ---- Type ---- */
+  --font-sans: "Geist", "Inter", ui-sans-serif, system-ui, -apple-system,
+               BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --fs-display: clamp(40px, 7vw, 78px);
+  --fs-h1: 38px;
+  --fs-h2: 28px;
+  --fs-h3: 20px;
+  --fs-h4: 16px;
+  --fs-body: 16px;
+  --fs-sm: 14px;
+  --fs-xs: 13px;
+  --fs-2xs: 12px;
+  --lh-tight: 0.98;
+  --lh-snug: 1.2;
+  --lh-body: 1.5;
 }
 
 * {
@@ -32,9 +94,7 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--text);
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family: var(--font-sans);
 }
 
 button,
@@ -176,7 +236,7 @@ img {
   color: var(--text);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   outline: 0;
   padding: 0 20px 0 13px;
 }
@@ -240,7 +300,7 @@ img {
   margin: 0 0 10px;
   color: var(--brand);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -284,7 +344,7 @@ img {
   border-radius: 999px;
   background: transparent;
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 16px;
 }
 
@@ -310,7 +370,7 @@ img {
 .search-fields label span {
   color: var(--text);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .search-fields input,
@@ -333,7 +393,7 @@ img {
   background: var(--brand);
   color: #ffffff;
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 600;
   margin: 13px;
   padding: 0 20px;
 }
@@ -369,7 +429,7 @@ img {
   border-bottom: 1px solid var(--line);
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
@@ -428,7 +488,7 @@ img {
   background: rgba(183, 121, 31, 0.1);
   color: var(--gold);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 4px 10px;
 }
 
@@ -547,7 +607,7 @@ img {
   align-items: center;
   gap: 5px;
   color: var(--text);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .cleaner-card span svg {
@@ -614,7 +674,7 @@ img {
   gap: 8px;
   border-radius: 999px;
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 18px;
 }
 
@@ -916,7 +976,7 @@ img {
   background: var(--surface);
   color: var(--ink);
   font-size: 33px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -976,7 +1036,7 @@ img {
   gap: 10px;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .signup-loading-spinner {
@@ -1059,7 +1119,7 @@ img {
 .signup-sex-field legend {
   color: var(--text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0;
 }
 
@@ -1081,7 +1141,7 @@ img {
   background: var(--surface);
   color: var(--ink);
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 13px;
 }
 
@@ -1105,7 +1165,7 @@ img {
 .signup-birthdate-field > span {
   color: var(--text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .birthdate-picker {
@@ -1218,7 +1278,7 @@ img {
   color: var(--ink);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 8px;
 }
 
@@ -1249,7 +1309,7 @@ img {
 .birthdate-weekdays span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -1311,7 +1371,7 @@ img {
   background: var(--surface);
   color: var(--ink);
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 16px;
   text-align: left;
 }
@@ -1349,7 +1409,7 @@ img {
   margin: 0;
   color: var(--ink);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .signup-availability-choice-grid {
@@ -1402,7 +1462,7 @@ img {
   align-items: center;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .signup-weekly-availability-head {
@@ -1482,11 +1542,11 @@ img {
 
 .signup-character-count.at-limit {
   color: #b91c1c;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .auth-form label .signup-character-count.at-limit {
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .signup-profile-photo-form {
@@ -1629,7 +1689,7 @@ img {
   cursor: pointer;
   font: inherit;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0;
   text-decoration: underline;
   text-underline-offset: 4px;
@@ -1729,7 +1789,7 @@ img {
 .license-category-panel strong {
   color: var(--text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .license-category-grid {
@@ -1747,7 +1807,7 @@ img {
   color: var(--text);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 12px;
 }
 
@@ -1916,7 +1976,7 @@ img {
   color: #ffffff;
   cursor: pointer;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -1972,7 +2032,7 @@ img {
 .workspace-grid span {
   color: var(--text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .auth-form input,
@@ -2047,7 +2107,7 @@ img {
   align-items: center;
   justify-content: center;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   flex: 0 0 auto;
 }
 
@@ -2097,7 +2157,7 @@ img {
 
 .role-option span,
 .workspace-grid strong {
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .role-option small {
@@ -2148,7 +2208,7 @@ img {
 
 .social-google-g {
   font-size: 30px;
-  font-weight: 800;
+  font-weight: 600;
   background: conic-gradient(
     from 20deg,
     #4285f4 0deg 90deg,
@@ -2171,7 +2231,7 @@ img {
   border: 0;
   border-radius: 999px;
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 18px;
 }
 
@@ -2192,7 +2252,7 @@ img {
   gap: 12px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .auth-divider::before,
@@ -2232,7 +2292,7 @@ img {
 
 .auth-switch a {
   color: var(--brand-strong);
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .app-header,
@@ -2322,7 +2382,7 @@ img {
   border-radius: 999px;
   background: var(--surface);
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 13px;
   white-space: nowrap;
 }
@@ -2340,7 +2400,7 @@ img {
 /* Page shell */
 .host-page {
   min-height: calc(100vh - 64px);
-  background: #f7f7f7;
+  background: var(--canvas);
 }
 
 .host-loading {
@@ -2406,7 +2466,7 @@ img {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.25);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 4px;
 }
 
@@ -2471,7 +2531,7 @@ img {
 .cleaner-account-menu-identity strong {
   color: var(--ink);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -2650,7 +2710,7 @@ img {
   display: block;
   color: var(--ink);
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -2746,14 +2806,14 @@ img {
   gap: 2px;
   padding: 10px 8px;
   text-align: center;
-  background: #f7f7f7;
+  background: var(--canvas);
   border-radius: 12px;
 }
 
 .host-property-stats strong {
   color: var(--ink);
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.1;
 }
 
@@ -2792,7 +2852,7 @@ img {
 
 .host-cal-title {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--ink);
   letter-spacing: -0.2px;
 }
@@ -2831,7 +2891,7 @@ img {
   padding: 4px 0 8px;
   color: var(--muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.5px;
   text-align: center;
   text-transform: uppercase;
@@ -2882,7 +2942,7 @@ img {
 .host-cal-day.today .host-cal-day-num {
   background: var(--brand);
   color: #ffffff;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .host-cal-day.selected {
@@ -2909,6 +2969,93 @@ img {
   height: 8px;
   border-radius: 50%;
   flex: 0 0 auto;
+}
+
+/* Job thumbnails inside a calendar day cell (property photo + cleaner badge) */
+.host-cal-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+  min-height: 20px;
+}
+
+.host-cal-thumb {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--surface);
+  flex: 0 0 auto;
+}
+
+.host-cal-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.host-cal-thumb--icon {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  background: #f3f3f3;
+  color: var(--muted);
+}
+
+.host-cal-thumb-avatar {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: #ffffff;
+  font-size: 7px;
+  font-weight: 600;
+  line-height: 1;
+  overflow: hidden;
+  box-shadow: 0 0 0 1.5px var(--surface);
+}
+
+.host-cal-thumb-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Pending-application indicator — small brand dot, top-right of the thumbnail */
+.host-cal-thumb-pending {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 0 1.5px var(--surface);
+  pointer-events: none;
+}
+
+.host-cal-thumb-more {
+  display: grid;
+  place-items: center;
+  height: 20px;
+  min-width: 20px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: #f0f0f0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .host-cal-legend {
@@ -2948,7 +3095,7 @@ img {
   padding: 15px 18px;
   border-bottom: 1px solid var(--line);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--ink);
 }
 
@@ -3022,7 +3169,7 @@ img {
 .host-job-info strong {
   color: var(--ink);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -3059,7 +3206,7 @@ img {
   align-items: center;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 3px 9px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -3076,7 +3223,7 @@ img {
 .host-job-price {
   color: var(--teal);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .host-publish-btn {
@@ -3089,7 +3236,7 @@ img {
   color: var(--teal);
   cursor: pointer;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 12px;
   transition: background 0.15s, color 0.15s;
 }
@@ -3167,7 +3314,7 @@ img {
 .host-form label span {
   color: var(--text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .host-form input,
@@ -3251,18 +3398,46 @@ img {
   }
 
   .host-cal-day {
-    min-height: 56px;
+    min-height: 58px;
     font-size: 13px;
     border-radius: 9px;
   }
 
   .host-cal-blank {
-    min-height: 56px;
+    min-height: 58px;
   }
 
   .host-cal-grid {
     gap: 3px;
     padding: 8px;
+  }
+
+  .host-cal-thumbs {
+    gap: 2px;
+    min-height: 16px;
+  }
+
+  .host-cal-thumb,
+  .host-cal-thumb-more {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    border-radius: 5px;
+  }
+
+  .host-cal-thumb-avatar {
+    width: 9px;
+    height: 9px;
+    font-size: 6px;
+    right: -2px;
+    bottom: -2px;
+  }
+
+  .host-cal-thumb-pending {
+    width: 6px;
+    height: 6px;
+    top: -2px;
+    right: -2px;
   }
 
   .host-job-right {
@@ -3290,14 +3465,6 @@ img {
 
 .cleaner-page-error {
   margin: 16px 24px 0;
-}
-
-.cleaner-page .host-pending-banner,
-.cleaner-page .host-section,
-.cleaner-page-error {
-  width: min(1240px, 100%);
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .cleaner-verification-banner {
@@ -3329,7 +3496,7 @@ img {
 .cleaner-summary-grid span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
@@ -3341,7 +3508,7 @@ img {
 }
 
 .cleaner-calendar-layout {
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
 }
 
 .cleaner-calendar-loading {
@@ -3432,7 +3599,7 @@ img {
   display: block;
   color: var(--ink);
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -3482,7 +3649,7 @@ img {
   color: #ffffff;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 14px;
   white-space: nowrap;
 }
@@ -3522,7 +3689,7 @@ img {
   background: var(--header-highlight);
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 4px 10px;
   text-transform: capitalize;
   white-space: nowrap;
@@ -3583,7 +3750,7 @@ img {
   margin: 0;
   color: var(--ink);
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .cleaner-profile-section-head {
@@ -3622,7 +3789,7 @@ img {
 .cleaner-service-areas-header span {
   color: var(--text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .cleaner-service-area-tags {
@@ -3727,7 +3894,7 @@ img {
 .cleaner-other-languages-header span {
   color: var(--text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .cleaner-other-languages-button {
@@ -3816,7 +3983,7 @@ img {
 .cleaner-avatar-label {
   color: var(--text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .cleaner-avatar-uploader input {
@@ -3911,13 +4078,13 @@ img {
 .cleaner-crop-zoom span {
   color: var(--text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .cleaner-crop-zoom strong {
   color: var(--ink);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
   min-width: 44px;
   text-align: right;
 }
@@ -4021,7 +4188,7 @@ img {
 .cleaner-weekly-availability-slot {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -4063,7 +4230,7 @@ img {
   margin: 0 0 10px;
   color: var(--text);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .cleaner-success {
@@ -4073,7 +4240,7 @@ img {
   margin: 0;
   color: var(--teal);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .cleaner-apply-summary {
@@ -4175,7 +4342,7 @@ img {
 
 .admin-page {
   min-height: 100vh;
-  background: #f7f7f7;
+  background: var(--canvas);
   display: flex;
   flex-direction: column;
 }
@@ -4229,7 +4396,7 @@ img {
   flex: 1;
   text-align: center;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--muted);
@@ -4261,7 +4428,7 @@ img {
   margin: 0 0 8px 10px;
   color: var(--muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.6px;
   text-transform: uppercase;
 }
@@ -4307,7 +4474,7 @@ img {
   background: var(--brand);
   color: #ffffff;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   margin-left: auto;
   padding: 0 5px;
 }
@@ -4400,7 +4567,7 @@ img {
   background: linear-gradient(135deg, var(--brand), var(--teal));
   color: #ffffff;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -4448,7 +4615,7 @@ img {
   align-items: center;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 3px 10px;
   white-space: nowrap;
 }
@@ -4497,7 +4664,7 @@ img {
   border: 0;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 14px;
   white-space: nowrap;
 }
@@ -4867,7 +5034,7 @@ img {
   color: var(--brand);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0;
 }
 
@@ -4972,7 +5139,7 @@ img {
   margin: 0;
   color: var(--ink);
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 @media (max-width: 620px) {
@@ -5013,7 +5180,7 @@ img {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f7f7f7;
+  background: var(--canvas);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   color: var(--muted);
@@ -5416,7 +5583,7 @@ img {
   margin: 0 0 14px;
   color: var(--ink);
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .host-apps-subtitle--muted {
@@ -5434,7 +5601,7 @@ img {
   background: var(--brand);
   color: #ffffff;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 5px;
 }
 
@@ -5511,7 +5678,7 @@ img {
 .host-app-job-title {
   color: var(--ink);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -5582,7 +5749,7 @@ img {
 .host-app-price {
   color: var(--teal);
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .host-app-price--job {
@@ -5608,7 +5775,7 @@ img {
   align-items: center;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 3px 10px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -5623,6 +5790,12 @@ img {
 .host-app-badge--done {
   background: rgba(34, 197, 94, 0.12);
   color: #15803d;
+}
+
+/* Host-sent direct offer awaiting the cleaner's decision (gold = pending offer) */
+.host-app-badge--offer {
+  background: rgba(183, 121, 31, 0.12);
+  color: var(--gold);
 }
 
 /* Accept / Decline action button group */
@@ -5645,7 +5818,7 @@ img {
   border: 0;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 14px;
   white-space: nowrap;
 }
@@ -5735,7 +5908,7 @@ img {
 
 .host-appdash-label {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--muted);
@@ -5743,7 +5916,7 @@ img {
 
 .host-appdash-value {
   font-size: 32px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
   color: var(--ink);
 }
@@ -5891,7 +6064,7 @@ img {
   color: #15803d;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 0 12px;
   white-space: nowrap;
   transition: background 0.15s, color 0.15s;
@@ -5981,7 +6154,7 @@ img {
 
 .host-review-submit {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 6px 18px;
   border-radius: 999px;
   border: none;
@@ -6301,7 +6474,7 @@ img {
 }
 .cleaner-browser-field select:disabled {
   color: var(--muted);
-  background: #f7f7f7;
+  background: var(--canvas);
   cursor: not-allowed;
 }
 .cleaner-browser-clear {

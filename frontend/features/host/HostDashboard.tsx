@@ -97,6 +97,7 @@ interface CleanerApplication {
   cleaner_email: string;
   cleaner_profile_id: number | null;
   status: ApplicationStatus;
+  origin: "cleaner_applied" | "host_offered";
   proposed_price: string | null;
   message: string;
   created_at: string;
@@ -114,6 +115,7 @@ interface HostAssignment {
   cleaner: number;
   cleaner_name: string;
   cleaner_email: string;
+  cleaner_profile_image?: string | null;
   agreed_price: string | null;
   host_completed_at: string | null;
   cleaner_completed_at: string | null;
@@ -585,8 +587,13 @@ export default function HostDashboard() {
       setJobDesc("");
       if (day !== undefined) {
         setJobDate(`${calYear}-${pad(calMonth + 1)}-${pad(day)}`);
+      } else if (selectedDay !== null) {
+        // "Post a job" with a calendar day selected → use that day's date.
+        setJobDate(`${calYear}-${pad(calMonth + 1)}-${pad(selectedDay)}`);
       } else {
-        setJobDate("");
+        // Nothing selected → default to today.
+        const today = new Date();
+        setJobDate(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
       }
       setJobStartTime("10:00");
       setJobEndTime("12:00");
@@ -893,6 +900,11 @@ export default function HostDashboard() {
 
   function getPropName(id: number) {
     return properties.find((p) => p.id === id)?.name ?? `Property #${id}`;
+  }
+
+  /** First photo of a property, or null when it has none (icon fallback). */
+  function getPropThumb(id: number): string | null {
+    return properties.find((p) => p.id === id)?.images?.[0]?.image ?? null;
   }
 
   /** Reviews where this host is the reviewee (written by cleaners about the host). */
@@ -1387,15 +1399,23 @@ export default function HostDashboard() {
                               ) : null}
 
                               <div className="host-app-actions">
-                                <button
-                                  className="host-app-accept-btn"
-                                  type="button"
-                                  disabled={actingAppId === app.id}
-                                  onClick={() => void acceptApplication(app.id)}
-                                >
-                                  <Check size={13} aria-hidden />
-                                  {actingAppId === app.id ? "…" : "Accept"}
-                                </button>
+                                {app.origin === "host_offered" ? (
+                                  // The host sent this offer — only the cleaner can accept it,
+                                  // so there's no Accept button here, just a withdraw option.
+                                  <span className="host-app-badge host-app-badge--offer">
+                                    Offer sent · awaiting cleaner
+                                  </span>
+                                ) : (
+                                  <button
+                                    className="host-app-accept-btn"
+                                    type="button"
+                                    disabled={actingAppId === app.id}
+                                    onClick={() => void acceptApplication(app.id)}
+                                  >
+                                    <Check size={13} aria-hidden />
+                                    {actingAppId === app.id ? "…" : "Accept"}
+                                  </button>
+                                )}
                                 <button
                                   className="host-app-reject-btn"
                                   type="button"
@@ -1403,7 +1423,7 @@ export default function HostDashboard() {
                                   onClick={() => void rejectApplication(app.id)}
                                 >
                                   <X size={13} aria-hidden />
-                                  Decline
+                                  {app.origin === "host_offered" ? "Withdraw" : "Decline"}
                                 </button>
                               </div>
                             </div>
@@ -1792,14 +1812,51 @@ export default function HostDashboard() {
                           title={dayJobs.length > 0 ? `${dayJobs.length} job(s)` : "Click to post a job"}
                         >
                           <span className="host-cal-day-num">{day}</span>
-                          <div className="host-cal-dots">
-                            {dayJobs.slice(0, 4).map((j) => (
-                              <span
-                                key={j.id}
-                                className="host-cal-dot"
-                                style={{ background: STATUS_COLOR[j.status] }}
-                              />
-                            ))}
+                          <div className="host-cal-thumbs">
+                            {dayJobs.slice(0, 3).map((j) => {
+                              const propThumb = getPropThumb(j.property);
+                              const activity = jobActivityMap.get(j.id);
+                              const assignment = activity?.assignment ?? null;
+                              const hasPendingApps = (activity?.pendingApps ?? 0) > 0;
+                              const cleanerImg = assignment?.cleaner_profile_image || null;
+                              const cleanerInitial = assignment?.cleaner_name?.charAt(0).toUpperCase() ?? "";
+                              return (
+                                <span
+                                  key={j.id}
+                                  className="host-cal-thumb"
+                                  style={{ boxShadow: `inset 0 0 0 1.5px ${STATUS_COLOR[j.status]}` }}
+                                >
+                                  {propThumb ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={propThumb} alt="" loading="lazy" decoding="async" />
+                                  ) : (
+                                    <span className="host-cal-thumb--icon">
+                                      <Building2 size={11} aria-hidden />
+                                    </span>
+                                  )}
+                                  {hasPendingApps && (
+                                    <span
+                                      className="host-cal-thumb-pending"
+                                      aria-hidden
+                                      title={`${activity?.pendingApps} pending application${activity?.pendingApps !== 1 ? "s" : ""}`}
+                                    />
+                                  )}
+                                  {assignment && (
+                                    <span className="host-cal-thumb-avatar" aria-hidden>
+                                      {cleanerImg ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={cleanerImg} alt="" loading="lazy" decoding="async" />
+                                      ) : (
+                                        cleanerInitial
+                                      )}
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })}
+                            {dayJobs.length > 3 && (
+                              <span className="host-cal-thumb-more">+{dayJobs.length - 3}</span>
+                            )}
                           </div>
                         </button>
                       );

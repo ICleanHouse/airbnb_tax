@@ -124,6 +124,22 @@ export default function NotificationBell() {
       return `/cleaner?${params.toString()}`;
     }
 
+    // Host: a cleaner application or a response to a direct offer opens the
+    // Applications section so the host can act on it right away.
+    if (pathname.startsWith("/host")) {
+      switch (notification.notification_type) {
+        case "application.submitted":
+        case "application.withdrawn":
+          return "/host?section=applications&appFilter=pending";
+        case "offer.accepted":
+          return "/host?section=applications&appFilter=active";
+        case "offer.declined":
+          return "/host?section=applications";
+        default:
+          break;
+      }
+    }
+
     return null;
   }
 

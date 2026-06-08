@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ChangeEvent, FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Briefcase,
+  Building2,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -27,6 +28,7 @@ import { apiFetch, CurrentUser } from "../../lib/api";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import DistrictMapSelector from "../../app/components/DistrictMapSelector";
 import NotificationBell from "../../components/NotificationBell";
+import RatingStars from "../../components/RatingStars";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
 import type { ServiceZone } from "../../types/locations";
@@ -136,6 +138,7 @@ interface CalendarItem {
   currency: string;
   price: string | null;
   property_name: string;
+  property_image?: string | null;
   property_city: string;
   host_name: string;
   job_status: JobStatus;
@@ -206,7 +209,8 @@ type ProfileFieldErrorKey =
 
 type ProfileFieldErrors = Partial<Record<ProfileFieldErrorKey, string>>;
 
-type Section = "calendar" | "jobs" | "offers" | "assignments" | "profile";
+type Section = "calendar" | "applications" | "offers" | "profile";
+type CleanerAppFilter = "pending" | "active" | "completed" | "open" | "rating" | null;
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -614,6 +618,7 @@ export default function CleanerDashboard() {
   const [loadingCalendar, setLoadingCalendar] = useState(false);
   const [dataError, setDataError] = useState("");
   const [section, setSection] = useState<Section>("calendar");
+  const [appFilter, setAppFilter] = useState<CleanerAppFilter>(null);
   const [jobCityFilter, setJobCityFilter] = useState<string>("");
 
   const now = useMemo(() => new Date(), []);
@@ -701,8 +706,10 @@ export default function CleanerDashboard() {
   }, [me, calYear, calMonth]);
 
   useEffect(() => {
-    if (requestedSection === "assignments") {
-      setSection("assignments");
+    if (requestedSection === "assignments" || requestedSection === "applications") {
+      setSection("applications");
+    } else if (requestedSection === "calendar" || requestedSection === "offers") {
+      setSection(requestedSection);
     }
   }, [requestedSection]);
 
@@ -890,7 +897,8 @@ export default function CleanerDashboard() {
         `/api/marketplace/calendar/?start=${encodeURIComponent(range.start)}&end=${encodeURIComponent(range.end)}`,
       );
       if (res.ok) {
-        setCalendarItems(readList<CalendarItem>(await res.json()));
+        const items = readList<CalendarItem>(await res.json());
+        setCalendarItems(items.filter((item) => item.item_type === "assignment"));
       }
     } finally {
       if (!silent) setLoadingCalendar(false);
@@ -1524,6 +1532,10 @@ export default function CleanerDashboard() {
     () => assignments.filter((assignment) => !assignment.completed_at),
     [assignments],
   );
+  const completedAssignments = useMemo(
+    () => assignments.filter((assignment) => Boolean(assignment.completed_at)),
+    [assignments],
+  );
 
   useEffect(() => {
     if (!requestedReviewJobId || Number.isNaN(requestedReviewJobId)) return;
@@ -1539,7 +1551,8 @@ export default function CleanerDashboard() {
 
     if (!isComplete || existingHostReview) return;
 
-    setSection("assignments");
+    setSection("applications");
+    setAppFilter("completed");
     setReviewJobId(requestedReviewJobId);
     setReviewRating(0);
     setReviewComment("");
@@ -1608,7 +1621,14 @@ export default function CleanerDashboard() {
     (application) => application.origin === "host_offered" && application.status === "pending",
   );
   const selfApplications = applications.filter((application) => application.origin !== "host_offered");
-  const pendingApplications = selfApplications.filter((application) => application.status === "pending").length;
+  const pendingSelfApplications = selfApplications
+    .filter((application) => application.status === "pending")
+    .sort((a, b) => (a.job_scheduled_start ?? "").localeCompare(b.job_scheduled_start ?? ""));
+  const pendingApplications = pendingSelfApplications.length;
+  const myReceivedReviews = reviews.filter((review) => review.reviewee === (me?.id ?? -1));
+  const myRatingAvg = myReceivedReviews.length > 0
+    ? myReceivedReviews.reduce((sum, review) => sum + review.rating, 0) / myReceivedReviews.length
+    : null;
   const fullName = `${me?.first_name || ""} ${me?.last_name || ""}`.trim();
   const displayName = fullName || me?.email.split("@")[0] || "Cleaner";
   const currentProfileSnapshot = useMemo(
@@ -1702,17 +1722,19 @@ export default function CleanerDashboard() {
             onClick={() => setSection("calendar")}
           >
             <CalendarDays size={15} aria-hidden />
-            Calendar
+            Jobs &amp; Calendar
             {calendarItems.length > 0 && <span className="host-tab-count">{calendarItems.length}</span>}
           </button>
           <button
             type="button"
-            className={`host-tab${section === "jobs" ? " active" : ""}`}
-            onClick={() => setSection("jobs")}
+            className={`host-tab${section === "applications" ? " active" : ""}`}
+            onClick={() => setSection("applications")}
           >
-            <Briefcase size={15} aria-hidden />
-            Open jobs
-            {openJobs.length > 0 && <span className="host-tab-count">{openJobs.length}</span>}
+            <ClipboardList size={15} aria-hidden />
+            Applications
+            {pendingApplications + activeAssignments.length > 0 && (
+              <span className="host-tab-count">{pendingApplications + activeAssignments.length}</span>
+            )}
           </button>
           <button
             type="button"
@@ -1722,15 +1744,6 @@ export default function CleanerDashboard() {
             <Gift size={15} aria-hidden />
             Offers
             {pendingOffers.length > 0 && <span className="host-tab-count host-tab-count--gold">{pendingOffers.length}</span>}
-          </button>
-          <button
-            type="button"
-            className={`host-tab${section === "assignments" ? " active" : ""}`}
-            onClick={() => setSection("assignments")}
-          >
-            <ClipboardList size={15} aria-hidden />
-            Assigned
-            {activeAssignments.length > 0 && <span className="host-tab-count">{activeAssignments.length}</span>}
           </button>
         </nav>
 
@@ -1785,7 +1798,7 @@ export default function CleanerDashboard() {
             <div className="host-section-header">
               <div>
                 <p className="eyebrow" style={{ margin: "0 0 4px" }}>Cleaner schedule</p>
-                <h1 className="host-section-title">Calendar</h1>
+                <h1 className="host-section-title">Jobs &amp; Calendar</h1>
               </div>
               <button
                 className="secondary-link admin-refresh-button"
@@ -1839,14 +1852,26 @@ export default function CleanerDashboard() {
                           title={dayItems.length > 0 ? `${dayItems.length} calendar item(s)` : "No items"}
                         >
                           <span className="host-cal-day-num">{day}</span>
-                          <div className="host-cal-dots">
-                            {dayItems.slice(0, 4).map((item) => (
+                          <div className="host-cal-thumbs">
+                            {dayItems.slice(0, 3).map((item) => (
                               <span
                                 key={item.id}
-                                className="host-cal-dot"
-                                style={{ background: calendarItemColor(item) }}
-                              />
+                                className="host-cal-thumb"
+                                style={{ boxShadow: `inset 0 0 0 1.5px ${calendarItemColor(item)}` }}
+                              >
+                                {item.property_image ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={item.property_image} alt="" loading="lazy" decoding="async" />
+                                ) : (
+                                  <span className="host-cal-thumb--icon">
+                                    <Building2 size={11} aria-hidden />
+                                  </span>
+                                )}
+                              </span>
                             ))}
+                            {dayItems.length > 3 && (
+                              <span className="host-cal-thumb-more">+{dayItems.length - 3}</span>
+                            )}
                           </div>
                         </button>
                       );
@@ -1952,12 +1977,12 @@ export default function CleanerDashboard() {
           </div>
         )}
 
-        {section === "jobs" && (
+        {section === "applications" && (
           <div className="host-section">
             <div className="host-section-header">
               <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Marketplace</p>
-                <h1 className="host-section-title">Open cleaning jobs</h1>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Your work</p>
+                <h1 className="host-section-title">Applications</h1>
               </div>
               <button
                 className="secondary-link admin-refresh-button"
@@ -1970,116 +1995,423 @@ export default function CleanerDashboard() {
               </button>
             </div>
 
-            <div className="cleaner-summary-grid">
-              <article>
-                <Briefcase size={18} aria-hidden />
-                <span>Open jobs</span>
-                <strong>{openJobs.length}</strong>
-              </article>
-              <article>
-                <Send size={18} aria-hidden />
-                <span>Pending applications</span>
-                <strong>{pendingApplications}</strong>
-              </article>
-              <article>
-                <ClipboardList size={18} aria-hidden />
-                <span>Assigned jobs</span>
-                <strong>{activeAssignments.length}</strong>
-              </article>
-              <article>
-                <Star size={18} aria-hidden />
-                <span>Rating</span>
-                <strong>{Number(profile?.average_rating ?? 0).toFixed(1)}</strong>
-              </article>
-            </div>
-
-            {availableJobCities.length > 1 && (
-              <div className="cleaner-location-filter">
-                <span className="cleaner-location-filter-label">Filter by city:</span>
-                <div className="cleaner-filter-chips">
-                  <button
-                    type="button"
-                    className={`cleaner-filter-chip${!jobCityFilter ? " active" : ""}`}
-                    onClick={() => setJobCityFilter("")}
-                  >
-                    All
-                  </button>
-                  {availableJobCities.map((city) => (
-                    <button
-                      key={city}
-                      type="button"
-                      className={`cleaner-filter-chip${jobCityFilter === city ? " active" : ""}`}
-                      onClick={() => setJobCityFilter(jobCityFilter === city ? "" : city)}
-                    >
-                      {city}
-                    </button>
-                  ))}
-                </div>
+            {!loadingData && (
+              <div className="host-appdash-grid">
+                <button
+                  type="button"
+                  className={`host-appdash-card${appFilter === "pending" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "pending" ? null : "pending")}
+                >
+                  <span className="host-appdash-label">Pending</span>
+                  <strong className="host-appdash-value">{pendingApplications}</strong>
+                  <span className="host-appdash-sub">applications</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--gold${appFilter === "active" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "active" ? null : "active")}
+                >
+                  <span className="host-appdash-label">Active</span>
+                  <strong className="host-appdash-value">{activeAssignments.length}</strong>
+                  <span className="host-appdash-sub">assignments</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--green${appFilter === "completed" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "completed" ? null : "completed")}
+                >
+                  <span className="host-appdash-label">Completed</span>
+                  <strong className="host-appdash-value">{completedAssignments.length}</strong>
+                  <span className="host-appdash-sub">cleanings</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--teal${appFilter === "open" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "open" ? null : "open")}
+                >
+                  <span className="host-appdash-label">Open jobs</span>
+                  <strong className="host-appdash-value">{openJobs.length}</strong>
+                  <span className="host-appdash-sub">to apply</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--gold${appFilter === "rating" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "rating" ? null : "rating")}
+                >
+                  <span className="host-appdash-label">My rating</span>
+                  <strong className="host-appdash-value host-appdash-value--rating">
+                    {myRatingAvg !== null ? myRatingAvg.toFixed(1) : "—"}
+                  </strong>
+                  <span className="host-appdash-sub">
+                    {myReceivedReviews.length > 0
+                      ? `${myReceivedReviews.length} review${myReceivedReviews.length !== 1 ? "s" : ""} received`
+                      : "no reviews yet"}
+                  </span>
+                </button>
               </div>
             )}
 
             {loadingData ? (
-              <p className="host-empty">Loading jobs...</p>
-            ) : openJobs.length === 0 ? (
-              <div className="host-empty-state">
-                <Briefcase size={40} />
-                <p>{jobCityFilter ? `No open jobs in ${jobCityFilter} right now.` : "No open jobs are visible right now."}</p>
-              </div>
+              <p className="host-empty">Loading...</p>
             ) : (
-              <ul className="cleaner-job-list">
-                {openJobs.map((job) => {
-                  const application = applicationsByJob.get(job.id);
-                  const disabledReason = !me.is_approved
-                    ? "Account approval required"
-                    : !profile?.is_verified
-                      ? "Profile verification required"
-                      : "";
-                  return (
-                    <li key={job.id} className="cleaner-job-card">
-                      <div className="cleaner-job-main">
-                        <div>
-                          <strong>{job.title}</strong>
-                          <span className="job-location-tag">
-                            {job.property_city ?? ""}
-                            {job.property_neighborhood ? (
-                              <span className="job-location-neighborhood">{job.property_neighborhood}</span>
-                            ) : null}
-                            {job.property_name ? ` · ${job.property_name}` : ""}
-                          </span>
-                        </div>
-                        {(job.description || job.cleaning_instructions) && (
-                          <p>{job.description || job.cleaning_instructions}</p>
-                        )}
-                        <div className="cleaner-job-meta">
-                          <span><CalendarDays size={14} aria-hidden />{fmtDateTime(job.scheduled_start)} - {fmtTime(job.scheduled_end)}</span>
-                          <span>{money(job.proposed_price, job.currency)}</span>
-                        </div>
+              <>
+                {applicationActionError ? <p className="form-error cleaner-page-error">{applicationActionError}</p> : null}
+
+                {/* Pending applications */}
+                {(appFilter === null || appFilter === "pending") && (
+                  <div className="host-apps-subsection">
+                    <h2 className="host-apps-subtitle">
+                      Pending applications
+                      {pendingApplications > 0 && <span className="host-apps-subtitle-count">{pendingApplications}</span>}
+                    </h2>
+                    {pendingSelfApplications.length === 0 ? (
+                      <div className="host-apps-empty">
+                        <Send size={32} />
+                        <p>No pending applications.</p>
+                        <span className="host-apps-empty-hint">Apply to open jobs and they appear here until the host responds.</span>
                       </div>
-                      <div className="cleaner-job-actions">
-                        <span className={`host-job-badge host-job-badge--${job.status}`}>
-                          {STATUS_LABEL[job.status]}
-                        </span>
-                        {application ? (
-                          <span className={`cleaner-application-chip cleaner-application-${application.status}`}>
-                            {APPLICATION_LABEL[application.status]}
-                          </span>
-                        ) : (
+                    ) : (
+                      <ul className="host-apps-list">
+                        {pendingSelfApplications.map((application) => (
+                          <li key={application.id} className="host-app-card">
+                            <div className="host-app-card-left">
+                              <div className="host-app-job-info">
+                                <strong className="host-app-job-title">{application.job_title || `Job #${application.job}`}</strong>
+                                <span className="host-app-job-meta">
+                                  {application.job_property_name}
+                                  {application.job_property_city ? ` · ${application.job_property_city}` : ""}
+                                </span>
+                                <span className="host-app-job-time">
+                                  {fmtDateTime(application.job_scheduled_start)}
+                                  {application.job_scheduled_end ? ` – ${fmtTime(application.job_scheduled_end)}` : ""}
+                                </span>
+                              </div>
+                              {application.message && <p className="host-app-message">&quot;{application.message}&quot;</p>}
+                            </div>
+                            <div className="host-app-card-right">
+                              {(application.proposed_price || application.job_proposed_price) && (
+                                <span className="host-app-price">{money(application.proposed_price || application.job_proposed_price, "EUR")}</span>
+                              )}
+                              <div className="host-app-actions">
+                                <span className="host-app-badge host-app-badge--assigned">Awaiting host</span>
+                                <button
+                                  className="host-app-reject-btn"
+                                  type="button"
+                                  disabled={cancelingApplicationId === application.id}
+                                  onClick={() => void cancelApplication(application.id)}
+                                >
+                                  <X size={13} aria-hidden />
+                                  {cancelingApplicationId === application.id ? "..." : "Withdraw"}
+                                </button>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {/* Active assignments */}
+                {(appFilter === null || appFilter === "active") && (
+                  <div className="host-apps-subsection">
+                    <h2 className="host-apps-subtitle">Active assignments</h2>
+                    {activeAssignments.length === 0 ? (
+                      <div className="host-apps-empty">
+                        <ClipboardList size={32} />
+                        <p>No active assignments yet.</p>
+                        <span className="host-apps-empty-hint">Accepted jobs appear here.</span>
+                      </div>
+                    ) : (
+                      <ul className="host-apps-list">
+                        {activeAssignments.map((assignment) => {
+                          const job = jobById.get(assignment.job);
+                          const jobStatus = job?.status || assignment.job_status || "assigned";
+                          const cleanerDone = Boolean(assignment.cleaner_completed_at);
+                          const hostDone = Boolean(assignment.host_completed_at);
+                          const canMarkComplete = !cleanerDone && isPastDateTime(assignment.job_scheduled_start || job?.scheduled_start, now);
+                          const statusText = cleanerDone && !hostDone
+                            ? "Waiting for host"
+                            : hostDone && !cleanerDone
+                              ? "Host confirmed"
+                              : STATUS_LABEL[jobStatus];
+                          return (
+                            <li id={`assignment-${assignment.job}`} key={assignment.id} className="host-app-card host-app-card--assigned">
+                              <div className="host-app-card-left">
+                                <div className="host-app-job-info">
+                                  <strong className="host-app-job-title">{assignment.job_title || job?.title || `Job #${assignment.job}`}</strong>
+                                  <span className="host-app-job-meta">{assignment.job_property_name || jobPlace(job)}</span>
+                                  <span className="host-app-job-time">
+                                    {fmtDateTime(assignment.job_scheduled_start || job?.scheduled_start)} – {fmtTime(assignment.job_scheduled_end || job?.scheduled_end)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="host-app-card-right">
+                                {(assignment.agreed_price || job?.agreed_price || job?.proposed_price) && (
+                                  <span className="host-app-price">{money(assignment.agreed_price || job?.agreed_price || job?.proposed_price, job?.currency)}</span>
+                                )}
+                                <span className="host-app-badge host-app-badge--assigned">{statusText}</span>
+                                {canMarkComplete && (
+                                  <button
+                                    className="host-app-complete-btn"
+                                    type="button"
+                                    disabled={completingJobId === assignment.job}
+                                    onClick={() => void completeJob(assignment.job)}
+                                  >
+                                    {completingJobId === assignment.job ? "..." : "Mark done"}
+                                  </button>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {/* Completed */}
+                {(appFilter === "completed" || (appFilter === null && completedAssignments.length > 0)) && (
+                  <div className="host-apps-subsection">
+                    <h2 className="host-apps-subtitle host-apps-subtitle--muted">Completed</h2>
+                    {completedAssignments.length === 0 ? (
+                      <div className="host-apps-empty">
+                        <CheckCircle2 size={32} />
+                        <p>No completed cleanings yet.</p>
+                      </div>
+                    ) : (
+                      <ul className="host-apps-list">
+                        {completedAssignments.map((assignment) => {
+                          const job = jobById.get(assignment.job);
+                          const hostId = job?.host;
+                          const existingHostReview = hostId
+                            ? reviews.find((review) => review.job === assignment.job && review.reviewee === hostId)
+                            : undefined;
+                          return (
+                            <li id={`assignment-${assignment.job}`} key={assignment.id} className="host-app-card host-app-card--done">
+                              <div className="host-app-card-left">
+                                <div className="host-app-job-info">
+                                  <strong className="host-app-job-title">{assignment.job_title || job?.title || `Job #${assignment.job}`}</strong>
+                                  <span className="host-app-job-meta">{assignment.job_property_name || jobPlace(job)}</span>
+                                  <span className="host-app-job-time">
+                                    {fmtDateTime(assignment.job_scheduled_start || job?.scheduled_start)} – {fmtTime(assignment.job_scheduled_end || job?.scheduled_end)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="host-app-card-right">
+                                {(assignment.agreed_price || job?.agreed_price) && (
+                                  <span className="host-app-price">{money(assignment.agreed_price || job?.agreed_price, job?.currency)}</span>
+                                )}
+                                <span className="host-app-badge host-app-badge--done">Done</span>
+                              </div>
+                              {hostId ? (
+                                <div className="host-app-review-row">
+                                  {existingHostReview ? (
+                                    <div className="host-review-given">
+                                      <span className="host-review-given-stars">
+                                        {"★".repeat(existingHostReview.rating)}{"☆".repeat(5 - existingHostReview.rating)}
+                                      </span>
+                                      {existingHostReview.comment ? (
+                                        <span className="host-review-given-comment">&quot;{existingHostReview.comment}&quot;</span>
+                                      ) : null}
+                                    </div>
+                                  ) : reviewJobId === assignment.job ? (
+                                    <div className="host-review-form">
+                                      <div className="host-stars">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                          <button
+                                            key={star}
+                                            type="button"
+                                            className={`host-star${(hoveredReviewStar || reviewRating) >= star ? " host-star--on" : ""}`}
+                                            onMouseEnter={() => setHoveredReviewStar(star)}
+                                            onMouseLeave={() => setHoveredReviewStar(0)}
+                                            onClick={() => setReviewRating(star)}
+                                            aria-label={`${star} star${star !== 1 ? "s" : ""}`}
+                                          >★</button>
+                                        ))}
+                                      </div>
+                                      <textarea
+                                        className="host-review-textarea"
+                                        placeholder="Leave feedback for the host..."
+                                        rows={2}
+                                        value={reviewComment}
+                                        onChange={(event) => setReviewComment(event.target.value)}
+                                      />
+                                      {reviewError ? <p className="form-error cleaner-page-error">{reviewError}</p> : null}
+                                      <div className="host-review-actions">
+                                        <button
+                                          className="host-review-cancel"
+                                          type="button"
+                                          onClick={() => {
+                                            setReviewJobId(null);
+                                            setReviewRating(0);
+                                            setReviewComment("");
+                                            setHoveredReviewStar(0);
+                                            setReviewError("");
+                                          }}
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          className="host-review-submit"
+                                          type="button"
+                                          disabled={reviewRating === 0 || submittingReview}
+                                          onClick={() => void submitHostReview(assignment, hostId)}
+                                        >
+                                          {submittingReview ? "Saving..." : "Submit feedback"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      className="host-review-trigger"
+                                      type="button"
+                                      onClick={() => {
+                                        setReviewJobId(assignment.job);
+                                        setReviewRating(0);
+                                        setReviewComment("");
+                                        setHoveredReviewStar(0);
+                                        setReviewError("");
+                                      }}
+                                    >
+                                      ★ Leave host feedback
+                                    </button>
+                                  )}
+                                </div>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {/* Open jobs to apply to */}
+                {(appFilter === null || appFilter === "open") && (
+                  <div className="host-apps-subsection">
+                    <h2 className="host-apps-subtitle">
+                      Open jobs
+                      {openJobs.length > 0 && <span className="host-apps-subtitle-count">{openJobs.length}</span>}
+                    </h2>
+
+                    {availableJobCities.length > 1 && (
+                      <div className="cleaner-location-filter">
+                        <span className="cleaner-location-filter-label">Filter by city:</span>
+                        <div className="cleaner-filter-chips">
                           <button
-                            className="cleaner-action-primary"
                             type="button"
-                            disabled={!canApply}
-                            title={disabledReason}
-                            onClick={() => openApply(job)}
+                            className={`cleaner-filter-chip${!jobCityFilter ? " active" : ""}`}
+                            onClick={() => setJobCityFilter("")}
                           >
-                            <Send size={14} aria-hidden />
-                            Apply
+                            All
                           </button>
-                        )}
+                          {availableJobCities.map((city) => (
+                            <button
+                              key={city}
+                              type="button"
+                              className={`cleaner-filter-chip${jobCityFilter === city ? " active" : ""}`}
+                              onClick={() => setJobCityFilter(jobCityFilter === city ? "" : city)}
+                            >
+                              {city}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                    )}
+
+                    {openJobs.length === 0 ? (
+                      <div className="host-apps-empty">
+                        <Briefcase size={32} />
+                        <p>{jobCityFilter ? `No open jobs in ${jobCityFilter} right now.` : "No open jobs are visible right now."}</p>
+                      </div>
+                    ) : (
+                      <ul className="host-apps-list">
+                        {openJobs.map((job) => {
+                          const application = applicationsByJob.get(job.id);
+                          const disabledReason = !me.is_approved
+                            ? "Account approval required"
+                            : !profile?.is_verified
+                              ? "Profile verification required"
+                              : "";
+                          return (
+                            <li key={job.id} className="host-app-card">
+                              <div className="host-app-card-left">
+                                <div className="host-app-job-info">
+                                  <strong className="host-app-job-title">{job.title}</strong>
+                                  <span className="host-app-job-meta">
+                                    {job.property_city ?? ""}
+                                    {job.property_neighborhood ? ` · ${job.property_neighborhood}` : ""}
+                                    {job.property_name ? ` · ${job.property_name}` : ""}
+                                  </span>
+                                  <span className="host-app-job-time">
+                                    {fmtDateTime(job.scheduled_start)} – {fmtTime(job.scheduled_end)}
+                                  </span>
+                                </div>
+                                {(job.description || job.cleaning_instructions) && (
+                                  <p className="host-app-message">{job.description || job.cleaning_instructions}</p>
+                                )}
+                              </div>
+                              <div className="host-app-card-right">
+                                {job.proposed_price && <span className="host-app-price">{money(job.proposed_price, job.currency)}</span>}
+                                <div className="host-app-actions">
+                                  {application ? (
+                                    <span className={`cleaner-application-chip cleaner-application-${application.status}`}>
+                                      {APPLICATION_LABEL[application.status]}
+                                    </span>
+                                  ) : (
+                                    <button
+                                      className="host-app-accept-btn"
+                                      type="button"
+                                      disabled={!canApply}
+                                      title={disabledReason}
+                                      onClick={() => openApply(job)}
+                                    >
+                                      <Send size={13} aria-hidden />
+                                      Apply
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {/* My rating */}
+                {appFilter === "rating" && (
+                  <div className="host-apps-subsection">
+                    <h2 className="host-apps-subtitle">My rating</h2>
+                    <div className="host-rating-display">
+                      <RatingStars rating={myRatingAvg ?? 0} count={myReceivedReviews.length} size={16} />
+                    </div>
+                    {myReceivedReviews.length === 0 ? (
+                      <div className="host-apps-empty">
+                        <Star size={32} />
+                        <p>No reviews yet.</p>
+                        <span className="host-apps-empty-hint">Hosts can review you after a completed cleaning.</span>
+                      </div>
+                    ) : (
+                      <ul className="review-list">
+                        {myReceivedReviews.map((review) => (
+                          <li key={review.id} className="review-item">
+                            <div className="review-item-head">
+                              <strong>{review.reviewer_name}</strong>
+                              <span className="host-review-given-stars">
+                                {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
+                              </span>
+                            </div>
+                            {review.comment && <p>{review.comment}</p>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -2144,153 +2476,6 @@ export default function CleanerDashboard() {
                   })}
                 </ul>
               </>
-            )}
-          </div>
-        )}
-
-        {section === "assignments" && (
-          <div className="host-section">
-            <div className="host-section-header">
-              <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{assignments.length} accepted</p>
-                <h1 className="host-section-title">Assigned jobs</h1>
-              </div>
-            </div>
-
-            {loadingData ? (
-              <p className="host-empty">Loading assignments...</p>
-            ) : assignments.length === 0 ? (
-              <div className="host-empty-state">
-                <ClipboardList size={40} />
-                <p>Accepted jobs will appear here.</p>
-              </div>
-            ) : (
-              <ul className="cleaner-job-list">
-                {assignments.map((assignment) => {
-                  const job = jobById.get(assignment.job);
-                  const jobStatus = job?.status || assignment.job_status || "assigned";
-                  const isComplete = Boolean(assignment.completed_at || jobStatus === "completed");
-                  const cleanerDone = Boolean(assignment.cleaner_completed_at);
-                  const hostDone = Boolean(assignment.host_completed_at);
-                  const canMarkComplete = !cleanerDone && !isComplete && isPastDateTime(assignment.job_scheduled_start || job?.scheduled_start, now);
-                  const hostId = job?.host;
-                  const existingHostReview = hostId
-                    ? reviews.find((review) => review.job === assignment.job && review.reviewee === hostId)
-                    : undefined;
-                  const statusText = isComplete
-                    ? "Done"
-                    : cleanerDone && !hostDone
-                      ? "Waiting for host"
-                      : hostDone && !cleanerDone
-                        ? "Host confirmed"
-                        : STATUS_LABEL[jobStatus];
-                  return (
-                    <li id={`assignment-${assignment.job}`} key={assignment.id} className="cleaner-job-card">
-                      <div className="cleaner-job-main">
-                        <div>
-                          <strong>{assignment.job_title || job?.title || `Job #${assignment.job}`}</strong>
-                          <span>{assignment.job_property_name || jobPlace(job)}</span>
-                        </div>
-                        <div className="cleaner-job-meta">
-                          <span><CalendarDays size={14} aria-hidden />{fmtDateTime(assignment.job_scheduled_start || job?.scheduled_start)} - {fmtTime(assignment.job_scheduled_end || job?.scheduled_end)}</span>
-                          <span>{money(assignment.agreed_price || job?.agreed_price || job?.proposed_price, job?.currency)}</span>
-                        </div>
-                      </div>
-                      <div className="cleaner-job-actions">
-                        <span className={`host-job-badge host-job-badge--${jobStatus}`}>
-                          {statusText}
-                        </span>
-                        {canMarkComplete && (
-                          <button
-                            className="cleaner-action-primary cleaner-action-complete"
-                            type="button"
-                            disabled={completingJobId === assignment.job}
-                            onClick={() => void completeJob(assignment.job)}
-                          >
-                            <CheckCircle2 size={14} aria-hidden />
-                            {completingJobId === assignment.job ? "Saving..." : "Mark done"}
-                          </button>
-                        )}
-                      </div>
-                      {isComplete && hostId ? (
-                        <div className="host-app-review-row">
-                          {existingHostReview ? (
-                            <div className="host-review-given">
-                              <span className="host-review-given-stars">
-                                {"★".repeat(existingHostReview.rating)}{"☆".repeat(5 - existingHostReview.rating)}
-                              </span>
-                              {existingHostReview.comment ? (
-                                <span className="host-review-given-comment">&quot;{existingHostReview.comment}&quot;</span>
-                              ) : null}
-                            </div>
-                          ) : reviewJobId === assignment.job ? (
-                            <div className="host-review-form">
-                              <div className="host-stars">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <button
-                                    key={star}
-                                    type="button"
-                                    className={`host-star${(hoveredReviewStar || reviewRating) >= star ? " host-star--on" : ""}`}
-                                    onMouseEnter={() => setHoveredReviewStar(star)}
-                                    onMouseLeave={() => setHoveredReviewStar(0)}
-                                    onClick={() => setReviewRating(star)}
-                                    aria-label={`${star} star${star !== 1 ? "s" : ""}`}
-                                  >★</button>
-                                ))}
-                              </div>
-                              <textarea
-                                className="host-review-textarea"
-                                placeholder="Leave feedback for the host..."
-                                rows={2}
-                                value={reviewComment}
-                                onChange={(event) => setReviewComment(event.target.value)}
-                              />
-                              {reviewError ? <p className="form-error cleaner-page-error">{reviewError}</p> : null}
-                              <div className="host-review-actions">
-                                <button
-                                  className="host-review-cancel"
-                                  type="button"
-                                  onClick={() => {
-                                    setReviewJobId(null);
-                                    setReviewRating(0);
-                                    setReviewComment("");
-                                    setHoveredReviewStar(0);
-                                    setReviewError("");
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  className="host-review-submit"
-                                  type="button"
-                                  disabled={reviewRating === 0 || submittingReview}
-                                  onClick={() => void submitHostReview(assignment, hostId)}
-                                >
-                                  {submittingReview ? "Saving..." : "Submit feedback"}
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              className="host-review-trigger"
-                              type="button"
-                              onClick={() => {
-                                setReviewJobId(assignment.job);
-                                setReviewRating(0);
-                                setReviewComment("");
-                                setHoveredReviewStar(0);
-                                setReviewError("");
-                              }}
-                            >
-                              ★ Leave host feedback
-                            </button>
-                          )}
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
             )}
           </div>
         )}

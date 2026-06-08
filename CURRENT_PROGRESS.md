@@ -1,6 +1,28 @@
 # Current Progress Handoff
 
-Updated: 2026-06-03, after cleaner city filtering, seed data, property-media, completion-timing, and duplicate-job fixes.
+Updated: 2026-06-03, after the host calendar thumbnail redesign and host calendar/notification UX follow-ups.
+
+## Latest Work — Host Calendar Thumbnails & UX Follow-ups (2026-06-03)
+
+ClickUp task: "Host calendar redesign — compact thumbnail-driven day grid" (`869djg405`).
+
+- **Calendar day thumbnails** (`frontend/features/host/HostDashboard.tsx` + `frontend/app/globals.css`): the Jobs & Calendar day grid now renders up to **3** compact job thumbnails per day (then a `+N` chip) instead of flat status dots. Draft/open jobs show the **property** photo (or a `Building2` icon fallback); **assigned** jobs add a small **cleaner-avatar badge** (avatar image, or the cleaner's initial). Job status is preserved as an inline `box-shadow` color ring using the existing `STATUS_COLOR` tokens; the legend still uses `.host-cal-dot`. New classes `.host-cal-thumbs` / `.host-cal-thumb` / `.host-cal-thumb--icon` / `.host-cal-thumb-avatar` / `.host-cal-thumb-more` + `≤620px` responsive shrink. Tokens/typography unchanged.
+- **Backend avatar field** (`backend/apps/marketplace/serializers.py`): `AssignmentSerializer` exposes a read-only `cleaner_profile_image` (safe `SerializerMethodField`; returns the cleaner's `profile_image` string or `null`, handles agency cleaners with no `cleaner_profile`). Flows into the nested `CleaningJobSerializer.assignment` too. No migration. `profile_image` is a `TextField` data-URL/URL string used directly as `<img src>`.
+- **"Post a job" date prefill** (`HostDashboard.tsx → openJobForm`): creating a job without an explicit day now defaults the date to the **selected calendar day** if one is selected, else **today**. Covers the right-side "Post a job" button, property-card "Post a job", and side-panel "Post one" (date no longer blank); clicking a specific empty day still uses that day.
+- **Notification bell → Applications** (`frontend/components/NotificationBell.tsx → notificationHref`): on the host, application/offer notifications deep-link into the Applications section — `application.submitted` / `application.withdrawn` → `?section=applications&appFilter=pending`; `offer.accepted` → `appFilter=active`; `offer.declined` → `section=applications`. Review notifications keep their existing routing.
+- **Pending-application dot on the calendar** (`HostDashboard.tsx` + `globals.css`): a small brand-pink dot (top-right of the thumbnail, white-ringed, like the notification badge) appears on any calendar job that has pending cleaner applications, sourced from `jobActivityMap.pendingApps`. New `.host-cal-thumb-pending` class + responsive shrink; hover shows "N pending application(s)".
+- **Verification**: `python manage.py check` clean (serializer-only); `npm.cmd run typecheck` + `npm.cmd run lint` clean.
+- **Follow-up (out of scope)**: `FavouriteCleanerSerializer.get_profile_image` calls `.url` on the `profile_image` TextField — would `AttributeError` if a favourited cleaner ever has a non-empty image; worth fixing later.
+
+## Latest Work — Direct-Offer Conflicts & Host Applications UI (2026-06-03)
+
+- **Robust direct-offer endpoint**: `POST /api/marketplace/jobs/offer-to-cleaner/` (action `offer_to_cleaner` on `CleaningJobViewSet`, `OfferToCleanerSerializer`). The `offer_job_to_cleaner` service find-or-creates the draft `CleaningJob` for the exact `(property, scheduled_start, scheduled_end)` slot, then delegates to `offer_job`. This fixed the prior 400 where the frontend created a duplicate job that collided with the `unique_property_job_time` constraint on a re-offer. `frontend/components/JobOfferModal.tsx` now makes a single POST to this endpoint (removed the old create-then-offer + client-side slot matching).
+- **Same property + same-day conflict guards** (`apps/marketplace/services.py`), applied to **both** `offer_job` (host offers) and `submit_application` (cleaner applications), day computed in Europe/Sofia:
+  - `_ensure_no_assigned_job_same_property_day` — blocks when the cleaner already holds an active (non-cancelled) `Assignment` for that property on that day.
+  - `_ensure_no_pending_offer_same_property_day` — blocks when the cleaner already has a **pending** offer/application for that property on that day (any time slot), preventing two pending offers from both being accepted (double-booking).
+  - The existing exact-slot duplicate ("...for this job.") and declined-offer reactivation in `offer_job` are unchanged.
+- **Host Applications — sent offers can't be self-approved** (`frontend/features/host/HostDashboard.tsx`): pending rows with `origin=host_offered` no longer show an **Accept** button (only the cleaner accepts those). They show a gold "Offer sent · awaiting cleaner" badge (`.host-app-badge--offer` in `globals.css`) and a relabeled **Withdraw** button. Added `origin` to the `CleanerApplication` TS interface.
+- **Tests**: `apps/marketplace/tests/test_offers.py` adds `test_offer_blocked_when_cleaner_assigned_same_property_same_day` and `test_offer_blocked_when_cleaner_has_pending_offer_same_property_same_day` (fixed 09:00/13:00 same-day window to avoid midnight straddle). Full `test_offers` suite (13 tests) passes; `manage.py check` clean; frontend `npm.cmd run typecheck` + `lint` clean.
 
 ## Latest Work — Marketplace Correctness Fixes (2026-06-03)
 

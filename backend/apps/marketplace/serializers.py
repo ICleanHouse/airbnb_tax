@@ -49,6 +49,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
     job_property_neighborhood = serializers.CharField(source="job.property.neighborhood", read_only=True)
     cleaner_name = serializers.SerializerMethodField()
     cleaner_email = serializers.EmailField(source="cleaner.email", read_only=True)
+    cleaner_profile_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Assignment
@@ -65,6 +66,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "cleaner",
             "cleaner_name",
             "cleaner_email",
+            "cleaner_profile_image",
             "assigned_member",
             "application",
             "agreed_price",
@@ -80,6 +82,10 @@ class AssignmentSerializer(serializers.ModelSerializer):
 
     def get_cleaner_name(self, obj):
         return obj.cleaner.get_full_name() or obj.cleaner.get_username()
+
+    def get_cleaner_profile_image(self, obj):
+        profile = getattr(obj.cleaner, "cleaner_profile", None)
+        return (getattr(profile, "profile_image", "") or "") or None
 
 
 class AssignMemberSerializer(serializers.Serializer):
@@ -98,6 +104,7 @@ class MarketplaceCalendarItemSerializer(serializers.Serializer):
     currency = serializers.CharField()
     price = serializers.DecimalField(max_digits=8, decimal_places=2, required=False, allow_null=True)
     property_name = serializers.CharField()
+    property_image = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     property_city = serializers.CharField(allow_blank=True)
     property_neighborhood = serializers.CharField(allow_blank=True)
     host_name = serializers.CharField()
@@ -265,6 +272,27 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
 class OfferJobSerializer(serializers.Serializer):
     job_id = serializers.PrimaryKeyRelatedField(source="job", queryset=CleaningJob.objects.all())
     cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all())
+    proposed_price = serializers.DecimalField(
+        max_digits=8, decimal_places=2, required=False, allow_null=True
+    )
+    message = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class OfferToCleanerSerializer(serializers.Serializer):
+    """Input for offering a job to a cleaner by property + time slot.
+
+    The job is found-or-created server-side for the exact (property, start, end)
+    slot, so the caller never has to create the job first and risk colliding with
+    the unique-slot constraint on a re-offer.
+    """
+
+    property_id = serializers.PrimaryKeyRelatedField(
+        source="property", queryset=Property.objects.all()
+    )
+    cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all())
+    scheduled_start = serializers.DateTimeField()
+    scheduled_end = serializers.DateTimeField()
+    title = serializers.CharField(required=False, allow_blank=True, default="")
     proposed_price = serializers.DecimalField(
         max_digits=8, decimal_places=2, required=False, allow_null=True
     )

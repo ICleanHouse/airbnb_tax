@@ -153,6 +153,66 @@ class OfferServiceTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(self.job.status, CleaningJob.Status.ASSIGNED)
 
+    def test_offer_blocked_when_cleaner_assigned_same_property_same_day(self):
+        # Fixed same-day window (09:00 / 13:00 local) so the two slots can't
+        # straddle midnight regardless of when the test runs.
+        day = (timezone.localtime(timezone.now()) + timedelta(days=2)).replace(
+            hour=9, minute=0, second=0, microsecond=0
+        )
+        morning_job = CleaningJob.objects.create(
+            property=self.property,
+            host=self.host,
+            title="Morning turnover",
+            scheduled_start=day,
+            scheduled_end=day + timedelta(hours=2),
+            proposed_price=Decimal("45.00"),
+        )
+        afternoon_job = CleaningJob.objects.create(
+            property=self.property,
+            host=self.host,
+            title="Afternoon turnover",
+            scheduled_start=day + timedelta(hours=4),
+            scheduled_end=day + timedelta(hours=6),
+            proposed_price=Decimal("40.00"),
+        )
+
+        # Cleaner accepts the morning offer → active assignment for that prop/day.
+        offered = offer_job(job=morning_job, host=self.host, cleaner=self.cleaner)
+        accept_offer(application=offered, cleaner=self.cleaner)
+
+        # Same property + same day → second offer must be blocked.
+        with self.assertRaises(MarketplaceError):
+            offer_job(job=afternoon_job, host=self.host, cleaner=self.cleaner)
+
+    def test_offer_blocked_when_cleaner_has_pending_offer_same_property_same_day(self):
+        # A pending offer (not yet accepted) on the same property/day must also
+        # block a second offer for a different time slot.
+        day = (timezone.localtime(timezone.now()) + timedelta(days=3)).replace(
+            hour=9, minute=0, second=0, microsecond=0
+        )
+        morning_job = CleaningJob.objects.create(
+            property=self.property,
+            host=self.host,
+            title="Morning turnover",
+            scheduled_start=day,
+            scheduled_end=day + timedelta(hours=2),
+            proposed_price=Decimal("45.00"),
+        )
+        afternoon_job = CleaningJob.objects.create(
+            property=self.property,
+            host=self.host,
+            title="Afternoon turnover",
+            scheduled_start=day + timedelta(hours=4),
+            scheduled_end=day + timedelta(hours=6),
+            proposed_price=Decimal("40.00"),
+        )
+
+        # First offer is left pending (cleaner hasn't responded).
+        offer_job(job=morning_job, host=self.host, cleaner=self.cleaner)
+
+        with self.assertRaises(MarketplaceError):
+            offer_job(job=afternoon_job, host=self.host, cleaner=self.cleaner)
+
     def test_offer_appears_on_both_calendars(self):
         offer_job(job=self.job, host=self.host, cleaner=self.cleaner)
         params = {

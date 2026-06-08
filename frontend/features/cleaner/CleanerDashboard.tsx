@@ -26,9 +26,12 @@ import {
 } from "lucide-react";
 import { apiFetch, CurrentUser } from "../../lib/api";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
+import DistrictMapSelector from "../../app/components/DistrictMapSelector";
 import NotificationBell from "../../components/NotificationBell";
 import RatingStars from "../../components/RatingStars";
 import { cities } from "../../lib/cityDistricts";
+import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
+import type { ServiceZone } from "../../types/locations";
 
 type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "disputed";
 type ApplicationStatus = "pending" | "accepted" | "rejected" | "withdrawn";
@@ -649,12 +652,8 @@ export default function CleanerDashboard() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [savedProfileSnapshot, setSavedProfileSnapshot] = useState<string | null>(null);
   const [districtOverlayOpen, setDistrictOverlayOpen] = useState(false);
-  const [districtSearch, setDistrictSearch] = useState("");
-  const [districtAvailableChoice, setDistrictAvailableChoice] = useState("");
-  const [districtSelectedChoice, setDistrictSelectedChoice] = useState("");
-  const [districtSelectedZones, setDistrictSelectedZones] = useState<Set<string>>(new Set());
-  const [districtDraggedZone, setDistrictDraggedZone] = useState<string | null>(null);
-  const [districtDragSource, setDistrictDragSource] = useState<"available" | "selected" | null>(null);
+  const [districtSelectedZoneIds, setDistrictSelectedZoneIds] = useState<string[]>([]);
+  const [districtZones, setDistrictZones] = useState<ServiceZone[]>([]);
   const [otherLanguagesOverlayOpen, setOtherLanguagesOverlayOpen] = useState(false);
   const [otherLanguageSearch, setOtherLanguageSearch] = useState("");
   const [cropSource, setCropSource] = useState<CropSource | null>(null);
@@ -1412,37 +1411,15 @@ export default function CleanerDashboard() {
     [profileDistrictCity],
   );
 
-  const availableDistrictZones = useMemo(
-    () => selectedDistrictCity?.zones.filter((zone) => !districtSelectedZones.has(zone)) ?? [],
-    [selectedDistrictCity, districtSelectedZones],
-  );
-
-  const selectedDistrictZoneList = useMemo(
-    () => selectedDistrictCity?.zones.filter((zone) => districtSelectedZones.has(zone)) ?? [],
-    [selectedDistrictCity, districtSelectedZones],
-  );
-
-  const filteredAvailableDistrictZones = useMemo(() => {
-    const query = districtSearch.trim().toLocaleLowerCase();
-    if (!query) return availableDistrictZones;
-    return availableDistrictZones.filter((zone) => zone.toLocaleLowerCase().includes(query));
-  }, [availableDistrictZones, districtSearch]);
-
   function openDistrictOverlay() {
     if (!selectedDistrictCity) {
       setProfileError("");
       setProfileFieldErrors((current) => ({ ...current, district_city: "Choose a city first." }));
       return;
     }
-    const existingAreas = serviceAreasFromText(profileServiceAreas);
-    const zoneSet = new Set<string>();
-    for (const zone of selectedDistrictCity.zones) {
-      if (existingAreas.includes(zone)) zoneSet.add(zone);
-    }
-    setDistrictSelectedZones(zoneSet);
-    setDistrictSearch("");
-    setDistrictAvailableChoice("");
-    setDistrictSelectedChoice("");
+    const fallbackZones = fallbackServiceZones(selectedDistrictCity.value);
+    setDistrictZones(fallbackZones);
+    setDistrictSelectedZoneIds(serviceAreaNamesToZoneIds(serviceAreasFromText(profileServiceAreas), fallbackZones));
     setDistrictOverlayOpen(true);
     setProfileError("");
     clearProfileFieldError("district_city");
@@ -1450,61 +1427,26 @@ export default function CleanerDashboard() {
 
   function closeDistrictOverlay() {
     setDistrictOverlayOpen(false);
-    setDistrictSearch("");
-    setDistrictAvailableChoice("");
-    setDistrictSelectedChoice("");
-  }
-
-  function addSelectedDistrict() {
-    if (!districtAvailableChoice) return;
-    setDistrictSelectedZones((current) => new Set(current).add(districtAvailableChoice));
-    setDistrictAvailableChoice("");
-  }
-
-  function removeSelectedDistrict() {
-    if (!districtSelectedChoice) return;
-    setDistrictSelectedZones((current) => {
-      const next = new Set(current);
-      next.delete(districtSelectedChoice);
-      return next;
-    });
-    setDistrictSelectedChoice("");
-  }
-
-  function selectAllDistricts() {
-    if (!selectedDistrictCity) return;
-    setDistrictSelectedZones(new Set(selectedDistrictCity.zones));
-  }
-
-  function clearAllDistricts() {
-    setDistrictSelectedZones(new Set());
   }
 
   function applyDistrictsToServiceAreas() {
     if (!selectedDistrictCity) return;
-    const nextAreas = [...selectedDistrictZoneList];
+    const zonesForApply = districtZones.length > 0 ? districtZones : fallbackServiceZones(selectedDistrictCity.value);
+    const nextAreas = zoneIdsToServiceAreaNames(districtSelectedZoneIds, zonesForApply);
     setProfileServiceAreas(nextAreas.join("\n"));
     closeDistrictOverlay();
   }
 
-  function handleDropToSelectedDistricts() {
-    if (districtDragSource !== "available" || !districtDraggedZone) return;
-    setDistrictSelectedZones((current) => new Set(current).add(districtDraggedZone));
-    setDistrictDraggedZone(null);
-    setDistrictDragSource(null);
-    setDistrictAvailableChoice("");
+  function handleDistrictSelectorChange(nextZoneIds: string[]) {
+    setDistrictSelectedZoneIds(nextZoneIds);
   }
 
-  function handleDropToAvailableDistricts() {
-    if (districtDragSource !== "selected" || !districtDraggedZone) return;
-    setDistrictSelectedZones((current) => {
-      const next = new Set(current);
-      next.delete(districtDraggedZone);
-      return next;
-    });
-    setDistrictDraggedZone(null);
-    setDistrictDragSource(null);
-    setDistrictSelectedChoice("");
+  function handleDistrictZonesLoaded(zones: ServiceZone[]) {
+    setDistrictZones(zones);
+    const selectedFromProfile = serviceAreaNamesToZoneIds(serviceAreasFromText(profileServiceAreas), zones);
+    if (selectedFromProfile.length > 0) {
+      setDistrictSelectedZoneIds(selectedFromProfile);
+    }
   }
 
   const availableOtherLanguageOptions = useMemo(() => {
@@ -2739,9 +2681,8 @@ export default function CleanerDashboard() {
                             const nextCity = event.target.value;
                             setProfileDistrictCity(nextCity);
                             clearProfileFieldError("district_city");
-                            setDistrictSelectedZones(new Set());
-                            setDistrictAvailableChoice("");
-                            setDistrictSelectedChoice("");
+                            setDistrictSelectedZoneIds([]);
+                            setDistrictZones([]);
                             const normalizedAreas = normalizeServiceAreasByCity(profileServiceAreas, nextCity);
                             setProfileServiceAreas(normalizedAreas.join("\n"));
                           }}
@@ -3101,104 +3042,14 @@ export default function CleanerDashboard() {
             <div className="host-form cleaner-district-overlay-form">
               {selectedDistrictCity ? (
                 <section className="zones-panel" aria-label={`${selectedDistrictCity.label} districts`}>
-                  <header className="zones-panel-head">
-                    <strong>Area selection</strong>
-                    <div className="zones-actions">
-                      <button type="button" onClick={selectAllDistricts}>Select all</button>
-                      <button type="button" onClick={clearAllDistricts}>Clear all</button>
-                    </div>
-                  </header>
-                  <div className="dual-zone-transfer">
-                    <label className="dual-zone-list">
-                      <span>List of Districts:</span>
-                      <div
-                        className="dual-zone-listbox"
-                        role="listbox"
-                        aria-label="List of Districts"
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={handleDropToAvailableDistricts}
-                      >
-                        <div className="dual-zone-listbox-search-wrap">
-                          <input
-                            className="dual-zone-search"
-                            type="text"
-                            placeholder="Search district"
-                            value={districtSearch}
-                            onChange={(event) => setDistrictSearch(event.target.value)}
-                          />
-                        </div>
-                        <div className="dual-zone-items">
-                          {filteredAvailableDistrictZones.map((zone) => (
-                            <button
-                              type="button"
-                              key={zone}
-                              className={districtAvailableChoice === zone ? "dual-zone-item selected" : "dual-zone-item"}
-                              onClick={() => setDistrictAvailableChoice(zone)}
-                              onDoubleClick={() => {
-                                setDistrictSelectedZones((current) => new Set(current).add(zone));
-                                setDistrictAvailableChoice("");
-                              }}
-                              draggable
-                              onDragStart={() => {
-                                setDistrictDraggedZone(zone);
-                                setDistrictDragSource("available");
-                              }}
-                              onDragEnd={() => {
-                                setDistrictDraggedZone(null);
-                                setDistrictDragSource(null);
-                              }}
-                            >
-                              {zone}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </label>
-                    <div className="dual-zone-controls">
-                      <button type="button" onClick={addSelectedDistrict} disabled={!districtAvailableChoice}>{">"}</button>
-                      <button type="button" onClick={removeSelectedDistrict} disabled={!districtSelectedChoice}>{"<"}</button>
-                    </div>
-                    <label className="dual-zone-list">
-                      <span>Selected Districts:</span>
-                      <div
-                        className="dual-zone-listbox"
-                        role="listbox"
-                        aria-label="Selected Districts"
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={handleDropToSelectedDistricts}
-                      >
-                        <div className="dual-zone-items">
-                          {selectedDistrictZoneList.map((zone) => (
-                            <button
-                              type="button"
-                              key={zone}
-                              className={districtSelectedChoice === zone ? "dual-zone-item selected" : "dual-zone-item"}
-                              onClick={() => setDistrictSelectedChoice(zone)}
-                              onDoubleClick={() => {
-                                setDistrictSelectedZones((current) => {
-                                  const next = new Set(current);
-                                  next.delete(zone);
-                                  return next;
-                                });
-                                setDistrictSelectedChoice("");
-                              }}
-                              draggable
-                              onDragStart={() => {
-                                setDistrictDraggedZone(zone);
-                                setDistrictDragSource("selected");
-                              }}
-                              onDragEnd={() => {
-                                setDistrictDraggedZone(null);
-                                setDistrictDragSource(null);
-                              }}
-                            >
-                              {zone}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </label>
-                  </div>
+                  <DistrictMapSelector
+                    citySlug={selectedDistrictCity.value}
+                    selectedZoneIds={districtSelectedZoneIds}
+                    onChange={handleDistrictSelectorChange}
+                    language="bg"
+                    showListFallback
+                    onZonesLoaded={handleDistrictZonesLoaded}
+                  />
                 </section>
               ) : (
                 <p className="host-form-hint">Choose a city to select districts.</p>
@@ -3208,7 +3059,12 @@ export default function CleanerDashboard() {
                 <button className="secondary-link" type="button" onClick={closeDistrictOverlay}>
                   Cancel
                 </button>
-                <button className="primary-link auth-submit" type="button" onClick={applyDistrictsToServiceAreas} disabled={!selectedDistrictCity}>
+                <button
+                  className="primary-link auth-submit"
+                  type="button"
+                  onClick={applyDistrictsToServiceAreas}
+                  disabled={!selectedDistrictCity || districtSelectedZoneIds.length === 0}
+                >
                   Add districts
                 </button>
               </div>

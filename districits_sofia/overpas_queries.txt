@@ -1,0 +1,74 @@
+https://overpass-turbo.eu/#
+
+
+This prints all Sofia districts with midpoints
+[out:json][timeout:60];
+
+area
+  ["name"="София"]
+  ["boundary"="administrative"]
+  ->.sofia;
+
+(
+  relation(area.sofia)["place"="neighbourhood"];
+  way(area.sofia)["place"="neighbourhood"];
+  relation(area.sofia)["place"="suburb"];
+  way(area.sofia)["place"="suburb"];
+  relation(area.sofia)["boundary"="place"];
+  way(area.sofia)["boundary"="place"];
+);
+
+/*added by auto repair*/
+(._;>;);
+/*end of auto repair*/
+out body;
+
+
+##############################################
+
+This prints the whole Sofia Area
+[out:json][timeout:60];
+
+// 1. Define the search area for Sofia Municipality
+{{geocodeArea:Sofia}} -> .searchArea;
+
+// 2. Gather all sub-district boundaries inside Sofia
+(
+  relation["boundary"="administrative"]["admin_level"="4"](area.searchArea);
+);
+
+// 3. Output geometries (polygons) instead of just raw data points
+out geom;
+
+
+##############################################
+This prints Areas - Райони
+
+[out:json][timeout:60];
+
+// 1. Define the search area for Sofia Municipality
+{{geocodeArea:Sofia}} -> .searchArea;
+
+// 2. Gather all sub-district boundaries inside Sofia
+(
+  relation["boundary"="administrative"]["admin_level"="6"](area.searchArea);
+);
+
+// 3. Output geometries (polygons) instead of just raw data points
+out geom;
+
+####################################
+Working Best Solution - it needs manual editing like anyother
+[out:json][timeout:90];
+{{geocodeArea:Sofia}} -> .searchArea;
+
+(
+  // Only grab actual area outlines (ways and relations)
+  way["place"~"suburb|quarter|neighbourhood"](area.searchArea);
+  relation["place"~"suburb|quarter|neighbourhood"](area.searchArea);
+  
+  way["landuse"="residential"]["name"~"ж.к.|кв."](area.searchArea);
+  relation["landuse"="residential"]["name"~"ж.к.|кв."](area.searchArea);
+);
+
+out geom;

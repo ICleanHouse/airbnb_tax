@@ -32,7 +32,15 @@ function fmtTime(iso: string): string {
  * thread (polled), and a "Shared" panel of the properties/cleanings the two
  * users have collaborated on. Used in both the host and cleaner topbars.
  */
-export default function Connections({ meId }: { meId: number | null }) {
+export default function Connections({
+  meId,
+  showTrigger = true,
+}: {
+  meId: number | null;
+  /** When false the nav button is hidden but the drawer + bell-event listener
+   *  still mount — use this on pages that show the bell but have no nav tab. */
+  showTrigger?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Connection[]>([]);
   const [loadingList, setLoadingList] = useState(false);
@@ -128,6 +136,21 @@ export default function Connections({ meId }: { meId: number | null }) {
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
+  // Open the drawer (and optionally a specific chat) when the notification bell
+  // dispatches a connection/message notification click.
+  useEffect(() => {
+    function onOpenConnection(e: Event) {
+      const detail = (e as CustomEvent<{ connectionId: number | null }>).detail;
+      setOpen(true);
+      setActiveId(detail?.connectionId ?? null);
+      setShowShared(false);
+      setShared(null);
+      void loadList();
+    }
+    window.addEventListener("hc:open-connection", onOpenConnection);
+    return () => window.removeEventListener("hc:open-connection", onOpenConnection);
+  }, [loadList]);
+
   async function accept(id: number) {
     await apiFetch(`${BASE}/${id}/accept/`, { method: "POST" });
     await loadList();
@@ -177,19 +200,21 @@ export default function Connections({ meId }: { meId: number | null }) {
 
   return (
     <>
-      <button
-        type="button"
-        className="host-tab connections-tab"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={`Connections${badge > 0 ? `, ${badge} new` : ""}`}
-        aria-expanded={open}
-      >
-        <Users size={15} aria-hidden />
-        Connections
-        {badge > 0 && (
-          <span className="host-tab-count host-tab-count--alert">{badge > 9 ? "9+" : badge}</span>
-        )}
-      </button>
+      {showTrigger && (
+        <button
+          type="button"
+          className="host-tab connections-tab"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`Connections${badge > 0 ? `, ${badge} new` : ""}`}
+          aria-expanded={open}
+        >
+          <Users size={15} aria-hidden />
+          Connections
+          {badge > 0 && (
+            <span className="host-tab-count host-tab-count--alert">{badge > 9 ? "9+" : badge}</span>
+          )}
+        </button>
+      )}
 
       {open && (
         <div className="connections-overlay">

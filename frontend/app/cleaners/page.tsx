@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import { apiFetch, type CurrentUser } from "../../lib/api";
 import CleanerBrowser from "../components/CleanerBrowser";
 import NotificationBell from "../components/NotificationBell";
+import Connections from "../../components/Connections";
 
 export default function CleanersDirectoryPage() {
   const [me, setMe] = useState<CurrentUser | null>(null);
@@ -50,6 +51,7 @@ export default function CleanersDirectoryPage() {
         <div className="host-topbar-right">
           <Link className="text-link" href="/host">Dashboard</Link>
           <NotificationBell />
+          {me && <Connections meId={me.id} showTrigger={false} />}
           <span className="user-chip">
             {me?.first_name ? `${me.first_name} ${me.last_name}`.trim() : me?.email}
             <span className="user-chip-dot" aria-hidden={true}>·</span>

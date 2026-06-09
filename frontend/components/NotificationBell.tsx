@@ -148,6 +148,33 @@ export default function NotificationBell() {
       await markRead(notification.id);
     }
 
+    // Connection / message notifications open the Connections drawer (a sibling
+    // component) via a window event rather than navigating. A message or an
+    // accepted-connection opens the chat thread directly; a request opens the list.
+    const connectionId =
+      typeof notification.metadata?.connection_id === "number"
+        ? notification.metadata.connection_id
+        : typeof notification.metadata?.connection_id === "string"
+          ? Number(notification.metadata.connection_id)
+          : null;
+    if (
+      connectionId != null &&
+      (notification.notification_type === "message.received" ||
+        notification.notification_type === "connection.accepted" ||
+        notification.notification_type === "connection.request")
+    ) {
+      const openChat =
+        notification.notification_type === "message.received" ||
+        notification.notification_type === "connection.accepted";
+      setOpen(false);
+      window.dispatchEvent(
+        new CustomEvent("hc:open-connection", {
+          detail: { connectionId: openChat ? connectionId : null },
+        }),
+      );
+      return;
+    }
+
     const href = notificationHref(notification);
     if (href) {
       setOpen(false);

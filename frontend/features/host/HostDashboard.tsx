@@ -1853,16 +1853,6 @@ export default function HostDashboard() {
                       );
                     })}
                   </div>
-
-                  {/* Status legend */}
-                  <div className="host-cal-legend">
-                    {(Object.entries(STATUS_COLOR) as [JobStatus, string][]).map(([s, c]) => (
-                      <span key={s} className="host-cal-legend-item">
-                        <span className="host-cal-dot" style={{ background: c }} />
-                        {STATUS_LABEL[s]}
-                      </span>
-                    ))}
-                  </div>
                 </div>
 
                 {/* ── Job list panel ── */}

@@ -3223,26 +3223,6 @@ img {
   font-weight: 600;
 }
 
-.host-cal-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  padding: 14px 18px;
-  border-top: 1px solid var(--line);
-  background: #fafafa;
-}
-
-.host-cal-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
 /* Job list panel */
 .host-job-panel {
   border: 1px solid var(--line);

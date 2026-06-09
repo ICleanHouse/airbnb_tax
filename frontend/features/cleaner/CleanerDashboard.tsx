@@ -1881,21 +1881,6 @@ export default function CleanerDashboard() {
                       );
                     })}
                   </div>
-
-                  <div className="host-cal-legend">
-                    <span className="host-cal-legend-item">
-                      <span className="host-cal-dot" style={{ background: "var(--teal)" }} />
-                      Open
-                    </span>
-                    <span className="host-cal-legend-item">
-                      <span className="host-cal-dot" style={{ background: "var(--gold)" }} />
-                      Applied / assigned
-                    </span>
-                    <span className="host-cal-legend-item">
-                      <span className="host-cal-dot" style={{ background: "#22c55e" }} />
-                      Done
-                    </span>
-                  </div>
                 </div>
 
                 <div className="host-job-panel">

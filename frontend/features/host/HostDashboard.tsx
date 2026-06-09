@@ -27,8 +27,8 @@ import {
   Heart,
   Send,
   X,
-  Wallet,
-  Star,
+  User,
+  UserRoundCheck,
 } from "lucide-react";
 import { Upload } from "lucide-react";
 import { apiFetch, CurrentUser, type FavouriteCleaner } from "../../lib/api";
@@ -37,7 +37,8 @@ import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import CleanerProfileModal from "../../components/CleanerProfileModal";
 import NotificationBell from "../../components/NotificationBell";
 import Connections from "../../components/Connections";
-import StatusDonut from "../../components/StatusDonut";
+import AppdashGrid from "../../components/AppdashGrid";
+import { useDashView } from "../../lib/useDashView";
 import JobOfferModal from "../../components/JobOfferModal";
 import RatingStars from "../../components/RatingStars";
 
@@ -231,8 +232,13 @@ export default function HostDashboard() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [hoveredStar,     setHoveredStar]     = useState(0);
   const [appFilter, setAppFilter] = useState<"pending" | "active" | "completed" | "open" | "rating" | null>(null);
+  const [dashView, setDashView] = useDashView();
 
-  const [section, setSection] = useState<"jobs" | "applications">("jobs");
+  const [section, setSection] = useState<"jobs" | "applications" | "account">("jobs");
+
+  // ── Account menu ─────────────────────────────────────────────────────────
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
   // ── Property-scoped views (left rail) ───────────────────────────────────────
   // When a property is selected, every downstream consumer of jobs/applications/
@@ -286,6 +292,20 @@ export default function HostDashboard() {
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   // ── Job form ───────────────────────────────────────────────────────────────
+  // ── Host account/profile form ────────────────────────────────────────────
+  const [accountFirstName, setAccountFirstName] = useState("");
+  const [accountLastName,  setAccountLastName]  = useState("");
+  const [accountPhone,     setAccountPhone]     = useState("");
+  const [accountLanguage,  setAccountLanguage]  = useState<"bg" | "en">("bg");
+  const [accountCompany,   setAccountCompany]   = useState("");
+  const [accountCity,      setAccountCity]      = useState("");
+  const [accountNotes,     setAccountNotes]     = useState("");
+  const [hostProfileId,    setHostProfileId]    = useState<number | null>(null);
+  const [accountLoaded,    setAccountLoaded]    = useState(false);
+  const [savingAccount,    setSavingAccount]    = useState(false);
+  const [accountError,     setAccountError]     = useState("");
+  const [accountSaved,     setAccountSaved]     = useState(false);
+
   const [showJobForm,    setShowJobForm]    = useState(false);
   const [jobPropId,      setJobPropId]      = useState("");
   const [jobTitle,       setJobTitle]       = useState("");
@@ -347,6 +367,54 @@ export default function HostDashboard() {
       setSection(requestedSection);
     }
   }, [requestedSection]);
+
+  // Close the account menu on outside-click / Escape.
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    function onClick(e: MouseEvent) {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setAccountMenuOpen(false);
+    }
+    window.addEventListener("mousedown", onClick);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onClick);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [accountMenuOpen]);
+
+  // Populate the account form the first time the account section is opened.
+  useEffect(() => {
+    if (section !== "account" || accountLoaded || !me) return;
+    setAccountFirstName(me.first_name ?? "");
+    setAccountLastName(me.last_name ?? "");
+    setAccountPhone(me.phone_number ?? "");
+    setAccountLanguage(me.preferred_language ?? "bg");
+    void apiFetch("/api/accounts/hosts/")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: unknown) => {
+        const list = Array.isArray(d) ? d : ((d as { results?: unknown[] } | null)?.results ?? []);
+        const hp = list[0] as { id: number; company_name?: string; city?: string; notes?: string } | undefined;
+        if (hp) {
+          setHostProfileId(hp.id);
+          setAccountCompany(hp.company_name ?? "");
+          setAccountCity(hp.city ?? "");
+          setAccountNotes(hp.notes ?? "");
+        }
+        setAccountLoaded(true);
+      });
+  }, [section, accountLoaded, me]);
+
+  // Auto-hide the "saved" confirmation.
+  useEffect(() => {
+    if (!accountSaved) return;
+    const t = window.setTimeout(() => setAccountSaved(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [accountSaved]);
 
   useEffect(() => {
     if (
@@ -876,6 +944,52 @@ export default function HostDashboard() {
     window.location.href = "/";
   }
 
+  function openAccountFromMenu() {
+    setAccountMenuOpen(false);
+    setSection("account");
+  }
+
+  async function saveAccount(e: FormEvent) {
+    e.preventDefault();
+    if (!me) return;
+    setAccountError("");
+    setSavingAccount(true);
+    try {
+      const userRes = await apiFetch(`/api/accounts/users/${me.id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          first_name: accountFirstName,
+          last_name: accountLastName,
+          phone_number: accountPhone,
+          preferred_language: accountLanguage,
+        }),
+      });
+      if (!userRes.ok) {
+        setAccountError("Could not save your account details.");
+        return;
+      }
+      if (hostProfileId != null) {
+        const hpRes = await apiFetch(`/api/accounts/hosts/${hostProfileId}/`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            company_name: accountCompany,
+            city: accountCity,
+            notes: accountNotes,
+          }),
+        });
+        if (!hpRes.ok) {
+          setAccountError("Could not save your host profile.");
+          return;
+        }
+      }
+      const meRes = await apiFetch("/api/accounts/me/");
+      if (meRes.ok) setMe((await meRes.json()) as CurrentUser);
+      setAccountSaved(true);
+    } finally {
+      setSavingAccount(false);
+    }
+  }
+
   // ── Calendar computed ──────────────────────────────────────────────────────
   const blanks   = firstWeekday(calYear, calMonth);
   const totalDays = daysInMonth(calYear, calMonth);
@@ -1014,6 +1128,7 @@ export default function HostDashboard() {
 
   const isApproved = me.is_approved;
   const pendingCount = applications.filter((a) => a.status === "pending").length;
+  const displayName = `${me.first_name ?? ""} ${me.last_name ?? ""}`.trim() || me.email.split("@")[0];
 
   // ══════════════════════════════════════════════════════════════════════════
   // Render
@@ -1056,22 +1171,65 @@ export default function HostDashboard() {
             Find cleaners
           </Link>
           <NotificationBell />
-          <span className="user-chip">
-            {me.first_name || me.email.split("@")[0]}
-            <span className="user-chip-dot" aria-hidden>·</span>
-            Host
-          </span>
-          <button className="text-link logout-trigger" type="button" onClick={logout}>
-            <LogOut size={15} aria-hidden />
-            Log out
-          </button>
+          <div className="cleaner-account-menu" ref={accountMenuRef}>
+            <button
+              className="cleaner-account-menu-trigger"
+              type="button"
+              onClick={() => setAccountMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={accountMenuOpen}
+              aria-label="Account menu"
+            >
+              <User size={18} aria-hidden />
+            </button>
+            {accountMenuOpen && (
+              <div className="cleaner-account-menu-dropdown" role="menu" aria-label="Account menu">
+                <div className="cleaner-account-menu-identity">
+                  <strong>{displayName}</strong>
+                  <span>Host</span>
+                </div>
+                <button type="button" className="cleaner-account-menu-item" role="menuitem" onClick={openAccountFromMenu}>
+                  <UserRoundCheck size={16} aria-hidden />
+                  Profile
+                </button>
+                <div className="account-view-toggle" role="group" aria-label="Dashboard view">
+                  <span className="account-view-toggle-label">Dashboard</span>
+                  <div className="account-view-toggle-opts">
+                    <button
+                      type="button"
+                      className={`account-view-toggle-opt${dashView === "bento" ? " active" : ""}`}
+                      onClick={() => setDashView("bento")}
+                    >
+                      Cards
+                    </button>
+                    <button
+                      type="button"
+                      className={`account-view-toggle-opt${dashView === "donut" ? " active" : ""}`}
+                      onClick={() => setDashView("donut")}
+                    >
+                      Donut
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="cleaner-account-menu-item cleaner-account-menu-item--danger"
+                  role="menuitem"
+                  onClick={() => void logout()}
+                >
+                  <LogOut size={16} aria-hidden />
+                  Log out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="host-page">
        <div className="host-workspace">
         {/* ── Property navigation rail (desktop) ── */}
-        {isApproved && (
+        {isApproved && section !== "account" && (
           <aside className="host-rail" aria-label="Your properties">
             <button
               type="button"
@@ -1131,7 +1289,7 @@ export default function HostDashboard() {
 
         <div className="host-workspace-main">
         {/* ── Property selector (mobile — rail collapses to a dropdown) ── */}
-        {isApproved && (
+        {isApproved && section !== "account" && (
           <div className="host-rail-mobile">
             <select
               className="host-rail-mobile-select"
@@ -1171,88 +1329,21 @@ export default function HostDashboard() {
 
             {/* ── Summary dashboard ── */}
             {!loadingData && (
-              <div className="host-appdash-grid host-appdash-grid--donut">
-                {(() => {
-                  const pending = pendingCount;
-                  const active = assignments.filter((a) => !a.completed_at).length;
-                  const completed = completedAssignments.length;
-                  const open = jobs.filter((j) => j.status === "open").length;
-                  const total = pending + active + completed + open;
-                  const segs = [
-                    { key: "pending" as const, label: "Pending", color: "var(--brand)", value: pending },
-                    { key: "active" as const, label: "Active", color: "var(--gold)", value: active },
-                    { key: "completed" as const, label: "Completed", color: "#22c55e", value: completed },
-                    { key: "open" as const, label: "Open", color: "var(--teal)", value: open },
-                  ];
-                  return (
-                    <div
-                      className="host-appdash-card host-appdash-card--hero host-appdash-hero-donut"
-                      role="button"
-                      tabIndex={0}
-                      title="Show everything"
-                      onClick={() => setAppFilter(null)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setAppFilter(null);
-                        }
-                      }}
-                    >
-                      <StatusDonut
-                        segments={segs.map((s) => ({ value: s.value, color: s.color }))}
-                        centerTop={total}
-                        centerBottom="in pipeline"
-                      />
-                      <div className="host-appdash-legend">
-                        <span className="host-appdash-legend-title">Job pipeline</span>
-                        {segs.map((item) => (
-                          <button
-                            key={item.key}
-                            type="button"
-                            className={`host-appdash-legend-row${appFilter === item.key ? " active" : ""}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setAppFilter(appFilter === item.key ? null : item.key);
-                            }}
-                          >
-                            <span className="host-appdash-legend-dot" style={{ background: item.color }} />
-                            <span className="host-appdash-legend-label">{item.label}</span>
-                            <span className="host-appdash-legend-count">{item.value}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--gold${appFilter === "rating" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "rating" ? null : "rating")}
-                >
-                  <span className="host-appdash-chip host-appdash-chip--gold"><Star size={17} aria-hidden /></span>
-                  <span className="host-appdash-label">My rating</span>
-                  <strong className="host-appdash-value host-appdash-value--rating">
-                    {hostRatingAvg !== null ? hostRatingAvg.toFixed(1) : "—"}
-                  </strong>
-                  <span className="host-appdash-sub">
-                    {hostReviews.length > 0
-                      ? `${hostReviews.length} review${hostReviews.length !== 1 ? "s" : ""} received`
-                      : "no reviews yet"}
-                  </span>
-                </button>
-                <div className="host-appdash-card host-appdash-card--money host-appdash-card--static">
-                  <span className="host-appdash-chip host-appdash-chip--teal"><Wallet size={17} aria-hidden /></span>
-                  <span className="host-appdash-label">Spent</span>
-                  <strong className="host-appdash-value host-appdash-value--money">
-                    {formatMoney(totalSpent)}
-                  </strong>
-                  <span className="host-appdash-sub">
-                    {completedAssignments.length > 0
-                      ? `from ${completedAssignments.length} cleaning${completedAssignments.length !== 1 ? "s" : ""}`
-                      : "no completed jobs yet"}
-                  </span>
-                </div>
-              </div>
+              <AppdashGrid
+                view={dashView}
+                appFilter={appFilter}
+                setAppFilter={setAppFilter}
+                pending={pendingCount}
+                active={assignments.filter((a) => !a.completed_at).length}
+                completed={completedAssignments.length}
+                open={jobs.filter((j) => j.status === "open").length}
+                openSub="awaiting cleaners"
+                rating={hostRatingAvg}
+                ratingCount={hostReviews.length}
+                moneyLabel="Spent"
+                moneyValue={formatMoney(totalSpent)}
+                moneyCount={completedAssignments.length}
+              />
             )}
 
             {/* ── My cleaners (saved / favourites) ── */}
@@ -2024,6 +2115,72 @@ export default function HostDashboard() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ══ ACCOUNT / PROFILE SECTION ══ */}
+        {section === "account" && (
+          <div className="host-section">
+            <div className="host-section-header">
+              <div>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Your account</p>
+                <h1 className="host-section-title">Host profile</h1>
+              </div>
+            </div>
+
+            <form className="host-form host-account-form" onSubmit={(e) => void saveAccount(e)}>
+              <div className="form-grid">
+                <label>
+                  <span>First name</span>
+                  <input value={accountFirstName} onChange={(e) => setAccountFirstName(e.target.value)} />
+                </label>
+                <label>
+                  <span>Last name</span>
+                  <input value={accountLastName} onChange={(e) => setAccountLastName(e.target.value)} />
+                </label>
+                <label>
+                  <span>Phone number</span>
+                  <input value={accountPhone} onChange={(e) => setAccountPhone(e.target.value)} placeholder="+359…" />
+                </label>
+                <label>
+                  <span>Preferred language</span>
+                  <select value={accountLanguage} onChange={(e) => setAccountLanguage(e.target.value as "bg" | "en")}>
+                    <option value="bg">Bulgarian</option>
+                    <option value="en">English</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input value={me.email} readOnly disabled />
+                </label>
+                <label>
+                  <span>Company name</span>
+                  <input value={accountCompany} onChange={(e) => setAccountCompany(e.target.value)} placeholder="Optional" />
+                </label>
+                <label>
+                  <span>City</span>
+                  <input value={accountCity} onChange={(e) => setAccountCity(e.target.value)} placeholder="Sofia" />
+                </label>
+              </div>
+
+              <label>
+                <span>Notes</span>
+                <textarea
+                  rows={3}
+                  value={accountNotes}
+                  onChange={(e) => setAccountNotes(e.target.value)}
+                  placeholder="Anything cleaners should know about working with you…"
+                />
+              </label>
+
+              {accountError && <p className="form-error">{accountError}</p>}
+              {accountSaved && <p className="cleaner-success">Profile saved.</p>}
+              <div className="host-form-actions">
+                <button className="primary-link auth-submit" type="submit" disabled={savingAccount}>
+                  {savingAccount ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            </form>
           </div>
         )}
         </div>

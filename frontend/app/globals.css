@@ -2569,6 +2569,55 @@ img {
   background: rgba(255, 56, 92, 0.1);
 }
 
+/* Dashboard view toggle inside the account dropdown */
+.account-view-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 4px 0;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.account-view-toggle-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+.account-view-toggle-opts {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--surface-inset);
+}
+
+.account-view-toggle-opt {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.account-view-toggle-opt.active {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+/* Host account/profile form section */
+.host-account-form {
+  max-width: 720px;
+}
+
 /* Pending/status banner */
 .host-pending-banner {
   margin: 0;
@@ -5986,6 +6035,7 @@ img {
 .host-appdash-chip--teal  { background: var(--teal-tint);    color: var(--teal); }
 .host-appdash-chip--brand { background: var(--brand-tint);   color: var(--brand); }
 .host-appdash-chip--green { background: var(--success-tint); color: var(--success); }
+.host-appdash-chip--lg    { width: 44px; height: 44px; border-radius: 13px; }
 
 .host-appdash-card--gold  { border-top-color: var(--gold); }
 .host-appdash-card--green { border-top-color: #22c55e; }

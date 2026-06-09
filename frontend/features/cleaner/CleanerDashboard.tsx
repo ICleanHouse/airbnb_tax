@@ -22,7 +22,6 @@ import {
   Star,
   User,
   UserRoundCheck,
-  Wallet,
   X,
 } from "lucide-react";
 import { apiFetch, CurrentUser } from "../../lib/api";
@@ -31,7 +30,8 @@ import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import DistrictMapSelector from "../../app/components/DistrictMapSelector";
 import NotificationBell from "../../components/NotificationBell";
 import Connections from "../../components/Connections";
-import StatusDonut from "../../components/StatusDonut";
+import AppdashGrid from "../../components/AppdashGrid";
+import { useDashView } from "../../lib/useDashView";
 import RatingStars from "../../components/RatingStars";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
@@ -618,6 +618,7 @@ export default function CleanerDashboard() {
   const [dataError, setDataError] = useState("");
   const [section, setSection] = useState<Section>("calendar");
   const [appFilter, setAppFilter] = useState<CleanerAppFilter>(null);
+  const [dashView, setDashView] = useDashView();
   const [jobCityFilter, setJobCityFilter] = useState<string>("");
 
   const now = useMemo(() => new Date(), []);
@@ -1776,6 +1777,25 @@ export default function CleanerDashboard() {
                   <UserRoundCheck size={16} aria-hidden />
                   Profile
                 </button>
+                <div className="account-view-toggle" role="group" aria-label="Dashboard view">
+                  <span className="account-view-toggle-label">Dashboard</span>
+                  <div className="account-view-toggle-opts">
+                    <button
+                      type="button"
+                      className={`account-view-toggle-opt${dashView === "bento" ? " active" : ""}`}
+                      onClick={() => setDashView("bento")}
+                    >
+                      Cards
+                    </button>
+                    <button
+                      type="button"
+                      className={`account-view-toggle-opt${dashView === "donut" ? " active" : ""}`}
+                      onClick={() => setDashView("donut")}
+                    >
+                      Donut
+                    </button>
+                  </div>
+                </div>
                 <button type="button" className="cleaner-account-menu-item cleaner-account-menu-item--danger" role="menuitem" onClick={() => void logout()}>
                   <LogOut size={16} aria-hidden />
                   Log out
@@ -1987,88 +2007,21 @@ export default function CleanerDashboard() {
             </div>
 
             {!loadingData && (
-              <div className="host-appdash-grid host-appdash-grid--donut">
-                {(() => {
-                  const pending = pendingApplications;
-                  const active = activeAssignments.length;
-                  const completed = completedAssignments.length;
-                  const open = openJobs.length;
-                  const total = pending + active + completed + open;
-                  const segs = [
-                    { key: "pending" as const, label: "Pending", color: "var(--brand)", value: pending },
-                    { key: "active" as const, label: "Active", color: "var(--gold)", value: active },
-                    { key: "completed" as const, label: "Completed", color: "#22c55e", value: completed },
-                    { key: "open" as const, label: "Open", color: "var(--teal)", value: open },
-                  ];
-                  return (
-                    <div
-                      className="host-appdash-card host-appdash-card--hero host-appdash-hero-donut"
-                      role="button"
-                      tabIndex={0}
-                      title="Show everything"
-                      onClick={() => setAppFilter(null)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setAppFilter(null);
-                        }
-                      }}
-                    >
-                      <StatusDonut
-                        segments={segs.map((s) => ({ value: s.value, color: s.color }))}
-                        centerTop={total}
-                        centerBottom="in pipeline"
-                      />
-                      <div className="host-appdash-legend">
-                        <span className="host-appdash-legend-title">Job pipeline</span>
-                        {segs.map((item) => (
-                          <button
-                            key={item.key}
-                            type="button"
-                            className={`host-appdash-legend-row${appFilter === item.key ? " active" : ""}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setAppFilter(appFilter === item.key ? null : item.key);
-                            }}
-                          >
-                            <span className="host-appdash-legend-dot" style={{ background: item.color }} />
-                            <span className="host-appdash-legend-label">{item.label}</span>
-                            <span className="host-appdash-legend-count">{item.value}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--gold${appFilter === "rating" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "rating" ? null : "rating")}
-                >
-                  <span className="host-appdash-chip host-appdash-chip--gold"><Star size={17} aria-hidden /></span>
-                  <span className="host-appdash-label">My rating</span>
-                  <strong className="host-appdash-value host-appdash-value--rating">
-                    {myRatingAvg !== null ? myRatingAvg.toFixed(1) : "—"}
-                  </strong>
-                  <span className="host-appdash-sub">
-                    {myReceivedReviews.length > 0
-                      ? `${myReceivedReviews.length} review${myReceivedReviews.length !== 1 ? "s" : ""} received`
-                      : "no reviews yet"}
-                  </span>
-                </button>
-                <div className="host-appdash-card host-appdash-card--money host-appdash-card--static">
-                  <span className="host-appdash-chip host-appdash-chip--teal"><Wallet size={17} aria-hidden /></span>
-                  <span className="host-appdash-label">Income</span>
-                  <strong className="host-appdash-value host-appdash-value--money">
-                    {formatMoney(totalIncome)}
-                  </strong>
-                  <span className="host-appdash-sub">
-                    {completedAssignments.length > 0
-                      ? `from ${completedAssignments.length} cleaning${completedAssignments.length !== 1 ? "s" : ""}`
-                      : "no completed jobs yet"}
-                  </span>
-                </div>
-              </div>
+              <AppdashGrid
+                view={dashView}
+                appFilter={appFilter}
+                setAppFilter={setAppFilter}
+                pending={pendingApplications}
+                active={activeAssignments.length}
+                completed={completedAssignments.length}
+                open={openJobs.length}
+                openSub="to apply"
+                rating={myRatingAvg}
+                ratingCount={myReceivedReviews.length}
+                moneyLabel="Income"
+                moneyValue={formatMoney(totalIncome)}
+                moneyCount={completedAssignments.length}
+              />
             )}
 
             {loadingData ? (

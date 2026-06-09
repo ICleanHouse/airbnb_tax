@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  Clock,
   Gift,
   Home as HomeIcon,
   LogOut,
@@ -32,6 +31,7 @@ import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import DistrictMapSelector from "../../app/components/DistrictMapSelector";
 import NotificationBell from "../../components/NotificationBell";
 import Connections from "../../components/Connections";
+import StatusDonut from "../../components/StatusDonut";
 import RatingStars from "../../components/RatingStars";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
@@ -1987,65 +1987,65 @@ export default function CleanerDashboard() {
             </div>
 
             {!loadingData && (
-              <div className="host-appdash-grid">
-                <div className="host-appdash-card host-appdash-card--money host-appdash-card--static host-appdash-card--hero">
-                  <span className="host-appdash-icon"><Wallet size={26} aria-hidden /></span>
-                  <span className="host-appdash-label">Income</span>
-                  <strong className="host-appdash-value host-appdash-value--money">
-                    {formatMoney(totalIncome)}
-                  </strong>
-                  <span className="host-appdash-sub">
-                    {completedAssignments.length > 0
-                      ? `from ${completedAssignments.length} cleaning${completedAssignments.length !== 1 ? "s" : ""}`
-                      : "no completed jobs yet"}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className={`host-appdash-card${appFilter === "pending" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "pending" ? null : "pending")}
-                >
-                  <span className="host-appdash-icon"><Clock size={16} aria-hidden /></span>
-                  <span className="host-appdash-label">Pending</span>
-                  <strong className="host-appdash-value">{pendingApplications}</strong>
-                  <span className="host-appdash-sub">applications</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--gold${appFilter === "active" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "active" ? null : "active")}
-                >
-                  <span className="host-appdash-icon"><Briefcase size={16} aria-hidden /></span>
-                  <span className="host-appdash-label">Active</span>
-                  <strong className="host-appdash-value">{activeAssignments.length}</strong>
-                  <span className="host-appdash-sub">assignments</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--green${appFilter === "completed" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "completed" ? null : "completed")}
-                >
-                  <span className="host-appdash-icon"><CheckCircle2 size={16} aria-hidden /></span>
-                  <span className="host-appdash-label">Completed</span>
-                  <strong className="host-appdash-value">{completedAssignments.length}</strong>
-                  <span className="host-appdash-sub">cleanings</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--teal${appFilter === "open" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "open" ? null : "open")}
-                >
-                  <span className="host-appdash-icon"><ClipboardList size={16} aria-hidden /></span>
-                  <span className="host-appdash-label">Open jobs</span>
-                  <strong className="host-appdash-value">{openJobs.length}</strong>
-                  <span className="host-appdash-sub">to apply</span>
-                </button>
+              <div className="host-appdash-grid host-appdash-grid--donut">
+                {(() => {
+                  const pending = pendingApplications;
+                  const active = activeAssignments.length;
+                  const completed = completedAssignments.length;
+                  const open = openJobs.length;
+                  const total = pending + active + completed + open;
+                  const segs = [
+                    { key: "pending" as const, label: "Pending", color: "var(--brand)", value: pending },
+                    { key: "active" as const, label: "Active", color: "var(--gold)", value: active },
+                    { key: "completed" as const, label: "Completed", color: "#22c55e", value: completed },
+                    { key: "open" as const, label: "Open", color: "var(--teal)", value: open },
+                  ];
+                  return (
+                    <div
+                      className="host-appdash-card host-appdash-card--hero host-appdash-hero-donut"
+                      role="button"
+                      tabIndex={0}
+                      title="Show everything"
+                      onClick={() => setAppFilter(null)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setAppFilter(null);
+                        }
+                      }}
+                    >
+                      <StatusDonut
+                        segments={segs.map((s) => ({ value: s.value, color: s.color }))}
+                        centerTop={total}
+                        centerBottom="in pipeline"
+                      />
+                      <div className="host-appdash-legend">
+                        <span className="host-appdash-legend-title">Job pipeline</span>
+                        {segs.map((item) => (
+                          <button
+                            key={item.key}
+                            type="button"
+                            className={`host-appdash-legend-row${appFilter === item.key ? " active" : ""}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAppFilter(appFilter === item.key ? null : item.key);
+                            }}
+                          >
+                            <span className="host-appdash-legend-dot" style={{ background: item.color }} />
+                            <span className="host-appdash-legend-label">{item.label}</span>
+                            <span className="host-appdash-legend-count">{item.value}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <button
                   type="button"
                   className={`host-appdash-card host-appdash-card--gold${appFilter === "rating" ? " host-appdash-card--active" : ""}`}
                   onClick={() => setAppFilter(appFilter === "rating" ? null : "rating")}
                 >
-                  <span className="host-appdash-icon"><Star size={16} aria-hidden /></span>
+                  <span className="host-appdash-chip host-appdash-chip--gold"><Star size={17} aria-hidden /></span>
                   <span className="host-appdash-label">My rating</span>
                   <strong className="host-appdash-value host-appdash-value--rating">
                     {myRatingAvg !== null ? myRatingAvg.toFixed(1) : "—"}
@@ -2056,6 +2056,18 @@ export default function CleanerDashboard() {
                       : "no reviews yet"}
                   </span>
                 </button>
+                <div className="host-appdash-card host-appdash-card--money host-appdash-card--static">
+                  <span className="host-appdash-chip host-appdash-chip--teal"><Wallet size={17} aria-hidden /></span>
+                  <span className="host-appdash-label">Income</span>
+                  <strong className="host-appdash-value host-appdash-value--money">
+                    {formatMoney(totalIncome)}
+                  </strong>
+                  <span className="host-appdash-sub">
+                    {completedAssignments.length > 0
+                      ? `from ${completedAssignments.length} cleaning${completedAssignments.length !== 1 ? "s" : ""}`
+                      : "no completed jobs yet"}
+                  </span>
+                </div>
               </div>
             )}
 

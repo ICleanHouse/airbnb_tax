@@ -27,6 +27,11 @@ import {
   Heart,
   Send,
   X,
+  Wallet,
+  Clock,
+  Briefcase,
+  CheckCircle2,
+  Star,
 } from "lucide-react";
 import { Upload } from "lucide-react";
 import { apiFetch, CurrentUser, type FavouriteCleaner } from "../../lib/api";
@@ -1169,58 +1174,8 @@ export default function HostDashboard() {
             {/* ── Summary dashboard ── */}
             {!loadingData && (
               <div className="host-appdash-grid">
-                <button
-                  type="button"
-                  className={`host-appdash-card${appFilter === "pending" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "pending" ? null : "pending")}
-                >
-                  <span className="host-appdash-label">Pending</span>
-                  <strong className="host-appdash-value">{pendingCount}</strong>
-                  <span className="host-appdash-sub">applications</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--gold${appFilter === "active" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "active" ? null : "active")}
-                >
-                  <span className="host-appdash-label">Active</span>
-                  <strong className="host-appdash-value">{assignments.filter((a) => !a.completed_at).length}</strong>
-                  <span className="host-appdash-sub">assignments</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--green${appFilter === "completed" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "completed" ? null : "completed")}
-                >
-                  <span className="host-appdash-label">Completed</span>
-                  <strong className="host-appdash-value">{assignments.filter((a) => !!a.completed_at).length}</strong>
-                  <span className="host-appdash-sub">cleanings</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--teal${appFilter === "open" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "open" ? null : "open")}
-                >
-                  <span className="host-appdash-label">Open jobs</span>
-                  <strong className="host-appdash-value">{jobs.filter((j) => j.status === "open").length}</strong>
-                  <span className="host-appdash-sub">awaiting cleaners</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--gold${appFilter === "rating" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "rating" ? null : "rating")}
-                >
-                  <span className="host-appdash-label">My rating</span>
-                  <strong className="host-appdash-value host-appdash-value--rating">
-                    {hostRatingAvg !== null ? hostRatingAvg.toFixed(1) : "—"}
-                  </strong>
-                  <span className="host-appdash-sub">
-                    {hostReviews.length > 0
-                      ? `${hostReviews.length} review${hostReviews.length !== 1 ? "s" : ""} received`
-                      : "no reviews yet"}
-                  </span>
-                </button>
-                <div className="host-appdash-card host-appdash-card--money host-appdash-card--static">
+                <div className="host-appdash-card host-appdash-card--money host-appdash-card--static host-appdash-card--hero">
+                  <span className="host-appdash-icon"><Wallet size={26} aria-hidden /></span>
                   <span className="host-appdash-label">Spent</span>
                   <strong className="host-appdash-value host-appdash-value--money">
                     {formatMoney(totalSpent)}
@@ -1231,6 +1186,62 @@ export default function HostDashboard() {
                       : "no completed jobs yet"}
                   </span>
                 </div>
+                <button
+                  type="button"
+                  className={`host-appdash-card${appFilter === "pending" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "pending" ? null : "pending")}
+                >
+                  <span className="host-appdash-icon"><Clock size={16} aria-hidden /></span>
+                  <span className="host-appdash-label">Pending</span>
+                  <strong className="host-appdash-value">{pendingCount}</strong>
+                  <span className="host-appdash-sub">applications</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--gold${appFilter === "active" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "active" ? null : "active")}
+                >
+                  <span className="host-appdash-icon"><Briefcase size={16} aria-hidden /></span>
+                  <span className="host-appdash-label">Active</span>
+                  <strong className="host-appdash-value">{assignments.filter((a) => !a.completed_at).length}</strong>
+                  <span className="host-appdash-sub">assignments</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--green${appFilter === "completed" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "completed" ? null : "completed")}
+                >
+                  <span className="host-appdash-icon"><CheckCircle2 size={16} aria-hidden /></span>
+                  <span className="host-appdash-label">Completed</span>
+                  <strong className="host-appdash-value">{assignments.filter((a) => !!a.completed_at).length}</strong>
+                  <span className="host-appdash-sub">cleanings</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--teal${appFilter === "open" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "open" ? null : "open")}
+                >
+                  <span className="host-appdash-icon"><ClipboardList size={16} aria-hidden /></span>
+                  <span className="host-appdash-label">Open jobs</span>
+                  <strong className="host-appdash-value">{jobs.filter((j) => j.status === "open").length}</strong>
+                  <span className="host-appdash-sub">awaiting cleaners</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--gold${appFilter === "rating" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "rating" ? null : "rating")}
+                >
+                  <span className="host-appdash-icon"><Star size={16} aria-hidden /></span>
+                  <span className="host-appdash-label">My rating</span>
+                  <strong className="host-appdash-value host-appdash-value--rating">
+                    {hostRatingAvg !== null ? hostRatingAvg.toFixed(1) : "—"}
+                  </strong>
+                  <span className="host-appdash-sub">
+                    {hostReviews.length > 0
+                      ? `${hostReviews.length} review${hostReviews.length !== 1 ? "s" : ""} received`
+                      : "no reviews yet"}
+                  </span>
+                </button>
               </div>
             )}
 

@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Clock,
   Gift,
   Home as HomeIcon,
   LogOut,
@@ -22,6 +23,7 @@ import {
   Star,
   User,
   UserRoundCheck,
+  Wallet,
   X,
 } from "lucide-react";
 import { apiFetch, CurrentUser } from "../../lib/api";
@@ -1986,58 +1988,8 @@ export default function CleanerDashboard() {
 
             {!loadingData && (
               <div className="host-appdash-grid">
-                <button
-                  type="button"
-                  className={`host-appdash-card${appFilter === "pending" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "pending" ? null : "pending")}
-                >
-                  <span className="host-appdash-label">Pending</span>
-                  <strong className="host-appdash-value">{pendingApplications}</strong>
-                  <span className="host-appdash-sub">applications</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--gold${appFilter === "active" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "active" ? null : "active")}
-                >
-                  <span className="host-appdash-label">Active</span>
-                  <strong className="host-appdash-value">{activeAssignments.length}</strong>
-                  <span className="host-appdash-sub">assignments</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--green${appFilter === "completed" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "completed" ? null : "completed")}
-                >
-                  <span className="host-appdash-label">Completed</span>
-                  <strong className="host-appdash-value">{completedAssignments.length}</strong>
-                  <span className="host-appdash-sub">cleanings</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--teal${appFilter === "open" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "open" ? null : "open")}
-                >
-                  <span className="host-appdash-label">Open jobs</span>
-                  <strong className="host-appdash-value">{openJobs.length}</strong>
-                  <span className="host-appdash-sub">to apply</span>
-                </button>
-                <button
-                  type="button"
-                  className={`host-appdash-card host-appdash-card--gold${appFilter === "rating" ? " host-appdash-card--active" : ""}`}
-                  onClick={() => setAppFilter(appFilter === "rating" ? null : "rating")}
-                >
-                  <span className="host-appdash-label">My rating</span>
-                  <strong className="host-appdash-value host-appdash-value--rating">
-                    {myRatingAvg !== null ? myRatingAvg.toFixed(1) : "—"}
-                  </strong>
-                  <span className="host-appdash-sub">
-                    {myReceivedReviews.length > 0
-                      ? `${myReceivedReviews.length} review${myReceivedReviews.length !== 1 ? "s" : ""} received`
-                      : "no reviews yet"}
-                  </span>
-                </button>
-                <div className="host-appdash-card host-appdash-card--money host-appdash-card--static">
+                <div className="host-appdash-card host-appdash-card--money host-appdash-card--static host-appdash-card--hero">
+                  <span className="host-appdash-icon"><Wallet size={26} aria-hidden /></span>
                   <span className="host-appdash-label">Income</span>
                   <strong className="host-appdash-value host-appdash-value--money">
                     {formatMoney(totalIncome)}
@@ -2048,6 +2000,62 @@ export default function CleanerDashboard() {
                       : "no completed jobs yet"}
                   </span>
                 </div>
+                <button
+                  type="button"
+                  className={`host-appdash-card${appFilter === "pending" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "pending" ? null : "pending")}
+                >
+                  <span className="host-appdash-icon"><Clock size={16} aria-hidden /></span>
+                  <span className="host-appdash-label">Pending</span>
+                  <strong className="host-appdash-value">{pendingApplications}</strong>
+                  <span className="host-appdash-sub">applications</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--gold${appFilter === "active" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "active" ? null : "active")}
+                >
+                  <span className="host-appdash-icon"><Briefcase size={16} aria-hidden /></span>
+                  <span className="host-appdash-label">Active</span>
+                  <strong className="host-appdash-value">{activeAssignments.length}</strong>
+                  <span className="host-appdash-sub">assignments</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--green${appFilter === "completed" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "completed" ? null : "completed")}
+                >
+                  <span className="host-appdash-icon"><CheckCircle2 size={16} aria-hidden /></span>
+                  <span className="host-appdash-label">Completed</span>
+                  <strong className="host-appdash-value">{completedAssignments.length}</strong>
+                  <span className="host-appdash-sub">cleanings</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--teal${appFilter === "open" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "open" ? null : "open")}
+                >
+                  <span className="host-appdash-icon"><ClipboardList size={16} aria-hidden /></span>
+                  <span className="host-appdash-label">Open jobs</span>
+                  <strong className="host-appdash-value">{openJobs.length}</strong>
+                  <span className="host-appdash-sub">to apply</span>
+                </button>
+                <button
+                  type="button"
+                  className={`host-appdash-card host-appdash-card--gold${appFilter === "rating" ? " host-appdash-card--active" : ""}`}
+                  onClick={() => setAppFilter(appFilter === "rating" ? null : "rating")}
+                >
+                  <span className="host-appdash-icon"><Star size={16} aria-hidden /></span>
+                  <span className="host-appdash-label">My rating</span>
+                  <strong className="host-appdash-value host-appdash-value--rating">
+                    {myRatingAvg !== null ? myRatingAvg.toFixed(1) : "—"}
+                  </strong>
+                  <span className="host-appdash-sub">
+                    {myReceivedReviews.length > 0
+                      ? `${myReceivedReviews.length} review${myReceivedReviews.length !== 1 ? "s" : ""} received`
+                      : "no reviews yet"}
+                  </span>
+                </button>
               </div>
             )}
 

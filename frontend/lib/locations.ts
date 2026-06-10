@@ -1,6 +1,14 @@
 import { apiFetch } from "./api";
 import { cities as fallbackCities } from "./cityDistricts";
-import type { LocationCity, ServiceZone, ZoneFeatureCollection } from "../types/locations";
+import type { LocationCity, ServiceZone, ZoneFeatureCollection, ZoneGeometry } from "../types/locations";
+import type { FeatureCollection, GeoJsonProperties, Geometry } from "geojson";
+
+type SofiaMapData = {
+  zones: ServiceZone[];
+  geojson: ZoneFeatureCollection;
+};
+
+let sofiaMapDataPromise: Promise<SofiaMapData> | null = null;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -20,6 +28,73 @@ function fallbackZoneSlug(zoneName: string, index: number): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return normalized ? `${normalized}-${index + 1}` : `zone-${index + 1}`;
+}
+
+function sofiaZoneName(rawName: string): string {
+  return rawName.replace(/^(ж\.к\.|кв\.)\s+/iu, "").trim();
+}
+
+async function loadSofiaMapData(): Promise<SofiaMapData> {
+  if (!sofiaMapDataPromise) {
+    sofiaMapDataPromise = apiFetch("/maps/sofia/districts.geojson")
+      .then(async (response): Promise<SofiaMapData> => {
+        if (!response.ok) throw new Error("Could not load Sofia district map.");
+        const payload = (await response.json()) as FeatureCollection<Geometry, GeoJsonProperties>;
+        if (payload.type !== "FeatureCollection" || !Array.isArray(payload.features)) {
+          throw new Error("Invalid Sofia district map.");
+        }
+
+        const zones: ServiceZone[] = [];
+        const features = payload.features.map((feature, index) => {
+          const properties = isRecord(feature.properties) ? feature.properties : {};
+          const sourceId = String(properties.id ?? index + 1);
+          const rawName = String(properties.name ?? `District ${index + 1}`);
+          const nameBg = sofiaZoneName(rawName);
+          const nameEn = String(properties["name:en"] ?? nameBg);
+          const slug = `osm-${sourceId}`;
+          const zoneId = `sofia:${slug}`;
+
+          zones.push({
+            id: zoneId,
+            city_slug: "sofia",
+            slug,
+            zone_id: zoneId,
+            name_bg: nameBg,
+            name_en: nameEn,
+            zone_type: "district",
+            legacy_names: rawName === nameBg ? [nameBg] : [nameBg, rawName],
+            center: null,
+            is_active: true,
+          });
+
+          return {
+            type: "Feature" as const,
+            properties: {
+              zone_id: zoneId,
+              city_slug: "sofia",
+              zone_slug: slug,
+              name_bg: nameBg,
+              name_en: nameEn,
+              zone_type: "district",
+              attribution: "© OpenStreetMap contributors",
+            },
+            geometry: feature.geometry as ZoneGeometry,
+          };
+        });
+
+        return {
+          zones,
+          geojson: { type: "FeatureCollection" as const, features },
+        };
+      })
+      .catch((error) => {
+        sofiaMapDataPromise = null;
+        throw error;
+      });
+  }
+  const mapDataPromise = sofiaMapDataPromise;
+  if (!mapDataPromise) throw new Error("Could not start loading Sofia district map.");
+  return mapDataPromise;
 }
 
 export function cityLabel(city: LocationCity, language: "bg" | "en" = "en"): string {
@@ -74,6 +149,15 @@ export async function loadLocationCities(): Promise<{ cities: LocationCity[]; so
 }
 
 export async function loadServiceZones(citySlug: string): Promise<{ zones: ServiceZone[]; source: "api" | "fallback" }> {
+  if (citySlug === "sofia") {
+    try {
+      const { zones } = await loadSofiaMapData();
+      return { zones, source: "api" };
+    } catch {
+      return { zones: fallbackServiceZones(citySlug), source: "fallback" };
+    }
+  }
+
   try {
     const response = await apiFetch(`/api/locations/cities/${citySlug}/zones/`);
     if (!response.ok) throw new Error("Could not load service zones.");
@@ -86,6 +170,14 @@ export async function loadServiceZones(citySlug: string): Promise<{ zones: Servi
 }
 
 export async function loadZoneGeoJSON(citySlug: string): Promise<ZoneFeatureCollection | null> {
+  if (citySlug === "sofia") {
+    try {
+      return (await loadSofiaMapData()).geojson;
+    } catch {
+      return null;
+    }
+  }
+
   try {
     const response = await apiFetch(`/api/locations/cities/${citySlug}/zones.geojson/`);
     if (!response.ok) return null;
@@ -95,6 +187,21 @@ export async function loadZoneGeoJSON(citySlug: string): Promise<ZoneFeatureColl
     // Map gracefully falls back to the checklist.
   }
   return null;
+}
+
+export async function loadParkGeoJSON(
+  citySlug: string,
+): Promise<FeatureCollection<Geometry, GeoJsonProperties> | null> {
+  if (citySlug !== "sofia") return null;
+  try {
+    const response = await apiFetch("/maps/sofia/parks.geojson");
+    if (!response.ok) return null;
+    const payload = (await response.json()) as FeatureCollection<Geometry, GeoJsonProperties>;
+    if (payload.type !== "FeatureCollection" || !Array.isArray(payload.features)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 export function serviceAreaNamesToZoneIds(serviceAreas: string[], zones: ServiceZone[]): string[] {

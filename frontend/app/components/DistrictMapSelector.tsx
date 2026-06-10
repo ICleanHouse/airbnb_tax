@@ -8,6 +8,7 @@ import DistrictSelectedTags from "./DistrictSelectedTags";
 import {
   cityLabel,
   loadLocationCities,
+  loadParkGeoJSON,
   loadServiceZones,
   loadZoneGeoJSON,
   zoneLabel,
@@ -36,13 +37,26 @@ function flattenCoordinates(value: unknown, output: [number, number][] = []): [n
 }
 
 function boundsFromGeoJSON(geojson: ZoneFeatureCollection): [[number, number], [number, number]] | null {
-  const points = geojson.features.flatMap((feature) => flattenCoordinates(feature.geometry.coordinates));
+  return boundsFromCoordinates(geojson.features.flatMap((feature) => flattenCoordinates(feature.geometry.coordinates)));
+}
+
+function boundsFromCoordinates(points: [number, number][]): [[number, number], [number, number]] | null {
   if (points.length === 0) return null;
   const lngs = points.map(([lng]) => lng);
   const lats = points.map(([, lat]) => lat);
   return [
     [Math.min(...lngs), Math.min(...lats)],
     [Math.max(...lngs), Math.max(...lats)],
+  ];
+}
+
+function centerFromZone(geojson: ZoneFeatureCollection, zoneId: string): [number, number] | null {
+  const feature = geojson.features.find((item) => item.properties.zone_id === zoneId);
+  const bounds = feature ? boundsFromCoordinates(flattenCoordinates(feature.geometry.coordinates)) : null;
+  if (!bounds) return null;
+  return [
+    (bounds[0][0] + bounds[1][0]) / 2,
+    (bounds[0][1] + bounds[1][1]) / 2,
   ];
 }
 
@@ -65,7 +79,9 @@ export default function DistrictMapSelector({
   const [cities, setCities] = useState<LocationCity[]>([]);
   const [zones, setZones] = useState<ServiceZone[]>([]);
   const [geojson, setGeojson] = useState<ZoneFeatureCollection | null>(null);
+  const [parksGeojson, setParksGeojson] = useState<FeatureCollection<Geometry, GeoJsonProperties> | null>(null);
   const [hoveredZoneId, setHoveredZoneId] = useState("");
+  const [districtQuery, setDistrictQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
 
@@ -85,6 +101,14 @@ export default function DistrictMapSelector({
     () => zones.find((zone) => zone.zone_id === hoveredZoneId) ?? null,
     [hoveredZoneId, zones],
   );
+
+  const matchedZones = useMemo(() => {
+    const query = districtQuery.trim().toLocaleLowerCase();
+    if (!query) return [];
+    return zones
+      .filter((zone) => [zone.name_bg, zone.name_en, ...zone.legacy_names].some((name) => name.toLocaleLowerCase().includes(query)))
+      .slice(0, 8);
+  }, [districtQuery, zones]);
   const hasMapFeatures = Boolean(geojson && geojson.features.length > 0);
 
   useEffect(() => {
@@ -101,6 +125,7 @@ export default function DistrictMapSelector({
     if (!citySlug) {
       setZones([]);
       setGeojson(null);
+      setParksGeojson(null);
       onZonesLoadedRef.current?.([]);
       return;
     }
@@ -108,11 +133,12 @@ export default function DistrictMapSelector({
     let active = true;
     setLoading(true);
     setStatus("");
-    Promise.all([loadServiceZones(citySlug), loadZoneGeoJSON(citySlug)])
-      .then(([zoneResult, nextGeojson]) => {
+    Promise.all([loadServiceZones(citySlug), loadZoneGeoJSON(citySlug), loadParkGeoJSON(citySlug)])
+      .then(([zoneResult, nextGeojson, nextParksGeojson]) => {
         if (!active) return;
         setZones(zoneResult.zones);
         setGeojson(nextGeojson);
+        setParksGeojson(nextParksGeojson);
         onZonesLoadedRef.current?.(zoneResult.zones);
         setStatus(nextGeojson?.features.length ? "" : "Map boundaries are not loaded for this city yet. Use the checklist below.");
       })
@@ -143,18 +169,31 @@ export default function DistrictMapSelector({
           container: mapContainerRef.current,
           style: {
             version: 8,
-            sources: {},
+            sources: {
+              "openstreetmap": {
+                type: "raster",
+                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                tileSize: 256,
+                attribution: "© OpenStreetMap contributors",
+              },
+            },
             layers: [
               {
                 id: "district-selector-background",
                 type: "background",
                 paint: { "background-color": "#f7faf9" },
               },
+              {
+                id: "openstreetmap",
+                type: "raster",
+                source: "openstreetmap",
+                paint: { "raster-opacity": 0.62 },
+              },
             ],
           },
           center,
           zoom: selectedCity?.default_zoom ?? 11,
-          attributionControl: false,
+          attributionControl: { compact: true },
         });
         mapRef.current = map;
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
@@ -169,6 +208,12 @@ export default function DistrictMapSelector({
             data: geojson as unknown as FeatureCollection<Geometry, GeoJsonProperties>,
             promoteId: "zone_id",
           });
+          if (parksGeojson?.features.length) {
+            map.addSource("parks", {
+              type: "geojson",
+              data: parksGeojson,
+            });
+          }
           map.addLayer({
             id: "district-fills",
             type: "fill",
@@ -182,16 +227,37 @@ export default function DistrictMapSelector({
                 "#008489",
                 ["==", ["get", "zone_id"], ""],
                 "#b8e4e2",
-                "#eef3f2",
+                "#f5f8f7",
               ],
               "fill-opacity": [
                 "case",
                 ["in", ["get", "zone_id"], ["literal", selectedRef.current]],
                 0.72,
-                0.58,
+                0.5,
               ],
             },
           });
+          if (parksGeojson?.features.length) {
+            map.addLayer({
+              id: "parks-fill",
+              type: "fill",
+              source: "parks",
+              paint: {
+                "fill-color": "#68b984",
+                "fill-opacity": 0.62,
+              },
+            });
+            map.addLayer({
+              id: "parks-lines",
+              type: "line",
+              source: "parks",
+              paint: {
+                "line-color": "#3d8b5a",
+                "line-width": 1.2,
+                "line-opacity": 0.85,
+              },
+            });
+          }
           map.addLayer({
             id: "district-lines",
             type: "line",
@@ -215,6 +281,11 @@ export default function DistrictMapSelector({
           if (bounds) map.fitBounds(bounds, { padding: 28, duration: 0 });
 
           map.on("mousemove", "district-fills", (event: MapLayerMouseEvent) => {
+            if (map.getLayer("parks-fill") && map.queryRenderedFeatures(event.point, { layers: ["parks-fill"] }).length > 0) {
+              map.getCanvas().style.cursor = "";
+              setHoveredZoneId("");
+              return;
+            }
             map.getCanvas().style.cursor = "pointer";
             const zoneId = String(event.features?.[0]?.properties?.zone_id ?? "");
             setHoveredZoneId(zoneId);
@@ -224,6 +295,9 @@ export default function DistrictMapSelector({
             setHoveredZoneId("");
           });
           map.on("click", "district-fills", (event: MapLayerMouseEvent) => {
+            if (map.getLayer("parks-fill") && map.queryRenderedFeatures(event.point, { layers: ["parks-fill"] }).length > 0) {
+              return;
+            }
             const zoneId = String(event.features?.[0]?.properties?.zone_id ?? "");
             if (!zoneId || disabledRef.current.includes(zoneId)) return;
             const next = new Set(selectedRef.current);
@@ -248,7 +322,7 @@ export default function DistrictMapSelector({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [citySlug, geojson, hasMapFeatures, mode, selectedCity, zones]);
+  }, [citySlug, geojson, hasMapFeatures, mode, parksGeojson, selectedCity, zones]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -261,13 +335,13 @@ export default function DistrictMapSelector({
       "#008489",
       ["==", ["get", "zone_id"], hoveredZoneId],
       "#b8e4e2",
-      "#eef3f2",
+      "#f5f8f7",
     ]);
     map.setPaintProperty("district-fills", "fill-opacity", [
       "case",
       ["in", ["get", "zone_id"], ["literal", selectedZoneIds]],
       0.72,
-      0.58,
+      0.5,
     ]);
     map.setPaintProperty("district-lines", "line-color", [
       "case",
@@ -293,6 +367,24 @@ export default function DistrictMapSelector({
 
   function removeZone(zoneId: string) {
     onChange(selectedZoneIds.filter((id) => id !== zoneId));
+  }
+
+  function selectSearchedZone(zoneId: string) {
+    if (disabled.has(zoneId)) return;
+    const next = new Set(selectedZoneIds);
+    const willSelect = !next.has(zoneId);
+    if (mode === "single") {
+      onChange(next.has(zoneId) ? [] : [zoneId]);
+    } else {
+      if (next.has(zoneId)) next.delete(zoneId);
+      else next.add(zoneId);
+      onChange(zones.filter((zone) => next.has(zone.zone_id)).map((zone) => zone.zone_id));
+    }
+
+    const center = geojson && willSelect ? centerFromZone(geojson, zoneId) : null;
+    if (center) mapRef.current?.easeTo({ center, duration: 450 });
+    setHoveredZoneId(zoneId);
+    setDistrictQuery("");
   }
 
   return (
@@ -325,7 +417,30 @@ export default function DistrictMapSelector({
         <div className="district-selector__legend" aria-hidden="true">
           <span><i className="district-selector__swatch" /> Available</span>
           <span><i className="district-selector__swatch district-selector__swatch--selected" /> Selected</span>
+          {parksGeojson?.features.length ? <span><i className="district-selector__swatch district-selector__swatch--park" /> Park</span> : null}
         </div>
+      </div>
+
+      <div className="district-selector__map-search">
+        <label className="district-selector__search">
+          <input
+            type="search"
+            placeholder="Search district"
+            value={districtQuery}
+            onChange={(event) => setDistrictQuery(event.target.value)}
+          />
+        </label>
+        {districtQuery.trim() ? (
+          <div className="district-selector__search-results">
+            {matchedZones.map((zone) => (
+              <button type="button" key={zone.zone_id} onClick={() => selectSearchedZone(zone.zone_id)}>
+                <span>{zoneLabel(zone, language)}</span>
+                <small>{selected.has(zone.zone_id) ? "Selected" : "Select"}</small>
+              </button>
+            ))}
+            {matchedZones.length === 0 ? <p className="district-selector__empty">No districts match this search.</p> : null}
+          </div>
+        ) : null}
       </div>
 
       {status && hasMapFeatures ? <p className="district-selector__notice">{status}</p> : null}

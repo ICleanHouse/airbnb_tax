@@ -2999,8 +2999,8 @@ export default function CleanerDashboard() {
       </main>
 
       {districtOverlayOpen ? (
-        <div className="host-modal-backdrop" onClick={closeDistrictOverlay} role="dialog" aria-modal="true" aria-label="Add districts">
-          <div className="host-modal host-modal--wide" onClick={(event) => event.stopPropagation()}>
+        <div className="host-modal-backdrop cleaner-district-backdrop" onClick={closeDistrictOverlay} role="dialog" aria-modal="true" aria-label="Add districts">
+          <div className="host-modal host-modal--wide cleaner-district-modal" onClick={(event) => event.stopPropagation()}>
             <div className="host-modal-header">
               <div>
                 <h2>Add districts</h2>
@@ -3020,7 +3020,7 @@ export default function CleanerDashboard() {
                     selectedZoneIds={districtSelectedZoneIds}
                     onChange={handleDistrictSelectorChange}
                     language="bg"
-                    showListFallback
+                    showListFallback={false}
                     onZonesLoaded={handleDistrictZonesLoaded}
                   />
                 </section>

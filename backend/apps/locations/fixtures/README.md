@@ -1,15 +1,20 @@
 # Location Fixtures
 
-Place approved city boundary GeoJSON files here before importing them.
+Place approved non-Sofia city boundary GeoJSON files here before importing
+them with `validate_zone_geojson`.
 
-Expected first file:
+Sofia districts are intentionally not maintained in this fixtures directory.
+Their canonical source and runtime files are:
 
 ```text
-backend/apps/locations/fixtures/sofia_service_zones.geojson
+districits_sofia/sofia_districts_ready.geojson
+frontend/lib/sofiaDistricts.ts
+frontend/public/maps/sofia/districts.geojson
 ```
 
-Validate and import:
+All three must contain the same 144 stable ID/name pairs. Sofia zone IDs use
+`sofia:osm-1` through `sofia:osm-144`, canonical names retain prefixes such as
+`кв.` and `ж.к.`, and Sofia `legacy_names` must remain empty.
 
-```powershell
-python manage.py validate_zone_geojson --city sofia --file apps/locations/fixtures/sofia_service_zones.geojson --save --source "Approved source" --source-license "Approved license"
-```
+`a1_populate_tables_test.py` validates and synchronizes the current Sofia
+catalog into local database rows when test data is populated.

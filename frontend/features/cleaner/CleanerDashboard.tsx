@@ -644,7 +644,11 @@ export default function CleanerDashboard() {
   useEffect(() => {
     if (requestedSection === "assignments" || requestedSection === "applications") {
       setSection("applications");
-    } else if (requestedSection === "calendar" || requestedSection === "offers") {
+    } else if (
+      requestedSection === "calendar"
+      || requestedSection === "offers"
+      || requestedSection === "profile"
+    ) {
       setSection(requestedSection);
     }
   }, [requestedSection]);
@@ -904,6 +908,17 @@ export default function CleanerDashboard() {
   function openProfileFromMenu() {
     setSection("profile");
     setAccountMenuOpen(false);
+  }
+
+  async function changePreferredLanguage(preferredLanguage: "bg" | "en") {
+    if (!me) return;
+    const response = await apiFetch(`/api/accounts/users/${me.id}/`, {
+      method: "PATCH",
+      body: JSON.stringify({ preferred_language: preferredLanguage }),
+    });
+    if (response.ok) {
+      setMe((await response.json()) as CurrentUser);
+    }
   }
 
   function openApply(job: CleaningJob) {
@@ -1687,6 +1702,27 @@ export default function CleanerDashboard() {
                   <UserRoundCheck size={16} aria-hidden />
                   Profile
                 </button>
+                <div className="account-language-picker">
+                  <span>Language</span>
+                  <div className="account-language-slider" role="group" aria-label="Language">
+                    <button
+                      type="button"
+                      className={me.preferred_language === "bg" ? "active" : ""}
+                      aria-pressed={me.preferred_language === "bg"}
+                      onClick={() => void changePreferredLanguage("bg")}
+                    >
+                      BG
+                    </button>
+                    <button
+                      type="button"
+                      className={me.preferred_language === "en" ? "active" : ""}
+                      aria-pressed={me.preferred_language === "en"}
+                      onClick={() => void changePreferredLanguage("en")}
+                    >
+                      EN
+                    </button>
+                  </div>
+                </div>
                 <div className="account-view-toggle" role="group" aria-label="Dashboard view">
                   <span className="account-view-toggle-label">Dashboard</span>
                   <div className="account-view-toggle-opts">

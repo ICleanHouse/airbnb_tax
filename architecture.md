@@ -60,7 +60,7 @@ Future extraction into microservices should be possible without rewriting core b
 
 - `frontend/lib/api.ts`: shared HTTP client. All pages use `apiFetch` — it injects JSON `Content-Type` only when safe, sets CSRF headers, adds `X-Request-ID`, and reports failed API responses to Sentry when configured. Never call `fetch` directly.
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
-- `frontend/app/page.tsx`: public landing page. Auth-aware header shows role-correct dashboard link (`/admin` for admins, `/host` for hosts, `/cleaner` for cleaners, `/agency` for agencies, `/app` fallback). The first screen is a compact photo hero plus the shared `CleanerBrowser`, which loads `/api/accounts/public-cleaners/` and filters verified cleaners by city and district.
+- `frontend/app/page.tsx`: public landing page. Auth-aware header shows the role-correct dashboard link and, for authenticated users, the shared notification bell plus profile-icon menu containing Profile, persistent BG/EN language slider, and Log out. The first screen is a compact photo hero plus the shared `CleanerBrowser`, which loads `/api/accounts/public-cleaners/` and filters verified cleaners by city and district.
 - `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
 - `frontend/app/signup/page.tsx`: single-route signup wizard. It handles credentials, Resend 6-digit email-code verification, role selection, cleaner personal details, location/service-area selection, native language, experience, introduction, profile photo, and final account creation without full page reloads between steps. It uses Motion (`motion/react`) for reusable panel transitions and keeps `sessionStorage` only for refresh recovery.
 - `frontend/app/signup/confirm-email/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`, `frontend/app/signup/personal-info/page.tsx`, `frontend/app/signup/native-language/page.tsx`, `frontend/app/signup/experience/page.tsx`: lightweight compatibility redirects to `/signup`.
@@ -71,7 +71,7 @@ Future extraction into microservices should be possible without rewriting core b
   - **Jobs & Calendar** — custom month calendar grid with coloured status dots per day. "Post a job" modal POSTs to `POST /api/marketplace/jobs/` (saved as Draft). Publish button calls `POST /api/marketplace/jobs/{id}/publish/` to transition Draft → Open. **"Import ICS"** button opens a two-step modal: upload an Airbnb `.ics` file → review parsed reservations → bulk-create draft cleaning jobs (one per selected checkout date) via repeated `POST /api/marketplace/jobs/`.
 - `frontend/app/cleaner/page.tsx`: cleaner dashboard with calendar, open jobs, applications, assigned jobs, and modular profile forms (city-scoped service areas, district map/checklist selector overlay, other-languages overlay, profile-image crop editor, driving-license/own-car inputs, and extra-services toggles).
 - `frontend/app/components/CookieConsentBanner.tsx`: consent-first GDPR cookie banner.
-- `frontend/app/components/DistrictMapSelector.tsx`: reusable MapLibre district selector with selected tags and checklist fallback for city service areas.
+- `frontend/app/components/DistrictMapSelector.tsx`: reusable MapLibre district selector with selected tags and checklist fallback for city service areas. Sofia zones and both public search dropdowns share the hardcoded `frontend/lib/sofiaDistricts.ts` catalog and stable `sofia:osm-N` IDs; runtime geometry is loaded from `frontend/public/maps/sofia/districts.geojson`.
 - `frontend/app/globals.css`: single CSS file for all routes using plain CSS variables and named component classes. No CSS library.
 
 ### Not yet built
@@ -132,7 +132,7 @@ Responsibilities:
 - Native language and experience level.
 - Other languages and extra services offered.
 
-Service-area selection now has a canonical location foundation. `apps.locations` exposes active cities, city-scoped service zones, and optional GeoJSON polygons. Cleaner profile editing can use canonical zone IDs internally while continuing to save legacy `CleanerProfile.service_areas` district-name strings until profile normalization is implemented.
+Service-area selection now has a canonical location foundation. `apps.locations` exposes active cities, city-scoped service zones, and optional GeoJSON polygons. Sofia has 144 stable `sofia:osm-1` through `sofia:osm-144` zones whose exact canonical names preserve `кв.` and `ж.к.` prefixes. Cleaner profile editing and public search use zone IDs internally while `CleanerProfile.service_areas` currently stores canonical district-name strings. Old Sofia aliases and the obsolete Sofia backend fixture are intentionally removed.
 
 ### Agencies
 
@@ -192,7 +192,7 @@ Payments are not processed in v1. The app may store proposed and agreed EUR amou
 
 Responsibilities:
 
-- Internal job and availability calendar.
+- Internal cleaning-job calendar.
 - Reservation import from uploaded iCal (.ics) files — parsing done by `ParseIcsView`, job creation done by the host from the parsed results.
 - Google Calendar sync (placeholder).
 - iCal export for hosts and cleaners (planned).

@@ -269,14 +269,24 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 
 **`frontend/app/globals.css`** — single CSS file for the entire app. All new pages should add their styles here following existing naming conventions (`.host-*`, `.admin-*`, etc.).
 
-**`frontend/app/components/DistrictMapSelector.tsx`** — reusable district selector for city service areas. It uses MapLibre when GeoJSON boundaries exist and always provides a searchable checklist fallback. Cleaner profile integration still saves legacy `service_areas` strings.
+**`frontend/app/components/DistrictMapSelector.tsx`** — reusable district selector for city service areas. It uses MapLibre when GeoJSON boundaries exist and provides a searchable checklist fallback. Sofia metadata comes from `frontend/lib/sofiaDistricts.ts`; map geometry comes from `frontend/public/maps/sofia/districts.geojson`. Both must contain the same 144 stable `sofia:osm-N` ID/name pairs. Cleaner profile integration uses zone IDs internally and currently persists canonical district names in `service_areas`.
+
+**Sofia district maintenance**
+
+- Canonical source file: `districits_sofia/sofia_districts_ready.geojson`.
+- Hardcoded frontend catalog: `frontend/lib/sofiaDistricts.ts`.
+- Runtime map asset: `frontend/public/maps/sofia/districts.geojson`.
+- Preserve exact canonical names, including `кв.` and `ж.к.` prefixes.
+- Do not add stripped-name aliases or restore `backend/apps/locations/fixtures/sofia_service_zones.geojson`.
+- After changing the GeoJSON, update the catalog and public map together and verify all IDs/names match exactly.
+- `a1_populate_tables_test.py` validates IDs `1..144`, synchronizes `ServiceZone`/geometry rows as `osm-N`, removes obsolete Sofia zones, clears aliases, and seeds cleaner/property districts from canonical names.
 
 ### Landing page (`/`)
 
 - Compact public hero plus the shared `CleanerBrowser`.
 - `CleanerBrowser` fetches `/api/accounts/public-cleaners/` and filters verified cleaners by selected city and dependent district.
 - City matching uses the cleaner profile `city` field first and falls back to district inference from `service_areas` for older blank-city profiles.
-- Auth-aware header: when logged in, shows the correct dashboard link for the current role.
+- Auth-aware header: when logged in, shows the correct dashboard link plus the same notification bell and profile-icon menu used by dashboards. Profile, logout, and the persistent BG/EN segmented language control live inside the profile menu. Logged-out visitors retain the standalone language selector.
 
 ### Admin panel (`/admin`)
 
@@ -287,8 +297,8 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 
 ### Host dashboard (`/host`)
 
-- Two sections toggled in the topbar: **Properties** and **Jobs & Calendar**.
-- Properties section: add property via modal form (`POST /api/properties/properties/`).
+- Two topbar sections: **Jobs & Calendar** and **Applications**. Properties are selected from the property navigation rail.
+- Property rail: select/filter a property, edit it, or add a property via modal form (`POST /api/properties/properties/`).
 - Jobs section: month calendar grid with coloured status dots per day.
   - Click an empty day → job form pre-filled with that date.
   - Click a day with jobs → filters the list panel to that day.

@@ -363,7 +363,11 @@ export default function HostDashboard() {
   }, [me]);
 
   useEffect(() => {
-    if (requestedSection === "applications" || requestedSection === "jobs") {
+    if (
+      requestedSection === "applications"
+      || requestedSection === "jobs"
+      || requestedSection === "account"
+    ) {
       setSection(requestedSection);
     }
   }, [requestedSection]);
@@ -949,6 +953,18 @@ export default function HostDashboard() {
     setSection("account");
   }
 
+  async function changePreferredLanguage(preferredLanguage: "bg" | "en") {
+    if (!me) return;
+    const response = await apiFetch(`/api/accounts/users/${me.id}/`, {
+      method: "PATCH",
+      body: JSON.stringify({ preferred_language: preferredLanguage }),
+    });
+    if (!response.ok) return;
+    const updatedUser = (await response.json()) as CurrentUser;
+    setMe(updatedUser);
+    setAccountLanguage(updatedUser.preferred_language);
+  }
+
   async function saveAccount(e: FormEvent) {
     e.preventDefault();
     if (!me) return;
@@ -1263,6 +1279,27 @@ export default function HostDashboard() {
                   <UserRoundCheck size={16} aria-hidden />
                   Profile
                 </button>
+                <div className="account-language-picker">
+                  <span>Language</span>
+                  <div className="account-language-slider" role="group" aria-label="Language">
+                    <button
+                      type="button"
+                      className={me.preferred_language === "bg" ? "active" : ""}
+                      aria-pressed={me.preferred_language === "bg"}
+                      onClick={() => void changePreferredLanguage("bg")}
+                    >
+                      BG
+                    </button>
+                    <button
+                      type="button"
+                      className={me.preferred_language === "en" ? "active" : ""}
+                      aria-pressed={me.preferred_language === "en"}
+                      onClick={() => void changePreferredLanguage("en")}
+                    >
+                      EN
+                    </button>
+                  </div>
+                </div>
                 <div className="account-view-toggle" role="group" aria-label="Dashboard view">
                   <span className="account-view-toggle-label">Dashboard</span>
                   <div className="account-view-toggle-opts">
@@ -2153,13 +2190,6 @@ export default function HostDashboard() {
                 <label>
                   <span>Phone number</span>
                   <input value={accountPhone} onChange={(e) => setAccountPhone(e.target.value)} placeholder="+359…" />
-                </label>
-                <label>
-                  <span>Preferred language</span>
-                  <select value={accountLanguage} onChange={(e) => setAccountLanguage(e.target.value as "bg" | "en")}>
-                    <option value="bg">Bulgarian</option>
-                    <option value="en">English</option>
-                  </select>
                 </label>
                 <label>
                   <span>Email</span>

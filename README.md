@@ -64,6 +64,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - **Airbnb ICS parsing** — `POST /api/properties/parse-ics/` accepts a multipart-uploaded `.ics` file, filters blocked-date placeholders, returns parsed reservation list.
 - Marketplace service functions: publish jobs, submit applications, accept applications, complete jobs, direct offers, favourites, and two-way reviews. Duplicate jobs for the same property and exact time range are rejected.
 - Notification records; signup email codes are sent through Resend only and require `EMAIL_RESEND_APIKEY` plus `EMAIL_RESEND_FROM_EMAIL`.
+- Canonical Sofia district catalog: 144 GeoJSON-backed districts with stable `sofia:osm-1` through `sofia:osm-144` IDs. Old Sofia zone aliases and the obsolete backend fixture were removed.
 - Observability: JSON backend/Celery logs with request IDs, Sentry crash reporting, and read-only `AuditLog` records for key account/marketplace actions.
 - Calendar conflict API; Google Calendar sync and iCal export are planned.
 
@@ -101,7 +102,9 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - Cleaner language, experience, introduction, and optional profile photo are collected before account creation.
 - Date of birth uses a compact dropdown-style calendar.
 - Google and Apple buttons are UI-only placeholders; OAuth is not connected yet.
-- Cleaner profile editing includes city-scoped district selection (`Add districts`), selected-district tags, other-languages management, profile image cropping, driving-license/own-car fields, `Extra services offered` toggles, inline field validation, and an account menu dropdown with the cleaner identity shown above `Profile`.
+- Cleaner profile editing includes a GeoJSON-backed Sofia district map (`Add districts`), selected-district tags, other-languages management, profile image cropping, driving-license/own-car fields, `Extra services offered` toggles, inline field validation, and an account menu dropdown with the cleaner identity shown above `Profile`.
+- Sofia district names shown by the cleaner-profile map and both public cleaner-search dropdowns come from the same canonical catalog and preserve exact GeoJSON names, including `кв.` and `ж.к.` prefixes. Search dropdowns are sorted by canonical Bulgarian name while retaining stable zone IDs.
+- Authenticated homepage, host dashboard, and cleaner dashboard headers use the same notification-bell and profile-icon controls. Profile, logout, and the persistent BG/EN language slider live inside the profile menu.
 - Cleaner profile birth date editing uses the compact calendar picker and enforces the 18+ rule during profile updates as well as signup.
 - Cleaner completion flow is time-aware: the cleaner can mark done after the scheduled start time, even if the end time is still ahead; the host can confirm completion only after the scheduled end time.
 - Cleaner notifications deep-link into the relevant feedback/review location in the dashboard.

@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-06-08
+**Last updated:** 2026-06-16
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -66,6 +66,9 @@ Connection ──[has_many]────────► Message
 Message ──[belongs_to]─────────► Connection
 Message ──[has_one sender]─────► User
 
+City ──[has_many]──────────────► ServiceZone
+ServiceZone ──[has_one]────────► ServiceZoneGeometry
+
 AuditLog ──[references]────────► (any entity — polymorphic)
 ```
 
@@ -97,6 +100,9 @@ AuditLog ──[references]────────► (any entity — polymorph
 | `FavouriteCleaner` | User[host] | Host saves a cleaner (one-way) |
 | `Connection` | User (requester) | Host/cleaner sends a connect request |
 | `Message` | User (sender) | Sent within an accepted connection |
+| `City` | System/admin | Location catalog creation/import |
+| `ServiceZone` | City | Canonical city district/service-zone catalog |
+| `ServiceZoneGeometry` | ServiceZone | GeoJSON geometry import/synchronization |
 | `AgencyInvitation` | AgencyProfile | Agency invites cleaner |
 | `AgencyMembership` | System | Cleaner accepts invitation |
 | `AuditLog` | System | On key marketplace decisions |
@@ -272,8 +278,9 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
   auth: optional
   reads: GET /api/accounts/me/   (to set header link)
          GET /api/accounts/public-cleaners/   (verified cleaner directory)
-  writes: none
-  behavior: compact hero + CleanerBrowser city/district filters
+  writes: PATCH /api/accounts/users/{id}/   (authenticated preferred-language slider)
+  behavior: compact hero + CleanerBrowser city/district filters;
+            authenticated header uses notification bell + profile-icon menu
   next: /login, /signup, /host, /admin, /cleaner, /agency, /app
 
 /login
@@ -435,6 +442,9 @@ Full API surface with implementation state.
 | GET/POST | `/api/feedback/reviews/` | Required | ✅ |
 | GET | `/api/notifications/notifications/` | Required | ✅ |
 | GET | `/api/calendars/conflicts/` | Required | ✅ |
+| GET | `/api/locations/cities/` | None | ✅ |
+| GET | `/api/locations/cities/{city_slug}/zones/` | None | ✅ |
+| GET | `/api/locations/cities/{city_slug}/zones.geojson/` | None | ✅ |
 | GET | `/api/health/` | None | ✅ |
 | — | `/admin/` | Staff | ✅ Django admin |
 
@@ -497,7 +507,8 @@ EVENT: connection.request / connection.accepted    ✅ implemented (apps.connect
   └──► SIDE EFFECT: create_notification to the other user; Connections badge polls unread-count
 
 EVENT: connection.message_sent                     ✅ implemented
-  └──► SIDE EFFECT: create_notification (message.received) to the recipient; bumps Connection.updated_at
+  └──► SIDE EFFECT: create_notification (message.received) to the recipient; bumps Connection.updated_at;
+                   frontend thread groups messages with date separators
 
 EVENT: calendar.sync_failed                        ⬜ planned
   └──► TASK: notify affected user + admins
@@ -561,6 +572,24 @@ Cleaner signup rules:
 
 Signup database rule:
 - Final Cleaner, Host, and Agency signup questions must have matching database columns/JSON fields, migrations, serializer validation, profile serializer exposure, frontend payload handling, and tests.
+
+### City / ServiceZone / ServiceZoneGeometry
+```
+City:
+slug, name_bg, name_en, country_code, is_active
+
+ServiceZone:
+city (FK), slug, name_bg, name_en, legacy_names[], is_active
+
+ServiceZoneGeometry:
+service_zone (1:1), geometry (GeoJSON), source, updated_at
+```
+
+Sofia location rules:
+- The canonical catalog contains 144 exact ID/name pairs from `districits_sofia/sofia_districts_ready.geojson`.
+- Sofia zone slugs are stable `osm-N` values, producing IDs such as `sofia:osm-1`.
+- Canonical names preserve prefixes such as `кв.` and `ж.к.`; Sofia `legacy_names` remain empty.
+- `frontend/lib/sofiaDistricts.ts` and `frontend/public/maps/sofia/districts.geojson` must stay identical to the canonical source.
 
 ### AgencyProfile
 ```

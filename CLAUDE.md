@@ -93,7 +93,7 @@ docker-compose.yml
 
 | Route | Auth required | Who can access | Status |
 |---|---|---|---|
-| `/` | No | All | ✅ Live — minimal landing: compact photo hero + public `CleanerBrowser` (city/district filters over verified cleaner cards). Top-right keeps Log in/Sign up (or role-aware Dashboard + user chip + Log out) and language picker. |
+| `/` | No | All | ✅ Live — minimal landing: compact photo hero + public `CleanerBrowser` (city/district filters over verified cleaner cards). Logged-out users see Log in/Sign up + standalone language selector; authenticated users see Dashboard/Admin, notification bell, and profile icon containing Profile, persistent BG/EN slider, and Log out. |
 | `/login` | No | All | ✅ Live — on success fetches `/me/` and forwards to the role's dashboard (admin→`/admin`, host→`/host`, cleaner→`/cleaner`, agency→`/agency`, else `/app`) |
 | `/signup` | No | All | 🟨 In progress — single React wizard with Motion transitions, email-code verification, role selection, cleaner personal/language/experience/introduction/profile-photo steps, and final account creation. Old step URLs redirect to `/signup`. |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
@@ -108,7 +108,7 @@ docker-compose.yml
 - **Admin email on signup**: `send_admin_new_account_email` Celery task fires on every new account. Emails all admin/staff users with a direct link to `/admin?filter=pending`. Retries 3× on SMTP failure. Synchronous fallback (`_FakeTask`) when Celery not installed.
 - **User email-code confirmation before signup**: `send_signup_email_code` sends a 6-digit code through Resend only. `POST /api/accounts/signup/verify-email-code/` returns the token required by final signup.
 - **Signup email template**: the code email HTML is rendered from `backend/apps/notifications/templates/notifications/signup_code_email.html`.
-- **Cleaner browser + landing redesign**: shared `CleanerBrowser.tsx` (city + dependent district dropdowns, client-side filter) powers both `/` and `/cleaners`. `lib/cityDistricts.ts` has the zone→city reverse map. Minimal landing: compact photo hero + browser below.
+- **Cleaner browser + landing redesign**: shared `CleanerBrowser.tsx` (city + dependent district dropdowns, client-side filter) powers both `/` and `/cleaners`. Sofia search dropdowns and the cleaner-profile map share `loadServiceZones`, `frontend/lib/sofiaDistricts.ts`, and stable `sofia:osm-1..144` IDs. Exact canonical names retain `кв.` and `ж.к.` prefixes. Minimal landing: compact photo hero + browser below.
 - **Property card "Post a job"**: host Properties tab cards have Edit (outline) + Post a job (brand-filled) buttons; `openJobForm(day?, jobToEdit?, presetPropId?)` opens the job modal pre-scoped to that property.
 - **Direct offers + favourites**: `CleanerApplication.origin` field (`cleaner_applied` / `host_offered`). Host offer = `CleanerApplication` row with `origin=host_offered, status=pending`. Services: `offer_job`, `accept_offer`, `decline_offer`. Endpoints: `offer` action on `CleaningJobViewSet`; `accept-offer`/`decline-offer` on `CleanerApplicationViewSet`; `FavouriteCleaner` CRUD. Cleaner Offers tab (gold accent). Tests: `apps/marketplace/tests/test_offers.py`.
 - **Notification center**: `GET /api/notifications/`, `POST /api/notifications/<id>/read/`, `POST /api/notifications/read-all/`. `NotificationBell.tsx` shared component (polled via `apiFetch`) in host and cleaner topbars.
@@ -146,7 +146,7 @@ If a session starts with a ClickUp task ID or URL, follow this sequence:
 **Phase 1 — Browsable cleaner profiles & reviews**
 - **Public cleaner profile API** (safe fields only — no email/phone/birth_date): `GET /api/accounts/cleaners/` (directory; verified + approved only; `?city=&min_rating=&service_area=` filters) and `GET /api/accounts/cleaners/<id>/` (detail + that cleaner's received reviews via `ReviewSerializer` filtered on `reviewee`). In `apps/accounts/views.py` + `serializers.py`.
 - **Frontend**: shared components `RatingStars.tsx`, `CleanerProfileCard.tsx`, `CleanerProfileModal.tsx` in `frontend/app/components/`. New `/cleaners` directory route. "View profile" entry points on host applicant cards; landing-page featured cleaners wired to the list endpoint. `PublicCleaner` / `CleanerReview` types in `lib/api.ts`.
-- **Landing redesign + shared `CleanerBrowser.tsx` (2026-06-02)**: stripped the old marketing landing (hero search panel, how-it-works, trust band, join, market strip) down to a **compact photo hero + public cleaner browser**. `CleanerBrowser.tsx` fetches all verified+approved cleaners once and filters **client-side by City + dependent District** dropdowns sourced from `lib/cityDistricts.ts`; city matching uses the cleaner profile `city` field first and falls back to reverse `zone → city` inference from `service_areas` for older blank-city profiles. Same component powers both `/` and `/cleaners`, so they stay in sync. Landing top-right keeps Log in/Sign up (or role-aware Dashboard + user chip + Log out) + language picker; dead hamburger removed and `.site-header` grid set to `1fr auto` so actions pin right.
+- **Landing redesign + shared `CleanerBrowser.tsx` (updated 2026-06-16)**: stripped the old marketing landing down to a **compact photo hero + public cleaner browser**. Both browser copies load dependent district options through `loadServiceZones`; Sofia options share the cleaner-profile map's stable IDs and canonical names. Logged-out users retain Log in/Sign up + standalone language selector; authenticated users use Dashboard/Admin + notification bell + profile-icon menu with Profile, BG/EN slider, and Log out.
 - **Property card "Post a job" (2026-06-02)**: host Properties tab cards now have Edit (left, outline) + **Post a job** (right, brand-filled) buttons; `openJobForm(day?, jobToEdit?, presetPropId?)` opens the job modal pre-scoped to that property. Card restyled — 18px radius, hover lift, stat chips.
 ### Commit message format for ClickUp tasks
 
@@ -200,7 +200,7 @@ All UI is written in plain CSS with these shared tokens and classes. **Do not ad
 **Shared classes:**
 - `.eyebrow` — uppercase label in `--brand`
 - `.site-brand` — logo + text combo
-- `.user-chip` — logged-in user pill in header
+- `.cleaner-account-menu*` / `.account-language-slider` — authenticated profile-icon menu and persistent BG/EN segmented control
 - `.text-link` — header nav link / button
 - `.primary-link` — brand-red filled button
 - `.secondary-link` — bordered outline button

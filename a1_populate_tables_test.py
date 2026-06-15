@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import sys
@@ -52,6 +53,23 @@ def remove_old_seed_property_images(media_root: Path) -> None:
             image_path.unlink()
 
 
+def load_sofia_district_features(repo_root: Path) -> list[dict]:
+    geojson_path = repo_root / "districits_sofia" / "sofia_districts_ready.geojson"
+    payload = json.loads(geojson_path.read_text(encoding="utf-8"))
+    features = payload.get("features")
+    if payload.get("type") != "FeatureCollection" or not isinstance(features, list):
+        raise ValueError(f"Invalid Sofia district GeoJSON: {geojson_path}")
+
+    source_ids = [str(feature.get("properties", {}).get("id", "")) for feature in features]
+    names = [str(feature.get("properties", {}).get("name", "")).strip() for feature in features]
+    expected_ids = {str(source_id) for source_id in range(1, 145)}
+    if len(features) != 144 or set(source_ids) != expected_ids:
+        raise ValueError("Sofia district GeoJSON must contain the stable IDs 1 through 144.")
+    if any(not name for name in names) or len(set(names)) != len(names):
+        raise ValueError("Sofia district GeoJSON names must be present and unique.")
+    return features
+
+
 def main() -> None:
     setup_django()
 
@@ -69,11 +87,15 @@ def main() -> None:
         User,
         hash_signup_email_code,
     )
+    from apps.locations.models import City, ServiceZone, ServiceZoneGeometry
     from apps.properties.models import Property, PropertyImage
 
     rng = random.Random()
     now = timezone.now()
     media_root = Path(settings.MEDIA_ROOT)
+    repo_root = Path(__file__).resolve().parent
+    sofia_district_features = load_sofia_district_features(repo_root)
+    sofia_district_names = [feature["properties"]["name"] for feature in sofia_district_features]
 
     cleaner_people = [
         ("alina.petrov@example.test", "Alina", "Petrova"),
@@ -109,25 +131,28 @@ def main() -> None:
     people_by_email = {email: (first_name, last_name) for email, first_name, last_name in all_people}
 
     sofia_locations = [
-        ("Лозенец", "Кръстова вада", "бул. Черни връх", "112"),
-        ("Младост", "Младост 1", "бул. Андрей Ляпчев", "54"),
-        ("Младост", "Младост 4", "бул. Александър Малинов", "78"),
-        ("Студентски", "Студентски град", "ул. Акад. Борис Стефанов", "18"),
-        ("Витоша", "Манастирски ливади", "бул. Тодор Каблешков", "33"),
-        ("Красно село", "Бъкстон", "бул. Цар Борис III", "206"),
-        ("Изгрев", "Изток", "бул. Драган Цанков", "36"),
-        ("Оборище", "Докторска градина", "ул. Оборище", "41"),
-        ("Триадица", "Иван Вазов", "бул. България", "63"),
-        ("Овча купел", "Овча купел 2", "бул. Монтевидео", "21"),
-        ("Люлин", "Люлин 8", "бул. Панчо Владигеров", "14"),
-        ("Надежда", "Надежда 3", "бул. Ломско шосе", "159"),
-        ("Подуяне", "Хаджи Димитър", "ул. Резбарска", "27"),
-        ("Слатина", "Гео Милев", "бул. Шипченски проход", "19"),
-        ("Средец", "Център", "бул. Витоша", "57"),
-        ("Дружба", "Дружба 1", "бул. Проф. Цветан Лазаров", "90"),
-        ("Връбница", "Обеля 2", "ул. Панайот Хитов", "11"),
-        ("Кремиковци", "Челопечене", "Челопеченско шосе", "8"),
+        ("кв. Кръстова вада", "бул. Черни връх", "112"),
+        ("ж.к. Младост 1", "бул. Андрей Ляпчев", "54"),
+        ("ж.к. Младост 4", "бул. Александър Малинов", "78"),
+        ("ж.к. Студентски град", "ул. Акад. Борис Стефанов", "18"),
+        ("ж.к. Манастирски ливади", "бул. Тодор Каблешков", "33"),
+        ("ж.к. Бъкстон", "бул. Цар Борис III", "206"),
+        ("ж.к. Изток", "бул. Драган Цанков", "36"),
+        ("ж.к. Яворов", "ул. Оборище", "41"),
+        ("ж.к. Иван Вазов", "бул. България", "63"),
+        ("ж.к. Овча купел", "бул. Монтевидео", "21"),
+        ("ж.к. Люлин 8", "бул. Панчо Владигеров", "14"),
+        ("ж.к. Надежда 3", "бул. Ломско шосе", "159"),
+        ("ж.к. Хаджи Димитър", "ул. Резбарска", "27"),
+        ("ж.к. Гео Милев", "бул. Шипченски проход", "19"),
+        ("Център", "бул. Витоша", "57"),
+        ("ж.к. Дружба", "бул. Проф. Цветан Лазаров", "90"),
+        ("ж.к. Обеля 2", "ул. Панайот Хитов", "11"),
+        ("кв. Враждебна", "Ботевградско шосе", "8"),
     ]
+    unknown_property_districts = sorted({item[0] for item in sofia_locations} - set(sofia_district_names))
+    if unknown_property_districts:
+        raise ValueError(f"Property districts are missing from the Sofia GeoJSON: {unknown_property_districts}")
 
     property_prefixes = ["Sunny", "Urban", "Cosy", "Panorama", "Modern", "Quiet", "Central", "Elegant"]
     property_types = ["Studio", "Apartment", "Loft", "Flat", "Home", "Residence", "Suite", "Nest"]
@@ -145,7 +170,7 @@ def main() -> None:
         "Vacuum rugs and mop all hard floors.",
         "Take before/after photos for audit.",
     ]
-    matching_neighborhoods = [item[1] for item in sofia_locations]
+    matching_neighborhoods = sofia_district_names
 
     photo_palettes = [
         ("#f7f1e8", "#2f6f73", "#e3b04b"),
@@ -189,6 +214,49 @@ def main() -> None:
         return buffer.getvalue()
 
     with transaction.atomic():
+        sofia_city, _ = City.objects.update_or_create(
+            slug="sofia",
+            defaults={
+                "name_bg": "София",
+                "name_en": "Sofia",
+                "country_code": "BG",
+                "center_lat": "42.697700",
+                "center_lng": "23.321900",
+                "default_zoom": 10,
+                "is_active": True,
+                "sort_order": 1,
+            },
+        )
+        current_sofia_slugs = {f"osm-{feature['properties']['id']}" for feature in sofia_district_features}
+        ServiceZone.objects.filter(city=sofia_city).exclude(slug__in=current_sofia_slugs).delete()
+        for sort_order, feature in enumerate(sofia_district_features, start=1):
+            properties = feature["properties"]
+            source_id = str(properties["id"])
+            name = properties["name"]
+            zone, _ = ServiceZone.objects.update_or_create(
+                city=sofia_city,
+                slug=f"osm-{source_id}",
+                defaults={
+                    "name_bg": name,
+                    "name_en": properties.get("name:en") or name,
+                    "zone_type": "district",
+                    "legacy_names": [],
+                    "is_active": True,
+                    "sort_order": sort_order,
+                },
+            )
+            ServiceZoneGeometry.objects.update_or_create(
+                zone=zone,
+                defaults={
+                    "geometry": feature["geometry"],
+                    "simplified_geometry": None,
+                    "source": "sofia_districts_ready.geojson",
+                    "source_license": "",
+                    "source_url": "",
+                    "attribution": "© OpenStreetMap contributors",
+                },
+            )
+
         # Clean only data created by this script if re-run.
         remove_old_seed_property_images(media_root)
         CookieConsent.objects.filter(user__email__in=emails).delete()
@@ -285,7 +353,7 @@ def main() -> None:
                 user=user,
                 company_name=f"{user.last_name} Stays",
                 city="Sofia",
-                notes=f"Host account managing short-term rentals in {rng.choice([x[1] for x in sofia_locations])}.",
+                notes=f"Host account managing short-term rentals in {rng.choice(sofia_district_names)}.",
             )
             created_users.append(user)
             created_hosts.append(user)
@@ -297,13 +365,13 @@ def main() -> None:
             property_count = rng.randint(1, 3)
             host_locations = rng.sample(sofia_locations, k=property_count)
             host_addresses: set[str] = set()
-            for order, (district, neighborhood, street, number) in enumerate(host_locations):
-                address = f"{street} {number}, {district}, Sofia"
+            for neighborhood, street, number in host_locations:
+                address = f"{street} {number}, {neighborhood}, Sofia"
                 if address in host_addresses:
                     raise ValueError(f"Host {host.email} has duplicate property address: {address}")
                 host_addresses.add(address)
 
-                name = f"{rng.choice(property_prefixes)} {rng.choice(property_types)} {district}"
+                name = f"{rng.choice(property_prefixes)} {rng.choice(property_types)} {neighborhood}"
                 property_obj = Property.objects.create(
                     host=host,
                     name=name,
@@ -368,6 +436,7 @@ def main() -> None:
     print("Populated test data successfully.")
     print(f"Users: {len(created_users)} total ({len(cleaner_people)} cleaners, {len(host_people)} hosts, 1 admin)")
     print(f"Properties created: {len(created_properties)}")
+    print(f"Sofia districts synchronized: {len(sofia_district_features)}")
     print("Password for all users: 1234*Abv")
 
 

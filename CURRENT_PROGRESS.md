@@ -1,6 +1,18 @@
 # Current Progress Handoff
 
-Updated: 2026-06-08, after the property navigation rail, income/expenditure cards, and the Connections + in-app chat layer.
+Updated: 2026-06-16, after Sofia district canonicalization, cleaner/profile UI cleanup, chat/calendar refinements, and shared account-menu controls.
+
+## Latest Work — Sofia Districts · Cleaner UX · Shared Account Menus (2026-06-15/16)
+
+- **Canonical Sofia districts**: `districits_sofia/sofia_districts_ready.geojson`, `frontend/lib/sofiaDistricts.ts`, and `frontend/public/maps/sofia/districts.geojson` now match exactly: 144 unique features with stable IDs `sofia:osm-1` through `sofia:osm-144`. Exact canonical names are preserved, including `кв.` and `ж.к.` prefixes.
+- **Removed old Sofia mappings**: deleted the obsolete `backend/apps/locations/fixtures/sofia_service_zones.geojson`; Sofia runtime zones have empty `legacy_names`; migration `locations.0002_remove_legacy_sofia_service_zones` removes old Sofia rows while retaining current `osm-1..144` rows and clearing their aliases.
+- **Search/profile-map alignment**: both public cleaner-search dropdowns and the cleaner-profile district map load Sofia through `loadServiceZones`. Search dropdowns sort by canonical Bulgarian name, display exact prefixed names, and keep stable zone IDs as option values.
+- **Seed script aligned**: `a1_populate_tables_test.py` validates the 144-feature GeoJSON, synchronizes Sofia `ServiceZone`/geometry rows, removes obsolete zones/aliases, and seeds cleaner service areas and property neighborhoods from canonical names.
+- **Cleaner profile cleanup**: removed cleaner Availability and cleaner-profile summary UI/data usage.
+- **Jobs & Calendar count**: warning count excludes completed jobs.
+- **Connections chat separators**: messages are separated by date; Today is labeled `Today`, current-year separators include day/month plus start time, and older-year separators include day/month/year.
+- **Authenticated header controls**: homepage no longer exposes the user-name pill or top-level Log out action. Homepage, host dashboard, and cleaner dashboard use notification bell + profile icon; Profile, persistent BG/EN segmented language slider, and Log out live inside the profile menu. Host profile-form duplicate language selector was removed.
+- **Verification**: Sofia source/catalog/public-map identity audit passed; frontend typecheck and targeted lint passed; backend locations/account tests passed. A final Next build can fail when the generated `.next` cache is concurrently used or corrupted; stop dev, remove `.next`, then rebuild.
 
 ## Latest Work — Property Rail · Income/Expenditure · Connections + Chat (2026-06-08)
 
@@ -67,8 +79,8 @@ ClickUp task: "Host calendar redesign — compact thumbnail-driven day grid" (`8
 
 ## Latest Work — Landing Redesign, Cleaner Browser & UI Refinements (2026-06-02)
 
-- **Minimal landing page** (`frontend/app/page.tsx`): removed the old marketing sections (hero search panel, how-it-works, trust band, join, market strip). Now a **compact photo hero + public cleaner browser**. Top-right keeps Log in/Sign up (or role-aware Dashboard + user chip + Log out) + language picker; removed the dead hamburger menu and set `.site-header` grid to `1fr auto` so actions pin right.
-- **Shared `CleanerBrowser.tsx`**: fetches all verified+approved cleaners once and filters **client-side by City + dependent District** dropdowns from `lib/cityDistricts.ts`. City filtering uses each cleaner's saved `city` first and falls back to reverse `zone → city` inference from `service_areas` for older blank-city profiles. Powers both `/` and `/cleaners`. Replaced the buggy free-text search bar on `/cleaners`; fixed a layout bug where `display:grid` + `min-height` on the same `<main>` pushed content far down (moved grid/padding to an inner `.cleaners-directory` wrapper). `/cleaners` header is now a narrow band.
+- **Minimal landing page** (`frontend/app/page.tsx`): removed the old marketing sections (hero search panel, how-it-works, trust band, join, market strip). Now a **compact photo hero + public cleaner browser**. Logged-out users see Log in/Sign up + standalone language selector; authenticated users see role-aware Dashboard/Admin, notification bell, and profile-icon menu. Removed the dead hamburger menu and set `.site-header` grid to `1fr auto` so actions pin right.
+- **Shared `CleanerBrowser.tsx`**: fetches all verified+approved cleaners once and filters **client-side by City + dependent District**. Sofia districts come from the same stable `loadServiceZones` catalog used by the cleaner-profile map; dropdown values are stable zone IDs and labels retain canonical prefixes. City filtering uses each cleaner's saved `city` first and falls back to district inference from `service_areas` for older blank-city profiles. Powers both `/` and `/cleaners`.
 - **Login redirect** (`frontend/app/login/page.tsx`): on success fetches `/me/` and forwards to the role dashboard (admin→`/admin`, host→`/host`, cleaner→`/cleaner`, agency→`/agency`, else `/app`).
 - **Property card "Post a job"** (`frontend/app/host/page.tsx`): Properties-tab cards now have Edit (left, outline) + Post a job (right, brand-filled) pill buttons; `openJobForm` takes an optional `presetPropId` to pre-scope the job modal to that property. Card restyled (18px radius, hover lift, rounded stat chips).
 - **Sentry sanitizer fix** (carried from prior session): recreated missing `frontend/lib/sentry-sanitize.ts`; Sentry env vars in gitignored `frontend/.env.local`.

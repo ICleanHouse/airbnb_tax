@@ -100,7 +100,7 @@ This is a Windows dev machine. Commands and paths must match it.
 
 - Extract reusable UI into `frontend/app/components/` rather than inlining into the large dashboards (`host/page.tsx` ~2.3k lines, `cleaner/page.tsx` ~2.6k lines). Existing shared pieces: `CleanerBrowser`, `CleanerProfileCard`, `CleanerProfileModal`.
 - All styles go in `frontend/app/globals.css` using the existing design tokens (`--brand` #ff385c, `--teal` #008489, `--gold` #b7791f, `--ink`, `--muted`, `--line`, `--surface`, `--radius`). No CSS library.
-- City/district filtering is client-side: cleaner profiles expose `city` plus a flat `string[]` of Cyrillic district names in `service_areas`. Prefer the saved `city` for city filtering; keep the reverse district → city map from `frontend/lib/cityDistricts.ts` only as a compatibility fallback for old profiles with blank city values.
+- City/district filtering is client-side: cleaner profiles expose `city` plus a flat `string[]` of canonical district names in `service_areas`. Prefer the saved `city` for city filtering. Sofia search and the cleaner-profile map must use the shared `loadServiceZones` path and stable `sofia:osm-1..144` IDs from `frontend/lib/sofiaDistricts.ts`; preserve exact GeoJSON names including `кв.` and `ж.к.` prefixes and do not restore Sofia aliases.
 - CSS Grid pitfall to avoid: `display:grid` + `min-height` on the same element defaults to `align-content: stretch` and inflates rows; put grid/padding on an inner wrapper instead.
 
 ## Secrets Handling
@@ -209,11 +209,11 @@ This is a Windows dev machine. Commands and paths must match it.
 **`frontend/app/page.tsx`** — public landing page (minimal cleaner directory):
 
 - Stripped-down public entry point — no marketing sections. A compact photo+text hero (`hero hero--compact`) over the shared `CleanerBrowser`, which lists public cleaner profiles filterable by city and district.
-- Auth-aware header (pinned top-right): logged-out shows Log in / Sign up; logged-in shows a role-correct Dashboard link, the user chip (`name · role`), Log out, plus the language picker.
+- Auth-aware header (pinned top-right): logged-out shows Log in / Sign up plus the standalone language selector; logged-in shows a role-correct Dashboard/Admin link, notification bell, and profile icon. Profile, persistent BG/EN segmented language slider, and Log out live inside the profile menu.
 
 **`frontend/app/components/CleanerBrowser.tsx`** — shared public cleaner directory:
 
-- Reused by both `/` and `/cleaners`. Fetches `/api/accounts/public-cleaners/` once, then filters client-side by City and a dependent District dropdown. City filtering uses the cleaner's saved `city` first and falls back to district inference from `lib/cityDistricts.ts` for older blank-city profiles. Renders loading skeletons, empty states, a `CleanerProfileCard` grid, and `CleanerProfileModal`.
+- Reused by both `/` and `/cleaners`. Fetches `/api/accounts/public-cleaners/` once, then filters client-side by City and a dependent District dropdown. Sofia dropdowns use stable zone IDs and the same canonical names as the cleaner-profile district map. City filtering uses the cleaner's saved `city` first and falls back to district inference for older blank-city profiles. Renders loading skeletons, empty states, a `CleanerProfileCard` grid, and `CleanerProfileModal`.
 
 **`frontend/app/cleaners/page.tsx`** — host/admin cleaner directory: same `CleanerBrowser`, gated to host/admin, with a narrow `cleaners-directory-head` band on top.
 

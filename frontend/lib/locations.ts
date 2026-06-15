@@ -1,5 +1,6 @@
 import { apiFetch } from "./api";
 import { cities as fallbackCities } from "./cityDistricts";
+import { SOFIA_DISTRICT_BY_SOURCE_ID, SOFIA_DISTRICTS } from "./sofiaDistricts";
 import type { LocationCity, ServiceZone, ZoneFeatureCollection, ZoneGeometry } from "../types/locations";
 import type { FeatureCollection, GeoJsonProperties, Geometry } from "geojson";
 
@@ -30,10 +31,6 @@ function fallbackZoneSlug(zoneName: string, index: number): string {
   return normalized ? `${normalized}-${index + 1}` : `zone-${index + 1}`;
 }
 
-function sofiaZoneName(rawName: string): string {
-  return rawName.replace(/^(ж\.к\.|кв\.)\s+/iu, "").trim();
-}
-
 async function loadSofiaMapData(): Promise<SofiaMapData> {
   if (!sofiaMapDataPromise) {
     sofiaMapDataPromise = apiFetch("/maps/sofia/districts.geojson")
@@ -45,14 +42,19 @@ async function loadSofiaMapData(): Promise<SofiaMapData> {
         }
 
         const zones: ServiceZone[] = [];
-        const features = payload.features.map((feature, index) => {
+        const features = payload.features.map((feature) => {
           const properties = isRecord(feature.properties) ? feature.properties : {};
-          const sourceId = String(properties.id ?? index + 1);
-          const rawName = String(properties.name ?? `District ${index + 1}`);
-          const nameBg = sofiaZoneName(rawName);
+          const sourceId = String(properties.id ?? "");
+          const district = SOFIA_DISTRICT_BY_SOURCE_ID.get(sourceId);
+          if (!district) throw new Error(`Unknown Sofia district ID: ${sourceId}`);
+          const rawName = String(properties.name ?? "");
+          if (rawName !== district.name) {
+            throw new Error(`Sofia district ${sourceId} does not match the frontend catalog.`);
+          }
+          const nameBg = district.name;
           const nameEn = String(properties["name:en"] ?? nameBg);
           const slug = `osm-${sourceId}`;
-          const zoneId = `sofia:${slug}`;
+          const zoneId = district.id;
 
           zones.push({
             id: zoneId,
@@ -62,7 +64,7 @@ async function loadSofiaMapData(): Promise<SofiaMapData> {
             name_bg: nameBg,
             name_en: nameEn,
             zone_type: "district",
-            legacy_names: rawName === nameBg ? [nameBg] : [nameBg, rawName],
+            legacy_names: [],
             center: null,
             is_active: true,
           });
@@ -105,6 +107,12 @@ export function zoneLabel(zone: ServiceZone, language: "bg" | "en" = "bg"): stri
   return language === "en" ? zone.name_en || zone.name_bg : zone.name_bg;
 }
 
+export function sortDistrictsForSearch(zones: ServiceZone[]): ServiceZone[] {
+  return [...zones].sort((left, right) =>
+    left.name_bg.localeCompare(right.name_bg, "bg", { sensitivity: "base" }),
+  );
+}
+
 export function fallbackLocationCities(): LocationCity[] {
   return fallbackCities.map((city) => ({
     slug: city.value,
@@ -117,6 +125,21 @@ export function fallbackLocationCities(): LocationCity[] {
 }
 
 export function fallbackServiceZones(citySlug: string): ServiceZone[] {
+  if (citySlug === "sofia") {
+    return SOFIA_DISTRICTS.map((district) => ({
+      id: district.id,
+      city_slug: "sofia",
+      slug: `osm-${district.sourceId}`,
+      zone_id: district.id,
+      name_bg: district.name,
+      name_en: district.name,
+      zone_type: "district",
+      legacy_names: [],
+      center: null,
+      is_active: true,
+    }));
+  }
+
   const city = fallbackCities.find((item) => item.value === citySlug);
   if (!city) return [];
   return city.zones.map((zoneName, index) => {

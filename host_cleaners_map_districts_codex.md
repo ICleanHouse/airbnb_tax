@@ -1,5 +1,51 @@
 # Host Cleaners — Map & District Selection System
 
+## Current implementation status (2026-06-16)
+
+This document began as a design proposal. The Sofia implementation is now
+live, and the current state below overrides older proposal/migration examples
+later in this document.
+
+```text
+Canonical editable GeoJSON:
+  districits_sofia/sofia_districts_ready.geojson
+
+Hardcoded frontend ID/name catalog:
+  frontend/lib/sofiaDistricts.ts
+
+Runtime map geometry:
+  frontend/public/maps/sofia/districts.geojson
+
+Stable IDs:
+  sofia:osm-1 through sofia:osm-144
+```
+
+Current rules:
+
+- The three Sofia sources above must contain exactly the same 144 unique
+  ID/name pairs.
+- Canonical Bulgarian names are displayed unchanged, including `кв.` and
+  `ж.к.` prefixes.
+- The cleaner-profile district map and both public cleaner-search dropdowns
+  load the same zones through `frontend/lib/locations.ts`.
+- Search dropdowns sort by canonical Bulgarian name and use stable zone IDs as
+  option values.
+- Sofia `legacy_names` are empty. Do not restore stripped-name aliases.
+- `backend/apps/locations/fixtures/sofia_service_zones.geojson` was removed and
+  must not be restored.
+- `backend/apps/locations/migrations/0002_remove_legacy_sofia_service_zones.py`
+  removes obsolete Sofia database zones while retaining `osm-1..144` rows and
+  clearing aliases.
+- `a1_populate_tables_test.py` validates the canonical GeoJSON and synchronizes
+  current Sofia zone/geometry rows before creating test data.
+- Cleaner profiles still persist canonical district-name strings in
+  `service_areas`; selectors use stable IDs internally and convert selected IDs
+  back to canonical names when saving.
+
+The remaining architecture guidance uses the current Sofia IDs and canonical
+names. Some staged-normalization notes still describe possible future database
+work for profiles and non-Sofia cities.
+
 ## Purpose
 
 Build a scalable city/district selection system for the Host Cleaners marketplace.
@@ -61,8 +107,11 @@ frontend/app/cleaners/page.tsx
 frontend/app/components/CleanerBrowser.tsx
   Shared city/district cleaner browser
 
+frontend/lib/sofiaDistricts.ts
+  Canonical Sofia stable ID/name catalog
+
 frontend/lib/cityDistricts.ts
-  Current city/district constants and reverse zone → city mapping
+  City configuration and non-Sofia fallback lists
 
 frontend/app/signup/page.tsx
   Signup wizard, including location/service-area step
@@ -243,15 +292,15 @@ HostProfile.service_zones = ManyToManyField(ServiceZone, blank=True)
 AgencyProfile.service_zones = ManyToManyField(ServiceZone, blank=True)
 ```
 
-Recommended migration approach:
+Current staged migration approach:
 
 1. Add `City`, `ServiceZone`, `ServiceZoneGeometry`.
-2. Seed Sofia zones from existing `cityDistricts.ts` names.
-3. Keep writing old `service_areas` strings while also allowing new zone IDs.
+2. Synchronize Sofia zones from the canonical GeoJSON IDs and names.
+3. Keep writing canonical district-name strings to `service_areas` while using zone IDs internally.
 4. Add profile `service_zones` relations in a second migration.
-5. Backfill `service_zones` from legacy `service_areas` using `legacy_names`.
+5. Backfill `service_zones` from exact canonical `service_areas` names.
 6. Update frontend to use zone IDs internally.
-7. Keep legacy strings only for display/backward compatibility until removed safely.
+7. Keep Sofia `legacy_names` empty; add aliases only for future non-Sofia migrations that require them.
 
 ## API design
 
@@ -284,9 +333,9 @@ Example zones response:
   {
     "id": 1,
     "city_slug": "sofia",
-    "slug": "lozenets",
-    "zone_id": "sofia:lozenets",
-    "name_bg": "Лозенец",
+    "slug": "osm-66",
+    "zone_id": "sofia:osm-66",
+    "name_bg": "ж.к. Лозенец",
     "name_en": "Lozenets",
     "zone_type": "district",
     "is_active": true
@@ -300,10 +349,10 @@ Example GeoJSON feature:
 {
   "type": "Feature",
   "properties": {
-    "zone_id": "sofia:lozenets",
+    "zone_id": "sofia:osm-66",
     "city_slug": "sofia",
-    "zone_slug": "lozenets",
-    "name_bg": "Лозенец",
+    "zone_slug": "osm-66",
+    "name_bg": "ж.к. Лозенец",
     "name_en": "Lozenets"
   },
   "geometry": {
@@ -341,45 +390,45 @@ Do not build the upload/import UI in the first PR unless explicitly requested.
 
 ## Data files
 
-Initial file location:
+Current Sofia runtime file location:
 
 ```text
-frontend/public/maps/sofia/service-zones.geojson
+frontend/public/maps/sofia/districts.geojson
 ```
 
-Alternative backend-served location:
+Canonical editable Sofia source:
 
 ```text
-backend/apps/locations/fixtures/sofia_service_zones.geojson
+districits_sofia/sofia_districts_ready.geojson
 ```
 
-For the first implementation, backend should be the source of metadata. Geometry can be served from backend or static frontend. Prefer backend endpoint if it is not too slow.
+Sofia metadata is validated against `frontend/lib/sofiaDistricts.ts`. The
+obsolete backend Sofia fixture was removed. Non-Sofia cities may still use the
+backend location API and fixture/import workflow.
 
 ## GeoJSON preparation workflow
 
 Use QGIS or `mapshaper` outside the app to prepare clean files.
 
-Required properties per feature:
+Current Sofia source properties per feature:
 
 ```json
 {
-  "zone_id": "sofia:lozenets",
-  "city_slug": "sofia",
-  "zone_slug": "lozenets",
-  "name_bg": "Лозенец",
-  "name_en": "Lozenets"
+  "id": "66",
+  "name": "ж.к. Лозенец",
+  "name:en": "Lozenets"
 }
 ```
 
 Validation requirements:
 
-- every feature has `zone_id`;
-- every `zone_id` matches a backend `ServiceZone`;
-- no duplicate `zone_id` values;
+- every feature has an `id` in the stable `1..144` range;
+- every derived `sofia:osm-{id}` matches the frontend catalog;
+- no duplicate IDs or names;
 - geometry type is `Polygon` or `MultiPolygon`;
 - file size is reasonable for web use;
 - polygons are simplified enough for frontend performance;
-- names match existing service-area names or are listed in `legacy_names`.
+- names exactly match canonical service-area names; Sofia aliases remain empty.
 
 Add a script later:
 
@@ -390,7 +439,7 @@ backend/apps/locations/management/commands/validate_zone_geojson.py
 Example command:
 
 ```powershell
-python manage.py validate_zone_geojson --city sofia --file ../frontend/public/maps/sofia/service-zones.geojson
+python manage.py check
 ```
 
 ## Frontend integration points
@@ -638,7 +687,7 @@ Mitigation:
 
 - start with Sofia only;
 - keep source/license metadata;
-- keep legacy name aliases;
+- keep Sofia canonical names and IDs exact, with empty `legacy_names`;
 - validate GeoJSON before using it;
 - avoid overpromising all Bulgarian cities at once.
 
@@ -649,7 +698,7 @@ Current data has no city field per service area. This can produce ambiguity if t
 Mitigation:
 
 - introduce canonical `ServiceZone` with `city + slug`;
-- use `legacy_names` for migration;
+- match Sofia profiles using exact canonical names and stable IDs;
 - avoid deleting legacy fields until migration is complete.
 
 ### 3. Map usability on mobile

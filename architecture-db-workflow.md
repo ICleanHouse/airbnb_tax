@@ -193,6 +193,8 @@ erDiagram
    - Current cleaner flow: choose account type → personal information → location/service areas → native language → experience → introduction → profile photo → create account.
    - Current host/agency flow: choose account type → location/service areas → create account.
    - Cleaner profile editing additionally supports other languages, city-scoped district/service-area management, and extra-services toggles stored as personal preferences.
+   - Sofia district selection uses stable `sofia:osm-N` IDs and exact canonical GeoJSON names, including `кв.` and `ж.к.` prefixes.
+   - Authenticated hosts and cleaners update `preferred_language` through the BG/EN slider inside the profile-icon menu.
    - If future signup questions are added for Cleaner, Host, or Agency, matching database fields, migrations, serializer validation, profile serialization, admin visibility, and signup tests must be added with the frontend change.
 5. **Property Management (Property Owner)**
    - Approved property owners add/manage properties.

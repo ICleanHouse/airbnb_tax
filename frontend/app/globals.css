@@ -2459,6 +2459,52 @@ img {
   background: rgba(255, 56, 92, 0.1);
 }
 
+.account-language-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 38px;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 10px;
+}
+
+.account-language-slider {
+  position: relative;
+  display: inline-flex;
+  gap: 2px;
+  border-radius: 999px;
+  background: var(--surface-inset);
+  padding: 2px;
+}
+
+.account-language-slider button {
+  min-width: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 8px;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.account-language-slider button:hover {
+  color: var(--text);
+}
+
+.account-language-slider button.active {
+  background: var(--ink);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+}
+
 /* Dashboard view toggle inside the account dropdown */
 .account-view-toggle {
   display: flex;

@@ -37,6 +37,7 @@ import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import CleanerProfileModal from "../../components/CleanerProfileModal";
 import NotificationBell from "../../components/NotificationBell";
 import Connections from "../../components/Connections";
+import SlotMachine from "../../components/SlotMachine";
 import AppdashGrid from "../../components/AppdashGrid";
 import { useDashView } from "../../lib/useDashView";
 import JobOfferModal from "../../components/JobOfferModal";
@@ -238,6 +239,7 @@ export default function HostDashboard() {
 
   // ── Account menu ─────────────────────────────────────────────────────────
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [slotMachineOpen, setSlotMachineOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
   // ── Property-scoped views (left rail) ───────────────────────────────────────
@@ -1171,6 +1173,15 @@ export default function HostDashboard() {
             Find cleaners
           </Link>
           <NotificationBell />
+          <button
+            type="button"
+            className="slot-machine-trigger"
+            onClick={() => setSlotMachineOpen((v) => !v)}
+            aria-label="Open slot machine"
+            title="Slot machine"
+          >
+            🎰
+          </button>
           <div className="cleaner-account-menu" ref={accountMenuRef}>
             <button
               className="cleaner-account-menu-trigger"
@@ -2717,6 +2728,10 @@ export default function HostDashboard() {
           cleanerId={viewProfileId}
           onClose={() => setViewProfileId(null)}
         />
+      )}
+
+      {slotMachineOpen && (
+        <SlotMachine onClose={() => setSlotMachineOpen(false)} />
       )}
 
       {offerTarget !== null && (

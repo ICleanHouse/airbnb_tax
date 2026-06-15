@@ -73,7 +73,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 |---|---|---|
 | `/` | ✅ Done | Public landing page — auth-aware header plus public cleaner browser with city/district filters |
 | `/login` | ✅ Done | Session login |
-| `/signup` | 🟨 In progress | Single React signup wizard with Motion transitions, Resend email code confirmation, role selection, cleaner personal details, location/service areas, native language, experience, availability, and final account creation. Old step URLs redirect back to `/signup`. |
+| `/signup` | 🟨 In progress | Single React signup wizard with Motion transitions, Resend email code confirmation, role selection, cleaner personal details, location/service areas, native language, experience, introduction, profile photo, and final account creation. Old step URLs redirect back to `/signup`. |
 | `/app` | ✅ Done | Generic workspace — auto-redirects hosts → `/host`, admins → `/admin` |
 | `/admin` | ✅ Done | Admin approval dashboard — list / filter / approve / reject; reads `?filter=pending` URL param |
 | `/host` | ✅ Done | Host dashboard — property CRUD, job posting, month calendar, publish jobs, **ICS import** |
@@ -95,10 +95,10 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - `/signup` stays on one browser route during onboarding. Continue and Back update React state and animate the current form out while the next form enters.
 - Motion animations use `motion/react`; reduced-motion users get non-animated transitions.
 - Progress tracking starts at `Choose account type`, not at credentials or email confirmation.
-- Cleaner flow: choose account type → personal information → location → native language → experience → availability → account creation.
+- Cleaner flow: choose account type → personal information → location → native language → experience → introduction → profile photo → account creation.
 - Host and agency flow: choose account type → location → account creation.
 - Cleaner personal info currently captures birth date with 18+ validation and sex.
-- Cleaner language, experience, work preference, preferred time slots, and optional weekly availability are collected before account creation.
+- Cleaner language, experience, introduction, and optional profile photo are collected before account creation.
 - Date of birth uses a compact dropdown-style calendar.
 - Google and Apple buttons are UI-only placeholders; OAuth is not connected yet.
 - Cleaner profile editing includes city-scoped district selection (`Add districts`), selected-district tags, other-languages management, profile image cropping, driving-license/own-car fields, `Extra services offered` toggles, inline field validation, and an account menu dropdown with the cleaner identity shown above `Profile`.
@@ -109,7 +109,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 ### Signup database notes
 
 - Signup payloads and profile serializers must stay aligned with the database schema for all roles.
-- Cleaner signup currently requires `birth_date`, `sex`, `native_language`, `experience_level`, `work_preference`, and at least one `preferred_time_slots` value. Optional `weekly_availability` is stored as JSON.
+- Cleaner signup currently requires `birth_date`, `sex`, `native_language`, and `experience_level`.
 - Host signup creates/updates `HostProfile` with city data; agency signup creates/updates `AgencyProfile` with company/city/service-area data.
 - Any future change to the Cleaner, Host, or Agency signup flow must include matching model fields, migrations, serializer validation, profile serialization, and signup tests.
 

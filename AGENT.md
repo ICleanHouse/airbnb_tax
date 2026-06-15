@@ -142,7 +142,7 @@ This is a Windows dev machine. Commands and paths must match it.
   - The server stores only the code hash in `SignupEmailVerification`.
   - `POST /api/accounts/signup/verify-email-code/` returns `email_verification_token`.
 - Final signup requires `email_verification_token` and sets `email_verified_at`.
-- Cleaner signup persists birth date, sex, native language, experience level, work preference, preferred time slots, and optional weekly availability.
+- Cleaner signup persists birth date, sex, native language, experience level, introduction, and optional profile photo.
 - Host and agency signup currently create role profiles from location/service-area data.
 
 **Properties (`apps/properties`)**
@@ -219,7 +219,7 @@ This is a Windows dev machine. Commands and paths must match it.
 
 **`frontend/app/login/page.tsx`** — session login. On success it calls `/api/accounts/me/` and forwards to the role's dashboard via `dashboardPath` (admin → `/admin`, host → `/host`, cleaner → `/cleaner`, agency → `/agency`, else `/app`).
 
-**`frontend/app/signup/*`** — signup is centered on `frontend/app/signup/page.tsx`, a single client-side React wizard at `/signup`. It uses custom field errors, email validation, Resend 6-digit email-code confirmation, live password checklist, role selection, cleaner personal details, location/service areas, native language, experience, availability, and final account creation. Continue and Back update React state and animate with Motion instead of loading new pages. Old step route files redirect to `/signup`. Google and Apple buttons are UI-only placeholders.
+**`frontend/app/signup/*`** — signup is centered on `frontend/app/signup/page.tsx`, a single client-side React wizard at `/signup`. It uses custom field errors, email validation, Resend 6-digit email-code confirmation, live password checklist, role selection, cleaner personal details, location/service areas, native language, experience, introduction, profile photo, and final account creation. Continue and Back update React state and animate with Motion instead of loading new pages. Old step route files redirect to `/signup`. Google and Apple buttons are UI-only placeholders.
 
 **`frontend/app/app/page.tsx`** — generic workspace:
 
@@ -255,8 +255,7 @@ This is a Windows dev machine. Commands and paths must match it.
 ### Cleaner signup state
 
 - Birth date uses a compact dropdown-style calendar and must prove the cleaner is at least 18.
-- Required fields: birth date, sex, native language, experience level, work preference, and at least one preferred time slot.
-- Optional signup availability detail: weekly availability by day and time slot.
+- Required fields: birth date, sex, native language, and experience level.
 - The frontend stores draft wizard state in `sessionStorage` only for refresh recovery.
 
 ### What is NOT built yet (next priorities)

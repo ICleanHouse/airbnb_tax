@@ -290,7 +290,7 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
           POST /api/accounts/signup/
   behavior: single React wizard with Motion transitions; Continue/Back mutate local state
   progress starts: role step
-  cleaner path: account → confirm email → role → personal info → location → native language → experience → availability → /app
+  cleaner path: account → confirm email → role → personal info → location → native language → experience → introduction → profile photo → /app
   host/agency path: account → confirm email → role → location → /app
   old step URLs: /signup/confirm-email, /signup/role, /signup/location,
                  /signup/personal-info, /signup/native-language, /signup/experience
@@ -549,9 +549,6 @@ user (1:1), kind, display_name, bio, city, service_areas[],
 verification_status: [pending | verified | rejected | suspended],
 sex: [male | female | prefer_not_to_say],
 birth_date, age (calculated), native_language, experience_level,
-work_preference: [full_time | part_time],
-preferred_time_slots: [morning | afternoon | evening | flexible],
-weekly_availability: {weekday: [morning | afternoon | evening]},
 education, has_driving_license, driving_license_categories[],
 has_own_car, smoker,
 profile_image, average_rating, completed_jobs_count
@@ -559,9 +556,7 @@ profile_image, average_rating, completed_jobs_count
 
 Cleaner signup rules:
 - Birth date is required and must prove age 18+.
-- Sex, native language, experience level, work preference, and at least one preferred time slot are required.
-- Weekly availability is optional and should be treated as usual preference, not a hard booking calendar.
-- Flexible preferred time is exclusive of morning/afternoon/evening in the UI and normalized by the backend.
+- Sex, native language, and experience level are required.
 - The frontend shows birth date as a compact dropdown calendar.
 
 Signup database rule:
@@ -712,7 +707,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 |---|---|
 | Public landing page `/` | ✅ Complete |
 | Login `/login` | ✅ Complete |
-| Signup `/signup` React wizard through cleaner availability | 🟨 In progress |
+| Signup `/signup` React wizard through cleaner profile photo | 🟨 In progress |
 | Generic workspace `/app` | ✅ Complete |
 | Admin approval panel `/admin` + URL filter | ✅ Complete |
 | Host dashboard `/host` — properties section | ✅ Complete |

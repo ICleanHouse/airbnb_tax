@@ -815,8 +815,7 @@ img {
   margin-top: calc(var(--signup-edge-gap) - 20px);
 }
 
-.signup-wizard-motion .signup-availability-form > .signup-nav-actions,
-.signup-wizard-motion .auth-form:not(.signup-code-form, .signup-personal-form, .signup-experience-form, .signup-availability-form) > .auth-submit {
+.signup-wizard-motion .auth-form:not(.signup-code-form, .signup-personal-form, .signup-experience-form) > .auth-submit {
   margin-top: calc(var(--signup-edge-gap) - 18px);
 }
 
@@ -1394,115 +1393,6 @@ img {
   border-radius: 999px;
   background: var(--brand);
   color: #ffffff;
-}
-
-.signup-availability-form {
-  gap: 18px;
-}
-
-.signup-availability-section {
-  display: grid;
-  gap: 10px;
-}
-
-.signup-availability-section h2 {
-  margin: 0;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.signup-availability-choice-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.signup-job-type-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.signup-job-type-grid .signup-experience-option {
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-}
-
-.signup-job-type-grid .signup-experience-option:hover {
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.1);
-  transform: translateY(-1px);
-}
-
-.signup-job-type-grid .signup-experience-option.selected {
-  box-shadow: 0 12px 28px rgba(255, 56, 92, 0.18);
-}
-
-.signup-availability-time-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.signup-availability-time-grid .signup-experience-option {
-  min-height: 52px;
-  justify-content: center;
-  text-align: center;
-}
-
-.signup-weekly-availability-grid {
-  display: grid;
-  grid-template-columns: 52px repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.signup-weekly-availability-corner {
-  min-height: 26px;
-}
-
-.signup-weekly-availability-head,
-.signup-weekly-availability-day {
-  display: grid;
-  align-items: center;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.signup-weekly-availability-head {
-  justify-items: center;
-  text-align: center;
-}
-
-.signup-weekly-availability-row {
-  display: contents;
-}
-
-.signup-weekly-availability-cell {
-  display: grid;
-  min-height: 42px;
-  place-items: center;
-  border: 1.5px solid #9a9a9a;
-  border-radius: 12px;
-  background: var(--surface);
-  color: #ffffff;
-  cursor: pointer;
-  box-shadow: 0 7px 16px rgba(15, 23, 42, 0.07);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease;
-}
-
-.signup-weekly-availability-cell:hover {
-  border-color: var(--brand);
-  box-shadow: 0 11px 24px rgba(15, 23, 42, 0.11);
-  transform: translateY(-1px);
-}
-
-.signup-weekly-availability-cell.selected {
-  border-color: var(--brand);
-  background: var(--brand);
-  box-shadow: 0 12px 24px rgba(255, 56, 92, 0.22);
-}
-
-.signup-weekly-availability-cell:focus-visible,
-.signup-job-type-grid .signup-experience-option:focus-visible {
-  outline: 0;
-  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.18), 0 12px 28px rgba(15, 23, 42, 0.12);
 }
 
 .signup-introduction-form {
@@ -4214,60 +4104,6 @@ img {
   width: min(240px, 100%);
 }
 
-.cleaner-weekly-availability-grid {
-  display: grid;
-  grid-template-columns: 120px repeat(7, minmax(62px, 1fr));
-  gap: 8px;
-  align-items: center;
-  overflow-x: auto;
-}
-
-.cleaner-weekly-availability-corner {
-  min-height: 30px;
-}
-
-.cleaner-weekly-availability-head,
-.cleaner-weekly-availability-slot {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.cleaner-weekly-availability-head {
-  text-align: center;
-}
-
-.cleaner-weekly-availability-slot {
-  text-align: left;
-}
-
-.cleaner-weekly-availability-row {
-  display: contents;
-}
-
-.cleaner-weekly-availability-cell {
-  display: grid;
-  place-items: center;
-  min-width: 70px;
-  min-height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--teal);
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
-}
-
-.cleaner-weekly-availability-cell:hover {
-  border-color: rgba(0, 166, 153, 0.45);
-}
-
-.cleaner-weekly-availability-cell.selected {
-  border-color: rgba(0, 166, 153, 0.45);
-  background: rgba(0, 166, 153, 0.12);
-}
-
 .cleaner-profile-section h3 {
   margin: 0 0 10px;
   color: var(--text);
@@ -4359,14 +4195,6 @@ img {
 
   .cleaner-crop-modal-body {
     padding: 16px;
-  }
-
-  .cleaner-weekly-availability-grid {
-    grid-template-columns: 110px repeat(7, minmax(56px, 1fr));
-  }
-
-  .cleaner-weekly-availability-cell {
-    min-width: 64px;
   }
 
   .cleaner-job-card {
@@ -4923,23 +4751,6 @@ img {
 
   .signup-sex-options {
     grid-template-columns: 1fr;
-  }
-
-  .signup-availability-choice-grid,
-  .signup-job-type-grid,
-  .signup-availability-time-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .signup-weekly-availability-grid {
-    grid-template-columns: 42px repeat(3, minmax(70px, 1fr));
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
-  .signup-weekly-availability-cell {
-    min-height: 40px;
   }
 
   .signup-driving-license-field > label {

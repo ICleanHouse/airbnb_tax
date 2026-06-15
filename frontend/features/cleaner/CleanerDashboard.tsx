@@ -41,10 +41,6 @@ type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "di
 type ApplicationStatus = "pending" | "accepted" | "rejected" | "withdrawn";
 type VerificationStatus = "pending" | "verified" | "rejected" | "suspended";
 type CleanerSex = "male" | "female" | "prefer_not_to_say";
-type WeeklyTimeSlot = "morning" | "afternoon" | "evening";
-type JobTypePreference = "one_off" | "ongoing" | "both";
-type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
-type WeeklyAvailability = Partial<Record<Weekday, WeeklyTimeSlot[]>>;
 
 interface CleanerProfile {
   id: number;
@@ -60,9 +56,6 @@ interface CleanerProfile {
   birth_date: string | null;
   age: number | null;
   experience_level: string;
-  job_type_preference: JobTypePreference | "";
-  preferred_time_slots: string[];
-  weekly_availability: WeeklyAvailability;
   has_driving_license: boolean | null;
   has_own_car: boolean | null;
   profile_image: string;
@@ -185,8 +178,6 @@ type ProfileFormSnapshot = {
   hasDrivingLicense: "" | "yes" | "no";
   hasOwnCar: "" | "yes" | "no";
   experienceLevel: string;
-  jobTypePreference: JobTypePreference | "";
-  weeklyAvailability: string;
   serviceAreas: string;
   profileImage: string;
   bio: string;
@@ -206,8 +197,6 @@ type ProfileFieldErrorKey =
   | "experience_level"
   | "has_driving_license"
   | "has_own_car"
-  | "job_type_preference"
-  | "weekly_availability"
   | "profile_image"
   | "bio";
 
@@ -272,26 +261,6 @@ const experienceOptions = [
   { value: "4_years", label: "4 years" },
   { value: "5_years", label: "5 years" },
   { value: "more_than_5_years", label: "More than 5 years of experience" },
-];
-const jobTypePreferenceOptions: Array<{ value: JobTypePreference | ""; label: string }> = [
-  { value: "", label: "Not set" },
-  { value: "one_off", label: "One-off jobs" },
-  { value: "ongoing", label: "Ongoing work" },
-  { value: "both", label: "Open to both" },
-];
-const weeklyDayOptions: Array<{ value: Weekday; label: string }> = [
-  { value: "monday", label: "Mon" },
-  { value: "tuesday", label: "Tue" },
-  { value: "wednesday", label: "Wed" },
-  { value: "thursday", label: "Thu" },
-  { value: "friday", label: "Fri" },
-  { value: "saturday", label: "Sat" },
-  { value: "sunday", label: "Sun" },
-];
-const weeklyTimeOptions: Array<{ value: WeeklyTimeSlot; label: string }> = [
-  { value: "morning", label: "Morning" },
-  { value: "afternoon", label: "Afternoon" },
-  { value: "evening", label: "Evening" },
 ];
 const otherLanguageCatalog = Array.from(
   new Set([...nativeLanguageOptions.map((option) => option.value), ...additionalLanguageOptions]),
@@ -403,27 +372,6 @@ function calendarItemColor(item: CalendarItem) {
   return "var(--teal)";
 }
 
-function normalizeWeeklyAvailability(value: unknown): WeeklyAvailability {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const raw = value as Record<string, unknown>;
-  const allowedSlots = new Set(weeklyTimeOptions.map((option) => option.value));
-  const normalized: WeeklyAvailability = {};
-  for (const day of weeklyDayOptions) {
-    const slots = raw[day.value];
-    if (!Array.isArray(slots)) continue;
-    const validSlots = slots.filter((slot): slot is WeeklyTimeSlot => (
-      typeof slot === "string" && allowedSlots.has(slot as WeeklyTimeSlot)
-    ));
-    if (validSlots.length > 0) normalized[day.value] = Array.from(new Set(validSlots));
-  }
-  return normalized;
-}
-
-function derivePreferredTimeSlots(value: WeeklyAvailability): WeeklyTimeSlot[] {
-  const selected = new Set(Object.values(value).flatMap((slots) => slots ?? []));
-  return weeklyTimeOptions.map((option) => option.value).filter((slot) => selected.has(slot));
-}
-
 function serviceAreasFromText(value: string) {
   return value
     .split(/[\n,]+/)
@@ -454,16 +402,6 @@ function normalizeServiceAreasByCity(value: string, cityValue: string) {
   if (!selectedCity) return [];
   const cityZones = new Set(selectedCity.zones);
   return areas.filter((item) => cityZones.has(item));
-}
-
-function serializeWeeklyAvailability(value: WeeklyAvailability) {
-  return weeklyDayOptions.map((day) => {
-    const slots = value[day.value] ?? [];
-    const normalizedSlots = weeklyTimeOptions
-      .map((option) => option.value)
-      .filter((slot) => slots.includes(slot));
-    return `${day.value}:${normalizedSlots.join(",")}`;
-  }).join("|");
 }
 
 function buildProfileSnapshot(snapshot: ProfileFormSnapshot) {
@@ -640,8 +578,6 @@ export default function CleanerDashboard() {
   const [profileHasDrivingLicense, setProfileHasDrivingLicense] = useState<"" | "yes" | "no">("");
   const [profileHasOwnCar, setProfileHasOwnCar] = useState<"" | "yes" | "no">("");
   const [profileExperienceLevel, setProfileExperienceLevel] = useState("");
-  const [profileJobTypePreference, setProfileJobTypePreference] = useState<JobTypePreference | "">("");
-  const [profileWeeklyAvailability, setProfileWeeklyAvailability] = useState<WeeklyAvailability>({});
   const [profileDistrictCity, setProfileDistrictCity] = useState("");
   const [profileServiceAreas, setProfileServiceAreas] = useState("");
   const [profileImage, setProfileImage] = useState("");
@@ -836,7 +772,6 @@ export default function CleanerDashboard() {
   function syncProfileForm(nextProfile: CleanerProfile, nextUserNames?: { first_name: string; last_name: string }) {
     const firstName = nextUserNames?.first_name ?? me?.first_name ?? "";
     const lastName = nextUserNames?.last_name ?? me?.last_name ?? "";
-    const normalizedWeeklyAvailability = normalizeWeeklyAvailability(nextProfile.weekly_availability);
     const serviceAreasText = nextProfile.service_areas.join("\n");
     const savedCity = cities.find(
       (city) => city.label.toLowerCase() === (nextProfile.city || "").trim().toLowerCase(),
@@ -855,8 +790,6 @@ export default function CleanerDashboard() {
     setProfileHasDrivingLicense(boolToChoice(nextProfile.has_driving_license));
     setProfileHasOwnCar(boolToChoice(nextProfile.has_own_car));
     setProfileExperienceLevel(nextProfile.experience_level || "");
-    setProfileJobTypePreference(nextProfile.job_type_preference || "");
-    setProfileWeeklyAvailability(normalizedWeeklyAvailability);
     setProfileDistrictCity(inferredCity);
     setProfileServiceAreas(serviceAreasText);
     setProfileImage(nextProfile.profile_image || "");
@@ -875,8 +808,6 @@ export default function CleanerDashboard() {
       hasDrivingLicense: boolToChoice(nextProfile.has_driving_license),
       hasOwnCar: boolToChoice(nextProfile.has_own_car),
       experienceLevel: nextProfile.experience_level || "",
-      jobTypePreference: nextProfile.job_type_preference || "",
-      weeklyAvailability: serializeWeeklyAvailability(normalizedWeeklyAvailability),
       serviceAreas: normalizeServiceAreasText(serviceAreasText),
       profileImage: nextProfile.profile_image || "",
       bio: nextProfile.bio || "",
@@ -1294,10 +1225,6 @@ export default function CleanerDashboard() {
           experience_level: "experience_level",
           has_driving_license: "has_driving_license",
           has_own_car: "has_own_car",
-          job_type_preference: "job_type_preference",
-          work_preference: "job_type_preference",
-          preferred_time_slots: "weekly_availability",
-          weekly_availability: "weekly_availability",
           profile_image: "profile_image",
           bio: "bio",
         },
@@ -1374,9 +1301,6 @@ export default function CleanerDashboard() {
           has_driving_license: choiceToBool(profileHasDrivingLicense),
           has_own_car: profileHasDrivingLicense === "yes" ? choiceToBool(profileHasOwnCar) : null,
           experience_level: profileExperienceLevel,
-          job_type_preference: profileJobTypePreference,
-          preferred_time_slots: derivePreferredTimeSlots(profileWeeklyAvailability),
-          weekly_availability: profileWeeklyAvailability,
           profile_image: profileImage,
           bio: profileBio,
         },
@@ -1391,19 +1315,6 @@ export default function CleanerDashboard() {
 
   function preventCategoryFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-  }
-
-  function toggleProfileWeeklyAvailability(day: Weekday, slot: WeeklyTimeSlot) {
-    setProfileWeeklyAvailability((current) => {
-      const currentSlots = current[day] ?? [];
-      const nextSlots = currentSlots.includes(slot)
-        ? currentSlots.filter((item) => item !== slot)
-        : [...currentSlots, slot];
-      const next = { ...current };
-      if (nextSlots.length > 0) next[day] = nextSlots;
-      else delete next[day];
-      return next;
-    });
   }
 
   const selectedDistrictCity = useMemo(
@@ -1651,8 +1562,6 @@ export default function CleanerDashboard() {
       hasDrivingLicense: profileHasDrivingLicense,
       hasOwnCar: profileHasOwnCar,
       experienceLevel: profileExperienceLevel,
-      jobTypePreference: profileJobTypePreference,
-      weeklyAvailability: serializeWeeklyAvailability(profileWeeklyAvailability),
       serviceAreas: normalizeServiceAreasText(profileServiceAreas),
       profileImage: profileImage || "",
       bio: profileBio,
@@ -1670,8 +1579,6 @@ export default function CleanerDashboard() {
       profileHasDrivingLicense,
       profileHasOwnCar,
       profileExperienceLevel,
-      profileJobTypePreference,
-      profileWeeklyAvailability,
       profileServiceAreas,
       profileImage,
       profileBio,
@@ -2808,69 +2715,6 @@ export default function CleanerDashboard() {
                   </form>
 
                   <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
-                    <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-availability-title">
-                      <div className="cleaner-profile-section-head">
-                        <h2 id="cleaner-availability-title">Availability</h2>
-                      </div>
-                      <section aria-labelledby="cleaner-job-type-preference-title">
-                        <h3 id="cleaner-job-type-preference-title">Job preference</h3>
-                        <div className="signup-availability-choice-grid signup-job-type-grid" role="radiogroup" aria-label="Job preference">
-                          {jobTypePreferenceOptions.filter((option) => option.value !== "").map((option) => {
-                            const selected = profileJobTypePreference === option.value;
-                            return (
-                              <button
-                                type="button"
-                                key={option.value}
-                                className={selected ? "signup-experience-option selected" : "signup-experience-option"}
-                                role="radio"
-                                aria-checked={selected}
-                                onClick={() => {
-                                  setProfileJobTypePreference(option.value as JobTypePreference);
-                                  clearProfileFieldError("job_type_preference");
-                                }}
-                              >
-                                <span>{option.label}</span>
-                                {selected ? <span className="signup-experience-check" aria-hidden><CheckCircle2 size={15} /></span> : null}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {profileFieldErrors.job_type_preference ? <small className="field-error-text">{profileFieldErrors.job_type_preference}</small> : null}
-                      </section>
-                      <div className="cleaner-weekly-availability-grid" role="group" aria-label="Weekly availability">
-                        <span className="cleaner-weekly-availability-corner" aria-hidden />
-                        {weeklyDayOptions.map((day) => (
-                          <span className="cleaner-weekly-availability-head" key={day.value}>{day.label}</span>
-                        ))}
-                        {weeklyTimeOptions.map((slot) => (
-                          <div className="cleaner-weekly-availability-row" key={slot.value}>
-                            <span className="cleaner-weekly-availability-slot">{slot.label}</span>
-                            {weeklyDayOptions.map((day) => {
-                              const selected = profileWeeklyAvailability[day.value]?.includes(slot.value) ?? false;
-                              return (
-                                <button
-                                  type="button"
-                                  key={`${day.value}-${slot.value}`}
-                                  className={selected ? "cleaner-weekly-availability-cell selected" : "cleaner-weekly-availability-cell"}
-                                  aria-pressed={selected}
-                                  aria-label={`${day.label} ${slot.label}`}
-                                  onClick={() => {
-                                    toggleProfileWeeklyAvailability(day.value, slot.value);
-                                    clearProfileFieldError("weekly_availability");
-                                  }}
-                                >
-                                  {selected ? <CheckCircle2 size={14} aria-hidden /> : null}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                      {profileFieldErrors.weekly_availability ? <small className="field-error-text">{profileFieldErrors.weekly_availability}</small> : null}
-                    </section>
-                  </form>
-
-                  <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
                     <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-extra-services-title">
                       <div className="cleaner-profile-section-head">
                         <h2 id="cleaner-extra-services-title">Extra services offered</h2>
@@ -2919,7 +2763,7 @@ export default function CleanerDashboard() {
                             setProfileBio(event.target.value);
                             clearProfileFieldError("bio");
                           }}
-                          placeholder="Experience, property types, languages, availability..."
+                          placeholder="Experience, property types, languages, and work style..."
                         />
                         {profileFieldErrors.bio ? <small className="field-error-text">{profileFieldErrors.bio}</small> : null}
                       </label>
@@ -2974,10 +2818,6 @@ export default function CleanerDashboard() {
                   <div>
                     <span>Experience</span>
                     <strong>{labelFromOptions(experienceOptions, profileExperienceLevel)}</strong>
-                  </div>
-                  <div>
-                    <span>Job preference</span>
-                    <strong>{labelFromOptions(jobTypePreferenceOptions, profileJobTypePreference)}</strong>
                   </div>
                   <div>
                     <span>Service areas</span>

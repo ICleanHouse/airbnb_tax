@@ -129,19 +129,13 @@ Current work is focused on completing the cleaner signup flow. The production-ho
   - Credentials and password validation.
   - 6-digit email code confirmation.
   - Choose account type.
-  - Cleaner: personal information → location/service areas → native language → experience → availability → create account.
+  - Cleaner: personal information → location/service areas → native language → experience → introduction → profile photo → create account.
   - Host/agency: location/service areas → create account.
 - Updated cleaner signup fields:
   - Birth date uses a compact dropdown-style calendar.
   - Sex uses selectable button options.
   - Native language uses selectable options, with an inline dropdown above the `Other` button.
   - Experience uses single-select button fields.
-  - Availability captures full-time/part-time preference, broad preferred time slots, and optional weekly availability.
-- Added backend signup/profile fields for cleaner availability:
-  - `work_preference`
-  - `preferred_time_slots`
-  - `weekly_availability`
-  - Migration: `backend/apps/accounts/migrations/0010_cleanerprofile_work_availability.py`
 - Added cleaner dashboard/profile updates:
   - Profile categories are split into separate forms with one shared `Save changes` action at the bottom.
   - `Profile saved.` success state is shown near the shared save button and auto-hides after 5 seconds.
@@ -202,7 +196,7 @@ npm run build
 ```powershell
 python backend/manage.py check
 python backend/manage.py makemigrations --check --dry-run
-python backend/manage.py test apps.accounts.tests.test_auth_agency_consent.AccountAuthTests.test_cleaner_signup_saves_service_areas apps.accounts.tests.test_auth_agency_consent.AccountAuthTests.test_cleaner_signup_requires_work_preference apps.accounts.tests.test_auth_agency_consent.AccountAuthTests.test_cleaner_signup_requires_preferred_time
+python backend/manage.py test apps.accounts.tests.test_auth_agency_consent apps.accounts.tests.test_public_cleaners
 ```
 
   - Django system check passed.

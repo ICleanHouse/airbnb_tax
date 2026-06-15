@@ -166,15 +166,6 @@ class CleanerProfile(TimeStampedModel):
         FIVE_YEARS = "5_years", "5 years"
         MORE_THAN_FIVE_YEARS = "more_than_5_years", "More than 5 years"
 
-    class WorkPreference(models.TextChoices):
-        FULL_TIME = "full_time", "Full time"
-        PART_TIME = "part_time", "Part time"
-
-    class JobTypePreference(models.TextChoices):
-        ONE_OFF = "one_off", "One-off jobs"
-        ONGOING = "ongoing", "Ongoing work"
-        BOTH = "both", "Open to both"
-
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -202,10 +193,6 @@ class CleanerProfile(TimeStampedModel):
     birth_date = models.DateField(null=True, blank=True)
     education = models.CharField(max_length=32, choices=Education.choices, blank=True)
     experience_level = models.CharField(max_length=32, choices=ExperienceLevel.choices, blank=True)
-    work_preference = models.CharField(max_length=32, choices=WorkPreference.choices, blank=True)
-    job_type_preference = models.CharField(max_length=32, choices=JobTypePreference.choices, blank=True)
-    preferred_time_slots = models.JSONField(default=list, blank=True)
-    weekly_availability = models.JSONField(default=dict, blank=True)
     has_driving_license = models.BooleanField(null=True, blank=True)
     has_own_car = models.BooleanField(null=True, blank=True)
     smoker = models.BooleanField(null=True, blank=True)

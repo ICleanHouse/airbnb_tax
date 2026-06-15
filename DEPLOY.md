@@ -78,7 +78,7 @@ NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.0
 
 `FRONTEND_URL` is used for frontend redirects and admin approval links. `BACKEND_URL` remains available for legacy backend links. Django's configurable mail backend may still be used by non-signup notification paths until those are migrated.
 
-Signup is a single React wizard at `/signup`; old signup step URLs redirect there. Cleaner signup writes additional profile fields (`native_language`, `experience_level`, `work_preference`, `preferred_time_slots`, and optional `weekly_availability`). Before deploying signup-flow changes for Cleaner, Host, or Agency, ensure the matching Django migrations are included and applied so production profile tables match the final frontend payloads.
+Signup is a single React wizard at `/signup`; old signup step URLs redirect there. Cleaner signup writes additional profile fields such as `native_language` and `experience_level`. Before deploying signup-flow changes for Cleaner, Host, or Agency, ensure the matching Django migrations are included and applied so production profile tables match the final frontend payloads.
 
 ## 3. Open Windows Firewall
 

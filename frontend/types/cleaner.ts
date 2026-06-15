@@ -10,10 +10,6 @@ export interface PublicCleaner {
   other_languages: string[];
   personal_preferences: string[];
   experience_level: string;
-  work_preference: string;
-  job_type_preference: string;
-  preferred_time_slots: string[];
-  weekly_availability: Record<string, string[]>;
   has_driving_license: boolean | null;
   has_own_car: boolean | null;
   profile_image: string;

@@ -95,7 +95,7 @@ docker-compose.yml
 |---|---|---|---|
 | `/` | No | All | ✅ Live — minimal landing: compact photo hero + public `CleanerBrowser` (city/district filters over verified cleaner cards). Top-right keeps Log in/Sign up (or role-aware Dashboard + user chip + Log out) and language picker. |
 | `/login` | No | All | ✅ Live — on success fetches `/me/` and forwards to the role's dashboard (admin→`/admin`, host→`/host`, cleaner→`/cleaner`, agency→`/agency`, else `/app`) |
-| `/signup` | No | All | 🟨 In progress — single React wizard with Motion transitions, email-code verification, role selection, cleaner personal/language/experience/availability steps, and final account creation. Old step URLs redirect to `/signup`. |
+| `/signup` | No | All | 🟨 In progress — single React wizard with Motion transitions, email-code verification, role selection, cleaner personal/language/experience/introduction/profile-photo steps, and final account creation. Old step URLs redirect to `/signup`. |
 | `/app` | Yes | All roles | ✅ Live — redirects hosts/admins automatically |
 | `/admin` | Yes | `admin` role only | ✅ Live — reads `?filter=pending` URL param |
 | `/host` | Yes | `host` role only | ✅ Live — tabs are **Jobs & Calendar + Applications** (+ a **Connections** button); a slim left **property rail** (All · thumbnails · pencil-edit/plus-add) filters both tabs in place via `selectedPropertyId` (mobile → dropdown). Applications panel = 6 appdash cards incl. **Spent** + host rating; thumbnail calendar; ICS import; favourites + "My cleaners" + direct offers; notification bell. (The old `/host/properties/[id]` route was removed.) |

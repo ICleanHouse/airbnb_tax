@@ -271,22 +271,6 @@ def main() -> None:
                         CleanerProfile.ExperienceLevel.FIVE_YEARS,
                     ]
                 ),
-                work_preference=rng.choice(
-                    [CleanerProfile.WorkPreference.FULL_TIME, CleanerProfile.WorkPreference.PART_TIME]
-                ),
-                job_type_preference=rng.choice(
-                    [
-                        CleanerProfile.JobTypePreference.ONE_OFF,
-                        CleanerProfile.JobTypePreference.ONGOING,
-                        CleanerProfile.JobTypePreference.BOTH,
-                    ]
-                ),
-                preferred_time_slots=rng.sample(["morning", "afternoon", "evening"], k=2),
-                weekly_availability={
-                    "monday": rng.choice(["08:00-12:00", "13:00-17:00"]),
-                    "wednesday": rng.choice(["08:00-12:00", "13:00-17:00"]),
-                    "friday": rng.choice(["08:00-12:00", "13:00-17:00"]),
-                },
                 has_driving_license=rng.choice([True, False]),
                 has_own_car=rng.choice([True, False]),
                 smoker=rng.choice([True, False]),

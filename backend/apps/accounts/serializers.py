@@ -19,11 +19,6 @@ from apps.accounts.models import (
 
 User = get_user_model()
 
-PREFERRED_TIME_SLOTS = ("morning", "afternoon", "evening", "flexible")
-WEEKLY_TIME_SLOTS = ("morning", "afternoon", "evening")
-WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
-
-
 def age_from_birth_date(birth_date):
     today = timezone.localdate()
     years = today.year - birth_date.year
@@ -112,17 +107,6 @@ class SignupSerializer(serializers.Serializer):
     native_language = serializers.CharField(max_length=80, required=False, allow_blank=True)
     education = serializers.ChoiceField(choices=CleanerProfile.Education.choices, required=False, allow_blank=True)
     experience_level = serializers.ChoiceField(choices=CleanerProfile.ExperienceLevel.choices, required=False, allow_blank=True)
-    work_preference = serializers.ChoiceField(choices=CleanerProfile.WorkPreference.choices, required=False, allow_blank=True)
-    job_type_preference = serializers.ChoiceField(choices=CleanerProfile.JobTypePreference.choices, required=False, allow_blank=True)
-    preferred_time_slots = serializers.ListField(
-        child=serializers.ChoiceField(choices=PREFERRED_TIME_SLOTS),
-        required=False,
-        allow_empty=True,
-    )
-    weekly_availability = serializers.DictField(
-        child=serializers.ListField(child=serializers.ChoiceField(choices=WEEKLY_TIME_SLOTS), allow_empty=True),
-        required=False,
-    )
     has_driving_license = serializers.BooleanField(required=False)
     has_own_car = serializers.BooleanField(required=False)
     smoker = serializers.BooleanField(required=False, allow_null=True)
@@ -175,28 +159,6 @@ class SignupSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"sex": "Sex is required."})
             if not attrs.get("native_language", "").strip():
                 raise serializers.ValidationError({"native_language": "Native language is required."})
-            if not attrs.get("job_type_preference"):
-                raise serializers.ValidationError({"job_type_preference": "Job type preference is required."})
-            weekly_availability = attrs.get("weekly_availability", {})
-            invalid_days = [day for day in weekly_availability if day not in WEEKDAYS]
-            if invalid_days:
-                raise serializers.ValidationError({"weekly_availability": "Choose valid weekdays."})
-            selected_weekly_slots = [
-                slot
-                for day, slots in weekly_availability.items()
-                if day in WEEKDAYS
-                for slot in slots
-            ]
-            if not selected_weekly_slots:
-                raise serializers.ValidationError({"weekly_availability": "Choose at least one available time."})
-            preferred_time_slots = attrs.get("preferred_time_slots", [])
-            if preferred_time_slots:
-                if "flexible" in preferred_time_slots:
-                    attrs["preferred_time_slots"] = ["flexible"]
-            else:
-                attrs["preferred_time_slots"] = [
-                    slot for slot in WEEKLY_TIME_SLOTS if slot in set(selected_weekly_slots)
-                ]
 
         return attrs
 
@@ -216,10 +178,6 @@ class SignupSerializer(serializers.Serializer):
         native_language = validated_data.pop("native_language", "").strip()
         education = validated_data.pop("education", "")
         experience_level = validated_data.pop("experience_level", "")
-        work_preference = validated_data.pop("work_preference", "")
-        job_type_preference = validated_data.pop("job_type_preference", "")
-        preferred_time_slots = validated_data.pop("preferred_time_slots", [])
-        weekly_availability = validated_data.pop("weekly_availability", {})
         has_driving_license = validated_data.pop("has_driving_license", None)
         has_own_car = validated_data.pop("has_own_car", None)
         smoker = validated_data.pop("smoker", None)
@@ -254,10 +212,6 @@ class SignupSerializer(serializers.Serializer):
                 native_language=native_language,
                 education=education,
                 experience_level=experience_level,
-                work_preference=work_preference,
-                job_type_preference=job_type_preference,
-                preferred_time_slots=preferred_time_slots,
-                weekly_availability=weekly_availability,
                 has_driving_license=has_driving_license,
                 has_own_car=has_own_car,
                 smoker=smoker,
@@ -368,10 +322,6 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "birth_date",
             "education",
             "experience_level",
-            "work_preference",
-            "job_type_preference",
-            "preferred_time_slots",
-            "weekly_availability",
             "has_driving_license",
             "has_own_car",
             "smoker",
@@ -419,10 +369,6 @@ class PublicCleanerSerializer(serializers.ModelSerializer):
             "other_languages",
             "personal_preferences",
             "experience_level",
-            "work_preference",
-            "job_type_preference",
-            "preferred_time_slots",
-            "weekly_availability",
             "has_driving_license",
             "has_own_car",
             "profile_image",

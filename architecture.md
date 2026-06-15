@@ -62,7 +62,7 @@ Future extraction into microservices should be possible without rewriting core b
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
 - `frontend/app/page.tsx`: public landing page. Auth-aware header shows role-correct dashboard link (`/admin` for admins, `/host` for hosts, `/cleaner` for cleaners, `/agency` for agencies, `/app` fallback). The first screen is a compact photo hero plus the shared `CleanerBrowser`, which loads `/api/accounts/public-cleaners/` and filters verified cleaners by city and district.
 - `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
-- `frontend/app/signup/page.tsx`: single-route signup wizard. It handles credentials, Resend 6-digit email-code verification, role selection, cleaner personal details, location/service-area selection, native language, experience, availability, and final account creation without full page reloads between steps. It uses Motion (`motion/react`) for reusable panel transitions and keeps `sessionStorage` only for refresh recovery.
+- `frontend/app/signup/page.tsx`: single-route signup wizard. It handles credentials, Resend 6-digit email-code verification, role selection, cleaner personal details, location/service-area selection, native language, experience, introduction, profile photo, and final account creation without full page reloads between steps. It uses Motion (`motion/react`) for reusable panel transitions and keeps `sessionStorage` only for refresh recovery.
 - `frontend/app/signup/confirm-email/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`, `frontend/app/signup/personal-info/page.tsx`, `frontend/app/signup/native-language/page.tsx`, `frontend/app/signup/experience/page.tsx`: lightweight compatibility redirects to `/signup`.
 - `frontend/app/app/page.tsx`: generic authenticated workspace. Automatically redirects hosts to `/host` and admins to `/admin`. For cleaners and agencies shows account status.
 - `frontend/app/admin/page.tsx`: admin account approval panel. Lists all accounts, filters by pending / approved / all. Supports `?filter=pending` URL param to pre-select a tab (used in approval email links). Approve and reject actions call `POST /api/accounts/users/{id}/approve/` and `/reject/`. Accessible to `admin` role only.
@@ -127,12 +127,9 @@ Responsibilities:
 
 - Cleaner profile.
 - Service areas.
-- Availability.
 - Verification state.
 - Public rating summary.
-- Work preferences.
 - Native language and experience level.
-- Broad preferred time slots and optional weekly availability.
 - Other languages and extra services offered.
 
 Service-area selection now has a canonical location foundation. `apps.locations` exposes active cities, city-scoped service zones, and optional GeoJSON polygons. Cleaner profile editing can use canonical zone IDs internally while continuing to save legacy `CleanerProfile.service_areas` district-name strings until profile normalization is implemented.
@@ -262,7 +259,7 @@ The implemented schema covers these concepts:
 
 - User account (role, account status, approval metadata, language preference).
 - Host profile.
-- Cleaner profile (verification status, city, service areas, birth date, calculated age, sex, native language, other languages, personal preferences/extra services, experience level, work preference, preferred time slots, weekly availability, education, driving-license details, own-car status, smoker status, rating summary).
+- Cleaner profile (verification status, city, service areas, birth date, calculated age, sex, native language, other languages, personal preferences/extra services, experience level, education, driving-license details, own-car status, smoker status, rating summary).
 - Agency profile (company name, service areas, member count).
 - Agency invitation (token, expiry, status).
 - Agency membership (status, active/revoked).
@@ -291,7 +288,7 @@ REST APIs through Django REST Framework.
 | `GET /api/health/` | Health check |
 | `POST /api/accounts/signup/email-code/` | Sends a 6-digit signup email confirmation code. |
 | `POST /api/accounts/signup/verify-email-code/` | Verifies the 6-digit code and returns `email_verification_token`. |
-| `POST /api/accounts/signup/` | Creates user + role profile + auto-login after email-code verification. Host/agency payloads include location/service-area data. Cleaner payloads include personal information, native language, other languages, driving-license/own-car details, experience, work preference, preferred time slots, and optional weekly availability. Fires admin email notification. |
+| `POST /api/accounts/signup/` | Creates user + role profile + auto-login after email-code verification. Host/agency payloads include location/service-area data. Cleaner payloads include personal information, native language, other languages, driving-license/own-car details, experience, introduction, and profile photo. Fires admin email notification. |
 | `GET /api/accounts/confirm-email/{uidb64}/{token}/` | Confirms user email and redirects to frontend login. |
 | `POST /api/accounts/login/` | Session login |
 | `POST /api/accounts/logout/` | Session logout |

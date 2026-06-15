@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import CookieConsentBanner from "./components/CookieConsentBanner";
+import CookieConsentBanner from "../components/CookieConsentBanner";
 import "./globals.css";
 
 export const metadata: Metadata = {

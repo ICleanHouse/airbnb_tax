@@ -70,7 +70,7 @@ Future extraction into microservices should be possible without rewriting core b
   - **Properties** — lists host properties as cards with job counts. "Add property" modal POSTs to `POST /api/properties/properties/`.
   - **Jobs & Calendar** — custom month calendar grid with coloured status dots per day. "Post a job" modal POSTs to `POST /api/marketplace/jobs/` (saved as Draft). Publish button calls `POST /api/marketplace/jobs/{id}/publish/` to transition Draft → Open. **"Import ICS"** button opens a two-step modal: upload an Airbnb `.ics` file → review parsed reservations → bulk-create draft cleaning jobs (one per selected checkout date) via repeated `POST /api/marketplace/jobs/`.
 - `frontend/app/cleaner/page.tsx`: cleaner dashboard with calendar, open jobs, applications, assigned jobs, and modular profile forms (city-scoped service areas, district map/checklist selector overlay, other-languages overlay, profile-image crop editor, driving-license/own-car inputs, and extra-services toggles).
-- `frontend/app/components/CookieConsentBanner.tsx`: consent-first GDPR cookie banner.
+- `frontend/components/CookieConsentBanner.tsx`: consent-first GDPR cookie banner.
 - `frontend/app/components/DistrictMapSelector.tsx`: reusable MapLibre district selector with selected tags and checklist fallback for city service areas. Sofia zones and both public search dropdowns share the hardcoded `frontend/lib/sofiaDistricts.ts` catalog and stable `sofia:osm-N` IDs; runtime geometry is loaded from `frontend/public/maps/sofia/districts.geojson`.
 - `frontend/app/globals.css`: single CSS file for all routes using plain CSS variables and named component classes. No CSS library.
 

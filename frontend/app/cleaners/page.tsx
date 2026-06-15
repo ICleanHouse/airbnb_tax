@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { apiFetch, type CurrentUser } from "../../lib/api";
 import CleanerBrowser from "../components/CleanerBrowser";
-import NotificationBell from "../components/NotificationBell";
+import NotificationBell from "../../components/NotificationBell";
 import Connections from "../../components/Connections";
 
 export default function CleanersDirectoryPage() {

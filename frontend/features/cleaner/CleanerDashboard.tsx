@@ -1890,7 +1890,7 @@ export default function CleanerDashboard() {
                                   <img src={item.property_image} alt="" loading="lazy" decoding="async" />
                                 ) : (
                                   <span className="host-cal-thumb--icon">
-                                    <Building2 size={11} aria-hidden />
+                                    <Building2 size={15} aria-hidden />
                                   </span>
                                 )}
                               </span>

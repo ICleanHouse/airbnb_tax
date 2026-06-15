@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ChangeEvent, FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
-  Apple,
   Building2,
   CalendarDays,
   Camera,
@@ -283,6 +282,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [emailVerificationToken, setEmailVerificationToken] = useState("");
   const [role, setRole] = useState<SignupRole | null>(null);
+  const [companyName, setCompanyName] = useState("");
   const [city, setCity] = useState("");
   const [selectedZones, setSelectedZones] = useState<Set<string>>(new Set());
   const [birthDate, setBirthDate] = useState("");
@@ -430,6 +430,14 @@ export default function SignupPage() {
     }
     setRestored(true);
   }, []);
+
+  // Preselect the role from a ?role= deep link (e.g. landing CTAs) once the
+  // wizard has restored, but only if nothing was already in progress.
+  useEffect(() => {
+    if (!restored || role) return;
+    const param = new URLSearchParams(window.location.search).get("role");
+    if (param === "host" || param === "cleaner" || param === "agency") setRole(param);
+  }, [restored, role]);
 
   useEffect(() => {
     if (!restored) return;
@@ -800,6 +808,7 @@ export default function SignupPage() {
       email_verification_token: emailVerificationToken,
       city: selectedCity.label,
       service_areas: Array.from(selectedZones),
+      ...(role === "host" && companyName.trim() ? { company_name: companyName.trim() } : {}),
     });
   }
 
@@ -1137,16 +1146,8 @@ export default function SignupPage() {
           <div className="auth-heading">
             <h1>Create account</h1>
           </div>
-          <div className="login-choice-actions signup-social-block" aria-label="Social sign up">
-            <button className="auth-choice-button social-auth-btn" type="button">
-              <span className="social-google-g" aria-hidden>G</span>
-              <span>Google</span>
-            </button>
-            <button className="auth-choice-button social-auth-btn" type="button">
-              <Apple size={24} aria-hidden />
-              <span>Apple</span>
-            </button>
-          </div>
+          {/* Social sign-up (Google/Apple) is not wired up yet — hidden until
+              real OAuth is implemented to avoid dead, trust-eroding buttons. */}
           <form className="auth-form" onSubmit={submitAccount} noValidate>
             <div className="form-grid signup-form-grid">
               <label>
@@ -1273,6 +1274,18 @@ export default function SignupPage() {
           <div className="auth-heading">
             <h1>Select your city and area</h1>
           </div>
+          {role === "host" ? (
+            <label className="signup-city-picker">
+              <span>Company name <small className="signup-optional">(optional)</small></span>
+              <input
+                type="text"
+                value={companyName}
+                onChange={(event) => setCompanyName(event.target.value)}
+                placeholder="e.g. Sunny Stays Property Management"
+                autoComplete="organization"
+              />
+            </label>
+          ) : null}
           <label className="signup-city-picker">
             <span>City</span>
             <select value={city} onChange={(event) => { setCity(event.target.value); setSelectedZones(new Set()); setAvailableChoice(""); setSelectedChoice(""); setDistrictSearch(""); }}>

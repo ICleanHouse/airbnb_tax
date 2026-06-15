@@ -127,6 +127,7 @@ class SignupSerializer(serializers.Serializer):
     has_own_car = serializers.BooleanField(required=False)
     smoker = serializers.BooleanField(required=False, allow_null=True)
     profile_image = serializers.CharField(required=False, allow_blank=True)
+    company_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
     def validate_email(self, value):
         email = value.strip().lower()
@@ -224,6 +225,7 @@ class SignupSerializer(serializers.Serializer):
         has_own_car = validated_data.pop("has_own_car", None)
         smoker = validated_data.pop("smoker", None)
         profile_image = validated_data.pop("profile_image", "")
+        company_name = validated_data.pop("company_name", "").strip()
         email = validated_data.pop("email")
 
         user = User(
@@ -239,7 +241,7 @@ class SignupSerializer(serializers.Serializer):
         user.save()
 
         if user.is_host:
-            HostProfile.objects.create(user=user, city=city)
+            HostProfile.objects.create(user=user, city=city, company_name=company_name)
         elif user.is_cleaner:
             display_name = f"{first_name} {last_name}".strip()
             CleanerProfile.objects.create(
@@ -265,8 +267,8 @@ class SignupSerializer(serializers.Serializer):
                 verification_status=CleanerProfile.VerificationStatus.VERIFIED,
             )
         elif user.is_agency:
-            company_name = f"{first_name} {last_name}".strip()
-            AgencyProfile.objects.create(user=user, company_name=company_name, city=city, service_areas=service_areas)
+            agency_name = company_name or f"{first_name} {last_name}".strip()
+            AgencyProfile.objects.create(user=user, company_name=agency_name, city=city, service_areas=service_areas)
 
         return user
 

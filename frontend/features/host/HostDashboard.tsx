@@ -1043,6 +1043,77 @@ export default function HostDashboard() {
     else setCalMonth((m) => m + 1);
   }
 
+  /** One calendar day cell. */
+  function renderCalCell(day: number) {
+    const dayJobs = jobsByDay.get(day) ?? [];
+    const isToday = day === now.getDate() && calMonth === now.getMonth() && calYear === now.getFullYear();
+    const isSelected = day === selectedDay;
+    return (
+      <button
+        key={day}
+        type="button"
+        className={`host-cal-day${isToday ? " today" : ""}${isSelected ? " selected" : ""}`}
+        onClick={() => {
+          if (isSelected) { setSelectedDay(null); return; }
+          setSelectedDay(day);
+          // If empty day clicked, pre-fill job form with that date
+          if (dayJobs.length === 0) {
+            setJobError(""); openJobForm(day, undefined, selectedPropertyId ?? undefined);
+          }
+        }}
+        title={dayJobs.length > 0 ? `${dayJobs.length} job(s)` : "Click to post a job"}
+      >
+        <span className="host-cal-day-num">{day}</span>
+        <div className="host-cal-thumbs">
+          {dayJobs.slice(0, 3).map((j) => {
+            const propThumb = getPropThumb(j.property);
+            const activity = jobActivityMap.get(j.id);
+            const assignment = activity?.assignment ?? null;
+            const hasPendingApps = (activity?.pendingApps ?? 0) > 0;
+            const cleanerImg = assignment?.cleaner_profile_image || null;
+            const cleanerInitial = assignment?.cleaner_name?.charAt(0).toUpperCase() ?? "";
+            return (
+              <span
+                key={j.id}
+                className="host-cal-thumb"
+                style={{ boxShadow: `inset 0 0 0 1.5px ${STATUS_COLOR[j.status]}` }}
+              >
+                {propThumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={propThumb} alt="" loading="lazy" decoding="async" />
+                ) : (
+                  <span className="host-cal-thumb--icon">
+                    <Building2 size={15} aria-hidden />
+                  </span>
+                )}
+                {hasPendingApps && (
+                  <span
+                    className="host-cal-thumb-pending"
+                    aria-hidden
+                    title={`${activity?.pendingApps} pending application${activity?.pendingApps !== 1 ? "s" : ""}`}
+                  />
+                )}
+                {assignment && (
+                  <span className="host-cal-thumb-avatar" aria-hidden>
+                    {cleanerImg ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={cleanerImg} alt="" loading="lazy" decoding="async" />
+                    ) : (
+                      cleanerInitial
+                    )}
+                  </span>
+                )}
+              </span>
+            );
+          })}
+          {dayJobs.length > 3 && (
+            <span className="host-cal-thumb-more">+{dayJobs.length - 3}</span>
+          )}
+        </div>
+      </button>
+    );
+  }
+
   function getPropName(id: number) {
     return properties.find((p) => p.id === id)?.name ?? `Property #${id}`;
   }
@@ -1861,11 +1932,20 @@ export default function HostDashboard() {
                 <p>Jobs are available after your account is approved.</p>
               </div>
             ) : properties.length === 0 ? (
-              <div className="host-empty-state">
-                <CalendarDays size={40} />
-                <p>Add a property first to start posting jobs.</p>
-                <button className="secondary-link" type="button" onClick={openCreateProp}>
-                  Add a property
+              <div className="host-activation">
+                <span className="host-activation-icon">
+                  <Building2 size={26} aria-hidden />
+                </span>
+                <div className="host-activation-body">
+                  <h2>Add your first property</h2>
+                  <p>
+                    Set it up once, then post a turnover cleaning in under a minute —
+                    verified cleaners in your area can apply right away.
+                  </p>
+                </div>
+                <button className="primary-link host-activation-cta" type="button" onClick={openCreateProp}>
+                  <Plus size={16} aria-hidden />
+                  Add your first property
                 </button>
               </div>
             ) : loadingData ? (
@@ -1895,75 +1975,7 @@ export default function HostDashboard() {
                       <div key={`b${i}`} className="host-cal-blank" />
                     ))}
                     {/* Day cells */}
-                    {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => {
-                      const dayJobs   = jobsByDay.get(day) ?? [];
-                      const isToday   = day === now.getDate() && calMonth === now.getMonth() && calYear === now.getFullYear();
-                      const isSelected = day === selectedDay;
-                      return (
-                        <button
-                          key={day}
-                          type="button"
-                          className={`host-cal-day${isToday ? " today" : ""}${isSelected ? " selected" : ""}`}
-                          onClick={() => {
-                            if (isSelected) { setSelectedDay(null); return; }
-                            setSelectedDay(day);
-                            // If empty day clicked, pre-fill job form with that date
-                            if (dayJobs.length === 0) {
-                              setJobError(""); openJobForm(day, undefined, selectedPropertyId ?? undefined);
-                            }
-                          }}
-                          title={dayJobs.length > 0 ? `${dayJobs.length} job(s)` : "Click to post a job"}
-                        >
-                          <span className="host-cal-day-num">{day}</span>
-                          <div className="host-cal-thumbs">
-                            {dayJobs.slice(0, 3).map((j) => {
-                              const propThumb = getPropThumb(j.property);
-                              const activity = jobActivityMap.get(j.id);
-                              const assignment = activity?.assignment ?? null;
-                              const hasPendingApps = (activity?.pendingApps ?? 0) > 0;
-                              const cleanerImg = assignment?.cleaner_profile_image || null;
-                              const cleanerInitial = assignment?.cleaner_name?.charAt(0).toUpperCase() ?? "";
-                              return (
-                                <span
-                                  key={j.id}
-                                  className="host-cal-thumb"
-                                  style={{ boxShadow: `inset 0 0 0 1.5px ${STATUS_COLOR[j.status]}` }}
-                                >
-                                  {propThumb ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={propThumb} alt="" loading="lazy" decoding="async" />
-                                  ) : (
-                                    <span className="host-cal-thumb--icon">
-                                      <Building2 size={11} aria-hidden />
-                                    </span>
-                                  )}
-                                  {hasPendingApps && (
-                                    <span
-                                      className="host-cal-thumb-pending"
-                                      aria-hidden
-                                      title={`${activity?.pendingApps} pending application${activity?.pendingApps !== 1 ? "s" : ""}`}
-                                    />
-                                  )}
-                                  {assignment && (
-                                    <span className="host-cal-thumb-avatar" aria-hidden>
-                                      {cleanerImg ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={cleanerImg} alt="" loading="lazy" decoding="async" />
-                                      ) : (
-                                        cleanerInitial
-                                      )}
-                                    </span>
-                                  )}
-                                </span>
-                              );
-                            })}
-                            {dayJobs.length > 3 && (
-                              <span className="host-cal-thumb-more">+{dayJobs.length - 3}</span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
+                    {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => renderCalCell(day))}
                   </div>
                 </div>
 

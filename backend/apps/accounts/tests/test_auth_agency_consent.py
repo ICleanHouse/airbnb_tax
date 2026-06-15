@@ -70,6 +70,29 @@ class AccountAuthTests(TestCase):
         self.assertEqual(me_response.data["account_status"], User.AccountStatus.APPROVED)
         self.assertFalse(me_response.data["is_platform_admin"])
 
+    def test_host_signup_saves_optional_company_name(self):
+        email = "host-company@example.com"
+        response = self.client.post(
+            reverse("account-signup"),
+            {
+                "first_name": "Host",
+                "last_name": "Owner",
+                "email": email,
+                "role": User.Role.HOST,
+                "password": "Password123!",
+                "password_confirm": "Password123!",
+                "email_verification_token": self.make_verified_signup_token(email),
+                "city": "Sofia",
+                "company_name": "Sunny Stays PM",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        profile = HostProfile.objects.get(user__email=email)
+        self.assertEqual(profile.company_name, "Sunny Stays PM")
+        self.assertEqual(profile.city, "Sofia")
+
     def test_signup_does_not_allow_admin_role(self):
         response = self.client.post(
             reverse("account-signup"),

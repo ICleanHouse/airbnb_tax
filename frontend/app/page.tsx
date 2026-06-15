@@ -2,18 +2,37 @@
 
 import { useEffect, useState } from "react";
 import {
+  Check,
   Home as HomeIcon,
   LayoutDashboard,
+  MapPin,
   ShieldCheck as AdminIcon,
+  Star,
 } from "lucide-react";
 import { apiFetch, CurrentUser, roleLabel } from "../lib/api";
 import CleanerBrowser from "./components/CleanerBrowser";
+import AudienceToggle, { type Audience } from "../components/AudienceToggle";
+import AreaDemandPanel from "../components/AreaDemandPanel";
 
 type Language = "BG" | "EN";
 
 export default function Home() {
   const [language, setLanguage] = useState<Language>("EN");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [audience, setAudience] = useState<Audience>("host");
+
+  // Initialise the audience from the ?as= URL param (shareable / deep-linkable).
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get("as");
+    if (param === "cleaner" || param === "host") setAudience(param);
+  }, []);
+
+  function changeAudience(next: Audience) {
+    setAudience(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set("as", next);
+    window.history.replaceState(null, "", url.toString());
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -88,7 +107,7 @@ export default function Home() {
               <a className="text-link login-link" href="/login">
                 Log in
               </a>
-              <a className="primary-link" href="/signup">
+              <a className="primary-link" href={`/signup?role=${audience}`}>
                 Sign up
               </a>
             </>
@@ -105,20 +124,36 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="hero hero--compact" id="top">
-        <div className="hero-media" aria-hidden />
-        <div className="hero-content">
-          <p className="eyebrow">Short-term rental turnover cleaning</p>
-          <h1>Find a verified cleaner near you</h1>
-          <p className="hero-copy">
-            Browse trusted cleaners across Bulgaria. Filter by city and district, then
-            open a profile to see ratings and reviews.
+      <section className="landing-hero" id="top">
+        <div className="landing-hero-inner">
+          <p className="eyebrow">Short-term rental turnover cleaning · Bulgaria</p>
+          <h1>
+            {audience === "host"
+              ? "Find a verified cleaner near you"
+              : "Find cleaning work near you"}
+          </h1>
+          <p className="landing-hero-copy">
+            {audience === "host"
+              ? "Browse trusted cleaners across Bulgaria. Filter by city and district, then open a profile to see ratings and reviews."
+              : "See how many hosts are hiring in your area and join the verified cleaner network — free."}
           </p>
+          <div className="landing-hero-chips">
+            <span className="trust-chip">
+              <Check size={14} aria-hidden /> Verified cleaners
+            </span>
+            <span className="trust-chip">
+              <Star size={14} aria-hidden /> Rated &amp; reviewed
+            </span>
+            <span className="trust-chip">
+              <MapPin size={14} aria-hidden /> Across Bulgaria
+            </span>
+          </div>
+          <AudienceToggle value={audience} onChange={changeAudience} />
         </div>
       </section>
 
       <section className="landing-directory" id="cleaners">
-        <CleanerBrowser />
+        {audience === "host" ? <CleanerBrowser /> : <AreaDemandPanel />}
       </section>
     </main>
   );

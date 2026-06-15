@@ -2906,16 +2906,16 @@ img {
 }
 
 .host-cal-blank {
-  min-height: 74px;
+  min-height: 96px;
 }
 
 .host-cal-day {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  min-height: 74px;
-  padding: 9px 6px 7px;
+  gap: 7px;
+  min-height: 96px;
+  padding: 10px 6px 8px;
   border: 1px solid transparent;
   border-radius: 12px;
   background: var(--surface);
@@ -2984,15 +2984,15 @@ img {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 3px;
-  min-height: 20px;
+  gap: 4px;
+  min-height: 28px;
 }
 
 .host-cal-thumb {
   position: relative;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   background: var(--surface);
   flex: 0 0 auto;
 }
@@ -3001,7 +3001,7 @@ img {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 6px;
+  border-radius: 8px;
   object-fit: cover;
 }
 
@@ -3010,7 +3010,7 @@ img {
   place-items: center;
   width: 100%;
   height: 100%;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #f3f3f3;
   color: var(--muted);
 }
@@ -3021,12 +3021,12 @@ img {
   bottom: -3px;
   display: grid;
   place-items: center;
-  width: 11px;
-  height: 11px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--teal);
   color: #ffffff;
-  font-size: 7px;
+  font-size: 8px;
   font-weight: 600;
   line-height: 1;
   overflow: hidden;
@@ -3056,13 +3056,13 @@ img {
 .host-cal-thumb-more {
   display: grid;
   place-items: center;
-  height: 20px;
-  min-width: 20px;
-  padding: 0 4px;
-  border-radius: 6px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 5px;
+  border-radius: 8px;
   background: #f0f0f0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -3386,13 +3386,13 @@ img {
   }
 
   .host-cal-day {
-    min-height: 58px;
+    min-height: 76px;
     font-size: 13px;
     border-radius: 9px;
   }
 
   .host-cal-blank {
-    min-height: 58px;
+    min-height: 76px;
   }
 
   .host-cal-grid {
@@ -3401,16 +3401,16 @@ img {
   }
 
   .host-cal-thumbs {
-    gap: 2px;
-    min-height: 16px;
+    gap: 3px;
+    min-height: 22px;
   }
 
   .host-cal-thumb,
   .host-cal-thumb-more {
-    width: 16px;
-    height: 16px;
-    min-width: 16px;
-    border-radius: 5px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    border-radius: 6px;
   }
 
   .host-cal-thumb-avatar {
@@ -6738,6 +6738,275 @@ img {
   max-width: 1180px;
   margin: 0 auto;
   padding: 28px 24px 64px;
+}
+
+/* ---- Landing hero (light, warm — replaces the dark stock-photo hero) ---- */
+.landing-hero {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(1100px 460px at 85% -10%, var(--brand-tint), transparent 60%),
+    radial-gradient(900px 420px at 0% 120%, var(--teal-tint), transparent 55%),
+    var(--canvas);
+}
+.landing-hero-inner {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 64px 0 40px;
+}
+.landing-hero h1 {
+  max-width: 18ch;
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-size: clamp(34px, 5.4vw, 60px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+.landing-hero-copy {
+  max-width: 56ch;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: clamp(16px, 1.7vw, 19px);
+  line-height: 1.55;
+}
+.landing-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0 0;
+}
+.trust-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  box-shadow: var(--shadow-xs);
+}
+.trust-chip svg {
+  color: var(--teal);
+}
+
+/* ---- Audience toggle (host vs cleaner self-select) ---- */
+.audience-toggle {
+  display: inline-flex;
+  gap: 4px;
+  margin: 28px 0 0;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+.audience-toggle-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.audience-toggle-opt:hover {
+  color: var(--ink);
+}
+.audience-toggle-opt.active {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(255, 56, 92, 0.28);
+}
+
+/* ---- Area demand panel ("find cleaning work" side) ---- */
+.area-demand {
+  display: grid;
+  gap: 20px;
+}
+.area-demand-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+}
+.area-demand-field {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+}
+.area-demand-field > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+}
+.area-demand-field select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+.area-demand-caption {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.area-demand-caption strong {
+  color: var(--ink);
+}
+.area-demand-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  transition: opacity var(--dur) var(--ease);
+}
+.area-demand-grid--loading {
+  opacity: 0.55;
+}
+.area-demand-card {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+.area-demand-card svg {
+  color: var(--muted);
+}
+.area-demand-card strong {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1;
+}
+.area-demand-card span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.area-demand-card--brand {
+  border-top-color: var(--brand);
+}
+.area-demand-card--brand svg {
+  color: var(--brand);
+}
+.area-demand-card--teal {
+  border-top-color: var(--teal);
+}
+.area-demand-card--teal svg {
+  color: var(--teal);
+}
+.area-demand-card--gold {
+  border-top-color: var(--gold);
+}
+.area-demand-card--gold svg {
+  color: var(--gold);
+}
+.area-demand-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-inset);
+}
+.area-demand-cta p {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 15px;
+  color: var(--text);
+}
+.area-demand-cta p strong {
+  color: var(--ink);
+}
+
+@media (max-width: 640px) {
+  .area-demand-grid {
+    grid-template-columns: 1fr;
+  }
+  .audience-toggle {
+    width: 100%;
+  }
+  .audience-toggle-opt {
+    flex: 1;
+    justify-content: center;
+    padding: 11px 12px;
+  }
+}
+
+/* ---- Optional-field hint in signup ---- */
+.signup-optional {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* ---- Host first-property activation card ---- */
+.host-activation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  padding: 24px 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(600px 200px at 100% 0%, var(--brand-tint), transparent 70%),
+    var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.host-activation-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  flex: none;
+  border-radius: 16px;
+  background: var(--brand-tint);
+  color: var(--brand);
+}
+.host-activation-body {
+  flex: 1 1 280px;
+}
+.host-activation-body h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.host-activation-body p {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.host-activation-cta {
+  flex: none;
 }
 
 /* Narrow header band on the Find a Cleaner directory page */

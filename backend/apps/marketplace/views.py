@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from django.db.models import Q
 from django.contrib.auth import get_user_model
@@ -327,6 +328,55 @@ class MarketplaceCalendarView(views.APIView):
             return Response(serializer.data)
 
         return Response([])
+
+
+class AreaStatsView(views.APIView):
+    """
+    Public, privacy-safe marketplace demand/supply stats for the landing page.
+
+    Returns aggregate counts only — no user identities. An optional ?city=
+    narrows the cleaner/host/open-job counts to a single city so the landing
+    "find cleaning work" panel can show live local demand.
+
+    GET /api/marketplace/area-stats/?city=Sofia
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from apps.accounts.models import CleanerProfile, HostProfile
+
+        city = (request.query_params.get("city") or "").strip()
+        now = timezone.now()
+        week_ago = now - timedelta(days=7)
+        month_ago = now - timedelta(days=30)
+
+        cleaners = CleanerProfile.objects.filter(
+            verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+            user__account_status=User.AccountStatus.APPROVED,
+            user__is_active=True,
+        )
+        hosts = HostProfile.objects.filter(
+            user__account_status=User.AccountStatus.APPROVED,
+            user__is_active=True,
+        )
+        open_jobs = CleaningJob.objects.filter(status=CleaningJob.Status.OPEN)
+
+        if city:
+            cleaners = cleaners.filter(city__iexact=city)
+            hosts = hosts.filter(city__iexact=city)
+            open_jobs = open_jobs.filter(property__city__iexact=city)
+
+        return Response(
+            {
+                "city": city,
+                "verified_cleaners": cleaners.count(),
+                "active_hosts": hosts.count(),
+                "open_jobs": open_jobs.count(),
+                "jobs_this_week": open_jobs.filter(created_at__gte=week_ago).count(),
+                "jobs_this_month": open_jobs.filter(created_at__gte=month_ago).count(),
+            }
+        )
 
 
 class CleaningBatchViewSet(viewsets.ModelViewSet):

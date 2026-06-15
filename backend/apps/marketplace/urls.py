@@ -1,6 +1,7 @@
 from rest_framework.routers import DefaultRouter
 
 from apps.marketplace.views import (
+    AreaStatsView,
     AssignmentViewSet,
     CleanerApplicationViewSet,
     CleaningBatchViewSet,
@@ -20,4 +21,5 @@ router.register("favourites", FavouriteCleanerViewSet, basename="favourite-clean
 
 urlpatterns = [
     path("calendar/", MarketplaceCalendarView.as_view(), name="marketplace-calendar"),
+    path("area-stats/", AreaStatsView.as_view(), name="marketplace-area-stats"),
 ] + router.urls

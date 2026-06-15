@@ -1512,6 +1512,9 @@ export default function CleanerDashboard() {
     }
     return [...calendarItems].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   }, [calendarItems, monthPrefix, selectedDay]);
+  const incompleteCalendarItemCount = calendarItems.filter(
+    (item) => !item.completed_at && item.job_status !== "completed",
+  ).length;
 
   function prevMonth() {
     setSelectedDay(null);
@@ -1636,7 +1639,7 @@ export default function CleanerDashboard() {
           >
             <CalendarDays size={15} aria-hidden />
             Jobs &amp; Calendar
-            {calendarItems.length > 0 && <span className="host-tab-count">{calendarItems.length}</span>}
+            {incompleteCalendarItemCount > 0 && <span className="host-tab-count">{incompleteCalendarItemCount}</span>}
           </button>
           <button
             type="button"
@@ -2783,55 +2786,6 @@ export default function CleanerDashboard() {
                   </div>
                 </div>
 
-                <aside className="cleaner-profile-summary">
-                  <div>
-                    <span>Verification</span>
-                    <strong>{profile.verification_status}</strong>
-                  </div>
-                  <div>
-                    <span>Age</span>
-                    <strong>{profile.age ?? "Not set"}</strong>
-                  </div>
-                  <div>
-                    <span>Language</span>
-                    <strong>{profileNativeLanguage || "Not set"}</strong>
-                  </div>
-                  <div>
-                    <span>Other languages</span>
-                    <strong>{profileOtherLanguages.length > 0 ? profileOtherLanguages.join(", ") : "Not set"}</strong>
-                  </div>
-                  <div>
-                    <span>Extra services</span>
-                    <strong>
-                      {profilePersonalPreferences.length > 0
-                        ? personalPreferenceOptions
-                          .filter((option) => profilePersonalPreferences.includes(option.value))
-                          .map((option) => option.label)
-                          .join(", ")
-                        : "Not set"}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Education</span>
-                    <strong>{labelFromOptions(educationOptions, profileEducation)}</strong>
-                  </div>
-                  <div>
-                    <span>Experience</span>
-                    <strong>{labelFromOptions(experienceOptions, profileExperienceLevel)}</strong>
-                  </div>
-                  <div>
-                    <span>Service areas</span>
-                    <strong>{serviceAreasFromText(profileServiceAreas).length}</strong>
-                  </div>
-                  <div>
-                    <span>Completed jobs</span>
-                    <strong>{profile.completed_jobs_count}</strong>
-                  </div>
-                  <div>
-                    <span>Average rating</span>
-                    <strong>{Number(profile.average_rating || 0).toFixed(1)}</strong>
-                  </div>
-                </aside>
               </div>
             )}
           </div>

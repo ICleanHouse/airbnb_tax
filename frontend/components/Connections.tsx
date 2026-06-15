@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   Users,
   X,
@@ -24,6 +24,23 @@ function initials(name: string): string {
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
+
+function localDateKey(iso: string): string {
+  const date = new Date(iso);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function fmtDateSeparator(iso: string, now = new Date()): string {
+  const date = new Date(iso);
+  if (localDateKey(iso) === localDateKey(now.toISOString())) {
+    return "Today";
+  }
+  if (date.getFullYear() !== now.getFullYear()) {
+    return date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  }
+  const dateLabel = date.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+  return `${dateLabel}, ${fmtTime(iso)}`;
 }
 
 /**
@@ -310,15 +327,24 @@ export default function Connections({
                       {messages.length === 0 ? (
                         <p className="connections-empty">Say hello 👋</p>
                       ) : (
-                        messages.map((m) => (
-                          <div
-                            key={m.id}
-                            className={`chat-bubble${m.sender === meId ? " chat-bubble--me" : ""}`}
-                          >
-                            <span className="chat-bubble-body">{m.body}</span>
-                            <span className="chat-bubble-time">{fmtTime(m.created_at)}</span>
-                          </div>
-                        ))
+                        messages.map((m, index) => {
+                          const showDateSeparator = index === 0
+                            || localDateKey(messages[index - 1].created_at) !== localDateKey(m.created_at);
+                          const dateLabel = showDateSeparator ? fmtDateSeparator(m.created_at) : "";
+                          return (
+                            <Fragment key={m.id}>
+                              {showDateSeparator ? (
+                                <div className="chat-date-separator" role="separator" aria-label={dateLabel}>
+                                  <span>{dateLabel}</span>
+                                </div>
+                              ) : null}
+                              <div className={`chat-bubble${m.sender === meId ? " chat-bubble--me" : ""}`}>
+                                <span className="chat-bubble-body">{m.body}</span>
+                                <span className="chat-bubble-time">{fmtTime(m.created_at)}</span>
+                              </div>
+                            </Fragment>
+                          );
+                        })
                       )}
                     </div>
                     <form

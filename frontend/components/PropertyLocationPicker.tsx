@@ -156,8 +156,14 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
   // ── Initialise Leaflet once on mount ─────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    const container = containerRef.current;
+    let cancelled = false;
 
     void import("leaflet").then((L) => {
+      // The import may resolve after React Strict Mode has cleaned up this
+      // effect. Only the currently active effect may initialize the container.
+      if (cancelled || mapRef.current || containerRef.current !== container) return;
+
       leafletRef.current = L;
 
       const icon = L.divIcon({
@@ -172,7 +178,9 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
       const center: [number, number] =
         lat !== null && lng !== null ? [lat, lng] : CITY_CENTERS[city] ?? DEFAULT_CENTER;
 
-      const map = L.map(containerRef.current!, { center, zoom: lat !== null ? 16 : 14 });
+      const map = L.map(container, { center, zoom: lat !== null ? 16 : 14 });
+      mapRef.current = map;
+
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19,
@@ -191,11 +199,10 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
         }
         void reverseGeocode(clickLat, clickLng);
       });
-
-      mapRef.current = map;
     });
 
     return () => {
+      cancelled = true;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;

@@ -208,7 +208,7 @@ This is a Windows dev machine. Commands and paths must match it.
 
 **`frontend/app/page.tsx`** — public landing page (host/cleaner audience entry point):
 
-- Stripped-down public entry point — no marketing sections. A centered hero with audience toggle renders `CleanerBrowser` for hosts and `AreaDemandPanel`/`OpenJobMap` for cleaners. `CleanerBrowser` lists public cleaner profiles filterable by city/district. `OpenJobMap` shows public open-job pins, property photo popups, and a cleaner-only `Offer cleaning` application action.
+- Stripped-down public entry point — no marketing sections. A centered hero with audience toggle renders `CleanerBrowser` for hosts and `AreaDemandPanel`/`OpenJobMap` for cleaners. `CleanerBrowser` lists public cleaner profiles filterable by city/district. `OpenJobMap` shows public open-job pins, property photo popups, and a cleaner-only `Offer cleaning` action that opens an `Apply for job` overlay.
 - Auth-aware header (pinned top-right): logged-out shows Log in / Sign up plus the standalone language selector; logged-in shows a role-correct Dashboard/Admin link, notification bell, and profile icon. Profile, persistent BG/EN segmented language slider, and Log out live inside the profile menu.
 
 **`frontend/app/components/CleanerBrowser.tsx`** — shared public cleaner directory:

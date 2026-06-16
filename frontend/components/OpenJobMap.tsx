@@ -1,8 +1,9 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Briefcase } from "lucide-react";
+import Image from "next/image";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Briefcase, X } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import type { CurrentUser } from "../lib/api";
 
@@ -18,6 +19,7 @@ interface OpenJobLocation {
   property_neighborhood: string;
   property_address: string;
   property_image: string | null;
+  host_name?: string;
   latitude: number;
   longitude: number;
 }
@@ -31,7 +33,7 @@ interface Props {
 
 interface PopupOptions {
   canOfferWork: boolean;
-  onOfferWork: (job: OpenJobLocation) => Promise<void>;
+  onOpenApplication: (job: OpenJobLocation) => void;
 }
 
 const CITY_CENTERS: Record<string, [number, number]> = {
@@ -117,29 +119,11 @@ function createPopup(job: OpenJobLocation, options: PopupOptions) {
     button.className = "open-job-popup-action";
     button.textContent = "Offer cleaning";
 
-    const feedback = document.createElement("span");
-    feedback.className = "open-job-popup-feedback";
-    feedback.setAttribute("aria-live", "polite");
-
     button.addEventListener("click", () => {
-      button.disabled = true;
-      button.textContent = "Sending...";
-      feedback.textContent = "";
-
-      void options.onOfferWork(job)
-        .then(() => {
-          button.textContent = "Work offered";
-          feedback.textContent = "Sent to the host.";
-        })
-        .catch((error: unknown) => {
-          button.disabled = false;
-          button.textContent = "Offer my work";
-          feedback.textContent = error instanceof Error ? error.message : "Could not send your offer.";
-        });
+      options.onOpenApplication(job);
     });
 
     actionWrap.appendChild(button);
-    actionWrap.appendChild(feedback);
     wrap.appendChild(actionWrap);
   }
 
@@ -193,6 +177,11 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
   const [jobs, setJobs] = useState<OpenJobLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [applyJob, setApplyJob] = useState<OpenJobLocation | null>(null);
+  const [applyPrice, setApplyPrice] = useState("");
+  const [applyMessage, setApplyMessage] = useState("");
+  const [applyError, setApplyError] = useState("");
+  const [applying, setApplying] = useState(false);
 
   const where = cityLabel || "Bulgaria";
   const canOfferWork = currentUser?.role === "cleaner";
@@ -205,20 +194,51 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
     cityLabelRef.current = cityLabel;
   }, [cityLabel]);
 
-  const offerWork = useCallback(async (job: OpenJobLocation) => {
-    const response = await apiFetch("/api/marketplace/applications/", {
-      method: "POST",
-      body: JSON.stringify({
-        job_id: job.id,
-        proposed_price: null,
-        message: "I am available for this job.",
-      }),
-    });
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      throw new Error(messageFromResponse(data, "Could not send your offer."));
-    }
+  const openApplicationOverlay = useCallback((job: OpenJobLocation) => {
+    setApplyJob(job);
+    setApplyPrice(job.proposed_price ?? "");
+    setApplyMessage("");
+    setApplyError("");
+
+    apiFetch(`/api/marketplace/jobs/${job.id}/`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { host_name?: string } | null) => {
+        if (!data?.host_name) return;
+        setApplyJob((current) => (
+          current?.id === job.id ? { ...current, host_name: data.host_name } : current
+        ));
+      })
+      .catch(() => null);
   }, []);
+
+  async function submitApplication(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!applyJob) return;
+    setApplying(true);
+    setApplyError("");
+
+    try {
+      const response = await apiFetch("/api/marketplace/applications/", {
+        method: "POST",
+        body: JSON.stringify({
+          job_id: applyJob.id,
+          proposed_price: applyPrice || null,
+          message: applyMessage,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        setApplyError(messageFromResponse(data, "Could not submit application."));
+        return;
+      }
+
+      setApplyJob(null);
+    } catch {
+      setApplyError("Could not submit application.");
+    } finally {
+      setApplying(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -321,7 +341,7 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
       .filter((job) => Number.isFinite(job.latitude) && Number.isFinite(job.longitude))
       .map((job) =>
         L.marker([job.latitude, job.longitude], { icon })
-          .bindPopup(createPopup(job, { canOfferWork, onOfferWork: offerWork }))
+          .bindPopup(createPopup(job, { canOfferWork, onOpenApplication: openApplicationOverlay }))
           .addTo(markerLayer),
       );
 
@@ -354,25 +374,96 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
       markProgrammaticMove();
       map.setView(center, cityLabel ? 12 : 7, { animate: false });
     }
-  }, [canOfferWork, center, cityChangeSource, cityLabel, jobs, offerWork]);
+  }, [canOfferWork, center, cityChangeSource, cityLabel, jobs, openApplicationOverlay]);
 
   return (
-    <section className="open-job-map-card" aria-label={`Open cleaning work map for ${where}`}>
-      <div className="open-job-map-head">
-        <div>
-          <h2>Open host addresses in {where}</h2>
+    <>
+      <section className="open-job-map-card" aria-label={`Open cleaning work map for ${where}`}>
+        <div className="open-job-map-head">
+          <div>
+            <h2>Open host addresses in {where}</h2>
+          </div>
+          <span className="open-job-map-count">
+            <Briefcase size={14} aria-hidden />
+            {loading ? "Loading" : `${jobs.length} pin${jobs.length === 1 ? "" : "s"}`}
+          </span>
         </div>
-        <span className="open-job-map-count">
-          <Briefcase size={14} aria-hidden />
-          {loading ? "Loading" : `${jobs.length} pin${jobs.length === 1 ? "" : "s"}`}
-        </span>
-      </div>
 
-      <div className="open-job-map-shell">
-        <div ref={containerRef} className="open-job-map" />
-        {loading ? <div className="open-job-map-state">Loading map pins...</div> : null}
-        {!loading && error ? <div className="open-job-map-state">{error}</div> : null}
-      </div>
-    </section>
+        <div className="open-job-map-shell">
+          <div ref={containerRef} className="open-job-map" />
+          {loading ? <div className="open-job-map-state">Loading map pins...</div> : null}
+          {!loading && error ? <div className="open-job-map-state">{error}</div> : null}
+        </div>
+      </section>
+
+      {applyJob ? (
+        <div
+          className="host-modal-backdrop open-job-apply-backdrop"
+          onClick={() => setApplyJob(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Apply for job"
+        >
+          <div className="host-modal open-job-apply-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="host-modal-header">
+              <h2>Apply for job</h2>
+              <button type="button" className="host-modal-close" onClick={() => setApplyJob(null)} aria-label="Close">
+                <X size={18} aria-hidden />
+              </button>
+            </div>
+            <form className="host-form" onSubmit={(event) => void submitApplication(event)}>
+              <div className="open-job-apply-summary">
+                {applyJob.property_image ? (
+                  <Image
+                    src={applyJob.property_image}
+                    alt=""
+                    width={300}
+                    height={236}
+                    unoptimized
+                  />
+                ) : null}
+                <div className="open-job-apply-summary-body">
+                  <strong>{applyJob.property_name || applyJob.title || "Property"}</strong>
+                  <span>{applyJob.property_address || "Address not provided"}</span>
+                  <span>{applyJob.host_name ? `Host: ${applyJob.host_name}` : "Host: loading..."}</span>
+                  <span>{formatJobDate(applyJob.scheduled_start)}</span>
+                </div>
+              </div>
+
+              <label>
+                <span>Your price ({applyJob.currency || "EUR"})</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={applyPrice}
+                  onChange={(event) => setApplyPrice(event.target.value)}
+                  placeholder="45.00"
+                />
+              </label>
+              <label>
+                <span>Message to host</span>
+                <textarea
+                  rows={4}
+                  value={applyMessage}
+                  onChange={(event) => setApplyMessage(event.target.value)}
+                  placeholder="Confirm availability, timing, and anything the host should know."
+                />
+              </label>
+
+              {applyError ? <p className="form-error">{applyError}</p> : null}
+              <div className="host-form-actions">
+                <button className="secondary-link" type="button" onClick={() => setApplyJob(null)}>
+                  Cancel
+                </button>
+                <button className="primary-link auth-submit" type="submit" disabled={applying}>
+                  {applying ? "Sending..." : "Submit application"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

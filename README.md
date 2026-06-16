@@ -63,6 +63,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - Property management: CRUD, external calendar connections, reservations.
 - **Airbnb ICS parsing** — `POST /api/properties/parse-ics/` accepts a multipart-uploaded `.ics` file, filters blocked-date placeholders, returns parsed reservation list.
 - Marketplace service functions: publish jobs, submit applications, accept applications, complete jobs, direct offers, favourites, and two-way reviews. Duplicate jobs for the same property and exact time range are rejected.
+- Public work-discovery data: `GET /api/marketplace/area-stats/` exposes aggregate demand counts, and `GET /api/marketplace/open-job-locations/` exposes safe open-job map markers with property address, coordinates, schedule, price, and main photo but no host identity fields.
 - Notification records; signup email codes are sent through Resend only and require `EMAIL_RESEND_APIKEY` plus `EMAIL_RESEND_FROM_EMAIL`.
 - Canonical Sofia district catalog: 144 GeoJSON-backed districts with stable `sofia:osm-1` through `sofia:osm-144` IDs. Old Sofia zone aliases and the obsolete backend fixture were removed.
 - Observability: JSON backend/Celery logs with request IDs, Sentry crash reporting, and read-only `AuditLog` records for key account/marketplace actions.
@@ -72,7 +73,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 
 | Route | Status | Description |
 |---|---|---|
-| `/` | ✅ Done | Public landing page — auth-aware header plus public cleaner browser with city/district filters |
+| `/` | ✅ Done | Public landing page — auth-aware header, centered audience toggle, public cleaner browser for hosts, and cleaner work map with city-filtered open-job pins |
 | `/login` | ✅ Done | Session login |
 | `/signup` | 🟨 In progress | Single React signup wizard with Motion transitions, Resend email code confirmation, role selection, cleaner personal details, location/service areas, native language, experience, introduction, profile photo, and final account creation. Old step URLs redirect back to `/signup`. |
 | `/app` | ✅ Done | Generic workspace — auto-redirects hosts → `/host`, admins → `/admin` |

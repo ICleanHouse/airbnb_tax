@@ -60,7 +60,8 @@ Future extraction into microservices should be possible without rewriting core b
 
 - `frontend/lib/api.ts`: shared HTTP client. All pages use `apiFetch` — it injects JSON `Content-Type` only when safe, sets CSRF headers, adds `X-Request-ID`, and reports failed API responses to Sentry when configured. Never call `fetch` directly.
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
-- `frontend/app/page.tsx`: public landing page. Auth-aware header shows the role-correct dashboard link and, for authenticated users, the shared notification bell plus profile-icon menu containing Profile, persistent BG/EN language slider, and Log out. The first screen is a compact photo hero plus the shared `CleanerBrowser`, which loads `/api/accounts/public-cleaners/` and filters verified cleaners by city and district.
+- `frontend/app/page.tsx`: public landing page. Auth-aware header shows the role-correct dashboard link and, for authenticated users, the shared notification bell plus profile-icon menu containing Profile, persistent BG/EN language slider, and Log out. The first screen has a centered hero and audience toggle: `Find a cleaner` renders the shared `CleanerBrowser` (`/api/accounts/public-cleaners/`, city/district filters), while `Find cleaning work` renders `AreaDemandPanel` with public demand stats plus a Leaflet/OpenStreetMap `OpenJobMap`.
+- `frontend/components/OpenJobMap.tsx`: public cleaner work map for the landing page. It loads `GET /api/marketplace/open-job-locations/`, shows open-job pins with property photo popups, gives authenticated cleaners an `Offer cleaning` action via `POST /api/marketplace/applications/`, and auto-selects Sofia/Plovdiv/Varna when the user pans or zooms the viewport center within 35km of a known city.
 - `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
 - `frontend/app/signup/page.tsx`: single-route signup wizard. It handles credentials, Resend 6-digit email-code verification, role selection, cleaner personal details, location/service-area selection, native language, experience, introduction, profile photo, and final account creation without full page reloads between steps. It uses Motion (`motion/react`) for reusable panel transitions and keeps `sessionStorage` only for refresh recovery.
 - `frontend/app/signup/confirm-email/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`, `frontend/app/signup/personal-info/page.tsx`, `frontend/app/signup/native-language/page.tsx`, `frontend/app/signup/experience/page.tsx`: lightweight compatibility redirects to `/signup`.
@@ -313,6 +314,8 @@ REST APIs through Django REST Framework.
 | `POST /api/properties/parse-ics/` | Parse uploaded Airbnb `.ics` file → returns `[{uid, summary, checkin, checkout, nights}]`. Filters blocked dates automatically. |
 | `GET/POST /api/marketplace/batches/` | Monthly cleaning batches |
 | `GET/POST /api/marketplace/jobs/` | Cleaning jobs CRUD |
+| `GET /api/marketplace/area-stats/` | Public aggregate cleaner/host/open-job counts for the landing work panel; optional `?city=` filter. |
+| `GET /api/marketplace/open-job-locations/` | Public open-job map markers with property address, coordinates, schedule, proposed price, and main photo; no host identity fields; optional `?city=` filter. |
 | `POST /api/marketplace/jobs/{id}/publish/` | Transition Draft → Open |
 | `POST /api/marketplace/jobs/{id}/complete/` | Mark assigned work complete. Cleaner side allowed after start time; host/admin side allowed after end time. |
 | `GET/POST /api/marketplace/applications/` | Cleaner applications |

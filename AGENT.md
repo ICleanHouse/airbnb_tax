@@ -33,7 +33,7 @@ The product direction for v1 is:
 
 - Treat `BUSINESS.md` as the source of truth for business strategy, target users, marketplace assumptions, monetization hypotheses, and open business questions.
 - Preserve the service-ready modular architecture described in `architecture.md`.
-- Keep the unauthenticated `/` frontend experience as a public, lead-generation entry point (currently a minimal cleaner directory: compact hero + `CleanerBrowser`), not an internal dashboard.
+- Keep the unauthenticated `/` frontend experience as a public, lead-generation entry point (centered hero + audience toggle: `CleanerBrowser` for hosts, `AreaDemandPanel`/`OpenJobMap` for cleaners), not an internal dashboard.
 - Keep changes scoped to the user request.
 - Do not introduce unrelated refactors.
 - Do not add payment processing, payouts, wallets, invoices, or platform fees unless the user explicitly asks for that change.
@@ -206,9 +206,9 @@ This is a Windows dev machine. Commands and paths must match it.
 - `trailingSlash: true` — required so Next.js does not strip slashes before Django sees them.
 - Two rewrite rules matching `/api/:path*/` and `/api/:path*` — required to preserve trailing slashes through to Django's `APPEND_SLASH`.
 
-**`frontend/app/page.tsx`** — public landing page (minimal cleaner directory):
+**`frontend/app/page.tsx`** — public landing page (host/cleaner audience entry point):
 
-- Stripped-down public entry point — no marketing sections. A compact photo+text hero (`hero hero--compact`) over the shared `CleanerBrowser`, which lists public cleaner profiles filterable by city and district.
+- Stripped-down public entry point — no marketing sections. A centered hero with audience toggle renders `CleanerBrowser` for hosts and `AreaDemandPanel`/`OpenJobMap` for cleaners. `CleanerBrowser` lists public cleaner profiles filterable by city/district. `OpenJobMap` shows public open-job pins, property photo popups, and a cleaner-only `Offer cleaning` application action.
 - Auth-aware header (pinned top-right): logged-out shows Log in / Sign up plus the standalone language selector; logged-in shows a role-correct Dashboard/Admin link, notification bell, and profile icon. Profile, persistent BG/EN segmented language slider, and Log out live inside the profile menu.
 
 **`frontend/app/components/CleanerBrowser.tsx`** — shared public cleaner directory:

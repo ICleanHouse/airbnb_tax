@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Briefcase, MapPin, Sparkles, Users } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Briefcase, Sparkles, Users } from "lucide-react";
 import { apiFetch } from "../lib/api";
+import type { CurrentUser } from "../lib/api";
 import { cities } from "../lib/cityDistricts";
+import OpenJobMap from "./OpenJobMap";
 
 interface AreaStats {
   city: string;
@@ -14,16 +16,29 @@ interface AreaStats {
   jobs_this_month: number;
 }
 
+type CityChangeSource = "select" | "map";
+
 /**
  * "Find cleaning work" side of the landing audience toggle. Shows privacy-safe
  * aggregate demand for the selected city (no host identities) sourced from
  * GET /api/marketplace/area-stats/, plus a "Join as a cleaner" CTA that
  * deep-links signup with the cleaner role preselected.
  */
-export default function AreaDemandPanel() {
+export default function AreaDemandPanel({ currentUser }: { currentUser: CurrentUser | null }) {
   const [cityLabel, setCityLabel] = useState("");
+  const [cityChangeSource, setCityChangeSource] = useState<CityChangeSource>("select");
   const [stats, setStats] = useState<AreaStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const selectCity = useCallback((nextCityLabel: string) => {
+    setCityChangeSource("select");
+    setCityLabel(nextCityLabel);
+  }, []);
+
+  const selectCityFromMap = useCallback((nextCityLabel: string) => {
+    setCityChangeSource("map");
+    setCityLabel(nextCityLabel);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,10 +71,7 @@ export default function AreaDemandPanel() {
     <div className="area-demand">
       <div className="area-demand-head">
         <label className="area-demand-field" aria-label="City">
-          <span>
-            <MapPin size={13} aria-hidden /> Area
-          </span>
-          <select value={cityLabel} onChange={(e) => setCityLabel(e.target.value)}>
+          <select value={cityLabel} onChange={(e) => selectCity(e.target.value)}>
             <option value="">All of Bulgaria</option>
             {cities.map((c) => (
               <option key={c.value} value={c.label}>
@@ -73,6 +85,13 @@ export default function AreaDemandPanel() {
         </p>
       </div>
 
+      <OpenJobMap
+        cityLabel={cityLabel}
+        cityChangeSource={cityChangeSource}
+        currentUser={currentUser}
+        onCityChange={selectCityFromMap}
+      />
+
       <div className={`area-demand-grid${loading ? " area-demand-grid--loading" : ""}`}>
         {cards.map(({ icon: Icon, value, label, tone }) => (
           <div className={`area-demand-card area-demand-card--${tone}`} key={label}>
@@ -83,16 +102,18 @@ export default function AreaDemandPanel() {
         ))}
       </div>
 
-      <div className="area-demand-cta">
-        <p>
-          <strong>{stats?.verified_cleaners ?? 0}</strong> verified cleaners already work here.
-          Add your profile and start getting jobs.
-        </p>
-        <a className="primary-link" href="/signup?role=cleaner">
-          <Sparkles size={15} aria-hidden />
-          Join as a cleaner
-        </a>
-      </div>
+      {!currentUser ? (
+        <div className="area-demand-cta">
+          <p>
+            <strong>{stats?.verified_cleaners ?? 0}</strong> verified cleaners already work here.
+            Add your profile and start getting jobs.
+          </p>
+          <a className="primary-link" href="/signup?role=cleaner">
+            <Sparkles size={15} aria-hidden />
+            Join as a cleaner
+          </a>
+        </div>
+      ) : null}
     </div>
   );
 }

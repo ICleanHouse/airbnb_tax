@@ -203,6 +203,43 @@ class CleaningJobSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class OpenJobLocationSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="property.name", read_only=True)
+    property_city = serializers.CharField(source="property.city", read_only=True)
+    property_neighborhood = serializers.CharField(source="property.neighborhood", read_only=True)
+    property_address = serializers.CharField(source="property.address", read_only=True)
+    property_image = serializers.SerializerMethodField()
+    latitude = serializers.FloatField(source="property.latitude", read_only=True)
+    longitude = serializers.FloatField(source="property.longitude", read_only=True)
+
+    class Meta:
+        model = CleaningJob
+        fields = [
+            "id",
+            "title",
+            "scheduled_start",
+            "scheduled_end",
+            "currency",
+            "proposed_price",
+            "property_name",
+            "property_city",
+            "property_neighborhood",
+            "property_address",
+            "property_image",
+            "latitude",
+            "longitude",
+        ]
+        read_only_fields = fields
+
+    def get_property_image(self, obj):
+        first_image = min(
+            obj.property.images.all(),
+            key=lambda img: (img.order, img.id),
+            default=None,
+        )
+        return first_image.image.url if first_image else None
+
+
 class CleanerApplicationSerializer(serializers.ModelSerializer):
     job_id = serializers.PrimaryKeyRelatedField(
         source="job",

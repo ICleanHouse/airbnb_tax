@@ -26,6 +26,7 @@ from apps.marketplace.serializers import (
     CleaningJobSerializer,
     FavouriteCleanerSerializer,
     MarketplaceCalendarItemSerializer,
+    OpenJobLocationSerializer,
     OfferJobSerializer,
     OfferToCleanerSerializer,
 )
@@ -377,6 +378,39 @@ class AreaStatsView(views.APIView):
                 "jobs_this_month": open_jobs.filter(created_at__gte=month_ago).count(),
             }
         )
+
+
+class OpenJobLocationsView(views.APIView):
+    """
+    Public map markers for published cleaning work.
+
+    Returns open-job property locations only, with no host identity or account
+    details. An optional ?city= narrows markers to the selected landing area.
+
+    GET /api/marketplace/open-job-locations/?city=Sofia
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        city = (request.query_params.get("city") or "").strip()
+        jobs = (
+            CleaningJob.objects.select_related("property")
+            .prefetch_related("property__images")
+            .filter(
+                status=CleaningJob.Status.OPEN,
+                host__account_status=User.AccountStatus.APPROVED,
+                host__is_active=True,
+                property__latitude__isnull=False,
+                property__longitude__isnull=False,
+            )
+            .order_by("scheduled_start", "id")
+        )
+        if city:
+            jobs = jobs.filter(property__city__iexact=city)
+
+        serializer = OpenJobLocationSerializer(jobs, many=True)
+        return Response(serializer.data)
 
 
 class CleaningBatchViewSet(viewsets.ModelViewSet):

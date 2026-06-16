@@ -233,7 +233,7 @@ export default function Home() {
       </section>
 
       <section className="landing-directory" id="cleaners">
-        {audience === "host" ? <CleanerBrowser /> : <AreaDemandPanel />}
+        {audience === "host" ? <CleanerBrowser /> : <AreaDemandPanel currentUser={currentUser} />}
       </section>
     </main>
   );

@@ -3,27 +3,36 @@ import sys
 from pathlib import Path
 
 
-TABLES = [
-    "feedback_review",
-    "marketplace_assignment",
-    "marketplace_cleanerapplication",
-    "marketplace_cleaningjob",
-    "marketplace_cleaningbatch",
-    "marketplace_favouritecleaner",
-    "properties_propertyimage",
-    "properties_reservation",
-    "properties_externalcalendarconnection",
-    "properties_property",
-    "notifications_notification",
-    "accounts_agencymembership",
-    "accounts_agencyinvitation",
-    "accounts_agencyprofile",
-    "accounts_cleanerprofile",
-    "accounts_cookieconsent",
-    "accounts_hostprofile",
-    "accounts_signupemailverification",
-    "accounts_user",
-]
+PRESERVED_TABLES = {
+    # Keep migration history because this script truncates rows, not schemas.
+    # Emptying django_migrations would make Django think existing tables still
+    # need to be created on the next migrate.
+    "django_migrations",
+}
+
+SQLITE_INTERNAL_TABLE_PREFIXES = ("sqlite_",)
+
+
+def quote_identifier(identifier: str) -> str:
+    return f'"{identifier.replace(chr(34), chr(34) * 2)}"'
+
+
+def discover_truncatable_tables(cur: sqlite3.Cursor) -> list[str]:
+    cur.execute(
+        """
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table'
+        ORDER BY name;
+        """
+    )
+    table_names = [row[0] for row in cur.fetchall()]
+    return [
+        name
+        for name in table_names
+        if name not in PRESERVED_TABLES
+        and not any(name.startswith(prefix) for prefix in SQLITE_INTERNAL_TABLE_PREFIXES)
+    ]
 
 
 def truncate_tables(db_path: Path) -> None:
@@ -33,26 +42,21 @@ def truncate_tables(db_path: Path) -> None:
         cur.execute("PRAGMA foreign_keys = OFF;")
         cur.execute("BEGIN;")
 
-        # Ensure we're targeting the expected DB file.
-        cur.execute(
-            f"SELECT name FROM sqlite_master WHERE type='table' AND name IN ({','.join('?' for _ in TABLES)});",
-            TABLES,
-        )
-        existing = {row[0] for row in cur.fetchall()}
+        truncatable_tables = discover_truncatable_tables(cur)
 
-        for table in [name for name in TABLES if name in existing]:
-            cur.execute(f"DELETE FROM {table};")
+        for table in truncatable_tables:
+            cur.execute(f"DELETE FROM {quote_identifier(table)};")
 
         # Reset AUTOINCREMENT counters only if sqlite_sequence exists.
         cur.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='sqlite_sequence';"
         )
         if cur.fetchone():
-            existing_tables = [name for name in TABLES if name in existing]
-            if existing_tables:
-                placeholders = ",".join("?" for _ in existing_tables)
+            if truncatable_tables:
+                placeholders = ",".join("?" for _ in truncatable_tables)
                 cur.execute(
-                    f"DELETE FROM sqlite_sequence WHERE name IN ({placeholders});", existing_tables
+                    f"DELETE FROM sqlite_sequence WHERE name IN ({placeholders});",
+                    truncatable_tables,
                 )
 
         conn.commit()
@@ -77,4 +81,4 @@ def resolve_db_path() -> Path:
 if __name__ == "__main__":
     db_file = resolve_db_path()
     truncate_tables(db_file)
-    print(f"Truncated tables and reset IDs in {db_file}")
+    print(f"Truncated data tables and reset IDs in {db_file}")

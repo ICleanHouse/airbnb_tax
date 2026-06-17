@@ -217,6 +217,7 @@ export default function HostDashboard() {
   const [allApplications, setAllApplications] = useState<CleanerApplication[]>([]);
   const [allAssignments,  setAllAssignments]  = useState<HostAssignment[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
+  const [railExpanded, setRailExpanded] = useState(false);
   const [loadingData,  setLoadingData]  = useState(false);
   const [dataError,    setDataError]    = useState("");
   const [actingAppId,  setActingAppId]  = useState<number | null>(null);   // which app is being accepted/rejected
@@ -257,9 +258,6 @@ export default function HostDashboard() {
     () => (selectedPropertyId == null ? allAssignments : allAssignments.filter((a) => scopedJobIds.has(a.job))),
     [allAssignments, scopedJobIds, selectedPropertyId],
   );
-  const selectedProperty = selectedPropertyId != null
-    ? properties.find((p) => p.id === selectedPropertyId) ?? null
-    : null;
 
   // ── Calendar ───────────────────────────────────────────────────────────────
   const now = useMemo(() => new Date(), []);
@@ -512,6 +510,18 @@ export default function HostDashboard() {
   }
 
   // ── Open property form ─────────────────────────────────────────────────────
+  // Restore the property rail's collapsed/expanded preference.
+  useEffect(() => {
+    if (localStorage.getItem("hc:railExpanded") === "1") setRailExpanded(true);
+  }, []);
+  function toggleRail() {
+    setRailExpanded((v) => {
+      const next = !v;
+      localStorage.setItem("hc:railExpanded", next ? "1" : "0");
+      return next;
+    });
+  }
+
   function openCreateProp() {
     setEditingPropId(null);
     setPropName(""); setPropCity("Sofia"); setPropAddress(""); setPropNeighborhood("");
@@ -1338,60 +1348,95 @@ export default function HostDashboard() {
        <div className="host-workspace">
         {/* ── Property navigation rail (desktop) ── */}
         {isApproved && section !== "account" && (
-          <aside className="host-rail" aria-label="Your properties">
+          <aside
+            className={`host-rail${railExpanded ? " host-rail--expanded" : " host-rail--mini"}`}
+            aria-label="Your properties"
+          >
+            <div className="host-rail-head">
+              <button
+                type="button"
+                className="host-rail-toggle"
+                onClick={toggleRail}
+                title={railExpanded ? "Collapse properties panel" : "Expand properties panel"}
+                aria-label={railExpanded ? "Collapse properties panel" : "Expand properties panel"}
+              >
+                {railExpanded ? <ChevronLeft size={18} aria-hidden /> : <ChevronRight size={18} aria-hidden />}
+              </button>
+            </div>
+
             <button
               type="button"
-              className={`host-rail-item host-rail-item--all${selectedPropertyId == null ? " host-rail-item--active" : ""}`}
+              className={`host-rail-card host-rail-card--btn${selectedPropertyId == null ? " host-rail-card--active" : ""}`}
               onClick={() => setSelectedPropertyId(null)}
               title="All properties"
               aria-label="All properties"
             >
-              <LayoutGrid size={20} aria-hidden />
+              <span className="host-rail-thumb host-rail-thumb--icon">
+                <LayoutGrid size={22} aria-hidden />
+              </span>
+              <span className="host-rail-card-text host-rail-fade">
+                <span className="host-rail-card-name">All properties</span>
+              </span>
             </button>
+
             <div className="host-rail-list">
               {properties.map((p) => {
                 const railThumb = p.images?.[0]?.image ?? null;
+                const active = selectedPropertyId === p.id;
                 return (
-                  <button
+                  <div
                     key={p.id}
-                    type="button"
-                    className={`host-rail-item${selectedPropertyId === p.id ? " host-rail-item--active" : ""}`}
-                    onClick={() => setSelectedPropertyId(p.id)}
-                    title={p.name}
-                    aria-label={p.name}
+                    className={`host-rail-card${active ? " host-rail-card--active" : ""}`}
                   >
-                    {railThumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={railThumb} alt="" />
-                    ) : (
-                      <span className="host-rail-thumb--empty"><Building2 size={18} aria-hidden /></span>
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      className="host-rail-card-main"
+                      onClick={() => setSelectedPropertyId(p.id)}
+                      title={p.name}
+                      aria-label={p.name}
+                    >
+                      <span className="host-rail-thumb">
+                        {railThumb ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={railThumb} alt="" />
+                        ) : (
+                          <span className="host-rail-thumb--empty"><Building2 size={22} aria-hidden /></span>
+                        )}
+                      </span>
+                      <span className="host-rail-card-text host-rail-fade">
+                        <span className="host-rail-card-name">{p.name}</span>
+                        {p.city && <span className="host-rail-card-city">{p.city}</span>}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="host-rail-card-edit host-rail-fade"
+                      onClick={() => openEditProp(p)}
+                      title={`Edit ${p.name}`}
+                      aria-label={`Edit ${p.name}`}
+                      tabIndex={railExpanded ? 0 : -1}
+                    >
+                      <Pencil size={15} aria-hidden />
+                    </button>
+                  </div>
                 );
               })}
             </div>
-            <div className="host-rail-footer">
-              {selectedProperty && (
-                <button
-                  type="button"
-                  className="host-rail-foot-btn"
-                  onClick={() => openEditProp(selectedProperty)}
-                  title={`Edit ${selectedProperty.name}`}
-                  aria-label="Edit selected property"
-                >
-                  <Pencil size={17} aria-hidden />
-                </button>
-              )}
-              <button
-                type="button"
-                className="host-rail-foot-btn host-rail-foot-btn--add"
-                onClick={openCreateProp}
-                title="Add property"
-                aria-label="Add property"
-              >
-                <Plus size={18} aria-hidden />
-              </button>
-            </div>
+
+            <button
+              type="button"
+              className="host-rail-card host-rail-card--btn host-rail-card--add"
+              onClick={openCreateProp}
+              title="Add property"
+              aria-label="Add property"
+            >
+              <span className="host-rail-thumb host-rail-thumb--icon host-rail-thumb--add">
+                <Plus size={22} aria-hidden />
+              </span>
+              <span className="host-rail-card-text host-rail-fade">
+                <span className="host-rail-card-name">Add property</span>
+              </span>
+            </button>
           </aside>
         )}
 

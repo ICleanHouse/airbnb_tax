@@ -238,6 +238,33 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
     setSuggestions([]);
     setHighlighted(-1);
     setSearchQuery("");
+    // Refine the city/neighborhood from a reverse lookup at the picked point so
+    // it matches what a map click there produces (search results carry coarser
+    // neighborhood data than reverse geocoding).
+    void refineNeighborhood(result);
+  }
+
+  // ── Reverse-lookup the picked point to fill in a precise neighborhood ─────
+  async function refineNeighborhood(base: LocationResult) {
+    setGeocoding(true);
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${base.lat}&lon=${base.lng}&format=json&accept-language=bg,en&addressdetails=1`;
+      const res = await fetch(url, { headers: NOMINATIM_HEADERS });
+      if (res.ok) {
+        const rev = extractLocation((await res.json()) as NominatimResult);
+        onSelect({
+          lat: base.lat,
+          lng: base.lng,
+          address: base.address || rev.address,
+          city: rev.city || base.city,
+          neighborhood: rev.neighborhood || base.neighborhood,
+        });
+      }
+    } catch {
+      // Keep the search result if the reverse lookup fails.
+    } finally {
+      setGeocoding(false);
+    }
   }
 
   // ── Keyboard navigation inside the search input ──────────────────────────
@@ -249,20 +276,24 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlighted((h) => Math.max(h - 1, -1));
-    } else if (e.key === "Enter" && highlighted >= 0) {
+    } else if (e.key === "Enter") {
       e.preventDefault();
-      pickSuggestion(suggestions[highlighted]);
+      handleSearch();
     } else if (e.key === "Escape") {
       setSuggestions([]);
       setHighlighted(-1);
     }
   }
 
-  // ── Immediate search on explicit form submit ──────────────────────────────
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // ── Explicit "Search": pin the best match, or fetch results if none yet ────
+  function handleSearch() {
     const q = searchQuery.trim();
-    if (q.length >= 3) void fetchSuggestions(q);
+    if (q.length < 3) return;
+    if (suggestions.length > 0) {
+      pickSuggestion(suggestions[highlighted >= 0 ? highlighted : 0]);
+    } else {
+      void fetchSuggestions(q);
+    }
   }
 
   const showDropdown = suggestions.length > 0;
@@ -305,7 +336,11 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
           </ul>
         )}
 
-        <form className="prop-map-search-row" onSubmit={handleSubmit} role="search" aria-label="Address search">
+        {/* Plain div, NOT a <form> — this picker renders inside the property
+            modal's own <form>, and nested forms are invalid HTML (the inner one
+            gets dropped, so a submit button would submit the outer form and
+            close the modal). */}
+        <div className="prop-map-search-row" role="search" aria-label="Address search">
           <div className="prop-map-search-field">
             <input
               type="search"
@@ -321,10 +356,15 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
             />
             {searching && <span className="prop-map-search-spinner" aria-hidden>⟳</span>}
           </div>
-          <button type="submit" className="prop-map-search-btn" disabled={searching || searchQuery.trim().length < 3}>
+          <button
+            type="button"
+            className="prop-map-search-btn"
+            onClick={handleSearch}
+            disabled={searching || searchQuery.trim().length < 3}
+          >
             Search
           </button>
-        </form>
+        </div>
 
         {searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
           <p className="prop-map-search-tip">Type {3 - searchQuery.trim().length} more character{3 - searchQuery.trim().length !== 1 ? "s" : ""}…</p>

@@ -5353,6 +5353,19 @@ img {
   color: var(--muted);
 }
 
+.map-data-credit {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.map-data-credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* Responsive: on very narrow modals shrink the map height a little */
 @media (max-width: 480px) {
   .prop-map-container {
@@ -6868,7 +6881,7 @@ img {
   position: absolute;
   z-index: 500;
   left: 50%;
-  bottom: 14px;
+  bottom: 42px;
   max-width: calc(100% - 28px);
   transform: translateX(-50%);
   padding: 9px 13px;

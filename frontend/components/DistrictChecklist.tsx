@@ -2,8 +2,8 @@
 
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { ServiceZone, SupportedLanguage } from "../../types/locations";
-import { zoneLabel } from "../../lib/locations";
+import type { ServiceZone, SupportedLanguage } from "../types/locations";
+import { zoneLabel } from "../lib/locations";
 
 type DistrictChecklistProps = {
   zones: ServiceZone[];

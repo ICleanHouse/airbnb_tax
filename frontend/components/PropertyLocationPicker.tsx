@@ -79,7 +79,7 @@ function formatSuggestion(s: NominatimResult): { main: string; sub: string } {
 
 const PIN_HTML = `<span style="display:block;width:22px;height:22px;background:#ff385c;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35)"></span>`;
 
-const NOMINATIM_HEADERS = { "User-Agent": "HostCleaners/1.0 (hostcleaners.bg)" };
+const NOMINATIM_MIN_INTERVAL_MS = 1100;
 
 export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,6 +88,8 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
   const mapRef     = useRef<any>(null);
   const markerRef  = useRef<any>(null);
   const iconRef    = useRef<any>(null);
+  const nominatimCacheRef = useRef<Map<string, unknown>>(new Map());
+  const lastNominatimRequestAtRef = useRef(0);
 
   const [geocoding,    setGeocoding]    = useState(false);
   const [searchQuery,  setSearchQuery]  = useState("");
@@ -95,16 +97,29 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
   const [suggestions,  setSuggestions]  = useState<NominatimResult[]>([]);
   const [highlighted,  setHighlighted]  = useState(-1);
 
+  async function fetchNominatim<T>(url: string): Promise<T | null> {
+    const cached = nominatimCacheRef.current.get(url);
+    if (cached) return cached as T;
+
+    const now = Date.now();
+    const waitMs = Math.max(0, NOMINATIM_MIN_INTERVAL_MS - (now - lastNominatimRequestAtRef.current));
+    if (waitMs > 0) await new Promise((resolve) => window.setTimeout(resolve, waitMs));
+    lastNominatimRequestAtRef.current = Date.now();
+
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = (await res.json()) as T;
+    nominatimCacheRef.current.set(url, data);
+    return data;
+  }
+
   // ── Reverse geocode on map click ──────────────────────────────────────────
   async function reverseGeocode(clickLat: number, clickLng: number) {
     setGeocoding(true);
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?lat=${clickLat}&lon=${clickLng}&format=json&accept-language=bg,en&addressdetails=1`;
-      const res = await fetch(url, { headers: NOMINATIM_HEADERS });
-      if (res.ok) {
-        const data = (await res.json()) as NominatimResult;
-        onSelect(extractLocation(data));
-      }
+      const data = await fetchNominatim<NominatimResult>(url);
+      if (data) onSelect(extractLocation(data));
     } catch {
       // Silently ignore — user can still fill fields manually
     } finally {
@@ -117,9 +132,8 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
     setSearching(true);
     try {
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&countrycodes=bg&format=json&limit=6&accept-language=bg,en&addressdetails=1`;
-      const res = await fetch(url, { headers: NOMINATIM_HEADERS });
-      if (res.ok) {
-        const results = (await res.json()) as NominatimResult[];
+      const results = await fetchNominatim<NominatimResult[]>(url);
+      if (results) {
         setSuggestions(results);
         setHighlighted(-1);
       }
@@ -130,16 +144,11 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
     }
   }
 
-  // ── Debounce: auto-search after 350 ms once the query has ≥ 3 chars ──────
   useEffect(() => {
-    const q = searchQuery.trim();
-    if (q.length < 3) {
+    if (searchQuery.trim().length < 3) {
       setSuggestions([]);
       setHighlighted(-1);
-      return;
     }
-    const timer = setTimeout(() => void fetchSuggestions(q), 350);
-    return () => clearTimeout(timer);
   }, [searchQuery]);
 
   // ── Close suggestions when clicking outside ──────────────────────────────
@@ -181,8 +190,8 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
       const map = L.map(container, { center, zoom: lat !== null ? 16 : 14 });
       mapRef.current = map;
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
         maxZoom: 19,
       }).addTo(map);
 
@@ -249,9 +258,9 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
     setGeocoding(true);
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?lat=${base.lat}&lon=${base.lng}&format=json&accept-language=bg,en&addressdetails=1`;
-      const res = await fetch(url, { headers: NOMINATIM_HEADERS });
-      if (res.ok) {
-        const rev = extractLocation((await res.json()) as NominatimResult);
+      const data = await fetchNominatim<NominatimResult>(url);
+      if (data) {
+        const rev = extractLocation(data);
         onSelect({
           lat: base.lat,
           lng: base.lng,
@@ -269,16 +278,17 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
 
   // ── Keyboard navigation inside the search input ──────────────────────────
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!suggestions.length) return;
-    if (e.key === "ArrowDown") {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSearch();
+    } else if (!suggestions.length) {
+      return;
+    } else if (e.key === "ArrowDown") {
       e.preventDefault();
       setHighlighted((h) => Math.min(h + 1, suggestions.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlighted((h) => Math.max(h - 1, -1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      handleSearch();
     } else if (e.key === "Escape") {
       setSuggestions([]);
       setHighlighted(-1);
@@ -372,6 +382,12 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
       </div>
 
       <p className="prop-map-hint">Click the map to pin the exact location, or search for an address below.</p>
+      <p className="map-data-credit">
+        Map data and geocoding:{" "}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+          © OpenStreetMap contributors
+        </a>
+      </p>
     </div>
   );
 }

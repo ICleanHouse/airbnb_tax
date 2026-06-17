@@ -290,8 +290,8 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
       mapRef.current = map;
       markerLayerRef.current = L.layerGroup().addTo(map);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
         maxZoom: 19,
       }).addTo(map);
 
@@ -394,6 +394,12 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
           {loading ? <div className="open-job-map-state">Loading map pins...</div> : null}
           {!loading && error ? <div className="open-job-map-state">{error}</div> : null}
         </div>
+        <p className="map-data-credit">
+          Map data:{" "}
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+            © OpenStreetMap contributors
+          </a>
+        </p>
       </section>
 
       {applyJob ? (

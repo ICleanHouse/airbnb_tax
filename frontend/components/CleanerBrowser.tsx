@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MapPin } from "lucide-react";
-import { apiFetch, type PublicCleaner } from "../../lib/api";
-import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import { cities } from "../../lib/cityDistricts";
-import { loadServiceZones, sortDistrictsForSearch } from "../../lib/locations";
-import type { ServiceZone } from "../../types/locations";
-import CleanerProfileCard from "../../components/CleanerProfileCard";
-import CleanerProfileModal from "../../components/CleanerProfileModal";
-import JobOfferModal, { type OfferProperty } from "../../components/JobOfferModal";
+import { apiFetch, type PublicCleaner } from "../lib/api";
+import { useLiveRefresh } from "../lib/useLiveRefresh";
+import { cities } from "../lib/cityDistricts";
+import { loadServiceZones, sortDistrictsForSearch } from "../lib/locations";
+import type { ServiceZone } from "../types/locations";
+import CleanerProfileCard from "./CleanerProfileCard";
+import CleanerProfileModal from "./CleanerProfileModal";
+import JobOfferModal, { type OfferProperty } from "./JobOfferModal";
 
 /** Reverse lookup: district (zone) name → owning city label. */
 const ZONE_TO_CITY: Record<string, string> = (() => {

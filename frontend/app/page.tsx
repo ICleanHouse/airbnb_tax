@@ -13,7 +13,7 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 import { apiFetch, CurrentUser, roleLabel } from "../lib/api";
-import CleanerBrowser from "./components/CleanerBrowser";
+import CleanerBrowser from "../components/CleanerBrowser";
 import AudienceToggle, { type Audience } from "../components/AudienceToggle";
 import AreaDemandPanel from "../components/AreaDemandPanel";
 import NotificationBell from "../components/NotificationBell";

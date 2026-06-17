@@ -27,7 +27,7 @@ import {
 import { apiFetch, CurrentUser } from "../../lib/api";
 import { money, formatMoney } from "../../lib/money";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import DistrictMapSelector from "../../app/components/DistrictMapSelector";
+import DistrictMapSelector from "../../components/DistrictMapSelector";
 import NotificationBell from "../../components/NotificationBell";
 import Connections from "../../components/Connections";
 import AppdashGrid from "../../components/AppdashGrid";

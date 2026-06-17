@@ -1,8 +1,8 @@
 "use client";
 
 import { X } from "lucide-react";
-import type { ServiceZone, SupportedLanguage } from "../../types/locations";
-import { zoneLabel } from "../../lib/locations";
+import type { ServiceZone, SupportedLanguage } from "../types/locations";
+import { zoneLabel } from "../lib/locations";
 
 type DistrictSelectedTagsProps = {
   zones: ServiceZone[];

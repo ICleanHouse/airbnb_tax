@@ -12,8 +12,8 @@ import {
   loadServiceZones,
   loadZoneGeoJSON,
   zoneLabel,
-} from "../../lib/locations";
-import type { LocationCity, ServiceZone, SupportedLanguage, ZoneFeatureCollection } from "../../types/locations";
+} from "../lib/locations";
+import type { LocationCity, ServiceZone, SupportedLanguage, ZoneFeatureCollection } from "../types/locations";
 
 export type DistrictMapSelectorProps = {
   citySlug: string;
@@ -174,7 +174,7 @@ export default function DistrictMapSelector({
                 type: "raster",
                 tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
                 tileSize: 256,
-                attribution: "© OpenStreetMap contributors",
+                attribution: '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>',
               },
             },
             layers: [
@@ -420,6 +420,12 @@ export default function DistrictMapSelector({
           {parksGeojson?.features.length ? <span><i className="district-selector__swatch district-selector__swatch--park" /> Park</span> : null}
         </div>
       </div>
+      <p className="map-data-credit">
+        Map data:{" "}
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+          © OpenStreetMap contributors
+        </a>
+      </p>
 
       <div className="district-selector__map-search">
         <label className="district-selector__search">

@@ -33,6 +33,7 @@ import Connections from "../../components/Connections";
 import AppdashGrid from "../../components/AppdashGrid";
 import { useDashView } from "../../lib/useDashView";
 import RatingStars from "../../components/RatingStars";
+import AccountDeletionPanel from "../../components/AccountDeletionPanel";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
 import type { ServiceZone } from "../../types/locations";
@@ -2820,6 +2821,7 @@ export default function CleanerDashboard() {
                       {savingProfile ? "Saving..." : "Save changes"}
                     </button>
                   </div>
+                  <AccountDeletionPanel email={me.email} />
                 </div>
 
               </div>

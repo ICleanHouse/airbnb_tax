@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Clock3, LogOut, ShieldCheck, ShieldAlert, UserRoundCog } from "lucide-react";
 import { CurrentUser, apiFetch, roleLabel } from "../../lib/api";
+import AccountDeletionPanel from "../../components/AccountDeletionPanel";
 
 function statusCopy(user: CurrentUser) {
   if (user.account_status === "approved") {
@@ -153,6 +154,7 @@ export default function AppEntryPage() {
             </p>
           </article>
         </div>
+        <AccountDeletionPanel email={user.email} />
       </section>
     </main>
   );

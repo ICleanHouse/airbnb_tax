@@ -298,6 +298,59 @@ class AccountAuthTests(TestCase):
         self.assertEqual(logout_response.status_code, 204)
         self.assertEqual(self.client.get(reverse("account-me")).status_code, 403)
 
+    def test_authenticated_users_can_delete_their_own_account(self):
+        cases = [
+            (
+                User.Role.HOST,
+                "host-delete@example.com",
+                lambda user: HostProfile.objects.create(user=user),
+                lambda user_id: HostProfile.objects.filter(user_id=user_id).exists(),
+            ),
+            (
+                User.Role.CLEANER,
+                "cleaner-delete@example.com",
+                lambda user: CleanerProfile.objects.create(user=user),
+                lambda user_id: CleanerProfile.objects.filter(user_id=user_id).exists(),
+            ),
+            (
+                User.Role.AGENCY,
+                "agency-delete@example.com",
+                lambda user: AgencyProfile.objects.create(user=user, company_name="Delete Agency"),
+                lambda user_id: AgencyProfile.objects.filter(user_id=user_id).exists(),
+            ),
+            (
+                User.Role.ADMIN,
+                "admin-delete@example.com",
+                lambda user: None,
+                lambda user_id: False,
+            ),
+        ]
+
+        for role, email, create_profile, profile_exists in cases:
+            with self.subTest(role=role):
+                client = APIClient()
+                user = User.objects.create_user(
+                    username=email,
+                    email=email,
+                    password="password123",
+                    role=role,
+                    account_status=User.AccountStatus.APPROVED,
+                )
+                create_profile(user)
+                login_response = client.post(
+                    reverse("account-login"),
+                    {"email": email, "password": "password123"},
+                    format="json",
+                )
+                self.assertEqual(login_response.status_code, 200)
+
+                response = client.delete(reverse("account-me"))
+
+                self.assertEqual(response.status_code, 204)
+                self.assertFalse(User.objects.filter(id=user.id).exists())
+                self.assertFalse(profile_exists(user.id))
+                self.assertEqual(client.get(reverse("account-me")).status_code, 403)
+
     def test_admin_can_approve_user_through_api(self):
         admin = User.objects.create_user(
             username="admin",

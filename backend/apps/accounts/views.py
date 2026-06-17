@@ -4,6 +4,7 @@ import uuid
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login, logout
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -225,6 +226,24 @@ class MeView(APIView):
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+    @transaction.atomic
+    def delete(self, request):
+        user = request.user
+        user_id = user.id
+        role = user.role
+        email = user.email
+        write_audit_log(
+            actor=user,
+            action="account.deleted",
+            entity_type="User",
+            entity_id=user_id,
+            request=request,
+            metadata={"role": role, "email": email},
+        )
+        logout(request)
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CookieConsentView(APIView):

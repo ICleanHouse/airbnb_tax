@@ -2554,6 +2554,87 @@ img {
   max-width: 720px;
 }
 
+.account-danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  max-width: 720px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(180, 35, 24, 0.24);
+  border-radius: var(--radius);
+  background: rgba(180, 35, 24, 0.045);
+}
+
+.account-danger-zone h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
+.account-danger-zone p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.account-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(180, 35, 24, 0.3);
+  border-radius: var(--radius-pill);
+  background: #b42318;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.account-delete-button:hover:not(:disabled) {
+  background: #921d14;
+}
+
+.account-delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.account-delete-error {
+  flex-basis: 100%;
+}
+
+.account-delete-modal {
+  max-width: 520px;
+}
+
+.account-delete-modal-body {
+  display: grid;
+  gap: 14px;
+}
+
+.account-delete-button--confirm {
+  border-color: transparent;
+}
+
+@media (max-width: 640px) {
+  .account-danger-zone {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .account-delete-button {
+    width: 100%;
+  }
+}
+
 /* Pending/status banner */
 .host-pending-banner {
   margin: 0;

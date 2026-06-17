@@ -41,6 +41,7 @@ import AppdashGrid from "../../components/AppdashGrid";
 import { useDashView } from "../../lib/useDashView";
 import JobOfferModal from "../../components/JobOfferModal";
 import RatingStars from "../../components/RatingStars";
+import AccountDeletionPanel from "../../components/AccountDeletionPanel";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -2268,6 +2269,7 @@ export default function HostDashboard() {
                 </button>
               </div>
             </form>
+            <AccountDeletionPanel email={me.email} />
           </div>
         )}
         </div>

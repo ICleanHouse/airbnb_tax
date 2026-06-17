@@ -17,8 +17,10 @@ from apps.accounts.models import (
     SignupEmailVerification,
     User,
 )
+from apps.connections.models import Connection, Message
 from apps.marketplace.models import Assignment, CleaningJob
 from apps.marketplace.services import accept_application, publish_job, submit_application
+from apps.notifications.models import Notification
 from apps.properties.models import Property
 
 
@@ -350,6 +352,171 @@ class AccountAuthTests(TestCase):
                 self.assertFalse(User.objects.filter(id=user.id).exists())
                 self.assertFalse(profile_exists(user.id))
                 self.assertEqual(client.get(reverse("account-me")).status_code, 403)
+
+    def test_host_account_deletion_removes_jobs_connections_and_notifies_cleaners(self):
+        host = User.objects.create_user(
+            username="delete-host@example.com",
+            email="delete-host@example.com",
+            password="password123",
+            role=User.Role.HOST,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        HostProfile.objects.create(user=host)
+        assigned_cleaner = User.objects.create_user(
+            username="assigned-cleaner@example.com",
+            email="assigned-cleaner@example.com",
+            password="password123",
+            role=User.Role.CLEANER,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        CleanerProfile.objects.create(
+            user=assigned_cleaner,
+            verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+        )
+        pending_cleaner = User.objects.create_user(
+            username="pending-cleaner@example.com",
+            email="pending-cleaner@example.com",
+            password="password123",
+            role=User.Role.CLEANER,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        CleanerProfile.objects.create(
+            user=pending_cleaner,
+            verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+        )
+        property = Property.objects.create(host=host, name="Delete Flat", city="Sofia")
+        assigned_job = CleaningJob.objects.create(
+            property=property,
+            host=host,
+            title="Assigned turnover",
+            scheduled_start=timezone.now() + timedelta(days=1),
+            scheduled_end=timezone.now() + timedelta(days=1, hours=2),
+            status=CleaningJob.Status.OPEN,
+        )
+        assigned_application = submit_application(job=assigned_job, cleaner=assigned_cleaner)
+        assigned = accept_application(application=assigned_application, accepted_by=host)
+        pending_job = CleaningJob.objects.create(
+            property=property,
+            host=host,
+            title="Published turnover",
+            scheduled_start=timezone.now() + timedelta(days=2),
+            scheduled_end=timezone.now() + timedelta(days=2, hours=2),
+            status=CleaningJob.Status.OPEN,
+        )
+        pending_application = submit_application(job=pending_job, cleaner=pending_cleaner)
+        connection = Connection.objects.create(requester=host, addressee=assigned_cleaner, status=Connection.Status.ACCEPTED)
+        Message.objects.create(connection=connection, sender=host, body="See you tomorrow.")
+
+        client = APIClient()
+        self.assertEqual(
+            client.post(
+                reverse("account-login"),
+                {"email": host.email, "password": "password123"},
+                format="json",
+            ).status_code,
+            200,
+        )
+
+        response = client.delete(reverse("account-me"))
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(User.objects.filter(id=host.id).exists())
+        self.assertFalse(Property.objects.filter(id=property.id).exists())
+        self.assertFalse(CleaningJob.objects.filter(id__in=[assigned_job.id, pending_job.id]).exists())
+        self.assertFalse(Assignment.objects.filter(id=assigned.id).exists())
+        self.assertFalse(Connection.objects.filter(id=connection.id).exists())
+        self.assertFalse(Message.objects.filter(connection_id=connection.id).exists())
+        self.assertTrue(
+            Notification.objects.filter(
+                user=assigned_cleaner,
+                notification_type="account.host_deleted",
+                metadata__assignment_id=assigned.id,
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=pending_cleaner,
+                notification_type="account.host_deleted",
+                metadata__application_id=pending_application.id,
+            ).exists()
+        )
+
+    def test_cleaner_account_deletion_removes_taken_jobs_connections_and_notifies_host(self):
+        host = User.objects.create_user(
+            username="host-for-cleaner-delete@example.com",
+            email="host-for-cleaner-delete@example.com",
+            password="password123",
+            role=User.Role.HOST,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        HostProfile.objects.create(user=host)
+        cleaner = User.objects.create_user(
+            username="delete-cleaner@example.com",
+            email="delete-cleaner@example.com",
+            password="password123",
+            role=User.Role.CLEANER,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        CleanerProfile.objects.create(
+            user=cleaner,
+            verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+        )
+        property = Property.objects.create(host=host, name="Host Flat", city="Sofia")
+        assigned_job = CleaningJob.objects.create(
+            property=property,
+            host=host,
+            title="Accepted job",
+            scheduled_start=timezone.now() + timedelta(days=1),
+            scheduled_end=timezone.now() + timedelta(days=1, hours=2),
+            status=CleaningJob.Status.OPEN,
+        )
+        assigned_application = submit_application(job=assigned_job, cleaner=cleaner)
+        assigned = accept_application(application=assigned_application, accepted_by=host)
+        pending_job = CleaningJob.objects.create(
+            property=property,
+            host=host,
+            title="Pending application",
+            scheduled_start=timezone.now() + timedelta(days=2),
+            scheduled_end=timezone.now() + timedelta(days=2, hours=2),
+            status=CleaningJob.Status.OPEN,
+        )
+        pending_application = submit_application(job=pending_job, cleaner=cleaner)
+        connection = Connection.objects.create(requester=cleaner, addressee=host, status=Connection.Status.ACCEPTED)
+        Message.objects.create(connection=connection, sender=cleaner, body="I can do this.")
+
+        client = APIClient()
+        self.assertEqual(
+            client.post(
+                reverse("account-login"),
+                {"email": cleaner.email, "password": "password123"},
+                format="json",
+            ).status_code,
+            200,
+        )
+
+        response = client.delete(reverse("account-me"))
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(User.objects.filter(id=cleaner.id).exists())
+        self.assertFalse(CleaningJob.objects.filter(id=assigned_job.id).exists())
+        self.assertTrue(CleaningJob.objects.filter(id=pending_job.id).exists())
+        self.assertFalse(Assignment.objects.filter(id=assigned.id).exists())
+        self.assertFalse(Connection.objects.filter(id=connection.id).exists())
+        self.assertFalse(Message.objects.filter(connection_id=connection.id).exists())
+        self.assertTrue(
+            Notification.objects.filter(
+                user=host,
+                notification_type="account.cleaner_deleted",
+                metadata__assignment_id=assigned.id,
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=host,
+                notification_type="account.cleaner_deleted",
+                metadata__application_id=pending_application.id,
+            ).exists()
+        )
 
     def test_admin_can_approve_user_through_api(self):
         admin = User.objects.create_user(

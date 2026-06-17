@@ -4,7 +4,6 @@ import uuid
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login, logout
 from django.conf import settings
-from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -28,6 +27,7 @@ from apps.accounts.models import (
     SignupEmailVerification,
 )
 from apps.accounts.permissions import IsPlatformAdmin
+from apps.accounts.services import delete_account_permanently
 from apps.accounts.tokens import email_verification_token
 from apps.notifications.tasks import send_admin_new_account_email, send_signup_email_code
 from apps.accounts.serializers import (
@@ -227,22 +227,10 @@ class MeView(APIView):
     def get(self, request):
         return Response(UserSerializer(request.user).data)
 
-    @transaction.atomic
     def delete(self, request):
         user = request.user
-        user_id = user.id
-        role = user.role
-        email = user.email
-        write_audit_log(
-            actor=user,
-            action="account.deleted",
-            entity_type="User",
-            entity_id=user_id,
-            request=request,
-            metadata={"role": role, "email": email},
-        )
         logout(request)
-        user.delete()
+        delete_account_permanently(user=user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

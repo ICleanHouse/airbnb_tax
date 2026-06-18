@@ -1,0 +1,567 @@
+<mxfile host="app.diagrams.net" agent="ChatGPT">
+  <diagram id="338da3bbee4f" name="Host interactions">
+    <mxGraphModel dx="2416" dy="2476" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="sec_0" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="1. Public entry, signup and authentication" vertex="1">
+          <mxGeometry height="430" width="1580" x="150" y="-120" as="geometry" />
+        </mxCell>
+        <mxCell id="h_loginchoice" parent="sec_0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Existing account?" vertex="1">
+          <mxGeometry height="70" width="210" x="850" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="h_credentials" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Enter name, email and password" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="h_requestcode" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Request 6-digit email code" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_verifycode" parent="sec_0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Enter and verify email code" vertex="1">
+          <mxGeometry height="70" width="210" x="1040" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="h_codeerror" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show code error or resend" vertex="1">
+          <mxGeometry height="70" width="210" x="1290" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="h_role" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Choose Property owner / Host" vertex="1">
+          <mxGeometry height="70" width="210" x="500" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="h_login" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Login with email and password" vertex="1">
+          <mxGeometry height="70" width="210" x="1320" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_create" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Create host account" vertex="1">
+          <mxGeometry height="70" width="210" x="1070" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_1" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="2. Account state and host dashboard" vertex="1">
+          <mxGeometry height="270" width="1000" x="40" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="h_accountgate" parent="sec_1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Account status" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_pending" parent="sec_1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Pending host: can view dashboard but full marketplace actions are restricted" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_rejected" parent="sec_1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Marketplace access rejected" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_suspended" parent="sec_1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Marketplace access suspended" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_dashboard" parent="sec_1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Host dashboard" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_2" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="3. Property management" vertex="1">
+          <mxGeometry height="390" width="1000" x="40" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="h_properties" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View property list" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_addproperty" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Enter title, address, city, bedrooms and defaults" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_saveproperty" parent="sec_2" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Create property" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_propertysuccess" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Property added" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_propertyerror" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show validation/server error" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_propertydetail" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View property details" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_editproperty" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Update property fields" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_uploadimage" parent="sec_2" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Upload/remove property image" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_imageerror" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show image type/size/upload error" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_propertyjobs" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Filter jobs by property" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_3" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="4. Manual job creation and calendar" vertex="1">
+          <mxGeometry height="390" width="1000" x="40" y="1210" as="geometry" />
+        </mxCell>
+        <mxCell id="h_jobs" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Open Jobs &amp; Calendar" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_selectday" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View jobs for selected date" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_jobform" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Select property, date, start/end time, title, description and price" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_savedraft" parent="sec_3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Save Draft job" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_joberror" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show validation/ownership/server error" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_draft" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Draft job" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_publish" parent="sec_3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Publish job" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_publisherror" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show account/state/validation error" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_openjob" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Open job" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_deletejob" parent="sec_3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Confirm delete" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_deleteerror" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Only Draft/Open jobs can be deleted" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_jobstatus" parent="sec_3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Selected job status" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_4" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="5. Airbnb ICS import" vertex="1">
+          <mxGeometry height="390" width="750" x="40" y="1640" as="geometry" />
+        </mxCell>
+        <mxCell id="h_icsupload" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Choose property, ICS file and default cleaning start time" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_icsparse" parent="sec_4" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Upload and parse ICS file" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_icserror" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show invalid file/parser/upload error" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_icsreview" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Review parsed reservations; blocked placeholders removed" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_icsselect" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Select/deselect checkout events" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_icsconfirm" parent="sec_4" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Confirm import" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_bulkcreate" parent="sec_4" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Create one Draft job per selected checkout" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_icssuccess" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Import completed" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_icspartial" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Show created and failed jobs" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_5" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="6. Applications and assignment" vertex="1">
+          <mxGeometry height="270" width="1000" x="40" y="2070" as="geometry" />
+        </mxCell>
+        <mxCell id="h_appdash" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Applications dashboard: Pending / Active / Completed / Open" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_pendingapps" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View pending applications" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_appdetail" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Review cleaner profile, message, proposed price and rating" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_appdecision" parent="sec_5" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Accept or reject?" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_rejectapp" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Reject application" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_acceptapp" parent="sec_5" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Accept application" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_accepterror" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show ownership/state/race/server error" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_assignmentcreated" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Assignment created; competing applications rejected" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_6" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="7. Assignment completion, reviews and notifications" vertex="1">
+          <mxGeometry height="510" width="1000" x="40" y="2380" as="geometry" />
+        </mxCell>
+        <mxCell id="h_assignments" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View upcoming/active assignments" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_assignmentdetail" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Review cleaner, schedule, property, price and instructions" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_report" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Report scheduling, cleaning or property issue" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_complete" parent="sec_6" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Confirm job completion" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="h_completeerror" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show state/permission/server error" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_completed" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Completed jobs" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_reviewstatus" parent="sec_6" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Review already submitted?" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_reviewform" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Rate cleaner 1–5 stars and comment" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="h_reviewsubmit" parent="sec_6" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Submit review" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_reviewerror" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show duplicate/incomplete/permission error" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_reviewreadonly" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Show submitted review and host rating received" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_notifications" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View application, assignment and completion notifications" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="h_markread" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Open and mark notification read" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="h_start" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_landing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="h_landing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_cookie" value="Cookie consent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="h_landing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_loginchoice" value="Continue">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="h_cookie" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_loginchoice" value="Continue">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="h_loginchoice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_login" value="Yes">
+          <mxGeometry relative="1" x="-0.0588" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="1580" y="115" />
+              <mxPoint x="1580" y="355" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="h_loginchoice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_credentials" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="h_credentials" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_requestcode" value="Valid">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="h_requestcode" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_verifycode" value="Email sent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="h_verifycode" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_role" value="Valid">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="h_verifycode" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_codeerror" value="Invalid / expired">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="h_codeerror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_requestcode" value="Retry">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="h_role" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_location">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="h_create" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_accountgate" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" edge="1" parent="1" source="h_login" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_accountgate" value="Success">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="50" y="315" />
+              <mxPoint x="50" y="545" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e16" edge="1" parent="1" source="h_accountgate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_pending" value="Pending">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" edge="1" parent="1" source="h_accountgate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_dashboard" value="Approved">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" edge="1" parent="1" source="h_accountgate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_rejected" value="Rejected">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" edge="1" parent="1" source="h_accountgate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_suspended" value="Suspended">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e20" edge="1" parent="1" source="h_pending" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" edge="1" parent="1" source="h_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_properties" value="Properties">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e22" edge="1" parent="1" source="h_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobs" value="Jobs &amp; Calendar">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" edge="1" parent="1" source="h_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_appdash" value="Applications">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e24" edge="1" parent="1" source="h_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_assignments" value="Assignments">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e25" edge="1" parent="1" source="h_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_completed" value="Completed jobs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e26" edge="1" parent="1" source="h_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_notifications" value="Notifications">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e27" edge="1" parent="1" source="h_properties" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_addproperty" value="Add">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e28" edge="1" parent="1" source="h_properties" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_propertydetail" value="Open">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e29" edge="1" parent="1" source="h_addproperty" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_saveproperty">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e30" edge="1" parent="1" source="h_saveproperty" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_propertysuccess" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e31" edge="1" parent="1" source="h_saveproperty" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_propertyerror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e32" edge="1" parent="1" source="h_propertysuccess" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_properties">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e33" edge="1" parent="1" source="h_propertyerror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_addproperty">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e34" edge="1" parent="1" source="h_propertydetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_editproperty" value="Edit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e35" edge="1" parent="1" source="h_propertydetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_uploadimage" value="Upload image">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e36" edge="1" parent="1" source="h_propertydetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_propertyjobs" value="View jobs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e37" edge="1" parent="1" source="h_editproperty" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_properties" value="Save">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e38" edge="1" parent="1" source="h_uploadimage" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_propertydetail" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e39" edge="1" parent="1" source="h_uploadimage" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_imageerror" value="Invalid">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e40" edge="1" parent="1" source="h_imageerror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_propertydetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e41" edge="1" parent="1" source="h_propertyjobs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e42" edge="1" parent="1" source="h_jobs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_selectday" value="Select day">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e43" edge="1" parent="1" source="h_jobs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobform" value="Post a job">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e44" edge="1" parent="1" source="h_jobs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_icsupload" value="Import ICS">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e45" edge="1" parent="1" source="h_selectday" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobstatus">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e46" edge="1" parent="1" source="h_jobform" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_savedraft">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e47" edge="1" parent="1" source="h_savedraft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_draft" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e48" edge="1" parent="1" source="h_savedraft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_joberror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e49" edge="1" parent="1" source="h_joberror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobform">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e50" edge="1" parent="1" source="h_draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_publish" value="Publish">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e51" edge="1" parent="1" source="h_draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_deletejob" value="Delete">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e52" edge="1" parent="1" source="h_draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobform" value="Edit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e53" edge="1" parent="1" source="h_publish" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_openjob" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e54" edge="1" parent="1" source="h_publish" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_publisherror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e55" edge="1" parent="1" source="h_publisherror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_draft">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e56" edge="1" parent="1" source="h_openjob" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_appdash" value="Applications">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e57" edge="1" parent="1" source="h_openjob" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_deletejob" value="Delete">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e58" edge="1" parent="1" source="h_deletejob" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobs" value="Allowed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e59" edge="1" parent="1" source="h_deletejob" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_deleteerror" value="Denied">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e60" edge="1" parent="1" source="h_deleteerror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e61" edge="1" parent="1" source="h_jobstatus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_draft" value="Draft">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e62" edge="1" parent="1" source="h_jobstatus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_openjob" value="Open">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e63" edge="1" parent="1" source="h_jobstatus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_assignmentdetail" value="Assigned">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e64" edge="1" parent="1" source="h_jobstatus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_completed" value="Completed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e65" edge="1" parent="1" source="h_icsupload" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_icsparse">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e66" edge="1" parent="1" source="h_icsparse" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_icsreview" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e67" edge="1" parent="1" source="h_icsparse" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_icserror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e68" edge="1" parent="1" source="h_icserror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_icsupload">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e69" edge="1" parent="1" source="h_icsreview" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_icsselect">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e70" edge="1" parent="1" source="h_icsselect" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_icsconfirm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e71" edge="1" parent="1" source="h_icsconfirm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_bulkcreate" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e72" edge="1" parent="1" source="h_icsconfirm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobs" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e73" edge="1" parent="1" source="h_bulkcreate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_icssuccess" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e74" edge="1" parent="1" source="h_bulkcreate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_icspartial" value="Partial">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e75" edge="1" parent="1" source="h_bulkcreate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_icserror" value="Failed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e76" edge="1" parent="1" source="h_icssuccess" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e77" edge="1" parent="1" source="h_icspartial" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_jobs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e78" edge="1" parent="1" source="h_appdash" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_pendingapps" value="Pending">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e79" edge="1" parent="1" source="h_appdash" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_assignments" value="Active">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e80" edge="1" parent="1" source="h_appdash" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_completed" value="Completed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e81" edge="1" parent="1" source="h_pendingapps" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_appdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e82" edge="1" parent="1" source="h_appdetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_appdecision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e83" edge="1" parent="1" source="h_appdecision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_acceptapp" value="Accept">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e84" edge="1" parent="1" source="h_appdecision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_rejectapp" value="Reject">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e85" edge="1" parent="1" source="h_rejectapp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_pendingapps">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e86" edge="1" parent="1" source="h_acceptapp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_assignmentcreated" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e87" edge="1" parent="1" source="h_acceptapp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_accepterror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e88" edge="1" parent="1" source="h_accepterror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_appdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e89" edge="1" parent="1" source="h_assignmentcreated" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_assignments">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e90" edge="1" parent="1" source="h_assignments" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_assignmentdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e91" edge="1" parent="1" source="h_assignmentdetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_complete" value="Mark done">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e92" edge="1" parent="1" source="h_assignmentdetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_report" value="Report issue">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e93" edge="1" parent="1" source="h_report" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_assignmentdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e94" edge="1" parent="1" source="h_complete" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_completed" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e95" edge="1" parent="1" source="h_complete" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_completeerror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e96" edge="1" parent="1" source="h_completeerror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_assignmentdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e97" edge="1" parent="1" source="h_completed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_reviewstatus">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e98" edge="1" parent="1" source="h_reviewstatus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_reviewreadonly" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e99" edge="1" parent="1" source="h_reviewstatus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_reviewform" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e100" edge="1" parent="1" source="h_reviewform" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_reviewsubmit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e101" edge="1" parent="1" source="h_reviewsubmit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_reviewreadonly" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e102" edge="1" parent="1" source="h_reviewsubmit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_reviewerror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e103" edge="1" parent="1" source="h_reviewerror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_reviewform">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e104" edge="1" parent="1" source="h_reviewreadonly" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e105" edge="1" parent="1" source="h_notifications" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_markread">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e106" edge="1" parent="1" source="h_markread" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="h_location" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Enter city and location details" vertex="1">
+          <mxGeometry height="70" width="210" x="1210" y="515" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="h_location" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_create">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="h_landing" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Public landing page" vertex="1">
+          <mxGeometry height="70" width="210" x="860" y="-220" as="geometry" />
+        </mxCell>
+        <mxCell id="h_cookie" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Choose essential / analytics / marketing cookies" vertex="1">
+          <mxGeometry height="70" width="210" x="1060" y="-370" as="geometry" />
+        </mxCell>
+        <mxCell id="h_start" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="Host opens website" vertex="1">
+          <mxGeometry height="70" width="210" x="700" y="-370" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

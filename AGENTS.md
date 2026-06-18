@@ -16,6 +16,21 @@ Bulgarian-market marketplace connecting short-term rental hosts with verified cl
 
 Read `TGN.md` at the start of every session to reconstruct full project context. Read `AGENT.md` before making any changes. Read `BUSINESS.md` before product, marketplace, or monetization changes.
 
+## Instruction Priority
+
+When instructions overlap, use this order:
+
+1. `BUSINESS.md` — product scope and locked business decisions
+2. `architecture.md` — technical architecture and domain boundaries
+3. `TGN.md` — entities, state machines, API routes, events, and implementation status
+4. `DEV.md` — development and test procedures
+5. `DEPLOY.md` — deployment requirements
+6. `CURRENT_PROGRESS.md` — latest work and resume point
+7. `AGENT.md` — detailed agent working rules
+8. `.codex/skills/README.md` — ECC skill router
+
+Project documentation always overrides generic ECC skill guidance.
+
 ## Stack
 
 - Backend: Django 6.0+ / DRF 3.17+, PostgreSQL 16+ (Docker), SQLite (local), Redis 7+, Celery 5.4+
@@ -277,6 +292,14 @@ All UI is written in plain CSS with these shared tokens and classes. **Do not ad
 - `.connections-chat(-head/-who)` / `.connections-thread` / `.chat-bubble`(`--me`) / `.chat-bubble-body/-time` / `.connections-composer`
 - `.connections-shared(-toggle/-title/-list/-count)` / `.connections-remove`
 - `.connect-btn` (+ `--pending` / `--done`) — reusable Connect button; `.cleaner-profile-connect` wrapper in the profile modal
+
+## Codex Skills
+
+Project-local ECC skills are documented in:
+
+```text
+.codex/skills/README.md
+```
 
 ## Git / GitHub
 

@@ -6787,6 +6787,31 @@ img {
     radial-gradient(900px 420px at 0% 120%, var(--teal-tint), transparent 55%),
     var(--canvas);
 }
+
+/* Compact home banner for logged-in users — slim, no marketing copy. */
+.home-hero {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(800px 280px at 92% -40%, var(--brand-tint), transparent 60%),
+    var(--canvas);
+}
+.home-hero-inner {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 26px 0 20px;
+}
+.home-hero .eyebrow {
+  margin: 0 0 4px;
+}
+.home-hero h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(23px, 3vw, 32px);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
 .landing-hero-inner {
   display: grid;
   justify-items: center;

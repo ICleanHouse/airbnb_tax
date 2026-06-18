@@ -1,0 +1,1470 @@
+=============================================================
+Cleaners mermaid chart
+
+flowchart TD
+    %% =========================================================
+    %% ENTRY AND PUBLIC WEBSITE
+    %% =========================================================
+
+    START([Cleaner opens website])
+
+    START --> LANDING[Public landing page /]
+    LANDING --> COOKIE{Cookie consent shown?}
+
+    COOKIE -->|Essential only| ESSENTIAL[Use essential authentication and CSRF cookies]
+    COOKIE -->|Accept analytics| ANALYTICS[Record analytics consent]
+    COOKIE -->|Accept marketing| MARKETING[Record marketing consent]
+    COOKIE -->|Reject optional| ESSENTIAL
+
+    LANDING --> LOGIN_CHOICE{Existing account?}
+    LOGIN_CHOICE -->|No| SIGNUP_START
+    LOGIN_CHOICE -->|Yes| LOGIN
+    LANDING --> PUBLIC_SEARCH[Use public cleaner/host search form]
+    PUBLIC_SEARCH --> SEARCH_DEMO[View current demo/local results]
+    SEARCH_DEMO --> LANDING
+
+    %% =========================================================
+    %% CLEANER SIGNUP
+    %% =========================================================
+
+    subgraph SIGNUP["Cleaner signup wizard — /signup"]
+        SIGNUP_START[Start signup]
+        SIGNUP_START --> CREDENTIALS[Enter first name, last name, email and password]
+
+        CREDENTIALS --> CLIENT_VALIDATE{Frontend validation passes?}
+        CLIENT_VALIDATE -->|No| CREDENTIAL_ERRORS[Display field errors and password checklist]
+        CREDENTIAL_ERRORS --> CREDENTIALS
+
+        CLIENT_VALIDATE -->|Yes| REQUEST_CODE[Request 6-digit email code]
+        REQUEST_CODE --> CODE_SENT{Email sent successfully?}
+
+        CODE_SENT -->|No| CODE_SEND_ERROR[Display email delivery error]
+        CODE_SEND_ERROR --> REQUEST_CODE
+
+        CODE_SENT -->|Yes| ENTER_CODE[Enter email verification code]
+        ENTER_CODE --> VERIFY_CODE{Code valid and not expired?}
+
+        VERIFY_CODE -->|No| CODE_ERROR[Display invalid or expired code error]
+        CODE_ERROR --> ENTER_CODE
+        CODE_ERROR --> RESEND_CODE[Resend code]
+        RESEND_CODE --> REQUEST_CODE
+
+        VERIFY_CODE -->|Yes| EMAIL_VERIFIED[Receive email verification token]
+
+        EMAIL_VERIFIED --> ROLE_STEP[Choose Cleaner account type]
+        ROLE_STEP --> PERSONAL_INFO[Enter birth date and sex]
+        PERSONAL_INFO --> AGE_CHECK{At least 18 years old?}
+
+        AGE_CHECK -->|No| AGE_ERROR[Display age validation error]
+        AGE_ERROR --> PERSONAL_INFO
+
+        AGE_CHECK -->|Yes| LOCATION[Select city and service areas]
+        LOCATION --> LANGUAGE[Select native language]
+        LANGUAGE --> EXPERIENCE[Select cleaning experience level]
+        EXPERIENCE --> AVAILABILITY[Select work preference and preferred time slots]
+        AVAILABILITY --> WEEKLY[Optionally add weekly availability]
+
+        WEEKLY --> REVIEW_SIGNUP[Review collected signup data]
+        REVIEW_SIGNUP --> CREATE_ACCOUNT[Submit final cleaner signup]
+
+        CREATE_ACCOUNT --> SIGNUP_RESULT{Account created?}
+        SIGNUP_RESULT -->|Validation error| SIGNUP_API_ERROR[Display backend field errors]
+        SIGNUP_API_ERROR --> REVIEW_SIGNUP
+
+        SIGNUP_RESULT -->|Success| AUTO_LOGIN[User is automatically logged in]
+    end
+
+    %% =========================================================
+    %% LOGIN AND SESSION
+    %% =========================================================
+
+    subgraph AUTH["Authentication and session"]
+        LOGIN[Open /login]
+        LOGIN --> ENTER_LOGIN[Enter email and password]
+        ENTER_LOGIN --> LOGIN_RESULT{Login successful?}
+
+        LOGIN_RESULT -->|No| LOGIN_ERROR[Display invalid credentials or account error]
+        LOGIN_ERROR --> ENTER_LOGIN
+
+        LOGIN_RESULT -->|Yes| SESSION_CREATED[Create authenticated Django session]
+        SESSION_CREATED --> ROLE_REDIRECT[Redirect according to cleaner role]
+
+        LOGOUT[Select logout]
+        LOGOUT --> LOGOUT_RESULT{Logout successful?}
+        LOGOUT_RESULT -->|Yes| SESSION_CLOSED[Session closed]
+        SESSION_CLOSED --> LANDING
+        LOGOUT_RESULT -->|No| LOGOUT_ERROR[Display logout or CSRF error]
+    end
+
+    AUTO_LOGIN --> ACCOUNT_GATE
+    ROLE_REDIRECT --> ACCOUNT_GATE
+
+    %% =========================================================
+    %% ACCOUNT STATUS AND ACCESS
+    %% =========================================================
+
+    subgraph ACCOUNT["Cleaner account and access states"]
+        ACCOUNT_GATE{Account status}
+
+        ACCOUNT_GATE -->|Pending| PENDING_ACCOUNT[Pending cleaner workspace]
+        ACCOUNT_GATE -->|Approved| VERIFICATION_GATE
+        ACCOUNT_GATE -->|Rejected| REJECTED_ACCOUNT[Show rejected account state]
+        ACCOUNT_GATE -->|Suspended| SUSPENDED_ACCOUNT[Show suspended account state]
+
+        PENDING_ACCOUNT --> PENDING_ACTIONS[Can view dashboard and continue profile onboarding]
+        PENDING_ACTIONS --> APPLY_BLOCKED_PENDING[Cannot apply for jobs]
+        PENDING_ACTIONS --> WAIT_APPROVAL[Wait for admin approval]
+
+        WAIT_APPROVAL --> ACCOUNT_GATE
+
+        VERIFICATION_GATE{Cleaner verification status}
+        VERIFICATION_GATE -->|Unverified or pending| UNVERIFIED_ACCOUNT[Approved but not verified]
+        VERIFICATION_GATE -->|Verified| MARKETPLACE_ACCESS[Full cleaner marketplace access]
+        VERIFICATION_GATE -->|Rejected| VERIFICATION_REJECTED[Verification rejected]
+        VERIFICATION_GATE -->|Suspended| VERIFICATION_SUSPENDED[Cleaner verification suspended]
+
+        UNVERIFIED_ACCOUNT --> APPLY_BLOCKED_VERIFY[Can view jobs but cannot apply]
+        UNVERIFIED_ACCOUNT --> WAIT_VERIFY[Wait for admin verification]
+        WAIT_VERIFY --> VERIFICATION_GATE
+
+        REJECTED_ACCOUNT --> SUPPORT_CONTACT[Contact support]
+        SUSPENDED_ACCOUNT --> SUPPORT_CONTACT
+        VERIFICATION_REJECTED --> SUPPORT_CONTACT
+        VERIFICATION_SUSPENDED --> SUPPORT_CONTACT
+    end
+
+    %% =========================================================
+    %% CLEANER DASHBOARD
+    %% =========================================================
+
+    subgraph DASHBOARD["Cleaner dashboard — /cleaner"]
+        MARKETPLACE_ACCESS --> CLEANER_DASHBOARD[Open cleaner dashboard]
+
+        CLEANER_DASHBOARD --> DASHBOARD_SECTION{Choose dashboard section}
+
+        DASHBOARD_SECTION -->|Calendar| CALENDAR
+        DASHBOARD_SECTION -->|Open jobs| OPEN_JOBS
+        DASHBOARD_SECTION -->|Applications| APPLICATIONS
+        DASHBOARD_SECTION -->|Assignments| ASSIGNMENTS
+        DASHBOARD_SECTION -->|Profile| PROFILE
+        DASHBOARD_SECTION -->|Agency invitations| AGENCY_INVITATIONS
+        DASHBOARD_SECTION -->|Notifications| NOTIFICATIONS
+        DASHBOARD_SECTION -->|Logout| LOGOUT
+    end
+
+    PENDING_ACCOUNT --> CLEANER_DASHBOARD
+    UNVERIFIED_ACCOUNT --> CLEANER_DASHBOARD
+
+    %% =========================================================
+    %% PROFILE MANAGEMENT
+    %% =========================================================
+
+    subgraph PROFILE_FLOW["Cleaner profile interactions"]
+        PROFILE[Open profile]
+
+        PROFILE --> PROFILE_SECTION{Choose profile section}
+
+        PROFILE_SECTION --> ACCOUNT_DETAILS[Edit first name, last name and account details]
+        PROFILE_SECTION --> PROFILE_IMAGE[Upload or replace profile image]
+        PROFILE_SECTION --> LOCATION_PROFILE[Edit city and service districts]
+        PROFILE_SECTION --> LANGUAGES_PROFILE[Edit native and other languages]
+        PROFILE_SECTION --> EXPERIENCE_PROFILE[Edit experience and work preferences]
+        PROFILE_SECTION --> AVAILABILITY_PROFILE[Edit preferred times and weekly availability]
+        PROFILE_SECTION --> TRANSPORT_PROFILE[Edit driving licence and own-car information]
+        PROFILE_SECTION --> EXTRA_SERVICES[Edit extra services offered]
+        PROFILE_SECTION --> BIO_PROFILE[Edit bio and personal description]
+
+        PROFILE_IMAGE --> IMAGE_CROP[Crop, zoom, reposition or reset image]
+        IMAGE_CROP --> IMAGE_CONFIRM{Confirm image?}
+        IMAGE_CONFIRM -->|No| PROFILE_IMAGE
+        IMAGE_CONFIRM -->|Yes| PROFILE_CHANGES
+
+        ACCOUNT_DETAILS --> PROFILE_CHANGES[Store unsaved profile changes]
+        LOCATION_PROFILE --> DISTRICT_OVERLAY[Open Add districts overlay]
+        DISTRICT_OVERLAY --> DISTRICT_ACTION{District action}
+        DISTRICT_ACTION -->|Search| DISTRICT_OVERLAY
+        DISTRICT_ACTION -->|Drag or transfer| DISTRICT_OVERLAY
+        DISTRICT_ACTION -->|Remove district| DISTRICT_OVERLAY
+        DISTRICT_ACTION -->|Done| PROFILE_CHANGES
+
+        LANGUAGES_PROFILE --> LANGUAGE_OVERLAY[Open language selection overlay]
+        LANGUAGE_OVERLAY --> LANGUAGE_ACTION{Language action}
+        LANGUAGE_ACTION -->|Search| LANGUAGE_OVERLAY
+        LANGUAGE_ACTION -->|Add or remove language| LANGUAGE_OVERLAY
+        LANGUAGE_ACTION -->|Done| PROFILE_CHANGES
+
+        EXPERIENCE_PROFILE --> PROFILE_CHANGES
+        AVAILABILITY_PROFILE --> PROFILE_CHANGES
+        TRANSPORT_PROFILE --> PROFILE_CHANGES
+        EXTRA_SERVICES --> PROFILE_CHANGES
+        BIO_PROFILE --> PROFILE_CHANGES
+
+        PROFILE_CHANGES --> SAVE_PROFILE[Select Save changes]
+        SAVE_PROFILE --> SAVE_RESULT{Profile saved?}
+
+        SAVE_RESULT -->|Yes| PROFILE_SUCCESS[Display Profile saved message]
+        PROFILE_SUCCESS --> PROFILE
+
+        SAVE_RESULT -->|No| PROFILE_ERROR[Display field, upload or server error]
+        PROFILE_ERROR --> PROFILE
+    end
+
+    %% =========================================================
+    %% JOB SEARCH AND DETAILS
+    %% =========================================================
+
+    subgraph JOBS["Open job discovery"]
+        OPEN_JOBS[View available open jobs]
+        OPEN_JOBS --> FILTER_JOBS[Filter jobs by location, date or relevance]
+        FILTER_JOBS --> VIEW_JOB[Open job details]
+
+        VIEW_JOB --> JOB_INFO[
+            Review property, cleaning date,
+            start/end time, description,
+            proposed price and host context
+        ]
+
+        JOB_INFO --> JOB_DECISION{Apply for this job?}
+        JOB_DECISION -->|No| OPEN_JOBS
+        JOB_DECISION -->|Yes| ELIGIBILITY_CHECK{Approved and verified?}
+
+        ELIGIBILITY_CHECK -->|No| APPLY_DENIED[Display marketplace access restriction]
+        APPLY_DENIED --> CLEANER_DASHBOARD
+
+        ELIGIBILITY_CHECK -->|Yes| CONFLICT_CHECK{Calendar conflict?}
+        CONFLICT_CHECK -->|Yes| CONFLICT_WARNING[Display schedule conflict warning]
+        CONFLICT_WARNING --> JOB_DECISION
+
+        CONFLICT_CHECK -->|No| APPLICATION_FORM[Enter optional message and proposed price]
+        APPLICATION_FORM --> SUBMIT_APPLICATION[Submit application]
+
+        SUBMIT_APPLICATION --> APPLICATION_RESULT{Application accepted by API?}
+        APPLICATION_RESULT -->|No| APPLICATION_ERROR[Display duplicate, closed-job or validation error]
+        APPLICATION_ERROR --> VIEW_JOB
+
+        APPLICATION_RESULT -->|Yes| APPLICATION_PENDING[Application status: Pending]
+        APPLICATION_PENDING --> APPLICATIONS
+    end
+
+    %% =========================================================
+    %% APPLICATION MANAGEMENT
+    %% =========================================================
+
+    subgraph APPLICATION_FLOW["Cleaner application lifecycle"]
+        APPLICATIONS[View submitted applications]
+        APPLICATIONS --> APPLICATION_FILTER{Filter applications}
+
+        APPLICATION_FILTER -->|Pending| PENDING_APPS[View pending applications]
+        APPLICATION_FILTER -->|Accepted| ACCEPTED_APPS[View accepted applications]
+        APPLICATION_FILTER -->|Rejected| REJECTED_APPS[View rejected applications]
+        APPLICATION_FILTER -->|Withdrawn| WITHDRAWN_APPS[View withdrawn applications]
+
+        PENDING_APPS --> OPEN_APPLICATION[Open application details]
+        OPEN_APPLICATION --> APPLICATION_ACTION{Application action}
+
+        APPLICATION_ACTION -->|Keep pending| APPLICATIONS
+        APPLICATION_ACTION -->|Withdraw| WITHDRAW_REQUEST[Submit withdrawal request]
+
+        WITHDRAW_REQUEST --> WITHDRAW_RESULT{Withdrawal successful?}
+        WITHDRAW_RESULT -->|Yes| APPLICATION_WITHDRAWN[Status becomes Withdrawn]
+        APPLICATION_WITHDRAWN --> WITHDRAWN_APPS
+
+        WITHDRAW_RESULT -->|No| WITHDRAW_ERROR[Display withdrawal error]
+        WITHDRAW_ERROR --> OPEN_APPLICATION
+
+        APPLICATION_PENDING --> HOST_REVIEW[Host reviews application]
+
+        HOST_REVIEW --> HOST_DECISION{Host decision}
+        HOST_DECISION -->|Accept| APPLICATION_ACCEPTED[Application becomes Accepted]
+        HOST_DECISION -->|Reject| APPLICATION_REJECTED[Application becomes Rejected]
+        HOST_DECISION -->|No action| APPLICATION_PENDING
+
+        APPLICATION_ACCEPTED --> ASSIGNMENT_CREATED[Assignment created]
+        APPLICATION_REJECTED --> REJECTED_APPS
+        ASSIGNMENT_CREATED --> ASSIGNMENTS
+    end
+
+    %% =========================================================
+    %% ASSIGNMENTS AND JOB EXECUTION
+    %% =========================================================
+
+    subgraph ASSIGNMENT_FLOW["Assigned cleaning work"]
+        ASSIGNMENTS[View assigned jobs]
+        ASSIGNMENTS --> ASSIGNMENT_FILTER{Assignment category}
+
+        ASSIGNMENT_FILTER -->|Upcoming| UPCOMING_ASSIGNMENTS[View upcoming jobs]
+        ASSIGNMENT_FILTER -->|Completed| COMPLETED_ASSIGNMENTS[View completed jobs]
+        ASSIGNMENT_FILTER -->|Cancelled| CANCELLED_ASSIGNMENTS[View cancelled jobs]
+        ASSIGNMENT_FILTER -->|Disputed| DISPUTED_ASSIGNMENTS[View disputed jobs]
+
+        UPCOMING_ASSIGNMENTS --> VIEW_ASSIGNMENT[Open assignment details]
+        VIEW_ASSIGNMENT --> ASSIGNMENT_INFO[
+            Review date, time, property,
+            cleaning instructions, agreed price
+            and host information
+        ]
+
+        ASSIGNMENT_INFO --> CALENDAR_EVENT[View assignment in cleaner calendar]
+        ASSIGNMENT_INFO --> PERFORM_JOB[Perform cleaning]
+        ASSIGNMENT_INFO --> REPORT_PROBLEM[Report scheduling or property issue]
+
+        REPORT_PROBLEM --> SUPPORT_REVIEW[Issue available for support/admin review]
+        SUPPORT_REVIEW --> VIEW_ASSIGNMENT
+
+        PERFORM_JOB --> COMPLETE_ACTION[Select Mark complete]
+        COMPLETE_ACTION --> COMPLETE_CONFIRM{Confirm completion?}
+
+        COMPLETE_CONFIRM -->|No| VIEW_ASSIGNMENT
+        COMPLETE_CONFIRM -->|Yes| COMPLETE_REQUEST[Submit completion request]
+
+        COMPLETE_REQUEST --> COMPLETE_RESULT{Completion successful?}
+        COMPLETE_RESULT -->|No| COMPLETE_ERROR[Display permission, status or server error]
+        COMPLETE_ERROR --> VIEW_ASSIGNMENT
+
+        COMPLETE_RESULT -->|Yes| JOB_COMPLETED[Job status becomes Completed]
+        JOB_COMPLETED --> COMPLETED_ASSIGNMENTS
+        JOB_COMPLETED --> REVIEW_UNLOCKED[Reviews become available]
+    end
+
+    %% =========================================================
+    %% CALENDAR
+    %% =========================================================
+
+    subgraph CALENDAR_FLOW["Cleaner calendar"]
+        CALENDAR[Open cleaner calendar]
+        CALENDAR --> CHANGE_MONTH[Move to previous or next month]
+        CHANGE_MONTH --> CALENDAR
+
+        CALENDAR --> SELECT_DATE[Select a calendar date]
+        SELECT_DATE --> DATE_EVENTS[View jobs, applications and assignments for date]
+
+        DATE_EVENTS --> CALENDAR_ITEM{Selected item type}
+        CALENDAR_ITEM -->|Open job| VIEW_JOB
+        CALENDAR_ITEM -->|Pending application| OPEN_APPLICATION
+        CALENDAR_ITEM -->|Assignment| VIEW_ASSIGNMENT
+
+        CALENDAR --> CHECK_CONFLICTS[Check schedule conflicts]
+        CHECK_CONFLICTS --> CONFLICT_RESULT{Conflict exists?}
+        CONFLICT_RESULT -->|Yes| SHOW_CONFLICT[Display conflict information]
+        CONFLICT_RESULT -->|No| NO_CONFLICT[Show available schedule]
+        SHOW_CONFLICT --> CALENDAR
+        NO_CONFLICT --> CALENDAR
+    end
+
+    %% =========================================================
+    %% REVIEWS
+    %% =========================================================
+
+    subgraph REVIEW_FLOW["Two-way reviews after completion"]
+        REVIEW_UNLOCKED --> REVIEW_DECISION{Leave review for host?}
+
+        REVIEW_DECISION -->|Later| COMPLETED_ASSIGNMENTS
+        REVIEW_DECISION -->|Yes| REVIEW_FORM[Select 1–5 stars and enter comment]
+
+        REVIEW_FORM --> SUBMIT_REVIEW[Submit review]
+        SUBMIT_REVIEW --> REVIEW_RESULT{Review accepted?}
+
+        REVIEW_RESULT -->|No| REVIEW_ERROR[
+            Display duplicate review,
+            unrelated-user or incomplete-job error
+        ]
+        REVIEW_ERROR --> REVIEW_FORM
+
+        REVIEW_RESULT -->|Yes| REVIEW_CREATED[Review stored]
+        REVIEW_CREATED --> REVIEW_READONLY[Display submitted review as read-only]
+        REVIEW_READONLY --> COMPLETED_ASSIGNMENTS
+
+        COMPLETED_ASSIGNMENTS --> RECEIVED_REVIEW[View review or rating received from host]
+    end
+
+    %% =========================================================
+    %% AGENCY MEMBERSHIP
+    %% =========================================================
+
+    subgraph AGENCY_FLOW["Cleaner and agency interactions"]
+        AGENCY_INVITATIONS[View agency invitations]
+        AGENCY_INVITATIONS --> INVITATION_AVAILABLE{Invitation exists?}
+
+        INVITATION_AVAILABLE -->|No| CLEANER_DASHBOARD
+        INVITATION_AVAILABLE -->|Yes| VIEW_INVITATION[View agency and invitation details]
+
+        VIEW_INVITATION --> INVITATION_STATUS{Invitation valid?}
+        INVITATION_STATUS -->|Expired| INVITATION_EXPIRED[Display expired invitation]
+        INVITATION_STATUS -->|Valid| INVITATION_DECISION{Accept invitation?}
+
+        INVITATION_DECISION -->|No| INVITATION_DECLINED[Decline or leave pending]
+        INVITATION_DECLINED --> AGENCY_INVITATIONS
+
+        INVITATION_DECISION -->|Yes| ACCEPT_INVITATION[Submit invitation acceptance]
+        ACCEPT_INVITATION --> ACCEPT_INVITE_RESULT{Accepted successfully?}
+
+        ACCEPT_INVITE_RESULT -->|No| INVITE_ERROR[Display membership error]
+        INVITE_ERROR --> VIEW_INVITATION
+
+        ACCEPT_INVITE_RESULT -->|Yes| ACTIVE_MEMBERSHIP[Cleaner becomes active agency member]
+        ACTIVE_MEMBERSHIP --> AGENCY_ASSIGNMENT[
+            Cleaner may receive an agency-delegated assignment
+            when approved and verified
+        ]
+        AGENCY_ASSIGNMENT --> ASSIGNMENTS
+
+        ACTIVE_MEMBERSHIP --> MEMBERSHIP_REVOKED{Membership later revoked?}
+        MEMBERSHIP_REVOKED -->|Yes| REVOKED_MEMBER[Cannot receive new agency assignments]
+        MEMBERSHIP_REVOKED -->|No| ACTIVE_MEMBERSHIP
+    end
+
+    %% =========================================================
+    %% NOTIFICATIONS
+    %% =========================================================
+
+    subgraph NOTIFICATION_FLOW["Cleaner notifications"]
+        NOTIFICATIONS[Open notifications]
+        NOTIFICATIONS --> VIEW_NOTIFICATION[View notification details]
+        VIEW_NOTIFICATION --> MARK_READ[Mark notification as read]
+        MARK_READ --> NOTIFICATIONS
+
+        APPLICATION_REJECTED --> NOTIFY_REJECTED[Receive application rejection notification]
+        APPLICATION_ACCEPTED --> NOTIFY_ACCEPTED[Receive application acceptance notification]
+        ASSIGNMENT_CREATED --> NOTIFY_ASSIGNMENT[Receive assignment notification]
+        JOB_COMPLETED --> NOTIFY_COMPLETION[Receive job completion notification]
+        ACTIVE_MEMBERSHIP --> NOTIFY_MEMBERSHIP[Receive agency membership update]
+
+        NOTIFY_REJECTED --> NOTIFICATIONS
+        NOTIFY_ACCEPTED --> NOTIFICATIONS
+        NOTIFY_ASSIGNMENT --> NOTIFICATIONS
+        NOTIFY_COMPLETION --> NOTIFICATIONS
+        NOTIFY_MEMBERSHIP --> NOTIFICATIONS
+    end
+
+    %% =========================================================
+    %% GENERIC FAILURES AND DEBUGGING
+    %% =========================================================
+
+    subgraph ERRORS["Manual testing and debugging outcomes"]
+        NETWORK_FAILURE[Network request fails]
+        AUTH_FAILURE[401 — authentication required]
+        FORBIDDEN_FAILURE[403 — permission or CSRF denied]
+        NOT_FOUND_FAILURE[404 — object unavailable]
+        VALIDATION_FAILURE[400 — invalid submitted data]
+        SERVER_FAILURE[500 — backend error]
+
+        NETWORK_FAILURE --> RETRY_ACTION[Verify frontend, backend, Redis and Celery are running]
+        AUTH_FAILURE --> LOGIN
+        FORBIDDEN_FAILURE --> ACCESS_DEBUG[Check account status, role, verification and CSRF]
+        NOT_FOUND_FAILURE --> DATA_DEBUG[Check object ID, ownership and object status]
+        VALIDATION_FAILURE --> FORM_DEBUG[Check frontend payload and serializer errors]
+        SERVER_FAILURE --> LOG_DEBUG[Check Django, Celery and browser logs]
+
+        RETRY_ACTION --> CLEANER_DASHBOARD
+        ACCESS_DEBUG --> ACCOUNT_GATE
+        DATA_DEBUG --> CLEANER_DASHBOARD
+        FORM_DEBUG --> CLEANER_DASHBOARD
+        LOG_DEBUG --> CLEANER_DASHBOARD
+    end
+
+=======================================================================================================================================================================================
+Public landing page and cookie consent.
+Cleaner account creation and email-code verification.
+Every cleaner account status.
+Cleaner verification restrictions.
+Login, logout and session behavior.
+Cleaner profile editing and image cropping.
+City and district management.
+Languages, experience, transport, availability and extra services.
+Open-job discovery and calendar conflicts.
+Applying, withdrawing, rejection and acceptance.
+Assignment creation and cleaning completion.
+Calendar navigation.
+Cleaner-to-host reviews and received reviews.
+Agency invitations and membership.
+In-app notifications.
+Common HTTP, CSRF, permission, validation and backend failure paths.
+
+=======================================================================================================================================================================================
+=======================================================================================================================================================================================
+=======================================================================================================================================================================================
+
+
+=============================================================
+Host mermaid chart
+
+flowchart TD
+    %% =========================================================
+    %% ENTRY AND PUBLIC WEBSITE
+    %% =========================================================
+
+    START([Host opens website])
+
+    START --> LANDING[Public landing page /]
+    LANDING --> COOKIE{Cookie consent shown?}
+
+    COOKIE -->|Essential only| ESSENTIAL[Use essential authentication and CSRF cookies]
+    COOKIE -->|Accept analytics| ANALYTICS[Record analytics consent]
+    COOKIE -->|Accept marketing| MARKETING[Record marketing consent]
+    COOKIE -->|Reject optional| ESSENTIAL
+
+    LANDING --> LOGIN_CHOICE{Existing account?}
+    LOGIN_CHOICE -->|No| SIGNUP_START
+    LOGIN_CHOICE -->|Yes| LOGIN
+
+    LANDING --> PUBLIC_SEARCH[Use public search or lead form]
+    PUBLIC_SEARCH --> SEARCH_RESULT[View current demo or local results]
+    SEARCH_RESULT --> LANDING
+
+    %% =========================================================
+    %% HOST SIGNUP
+    %% =========================================================
+
+    subgraph SIGNUP["Host signup wizard — /signup"]
+        SIGNUP_START[Start signup]
+        SIGNUP_START --> CREDENTIALS[
+            Enter first name, last name,
+            email and password
+        ]
+
+        CREDENTIALS --> CLIENT_VALIDATE{Frontend validation passes?}
+
+        CLIENT_VALIDATE -->|No| CREDENTIAL_ERRORS[
+            Display field errors
+            and password checklist
+        ]
+        CREDENTIAL_ERRORS --> CREDENTIALS
+
+        CLIENT_VALIDATE -->|Yes| REQUEST_CODE[
+            Request 6-digit email code
+        ]
+
+        REQUEST_CODE --> CODE_SENT{Email sent successfully?}
+
+        CODE_SENT -->|No| CODE_SEND_ERROR[
+            Display email delivery error
+        ]
+        CODE_SEND_ERROR --> REQUEST_CODE
+
+        CODE_SENT -->|Yes| ENTER_CODE[
+            Enter email verification code
+        ]
+
+        ENTER_CODE --> VERIFY_CODE{
+            Code valid and not expired?
+        }
+
+        VERIFY_CODE -->|No| CODE_ERROR[
+            Display invalid or expired code error
+        ]
+        CODE_ERROR --> ENTER_CODE
+
+        CODE_ERROR --> RESEND_CODE[Resend code]
+        RESEND_CODE --> REQUEST_CODE
+
+        VERIFY_CODE -->|Yes| EMAIL_VERIFIED[
+            Receive email verification token
+        ]
+
+        EMAIL_VERIFIED --> ROLE_STEP[
+            Choose Property owner / Host account
+        ]
+
+        ROLE_STEP --> LOCATION[
+            Enter city and location details
+        ]
+
+        LOCATION --> REVIEW_SIGNUP[
+            Review collected signup data
+        ]
+
+        REVIEW_SIGNUP --> CREATE_ACCOUNT[
+            Submit final host signup
+        ]
+
+        CREATE_ACCOUNT --> SIGNUP_RESULT{
+            Account created?
+        }
+
+        SIGNUP_RESULT -->|Validation error| SIGNUP_API_ERROR[
+            Display backend field errors
+        ]
+        SIGNUP_API_ERROR --> REVIEW_SIGNUP
+
+        SIGNUP_RESULT -->|Success| AUTO_LOGIN[
+            User is automatically logged in
+        ]
+    end
+
+    %% =========================================================
+    %% LOGIN AND SESSION
+    %% =========================================================
+
+    subgraph AUTH["Authentication and session"]
+        LOGIN[Open /login]
+        LOGIN --> ENTER_LOGIN[
+            Enter email and password
+        ]
+
+        ENTER_LOGIN --> LOGIN_RESULT{
+            Login successful?
+        }
+
+        LOGIN_RESULT -->|No| LOGIN_ERROR[
+            Display invalid credentials
+            or account error
+        ]
+        LOGIN_ERROR --> ENTER_LOGIN
+
+        LOGIN_RESULT -->|Yes| SESSION_CREATED[
+            Create authenticated Django session
+        ]
+
+        SESSION_CREATED --> ROLE_REDIRECT[
+            Redirect host to /host
+        ]
+
+        LOGOUT[Select logout]
+        LOGOUT --> LOGOUT_RESULT{
+            Logout successful?
+        }
+
+        LOGOUT_RESULT -->|Yes| SESSION_CLOSED[
+            Session closed
+        ]
+        SESSION_CLOSED --> LANDING
+
+        LOGOUT_RESULT -->|No| LOGOUT_ERROR[
+            Display logout or CSRF error
+        ]
+    end
+
+    AUTO_LOGIN --> ACCOUNT_GATE
+    ROLE_REDIRECT --> ACCOUNT_GATE
+
+    %% =========================================================
+    %% ACCOUNT STATUS
+    %% =========================================================
+
+    subgraph ACCOUNT["Host account states"]
+        ACCOUNT_GATE{Account status}
+
+        ACCOUNT_GATE -->|Pending| PENDING_ACCOUNT[
+            Pending host workspace
+        ]
+
+        ACCOUNT_GATE -->|Approved| FULL_ACCESS[
+            Full host marketplace access
+        ]
+
+        ACCOUNT_GATE -->|Rejected| REJECTED_ACCOUNT[
+            Show rejected account state
+        ]
+
+        ACCOUNT_GATE -->|Suspended| SUSPENDED_ACCOUNT[
+            Show suspended account state
+        ]
+
+        PENDING_ACCOUNT --> PENDING_ACTIONS[
+            Can log in and view onboarding/dashboard
+        ]
+
+        PENDING_ACTIONS --> POSTING_BLOCKED[
+            Cannot publish jobs or use full marketplace actions
+        ]
+
+        PENDING_ACTIONS --> WAIT_APPROVAL[
+            Wait for admin approval
+        ]
+
+        WAIT_APPROVAL --> ACCOUNT_GATE
+
+        REJECTED_ACCOUNT --> SUPPORT_CONTACT[
+            Contact support
+        ]
+
+        SUSPENDED_ACCOUNT --> SUPPORT_CONTACT
+    end
+
+    %% =========================================================
+    %% HOST DASHBOARD
+    %% =========================================================
+
+    subgraph DASHBOARD["Host dashboard — /host"]
+        FULL_ACCESS --> HOST_DASHBOARD[
+            Open host dashboard
+        ]
+
+        PENDING_ACCOUNT --> HOST_DASHBOARD
+
+        HOST_DASHBOARD --> DASHBOARD_SECTION{
+            Choose dashboard section
+        }
+
+        DASHBOARD_SECTION -->|Properties| PROPERTIES
+        DASHBOARD_SECTION -->|Jobs and calendar| JOBS_CALENDAR
+        DASHBOARD_SECTION -->|Applications| APPLICATIONS_DASHBOARD
+        DASHBOARD_SECTION -->|Assignments| ASSIGNMENTS
+        DASHBOARD_SECTION -->|Completed jobs| COMPLETED_JOBS
+        DASHBOARD_SECTION -->|Notifications| NOTIFICATIONS
+        DASHBOARD_SECTION -->|Logout| LOGOUT
+    end
+
+    %% =========================================================
+    %% PROPERTY MANAGEMENT
+    %% =========================================================
+
+    subgraph PROPERTY_FLOW["Property management"]
+        PROPERTIES[View property list]
+
+        PROPERTIES --> PROPERTY_ACTION{
+            Property action
+        }
+
+        PROPERTY_ACTION -->|Add property| ADD_PROPERTY[
+            Open Add property modal
+        ]
+
+        ADD_PROPERTY --> ENTER_PROPERTY[
+            Enter title, address, city,
+            bedrooms, notes, cleaning defaults
+        ]
+
+        ENTER_PROPERTY --> SAVE_PROPERTY[
+            Submit new property
+        ]
+
+        SAVE_PROPERTY --> PROPERTY_RESULT{
+            Property created?
+        }
+
+        PROPERTY_RESULT -->|No| PROPERTY_ERROR[
+            Display validation or server error
+        ]
+        PROPERTY_ERROR --> ADD_PROPERTY
+
+        PROPERTY_RESULT -->|Yes| PROPERTY_CREATED[
+            Property appears in property list
+        ]
+        PROPERTY_CREATED --> PROPERTIES
+
+        PROPERTY_ACTION -->|Open property| VIEW_PROPERTY[
+            View property details
+        ]
+
+        VIEW_PROPERTY --> PROPERTY_DETAIL_ACTION{
+            Property detail action
+        }
+
+        PROPERTY_DETAIL_ACTION -->|Edit| EDIT_PROPERTY[
+            Update property fields
+        ]
+
+        EDIT_PROPERTY --> UPDATE_PROPERTY[
+            Submit property changes
+        ]
+
+        UPDATE_PROPERTY --> UPDATE_RESULT{
+            Update successful?
+        }
+
+        UPDATE_RESULT -->|Yes| PROPERTY_UPDATED[
+            Show updated property
+        ]
+        PROPERTY_UPDATED --> VIEW_PROPERTY
+
+        UPDATE_RESULT -->|No| UPDATE_PROPERTY_ERROR[
+            Display field or permission error
+        ]
+        UPDATE_PROPERTY_ERROR --> EDIT_PROPERTY
+
+        PROPERTY_DETAIL_ACTION -->|Upload image| UPLOAD_IMAGE[
+            Select property image
+        ]
+
+        UPLOAD_IMAGE --> IMAGE_UPLOAD_RESULT{
+            Upload valid?
+        }
+
+        IMAGE_UPLOAD_RESULT -->|No| IMAGE_ERROR[
+            Display file type, size
+            or upload error
+        ]
+        IMAGE_ERROR --> VIEW_PROPERTY
+
+        IMAGE_UPLOAD_RESULT -->|Yes| IMAGE_ADDED[
+            Image added to property
+        ]
+        IMAGE_ADDED --> VIEW_PROPERTY
+
+        PROPERTY_DETAIL_ACTION -->|Delete image| DELETE_IMAGE[
+            Remove selected image
+        ]
+        DELETE_IMAGE --> VIEW_PROPERTY
+
+        PROPERTY_DETAIL_ACTION -->|View jobs| PROPERTY_JOBS[
+            Filter jobs by property
+        ]
+        PROPERTY_JOBS --> JOBS_CALENDAR
+    end
+
+    %% =========================================================
+    %% JOBS AND CALENDAR
+    %% =========================================================
+
+    subgraph JOBS_FLOW["Jobs and calendar"]
+        JOBS_CALENDAR[
+            Open Jobs and Calendar section
+        ]
+
+        JOBS_CALENDAR --> CALENDAR_ACTION{
+            Calendar action
+        }
+
+        CALENDAR_ACTION -->|Previous month| PREVIOUS_MONTH[
+            Show previous month
+        ]
+        PREVIOUS_MONTH --> JOBS_CALENDAR
+
+        CALENDAR_ACTION -->|Next month| NEXT_MONTH[
+            Show next month
+        ]
+        NEXT_MONTH --> JOBS_CALENDAR
+
+        CALENDAR_ACTION -->|Select day| SELECT_DAY[
+            View jobs for selected date
+        ]
+
+        SELECT_DAY --> DAY_RESULT{
+            Jobs exist on date?
+        }
+
+        DAY_RESULT -->|No| EMPTY_DAY[
+            Show empty day
+        ]
+
+        DAY_RESULT -->|Yes| DAY_JOBS[
+            Show draft, open, assigned
+            and completed jobs
+        ]
+
+        EMPTY_DAY --> CREATE_FROM_DAY[
+            Create job with date pre-filled
+        ]
+
+        CREATE_FROM_DAY --> JOB_FORM
+        DAY_JOBS --> SELECT_JOB[
+            Open selected job
+        ]
+    end
+
+    %% =========================================================
+    %% MANUAL JOB CREATION
+    %% =========================================================
+
+    subgraph MANUAL_JOB["Manual job creation"]
+        JOBS_CALENDAR --> NEW_JOB[
+            Select Post a job
+        ]
+
+        NEW_JOB --> JOB_FORM[
+            Open job form
+        ]
+
+        JOB_FORM --> ENTER_JOB_DETAILS[
+            Select property, date,
+            start time, end time,
+            title, description and price
+        ]
+
+        ENTER_JOB_DETAILS --> SAVE_DRAFT[
+            Save job
+        ]
+
+        SAVE_DRAFT --> CREATE_JOB_RESULT{
+            Draft created?
+        }
+
+        CREATE_JOB_RESULT -->|No| CREATE_JOB_ERROR[
+            Display validation, ownership
+            or server error
+        ]
+        CREATE_JOB_ERROR --> JOB_FORM
+
+        CREATE_JOB_RESULT -->|Yes| DRAFT_JOB[
+            Job status: Draft
+        ]
+
+        DRAFT_JOB --> DRAFT_ACTION{
+            Draft job action
+        }
+
+        DRAFT_ACTION -->|Edit| EDIT_DRAFT[
+            Change job details
+        ]
+        EDIT_DRAFT --> SAVE_DRAFT
+
+        DRAFT_ACTION -->|Publish| PUBLISH_JOB[
+            Publish job
+        ]
+
+        PUBLISH_JOB --> PUBLISH_RESULT{
+            Publish successful?
+        }
+
+        PUBLISH_RESULT -->|No| PUBLISH_ERROR[
+            Display account, property,
+            state or validation error
+        ]
+        PUBLISH_ERROR --> DRAFT_JOB
+
+        PUBLISH_RESULT -->|Yes| OPEN_JOB[
+            Job status: Open
+        ]
+
+        DRAFT_ACTION -->|Delete| DELETE_DRAFT_CONFIRM[
+            Show two-step delete confirmation
+        ]
+
+        DELETE_DRAFT_CONFIRM --> DELETE_DRAFT_DECISION{
+            Confirm delete?
+        }
+
+        DELETE_DRAFT_DECISION -->|No| DRAFT_JOB
+
+        DELETE_DRAFT_DECISION -->|Yes| DELETE_DRAFT[
+            Delete draft job
+        ]
+
+        DELETE_DRAFT --> DELETE_DRAFT_RESULT{
+            Delete successful?
+        }
+
+        DELETE_DRAFT_RESULT -->|Yes| JOB_DELETED[
+            Remove job from calendar
+        ]
+        JOB_DELETED --> JOBS_CALENDAR
+
+        DELETE_DRAFT_RESULT -->|No| DELETE_DRAFT_ERROR[
+            Display delete error
+        ]
+        DELETE_DRAFT_ERROR --> DRAFT_JOB
+    end
+
+    %% =========================================================
+    %% ICS IMPORT
+    %% =========================================================
+
+    subgraph ICS_FLOW["Airbnb ICS import"]
+        JOBS_CALENDAR --> IMPORT_ICS[
+            Select Import ICS
+        ]
+
+        IMPORT_ICS --> ICS_STEP_ONE[
+            Select property, ICS file
+            and default cleaning start time
+        ]
+
+        ICS_STEP_ONE --> UPLOAD_ICS[
+            Upload and parse ICS file
+        ]
+
+        UPLOAD_ICS --> ICS_PARSE_RESULT{
+            File parsed?
+        }
+
+        ICS_PARSE_RESULT -->|No| ICS_ERROR[
+            Display invalid file,
+            parser or upload error
+        ]
+        ICS_ERROR --> ICS_STEP_ONE
+
+        ICS_PARSE_RESULT -->|Yes| REVIEW_EVENTS[
+            Review parsed reservations
+        ]
+
+        REVIEW_EVENTS --> FILTERED_EVENTS[
+            Blocked/unavailable placeholders removed
+        ]
+
+        FILTERED_EVENTS --> EVENT_SELECTION[
+            Select or deselect checkout events
+        ]
+
+        EVENT_SELECTION --> IMPORT_DECISION{
+            Confirm import?
+        }
+
+        IMPORT_DECISION -->|No| JOBS_CALENDAR
+
+        IMPORT_DECISION -->|Yes| BULK_CREATE[
+            Create one Draft job
+            per selected checkout date
+        ]
+
+        BULK_CREATE --> BULK_RESULT{
+            All jobs created?
+        }
+
+        BULK_RESULT -->|Yes| ICS_SUCCESS[
+            Show import success state
+        ]
+        ICS_SUCCESS --> JOBS_CALENDAR
+
+        BULK_RESULT -->|Partial| ICS_PARTIAL[
+            Show created and failed jobs
+        ]
+        ICS_PARTIAL --> JOBS_CALENDAR
+
+        BULK_RESULT -->|No| ICS_CREATE_ERROR[
+            Display bulk creation error
+        ]
+        ICS_CREATE_ERROR --> REVIEW_EVENTS
+    end
+
+    %% =========================================================
+    %% OPEN JOB MANAGEMENT
+    %% =========================================================
+
+    subgraph OPEN_JOB_FLOW["Open job management"]
+        OPEN_JOB --> OPEN_JOB_ACTION{
+            Open job action
+        }
+
+        OPEN_JOB_ACTION -->|View| VIEW_OPEN_JOB[
+            View job details and application count
+        ]
+
+        OPEN_JOB_ACTION -->|Delete| DELETE_OPEN_CONFIRM[
+            Show delete confirmation
+        ]
+
+        DELETE_OPEN_CONFIRM --> DELETE_OPEN_DECISION{
+            Confirm delete?
+        }
+
+        DELETE_OPEN_DECISION -->|No| OPEN_JOB
+
+        DELETE_OPEN_DECISION -->|Yes| DELETE_OPEN[
+            Delete open job
+        ]
+
+        DELETE_OPEN --> DELETE_OPEN_RESULT{
+            Delete allowed?
+        }
+
+        DELETE_OPEN_RESULT -->|Yes| OPEN_JOB_DELETED[
+            Remove job
+        ]
+        OPEN_JOB_DELETED --> JOBS_CALENDAR
+
+        DELETE_OPEN_RESULT -->|No| DELETE_OPEN_ERROR[
+            Display state or permission error
+        ]
+        DELETE_OPEN_ERROR --> OPEN_JOB
+
+        OPEN_JOB_ACTION -->|View applications| APPLICATIONS_DASHBOARD
+    end
+
+    %% =========================================================
+    %% APPLICATION DASHBOARD
+    %% =========================================================
+
+    subgraph APPLICATION_FLOW["Host application management"]
+        APPLICATIONS_DASHBOARD[
+            Open Applications dashboard
+        ]
+
+        APPLICATIONS_DASHBOARD --> SUMMARY_CARDS[
+            View Pending, Active,
+            Completed and Open job cards
+        ]
+
+        SUMMARY_CARDS --> APPLICATION_FILTER{
+            Select summary filter
+        }
+
+        APPLICATION_FILTER -->|Pending| PENDING_APPLICATIONS[
+            View pending applications
+        ]
+
+        APPLICATION_FILTER -->|Active| ACTIVE_ASSIGNMENTS[
+            View accepted applications
+            and active assignments
+        ]
+
+        APPLICATION_FILTER -->|Completed| COMPLETED_APPLICATIONS[
+            View completed assignments
+        ]
+
+        APPLICATION_FILTER -->|Open jobs| OPEN_JOB_LIST[
+            View open jobs and application counts
+        ]
+
+        PENDING_APPLICATIONS --> SELECT_APPLICATION[
+            Open cleaner application
+        ]
+
+        SELECT_APPLICATION --> APPLICATION_DETAILS[
+            Review cleaner profile,
+            note, proposed price,
+            rating and job details
+        ]
+
+        APPLICATION_DETAILS --> APPLICATION_DECISION{
+            Accept or reject?
+        }
+
+        APPLICATION_DECISION -->|Reject| REJECT_APPLICATION[
+            Reject application
+        ]
+
+        REJECT_APPLICATION --> REJECT_RESULT{
+            Rejection successful?
+        }
+
+        REJECT_RESULT -->|Yes| APPLICATION_REJECTED[
+            Status becomes Rejected
+        ]
+        APPLICATION_REJECTED --> PENDING_APPLICATIONS
+
+        REJECT_RESULT -->|No| REJECT_ERROR[
+            Display permission or state error
+        ]
+        REJECT_ERROR --> APPLICATION_DETAILS
+
+        APPLICATION_DECISION -->|Accept| ACCEPT_APPLICATION[
+            Accept application
+        ]
+
+        ACCEPT_APPLICATION --> ACCEPT_RESULT{
+            Acceptance successful?
+        }
+
+        ACCEPT_RESULT -->|No| ACCEPT_ERROR[
+            Display ownership, state,
+            race-condition or server error
+        ]
+        ACCEPT_ERROR --> APPLICATION_DETAILS
+
+        ACCEPT_RESULT -->|Yes| APPLICATION_ACCEPTED[
+            Application status becomes Accepted
+        ]
+
+        APPLICATION_ACCEPTED --> COMPETING_REJECTED[
+            Other applications become Rejected
+        ]
+
+        COMPETING_REJECTED --> ASSIGNMENT_CREATED[
+            Assignment created
+        ]
+
+        ASSIGNMENT_CREATED --> JOB_ASSIGNED[
+            Job status becomes Assigned
+        ]
+
+        JOB_ASSIGNED --> ACTIVE_ASSIGNMENTS
+    end
+
+    %% =========================================================
+    %% ASSIGNMENTS
+    %% =========================================================
+
+    subgraph ASSIGNMENT_FLOW["Assignment management"]
+        ASSIGNMENTS[
+            View assignments
+        ]
+
+        ASSIGNMENTS --> ASSIGNMENT_FILTER{
+            Assignment category
+        }
+
+        ASSIGNMENT_FILTER -->|Upcoming| UPCOMING_ASSIGNMENTS[
+            View upcoming assigned jobs
+        ]
+
+        ASSIGNMENT_FILTER -->|Completed| COMPLETED_ASSIGNMENTS[
+            View completed jobs
+        ]
+
+        ASSIGNMENT_FILTER -->|Cancelled| CANCELLED_ASSIGNMENTS[
+            View cancelled jobs
+        ]
+
+        ASSIGNMENT_FILTER -->|Disputed| DISPUTED_ASSIGNMENTS[
+            View disputed jobs
+        ]
+
+        UPCOMING_ASSIGNMENTS --> VIEW_ASSIGNMENT[
+            Open assignment details
+        ]
+
+        VIEW_ASSIGNMENT --> ASSIGNMENT_INFO[
+            Review assigned cleaner,
+            schedule, property,
+            agreed price and instructions
+        ]
+
+        ASSIGNMENT_INFO --> ASSIGNMENT_ACTION{
+            Assignment action
+        }
+
+        ASSIGNMENT_ACTION -->|View calendar| JOBS_CALENDAR
+
+        ASSIGNMENT_ACTION -->|Mark complete| COMPLETE_JOB[
+            Select Mark done
+        ]
+
+        COMPLETE_JOB --> COMPLETE_CONFIRM{
+            Confirm completion?
+        }
+
+        COMPLETE_CONFIRM -->|No| VIEW_ASSIGNMENT
+
+        COMPLETE_CONFIRM -->|Yes| SUBMIT_COMPLETE[
+            Submit job completion
+        ]
+
+        SUBMIT_COMPLETE --> COMPLETE_RESULT{
+            Completion successful?
+        }
+
+        COMPLETE_RESULT -->|No| COMPLETE_ERROR[
+            Display state, permission
+            or server error
+        ]
+        COMPLETE_ERROR --> VIEW_ASSIGNMENT
+
+        COMPLETE_RESULT -->|Yes| JOB_COMPLETED[
+            Job status becomes Completed
+        ]
+
+        JOB_COMPLETED --> COMPLETED_ASSIGNMENTS
+        JOB_COMPLETED --> REVIEW_UNLOCKED[
+            Reviews become available
+        ]
+
+        ASSIGNMENT_ACTION -->|Report issue| REPORT_ISSUE[
+            Report scheduling, cleaning
+            or property issue
+        ]
+
+        REPORT_ISSUE --> ADMIN_SUPPORT[
+            Issue becomes visible
+            for support/admin review
+        ]
+        ADMIN_SUPPORT --> VIEW_ASSIGNMENT
+    end
+
+    %% =========================================================
+    %% COMPLETION FROM CALENDAR
+    %% =========================================================
+
+    subgraph CALENDAR_COMPLETION["Calendar job actions"]
+        DAY_JOBS --> JOB_STATUS{
+            Selected job status
+        }
+
+        JOB_STATUS -->|Draft| DRAFT_JOB
+        JOB_STATUS -->|Open| OPEN_JOB
+        JOB_STATUS -->|Assigned| ASSIGNED_CALENDAR_JOB[
+            Show assigned cleaner
+            and Mark done action
+        ]
+        JOB_STATUS -->|Completed| COMPLETED_CALENDAR_JOB[
+            Show completed job
+            and review status
+        ]
+
+        ASSIGNED_CALENDAR_JOB --> COMPLETE_JOB
+        COMPLETED_CALENDAR_JOB --> COMPLETED_JOBS
+    end
+
+    %% =========================================================
+    %% COMPLETED JOBS AND REVIEWS
+    %% =========================================================
+
+    subgraph REVIEW_FLOW["Host review interactions"]
+        COMPLETED_JOBS[
+            View completed jobs
+        ]
+
+        COMPLETED_JOBS --> SELECT_COMPLETED_JOB[
+            Open completed assignment
+        ]
+
+        SELECT_COMPLETED_JOB --> REVIEW_STATUS{
+            Review already submitted?
+        }
+
+        REVIEW_STATUS -->|No| REVIEW_DECISION{
+            Leave review for cleaner?
+        }
+
+        REVIEW_DECISION -->|Later| COMPLETED_JOBS
+
+        REVIEW_DECISION -->|Yes| REVIEW_FORM[
+            Select 1–5 stars
+            and enter comment
+        ]
+
+        REVIEW_FORM --> SUBMIT_REVIEW[
+            Submit review
+        ]
+
+        SUBMIT_REVIEW --> REVIEW_RESULT{
+            Review accepted?
+        }
+
+        REVIEW_RESULT -->|No| REVIEW_ERROR[
+            Display duplicate review,
+            incomplete-job or permission error
+        ]
+        REVIEW_ERROR --> REVIEW_FORM
+
+        REVIEW_RESULT -->|Yes| REVIEW_CREATED[
+            Review stored
+        ]
+
+        REVIEW_CREATED --> REVIEW_READONLY[
+            Display submitted review
+            as read-only
+        ]
+
+        REVIEW_READONLY --> COMPLETED_JOBS
+
+        REVIEW_STATUS -->|Yes| REVIEW_READONLY
+
+        COMPLETED_JOBS --> HOST_RATING[
+            View host rating received
+            from cleaner reviews
+        ]
+    end
+
+    %% =========================================================
+    %% NOTIFICATIONS
+    %% =========================================================
+
+    subgraph NOTIFICATION_FLOW["Host notifications"]
+        NOTIFICATIONS[
+            Open notifications
+        ]
+
+        NOTIFICATIONS --> VIEW_NOTIFICATION[
+            View notification details
+        ]
+
+        VIEW_NOTIFICATION --> MARK_READ[
+            Mark notification as read
+        ]
+
+        MARK_READ --> NOTIFICATIONS
+
+        OPEN_JOB --> WAIT_FOR_APPLICATIONS[
+            Wait for cleaner applications
+        ]
+
+        WAIT_FOR_APPLICATIONS --> APPLICATION_SUBMITTED[
+            Cleaner submits application
+        ]
+
+        APPLICATION_SUBMITTED --> HOST_NOTIFICATION[
+            Host receives in-app notification
+            and application email
+        ]
+
+        HOST_NOTIFICATION --> NOTIFICATIONS
+        HOST_NOTIFICATION --> APPLICATIONS_DASHBOARD
+
+        JOB_COMPLETED --> COMPLETION_NOTIFICATION[
+            Host receives completion notification/email
+        ]
+
+        COMPLETION_NOTIFICATION --> NOTIFICATIONS
+    end
+
+    %% =========================================================
+    %% ACCOUNT AND ACCESS FAILURES
+    %% =========================================================
+
+    subgraph ERROR_FLOW["Manual testing and debugging outcomes"]
+        NETWORK_FAILURE[
+            Network request fails
+        ]
+
+        AUTH_FAILURE[
+            401 — authentication required
+        ]
+
+        FORBIDDEN_FAILURE[
+            403 — permission or CSRF denied
+        ]
+
+        NOT_FOUND_FAILURE[
+            404 — object unavailable
+        ]
+
+        VALIDATION_FAILURE[
+            400 — invalid submitted data
+        ]
+
+        CONFLICT_FAILURE[
+            409 or business-state conflict
+        ]
+
+        SERVER_FAILURE[
+            500 — backend error
+        ]
+
+        NETWORK_FAILURE --> RETRY_ACTION[
+            Verify frontend, backend,
+            Redis and Celery are running
+        ]
+
+        AUTH_FAILURE --> LOGIN
+
+        FORBIDDEN_FAILURE --> ACCESS_DEBUG[
+            Check role, account status,
+            ownership and CSRF token
+        ]
+
+        NOT_FOUND_FAILURE --> DATA_DEBUG[
+            Check object ID,
+            property ownership and deletion state
+        ]
+
+        VALIDATION_FAILURE --> FORM_DEBUG[
+            Check frontend payload
+            and serializer field errors
+        ]
+
+        CONFLICT_FAILURE --> STATE_DEBUG[
+            Check job, application
+            and assignment state
+        ]
+
+        SERVER_FAILURE --> LOG_DEBUG[
+            Check browser, Django,
+            Celery and Resend logs
+        ]
+
+        RETRY_ACTION --> HOST_DASHBOARD
+        ACCESS_DEBUG --> ACCOUNT_GATE
+        DATA_DEBUG --> HOST_DASHBOARD
+        FORM_DEBUG --> HOST_DASHBOARD
+        STATE_DEBUG --> HOST_DASHBOARD
+        LOG_DEBUG --> HOST_DASHBOARD
+    end
+
+
+===========================================================================================================================
+Signup and email-code confirmation.
+Pending, approved, rejected and suspended states.
+Login, logout and CSRF-protected sessions.
+Property creation, editing and image management.
+Manual cleaning-job creation.
+Draft publication and deletion.
+Airbnb .ics import and bulk draft creation.
+Calendar browsing and job-status inspection.
+Application review, rejection and acceptance.
+Assignment creation and competing-application rejection.
+Host-side job completion.
+Two-way reviews after completion.
+Host rating display.
+In-app and email notifications.
+Ownership, validation, state-conflict and backend-debugging paths.

@@ -12,6 +12,7 @@ const backendBaseUrl = apiBaseUrl.replace(/\/api$/, "");
 const nextConfig = {
   reactStrictMode: true,
   trailingSlash: true,
+  devIndicators: false,
   async rewrites() {
     return [
       // Rule 1: paths that already carry a trailing slash — preserve it explicitly.

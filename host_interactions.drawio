@@ -5,31 +5,52 @@
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="sec_0" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="1. Public entry, signup and authentication" vertex="1">
-          <mxGeometry height="430" width="1580" x="150" y="-120" as="geometry" />
+          <mxGeometry height="820" width="1710" x="150" y="-510" as="geometry" />
         </mxCell>
         <mxCell id="h_loginchoice" parent="sec_0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Existing account?" vertex="1">
-          <mxGeometry height="70" width="210" x="850" y="20" as="geometry" />
+          <mxGeometry height="70" width="210" x="860" y="90" as="geometry" />
         </mxCell>
         <mxCell id="h_credentials" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Enter name, email and password" vertex="1">
-          <mxGeometry height="70" width="210" x="270" y="50" as="geometry" />
+          <mxGeometry height="70" width="210" x="530" y="90" as="geometry" />
         </mxCell>
         <mxCell id="h_requestcode" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Request 6-digit email code" vertex="1">
-          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+          <mxGeometry height="70" width="210" x="120" y="170" as="geometry" />
         </mxCell>
         <mxCell id="h_verifycode" parent="sec_0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Enter and verify email code" vertex="1">
-          <mxGeometry height="70" width="210" x="1040" y="210" as="geometry" />
+          <mxGeometry height="70" width="210" x="350" y="260" as="geometry" />
         </mxCell>
         <mxCell id="h_codeerror" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show code error or resend" vertex="1">
-          <mxGeometry height="70" width="210" x="1290" y="120" as="geometry" />
+          <mxGeometry height="70" width="210" x="467" y="490" as="geometry" />
         </mxCell>
         <mxCell id="h_role" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Choose Property owner / Host" vertex="1">
-          <mxGeometry height="70" width="210" x="500" y="230" as="geometry" />
+          <mxGeometry height="70" width="210" x="540" y="660" as="geometry" />
         </mxCell>
         <mxCell id="h_login" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Login with email and password" vertex="1">
-          <mxGeometry height="70" width="210" x="1320" y="280" as="geometry" />
+          <mxGeometry height="70" width="210" x="1080" y="390" as="geometry" />
         </mxCell>
         <mxCell id="h_create" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Create host account" vertex="1">
-          <mxGeometry height="70" width="210" x="1070" y="350" as="geometry" />
+          <mxGeometry height="70" width="210" x="50" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="h_start" parent="sec_0" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="Host opens website" vertex="1">
+          <mxGeometry height="70" width="210" x="1400" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="h_landing" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Public landing page" vertex="1">
+          <mxGeometry height="70" width="210" x="1400" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="sec_0" source="h_start" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_landing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="sec_0" source="h_landing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_loginchoice" value="Continue">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="h_cookie" parent="sec_0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Choose essential / analytics / marketing cookies" vertex="1">
+          <mxGeometry height="70" width="210" x="1170" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="sec_0" source="h_landing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_cookie" value="Cookie consent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="sec_0" source="h_cookie" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_loginchoice" value="Continue">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="sec_1" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="2. Account state and host dashboard" vertex="1">
           <mxGeometry height="270" width="1000" x="40" y="470" as="geometry" />
@@ -219,18 +240,6 @@
         </mxCell>
         <mxCell id="h_markread" parent="sec_6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Open and mark notification read" vertex="1">
           <mxGeometry height="70" width="210" x="20" y="400" as="geometry" />
-        </mxCell>
-        <mxCell id="e1" edge="1" parent="1" source="h_start" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_landing">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e2" edge="1" parent="1" source="h_landing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_cookie" value="Cookie consent">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e3" edge="1" parent="1" source="h_landing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_loginchoice" value="Continue">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e4" edge="1" parent="1" source="h_cookie" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_loginchoice" value="Continue">
-          <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e5" edge="1" parent="1" source="h_loginchoice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_login" value="Yes">
           <mxGeometry relative="1" x="-0.0588" as="geometry">
@@ -551,15 +560,6 @@
         </mxCell>
         <mxCell id="e13" edge="1" parent="1" source="h_location" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="h_create">
           <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="h_landing" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Public landing page" vertex="1">
-          <mxGeometry height="70" width="210" x="860" y="-220" as="geometry" />
-        </mxCell>
-        <mxCell id="h_cookie" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Choose essential / analytics / marketing cookies" vertex="1">
-          <mxGeometry height="70" width="210" x="1060" y="-370" as="geometry" />
-        </mxCell>
-        <mxCell id="h_start" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="Host opens website" vertex="1">
-          <mxGeometry height="70" width="210" x="700" y="-370" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

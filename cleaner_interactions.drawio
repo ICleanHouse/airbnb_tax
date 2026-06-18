@@ -1,1 +1,512 @@
-<?xml version="1.0" encoding="UTF-8"?><mxfile host="app.diagrams.net" modified="2026-06-18T00:00:00.000Z" agent="ChatGPT" version="24.7.17"><diagram id="87d172e4427a" name="Cleaner interactions"><mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="sec_0" value="1. Public entry, signup and authentication" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="40" width="1000" height="630" as="geometry"/></mxCell><mxCell id="c_start" value="Cleaner opens website" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="sec_0"><mxGeometry x="20" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_landing" value="Public landing page" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="270" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_cookie" value="Choose essential / analytics / marketing cookies" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_0"><mxGeometry x="520" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_loginchoice" value="Existing account?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_0"><mxGeometry x="770" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_credentials" value="Enter name, email and password" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="20" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_requestcode" value="Request 6-digit email code" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="270" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_verifycode" value="Enter and verify email code" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_0"><mxGeometry x="520" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_codeerror" value="Show code error or resend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="sec_0"><mxGeometry x="770" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_role" value="Choose Cleaner role" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="20" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_personal" value="Enter birth date and sex" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="270" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_agecheck" value="At least 18?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_0"><mxGeometry x="520" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_location" value="Select city and service districts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="770" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_language" value="Select native language" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="20" y="400" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_experience" value="Enter experience and work preference" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="270" y="400" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_availability" value="Set preferred times and optional weekly availability" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="520" y="400" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_create" value="Create account" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="770" y="400" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_login" value="Login with email and password" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_0"><mxGeometry x="20" y="520" width="210" height="70" as="geometry"/></mxCell><mxCell id="sec_1" value="2. Account state and cleaner access" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="710" width="1000" height="270" as="geometry"/></mxCell><mxCell id="c_accountgate" value="Account status" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_1"><mxGeometry x="20" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_pending" value="Pending account: view dashboard and profile only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="sec_1"><mxGeometry x="270" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_verifygate" value="Cleaner verification status" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_1"><mxGeometry x="520" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_unverified" value="Approved but cannot apply until verified" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="sec_1"><mxGeometry x="770" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_rejected" value="Marketplace access rejected" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="sec_1"><mxGeometry x="20" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_suspended" value="Marketplace access suspended" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="sec_1"><mxGeometry x="270" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_dashboard" value="Cleaner dashboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="sec_1"><mxGeometry x="520" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="sec_2" value="3. Profile management" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="1020" width="1000" height="270" as="geometry"/></mxCell><mxCell id="c_profile" value="Open cleaner profile" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_2"><mxGeometry x="20" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_profileedit" value="Edit personal info, bio and image" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_2"><mxGeometry x="270" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_serviceareas" value="Add/remove service districts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_2"><mxGeometry x="520" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_languages" value="Manage native and other languages" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_2"><mxGeometry x="770" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_preferences" value="Edit experience, availability, transport and extra services" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_2"><mxGeometry x="20" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_profilesave" value="Save profile changes" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_2"><mxGeometry x="270" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_profilesuccess" value="Profile saved" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="sec_2"><mxGeometry x="520" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_profileerror" value="Show validation/upload error" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="sec_2"><mxGeometry x="770" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="sec_3" value="4. Open jobs and applications" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="1330" width="1000" height="510" as="geometry"/></mxCell><mxCell id="c_openjobs" value="Browse and filter open jobs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_3"><mxGeometry x="20" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_jobdetail" value="Review property, time, instructions and price" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_3"><mxGeometry x="270" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_applygate" value="Approved and verified?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_3"><mxGeometry x="520" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_applyblocked" value="Application blocked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="sec_3"><mxGeometry x="770" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_conflict" value="Calendar conflict?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_3"><mxGeometry x="20" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_conflictwarn" value="Show conflict warning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="sec_3"><mxGeometry x="270" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_appform" value="Enter message and proposed price" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_3"><mxGeometry x="520" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_submitapp" value="Submit application" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_3"><mxGeometry x="770" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_apperror" value="Show duplicate/closed/validation error" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="sec_3"><mxGeometry x="20" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_apps" value="View applications by status" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_3"><mxGeometry x="270" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_apppending" value="Pending application" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_3"><mxGeometry x="520" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_withdraw" value="Withdraw application" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_3"><mxGeometry x="770" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_hostdecision" value="Host decision" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_3"><mxGeometry x="20" y="400" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_appaccepted" value="Application accepted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="sec_3"><mxGeometry x="270" y="400" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_apprejected" value="Application rejected" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="sec_3"><mxGeometry x="520" y="400" width="210" height="70" as="geometry"/></mxCell><mxCell id="sec_4" value="5. Assignments, calendar, completion and reviews" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="1880" width="1000" height="390" as="geometry"/></mxCell><mxCell id="c_assignments" value="View upcoming/completed assignments" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_4"><mxGeometry x="20" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_assignmentdetail" value="Review schedule, property, instructions and agreed price" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_4"><mxGeometry x="270" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_report" value="Report scheduling or property issue" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="sec_4"><mxGeometry x="520" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_perform" value="Perform cleaning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_4"><mxGeometry x="770" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_complete" value="Mark job complete" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_4"><mxGeometry x="20" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_completeerror" value="Show completion error" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="sec_4"><mxGeometry x="270" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_calendar" value="View calendar and select date" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_4"><mxGeometry x="520" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_reviewunlock" value="Reviews unlocked after completion" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="sec_4"><mxGeometry x="770" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_reviewform" value="Rate host 1–5 stars and comment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_4"><mxGeometry x="20" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_reviewsubmit" value="Submit review" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_4"><mxGeometry x="270" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_reviewdone" value="Review stored and shown read-only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="sec_4"><mxGeometry x="520" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_reviewerror" value="Show duplicate/permission/state error" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="sec_4"><mxGeometry x="770" y="280" width="210" height="70" as="geometry"/></mxCell><mxCell id="sec_5" value="6. Agency invitations and notifications" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="2310" width="750" height="270" as="geometry"/></mxCell><mxCell id="c_invites" value="View agency invitations" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_5"><mxGeometry x="20" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_invitedetail" value="Review agency invitation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_5"><mxGeometry x="270" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_invitedecision" value="Accept invitation?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="sec_5"><mxGeometry x="520" y="40" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_membership" value="Become active agency member" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="sec_5"><mxGeometry x="20" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_notifications" value="View in-app notifications" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_5"><mxGeometry x="270" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="c_markread" value="Open and mark notification read" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="sec_5"><mxGeometry x="520" y="160" width="210" height="70" as="geometry"/></mxCell><mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_start" target="c_landing"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e2" value="Cookie consent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_landing" target="c_cookie"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e3" value="Continue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_landing" target="c_loginchoice"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e4" value="Continue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_cookie" target="c_loginchoice"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e5" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_loginchoice" target="c_login"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e6" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_loginchoice" target="c_credentials"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e7" value="Valid" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_credentials" target="c_requestcode"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e8" value="Email sent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_requestcode" target="c_verifycode"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e9" value="Valid" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_verifycode" target="c_role"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e10" value="Invalid / expired" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_verifycode" target="c_codeerror"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e11" value="Retry" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_codeerror" target="c_requestcode"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_role" target="c_personal"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_personal" target="c_agecheck"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e14" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_agecheck" target="c_location"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e15" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_agecheck" target="c_personal"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_location" target="c_language"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_language" target="c_experience"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_experience" target="c_availability"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_availability" target="c_create"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e20" value="Success" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_create" target="c_accountgate"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e21" value="Success" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_login" target="c_accountgate"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e22" value="Pending" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_accountgate" target="c_pending"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e23" value="Approved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_accountgate" target="c_verifygate"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e24" value="Rejected" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_accountgate" target="c_rejected"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e25" value="Suspended" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_accountgate" target="c_suspended"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_pending" target="c_dashboard"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e27" value="Not verified" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_verifygate" target="c_unverified"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e28" value="Verified" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_verifygate" target="c_dashboard"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_unverified" target="c_dashboard"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e30" value="Profile" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_dashboard" target="c_profile"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e31" value="Open jobs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_dashboard" target="c_openjobs"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e32" value="Applications" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_dashboard" target="c_apps"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e33" value="Assignments" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_dashboard" target="c_assignments"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e34" value="Calendar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_dashboard" target="c_calendar"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e35" value="Agency invitations" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_dashboard" target="c_invites"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e36" value="Notifications" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_dashboard" target="c_notifications"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e37" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_profile" target="c_profileedit"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e38" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_profileedit" target="c_serviceareas"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e39" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_profileedit" target="c_languages"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_profileedit" target="c_preferences"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e41" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_serviceareas" target="c_profilesave"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_languages" target="c_profilesave"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e43" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_preferences" target="c_profilesave"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e44" value="Success" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_profilesave" target="c_profilesuccess"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e45" value="Error" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_profilesave" target="c_profileerror"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e46" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_profilesuccess" target="c_dashboard"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e47" value="Retry" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_profileerror" target="c_profile"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e48" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_openjobs" target="c_jobdetail"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e49" value="Apply" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_jobdetail" target="c_applygate"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e50" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_applygate" target="c_conflict"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e51" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_applygate" target="c_applyblocked"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e52" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_applyblocked" target="c_dashboard"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e53" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_conflict" target="c_appform"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e54" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_conflict" target="c_conflictwarn"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e55" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_conflictwarn" target="c_jobdetail"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e56" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_appform" target="c_submitapp"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e57" value="Success" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_submitapp" target="c_apppending"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e58" value="Error" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_submitapp" target="c_apperror"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e59" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_apperror" target="c_jobdetail"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e60" value="Pending" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_apps" target="c_apppending"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e61" value="Accepted" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_apps" target="c_appaccepted"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e62" value="Rejected" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_apps" target="c_apprejected"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e63" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_apppending" target="c_hostdecision"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e64" value="Withdraw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_apppending" target="c_withdraw"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e65" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_withdraw" target="c_apps"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e66" value="Accept" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_hostdecision" target="c_appaccepted"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e67" value="Reject" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_hostdecision" target="c_apprejected"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e68" value="No action" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_hostdecision" target="c_apppending"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e69" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_appaccepted" target="c_assignments"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e70" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_apprejected" target="c_apps"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e71" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_assignments" target="c_assignmentdetail"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e72" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_assignmentdetail" target="c_perform"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e73" value="Report issue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_assignmentdetail" target="c_report"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e74" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_report" target="c_assignmentdetail"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e75" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_perform" target="c_complete"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e76" value="Success" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_complete" target="c_reviewunlock"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e77" value="Error" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_complete" target="c_completeerror"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e78" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_completeerror" target="c_assignmentdetail"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e79" value="Assignment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_calendar" target="c_assignmentdetail"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e80" value="Open job" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_calendar" target="c_jobdetail"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e81" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_reviewunlock" target="c_reviewform"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e82" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_reviewform" target="c_reviewsubmit"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e83" value="Success" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_reviewsubmit" target="c_reviewdone"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e84" value="Error" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_reviewsubmit" target="c_reviewerror"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e85" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_reviewdone" target="c_dashboard"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e86" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_reviewerror" target="c_reviewform"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e87" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_invites" target="c_invitedetail"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e88" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_invitedetail" target="c_invitedecision"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e89" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_invitedecision" target="c_membership"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e90" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_invitedecision" target="c_invites"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e91" value="Agency-delegated job" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_membership" target="c_assignments"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e92" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_notifications" target="c_markread"><mxGeometry relative="1" as="geometry"/></mxCell><mxCell id="e93" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="c_markread" target="c_dashboard"><mxGeometry relative="1" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>
+<mxfile host="app.diagrams.net" agent="ChatGPT">
+  <diagram id="87d172e4427a" name="Cleaner interactions">
+    <mxGraphModel dx="4070" dy="2476" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="sec_0" parent="1" style="swimlane;horizontal=1;startSize=20;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="1. Public entry, signup and authentication" vertex="1">
+          <mxGeometry height="600" width="1900" x="-1610" y="-40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_start" parent="sec_0" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="Cleaner opens website" vertex="1">
+          <mxGeometry height="70" width="210" x="1660" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_landing" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Public landing page" vertex="1">
+          <mxGeometry height="70" width="210" x="1660" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="c_cookie" parent="sec_0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Choose essential / analytics / marketing cookies" vertex="1">
+          <mxGeometry height="70" width="210" x="1390" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="c_loginchoice" parent="sec_0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Existing account?" vertex="1">
+          <mxGeometry height="70" width="210" x="1440" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="c_credentials" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Enter name, email and password" vertex="1">
+          <mxGeometry height="70" width="210" x="1170" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="c_requestcode" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Request 6-digit email code" vertex="1">
+          <mxGeometry height="70" width="210" x="910" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="c_verifycode" parent="sec_0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Enter and verify email code" vertex="1">
+          <mxGeometry height="70" width="210" x="630" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="c_codeerror" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show code error or resend" vertex="1">
+          <mxGeometry height="70" width="210" x="760" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="c_role" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Choose Cleaner role" vertex="1">
+          <mxGeometry height="70" width="210" x="340" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="c_personal" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Enter birth date and sex" vertex="1">
+          <mxGeometry height="70" width="210" x="50" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="yBlFn6SirawaiiuPz_5n-4" edge="1" parent="sec_0" source="c_agecheck" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="c_codeerror">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="yBlFn6SirawaiiuPz_5n-5" connectable="0" parent="yBlFn6SirawaiiuPz_5n-4" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="No" vertex="1">
+          <mxGeometry relative="1" x="-0.2036" y="-2" as="geometry">
+            <mxPoint x="48" y="-9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c_agecheck" parent="sec_0" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="At least 18?" vertex="1">
+          <mxGeometry height="70" width="210" x="350" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="c_location" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Select city and service districts" vertex="1">
+          <mxGeometry height="70" width="210" x="50" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="c_language" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Select native language" vertex="1">
+          <mxGeometry height="70" width="210" x="320" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="c_experience" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Enter experience and work preference" vertex="1">
+          <mxGeometry height="70" width="210" x="590" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="c_availability" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Set preferred times and optional weekly availability" vertex="1">
+          <mxGeometry height="70" width="210" x="890" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="c_create" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Create account" vertex="1">
+          <mxGeometry height="70" width="210" x="1170" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="c_login" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Login with email and password" vertex="1">
+          <mxGeometry height="70" width="210" x="1440" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="sec_0" source="c_personal" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="c_location" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" edge="1" parent="sec_0" source="c_personal" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="c_agecheck" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_1" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="2. Account state and cleaner access" vertex="1">
+          <mxGeometry height="350" width="1430" x="-780" y="630" as="geometry" />
+        </mxCell>
+        <mxCell id="c_accountgate" parent="sec_1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Account status" vertex="1">
+          <mxGeometry height="70" width="210" x="480" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c_suspended" parent="sec_1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Marketplace access suspended" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="e25" edge="1" parent="sec_1" source="c_accountgate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0;exitY=1;exitDx=0;exitDy=0;" target="c_suspended" value="Suspended">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_pending" parent="sec_1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Pending account: view dashboard and profile only" vertex="1">
+          <mxGeometry height="70" width="210" x="600" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="e22" edge="1" parent="sec_1" source="c_accountgate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_pending" value="Pending">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_2" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="3. Profile management" vertex="1">
+          <mxGeometry height="270" width="1000" x="460" y="1150" as="geometry" />
+        </mxCell>
+        <mxCell id="c_profile" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Open cleaner profile" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_profileedit" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Edit personal info, bio and image" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_serviceareas" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Add/remove service districts" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_languages" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Manage native and other languages" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_preferences" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Edit experience, availability, transport and extra services" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_profilesave" parent="sec_2" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Save profile changes" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_profilesuccess" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Profile saved" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_profileerror" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show validation/upload error" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_3" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="4. Open jobs and applications" vertex="1">
+          <mxGeometry height="510" width="1000" x="-300" y="2500" as="geometry" />
+        </mxCell>
+        <mxCell id="c_openjobs" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Browse and filter open jobs" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_jobdetail" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Review property, time, instructions and price" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_applygate" parent="sec_3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Approved and verified?" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_applyblocked" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Application blocked" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_conflict" parent="sec_3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Calendar conflict?" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_conflictwarn" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Show conflict warning" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_appform" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Enter message and proposed price" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_submitapp" parent="sec_3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Submit application" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_apperror" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show duplicate/closed/validation error" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="c_apps" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View applications by status" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="c_apppending" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Pending application" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="c_withdraw" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Withdraw application" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="c_hostdecision" parent="sec_3" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Host decision" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="c_appaccepted" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Application accepted" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="c_apprejected" parent="sec_3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Application rejected" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_4" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="5. Assignments, calendar, completion and reviews" vertex="1">
+          <mxGeometry height="390" width="1000" x="-300" y="3050" as="geometry" />
+        </mxCell>
+        <mxCell id="c_assignments" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View upcoming/completed assignments" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_assignmentdetail" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Review schedule, property, instructions and agreed price" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_report" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Report scheduling or property issue" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_perform" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Perform cleaning" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_complete" parent="sec_4" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Mark job complete" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_completeerror" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show completion error" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_calendar" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View calendar and select date" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_reviewunlock" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Reviews unlocked after completion" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_reviewform" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Rate host 1–5 stars and comment" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="c_reviewsubmit" parent="sec_4" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Submit review" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="c_reviewdone" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Review stored and shown read-only" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="c_reviewerror" parent="sec_4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Show duplicate/permission/state error" vertex="1">
+          <mxGeometry height="70" width="210" x="770" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="sec_5" parent="1" style="swimlane;horizontal=1;startSize=28;rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontStyle=1;" value="6. Agency invitations and notifications" vertex="1">
+          <mxGeometry height="270" width="750" x="-300" y="3480" as="geometry" />
+        </mxCell>
+        <mxCell id="c_invites" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View agency invitations" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_invitedetail" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Review agency invitation" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_invitedecision" parent="sec_5" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Accept invitation?" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c_membership" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Become active agency member" vertex="1">
+          <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_notifications" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="View in-app notifications" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="c_markread" parent="sec_5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Open and mark notification read" vertex="1">
+          <mxGeometry height="70" width="210" x="520" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="c_start" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_landing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="c_landing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0;exitY=0;exitDx=0;exitDy=0;" target="c_cookie" value="Cookie consent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="c_landing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_loginchoice" value="Continue">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="c_cookie" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_loginchoice" value="Continue">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-115" y="290" />
+              <mxPoint x="15" y="290" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="c_loginchoice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_login" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="c_loginchoice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_credentials" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="c_credentials" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_requestcode" value="Valid">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="c_requestcode" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_verifycode" value="Email sent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="c_verifycode" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_role" value="Valid">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="c_verifycode" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="c_codeerror" value="Invalid / expired">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="c_codeerror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_requestcode" value="Retry">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="c_role" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_personal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" edge="1" parent="1" source="c_location" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_language">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" edge="1" parent="1" source="c_language" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_experience">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" edge="1" parent="1" source="c_experience" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_availability">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" edge="1" parent="1" source="c_availability" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_create">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e20" edge="1" parent="1" source="c_create" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_accountgate" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" edge="1" parent="1" source="c_login" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_accountgate" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" edge="1" parent="1" source="c_accountgate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_verifygate" value="Approved">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e24" edge="1" parent="1" source="c_accountgate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_rejected" value="Rejected">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e26" edge="1" parent="1" source="c_pending" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e27" edge="1" parent="1" source="c_verifygate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_unverified" value="Not verified">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e28" edge="1" parent="1" source="c_verifygate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_dashboard" value="Verified">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e29" edge="1" parent="1" source="c_unverified" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="c_dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e30" edge="1" parent="1" source="c_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=1;exitY=1;exitDx=0;exitDy=0;" target="c_profile" value="Profile">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e31" edge="1" parent="1" source="c_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.75;exitY=1;exitDx=0;exitDy=0;" target="c_openjobs" value="Open jobs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e32" edge="1" parent="1" source="c_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_apps" value="Applications">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e33" edge="1" parent="1" source="c_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0.25;exitY=1;exitDx=0;exitDy=0;" target="c_assignments" value="Assignments">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e34" edge="1" parent="1" source="c_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_calendar" value="Calendar">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e35" edge="1" parent="1" source="c_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;exitX=0;exitY=1;exitDx=0;exitDy=0;" target="c_invites" value="Agency invitations">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e36" edge="1" parent="1" source="c_dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_notifications" value="Notifications">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e37" edge="1" parent="1" source="c_profile" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_profileedit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e38" edge="1" parent="1" source="c_profileedit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_serviceareas">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e39" edge="1" parent="1" source="c_profileedit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_languages">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e40" edge="1" parent="1" source="c_profileedit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_preferences">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e41" edge="1" parent="1" source="c_serviceareas" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_profilesave">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e42" edge="1" parent="1" source="c_languages" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_profilesave">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e43" edge="1" parent="1" source="c_preferences" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_profilesave">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e44" edge="1" parent="1" source="c_profilesave" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_profilesuccess" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e45" edge="1" parent="1" source="c_profilesave" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_profileerror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e46" edge="1" parent="1" source="c_profilesuccess" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e47" edge="1" parent="1" source="c_profileerror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_profile" value="Retry">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e48" edge="1" parent="1" source="c_openjobs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_jobdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e49" edge="1" parent="1" source="c_jobdetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_applygate" value="Apply">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e50" edge="1" parent="1" source="c_applygate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_conflict" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e51" edge="1" parent="1" source="c_applygate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_applyblocked" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e52" edge="1" parent="1" source="c_applyblocked" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e53" edge="1" parent="1" source="c_conflict" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_appform" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e54" edge="1" parent="1" source="c_conflict" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_conflictwarn" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e55" edge="1" parent="1" source="c_conflictwarn" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_jobdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e56" edge="1" parent="1" source="c_appform" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_submitapp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e57" edge="1" parent="1" source="c_submitapp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_apppending" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e58" edge="1" parent="1" source="c_submitapp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_apperror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e59" edge="1" parent="1" source="c_apperror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_jobdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e60" edge="1" parent="1" source="c_apps" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_apppending" value="Pending">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e61" edge="1" parent="1" source="c_apps" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_appaccepted" value="Accepted">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e62" edge="1" parent="1" source="c_apps" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_apprejected" value="Rejected">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e63" edge="1" parent="1" source="c_apppending" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_hostdecision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e64" edge="1" parent="1" source="c_apppending" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_withdraw" value="Withdraw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e65" edge="1" parent="1" source="c_withdraw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_apps">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e66" edge="1" parent="1" source="c_hostdecision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_appaccepted" value="Accept">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e67" edge="1" parent="1" source="c_hostdecision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_apprejected" value="Reject">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e68" edge="1" parent="1" source="c_hostdecision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_apppending" value="No action">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e69" edge="1" parent="1" source="c_appaccepted" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_assignments">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e70" edge="1" parent="1" source="c_apprejected" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_apps">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e71" edge="1" parent="1" source="c_assignments" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_assignmentdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e72" edge="1" parent="1" source="c_assignmentdetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_perform">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e73" edge="1" parent="1" source="c_assignmentdetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_report" value="Report issue">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e74" edge="1" parent="1" source="c_report" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_assignmentdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e75" edge="1" parent="1" source="c_perform" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_complete">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e76" edge="1" parent="1" source="c_complete" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_reviewunlock" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e77" edge="1" parent="1" source="c_complete" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_completeerror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e78" edge="1" parent="1" source="c_completeerror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_assignmentdetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e79" edge="1" parent="1" source="c_calendar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_assignmentdetail" value="Assignment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e80" edge="1" parent="1" source="c_calendar" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_jobdetail" value="Open job">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e81" edge="1" parent="1" source="c_reviewunlock" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_reviewform">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e82" edge="1" parent="1" source="c_reviewform" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_reviewsubmit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e83" edge="1" parent="1" source="c_reviewsubmit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_reviewdone" value="Success">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e84" edge="1" parent="1" source="c_reviewsubmit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_reviewerror" value="Error">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e85" edge="1" parent="1" source="c_reviewdone" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e86" edge="1" parent="1" source="c_reviewerror" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_reviewform">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e87" edge="1" parent="1" source="c_invites" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_invitedetail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e88" edge="1" parent="1" source="c_invitedetail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_invitedecision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e89" edge="1" parent="1" source="c_invitedecision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_membership" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e90" edge="1" parent="1" source="c_invitedecision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_invites" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e91" edge="1" parent="1" source="c_membership" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_assignments" value="Agency-delegated job">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e92" edge="1" parent="1" source="c_notifications" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_markread">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e93" edge="1" parent="1" source="c_markread" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_rejected" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="Marketplace access rejected" vertex="1">
+          <mxGeometry height="70" width="210" x="-710" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="c_verifygate" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Cleaner verification status" vertex="1">
+          <mxGeometry height="70" width="210" x="100" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="c_unverified" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="Approved but cannot apply until verified" vertex="1">
+          <mxGeometry height="70" width="210" x="390" y="800" as="geometry" />
+        </mxCell>
+        <mxCell id="c_dashboard" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="Cleaner dashboard" vertex="1">
+          <mxGeometry height="70" width="210" x="100" y="860" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -204,37 +204,67 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="landing-hero" id="top">
-        <div className="landing-hero-inner">
-          <p className="eyebrow">Short-term rental turnover cleaning · Bulgaria</p>
-          <h1>
-            {audience === "host"
-              ? "Find a verified cleaner near you"
-              : "Find cleaning work near you"}
-          </h1>
-          <p className="landing-hero-copy">
-            {audience === "host"
-              ? "Browse trusted cleaners across Bulgaria. Filter by city and district, then open a profile to see ratings and reviews."
-              : "See how many hosts are hiring in your area and join the verified cleaner network — free."}
-          </p>
-          <div className="landing-hero-chips">
-            <span className="trust-chip">
-              <Check size={14} aria-hidden /> Verified cleaners
-            </span>
-            <span className="trust-chip">
-              <Star size={14} aria-hidden /> Rated &amp; reviewed
-            </span>
-            <span className="trust-chip">
-              <MapPin size={14} aria-hidden /> Across Bulgaria
-            </span>
-          </div>
-          <AudienceToggle value={audience} onChange={changeAudience} />
-        </div>
-      </section>
+      {currentUser ? (
+        /* Logged-in home — compact, role-aware: hosts browse cleaners, cleaners
+           get the jobs/properties map. No marketing copy or audience toggle. */
+        <>
+          <section className="home-hero" id="top">
+            <div className="home-hero-inner">
+              <p className="eyebrow">
+                Welcome back{currentUser.first_name ? `, ${currentUser.first_name}` : ""}
+              </p>
+              <h1>
+                {currentUser.role === "cleaner"
+                  ? "Cleaning jobs near you"
+                  : "Find a verified cleaner"}
+              </h1>
+            </div>
+          </section>
 
-      <section className="landing-directory" id="cleaners">
-        {audience === "host" ? <CleanerBrowser /> : <AreaDemandPanel currentUser={currentUser} />}
-      </section>
+          <section className="landing-directory" id="browse">
+            {currentUser.role === "cleaner" ? (
+              <AreaDemandPanel currentUser={currentUser} />
+            ) : (
+              <CleanerBrowser />
+            )}
+          </section>
+        </>
+      ) : (
+        /* Public landing — full marketing hero + audience self-select. */
+        <>
+          <section className="landing-hero" id="top">
+            <div className="landing-hero-inner">
+              <p className="eyebrow">Short-term rental turnover cleaning · Bulgaria</p>
+              <h1>
+                {audience === "host"
+                  ? "Find a verified cleaner near you"
+                  : "Find cleaning work near you"}
+              </h1>
+              <p className="landing-hero-copy">
+                {audience === "host"
+                  ? "Browse trusted cleaners across Bulgaria. Filter by city and district, then open a profile to see ratings and reviews."
+                  : "See how many hosts are hiring in your area and join the verified cleaner network — free."}
+              </p>
+              <div className="landing-hero-chips">
+                <span className="trust-chip">
+                  <Check size={14} aria-hidden /> Verified cleaners
+                </span>
+                <span className="trust-chip">
+                  <Star size={14} aria-hidden /> Rated &amp; reviewed
+                </span>
+                <span className="trust-chip">
+                  <MapPin size={14} aria-hidden /> Across Bulgaria
+                </span>
+              </div>
+              <AudienceToggle value={audience} onChange={changeAudience} />
+            </div>
+          </section>
+
+          <section className="landing-directory" id="cleaners">
+            {audience === "host" ? <CleanerBrowser /> : <AreaDemandPanel currentUser={currentUser} />}
+          </section>
+        </>
+      )}
     </main>
   );
 }

@@ -33,6 +33,7 @@ import Connections from "../../components/Connections";
 import AppdashGrid from "../../components/AppdashGrid";
 import { useDashView } from "../../lib/useDashView";
 import RatingStars from "../../components/RatingStars";
+import ReviewModal from "../../components/ReviewModal";
 import AccountDeletionPanel from "../../components/AccountDeletionPanel";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
@@ -2982,6 +2983,19 @@ export default function CleanerDashboard() {
             </form>
           </div>
         </div>
+      )}
+
+      {reviewTarget && (
+        <ReviewModal
+          jobId={reviewTarget.jobId}
+          jobTitle={reviewTarget.jobTitle}
+          revieweeId={reviewTarget.revieweeId}
+          revieweeName={reviewTarget.revieweeName}
+          meId={me.id}
+          reviews={reviews}
+          onClose={() => setReviewTarget(null)}
+          onSubmitted={() => void loadAll()}
+        />
       )}
     </>
   );

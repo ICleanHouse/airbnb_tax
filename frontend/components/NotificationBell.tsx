@@ -102,6 +102,11 @@ export default function NotificationBell() {
     const pathname = typeof window !== "undefined" ? window.location.pathname : "";
 
     if (notification.notification_type === "review.requested" && jobId) {
+      // Both host and cleaner receive this when a job completes — open the
+      // review window on whichever dashboard the bell is being used from.
+      if (pathname.startsWith("/host")) {
+        return `/host?section=applications&appFilter=completed&reviewJob=${jobId}`;
+      }
       return `/cleaner?section=assignments&reviewJob=${jobId}`;
     }
 

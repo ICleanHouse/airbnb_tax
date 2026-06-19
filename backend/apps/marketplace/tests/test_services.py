@@ -147,49 +147,34 @@ class MarketplaceServiceTests(TestCase):
         self.assertEqual(response.data["status"], CleanerApplication.Status.WITHDRAWN)
         self.assertEqual(application.status, CleanerApplication.Status.WITHDRAWN)
 
-    def test_job_requires_host_and_cleaner_completion_before_review(self):
+    def test_cleaner_completion_unlocks_reviews(self):
         self.move_job_to_past()
         publish_job(self.job)
         application = submit_application(job=self.job, cleaner=self.cleaner)
         assignment = accept_application(application=application, accepted_by=self.host)
 
-        cleaner_ack = complete_job(job=self.job, completed_by=self.cleaner)
+        # The cleaner marking done completes the job — no host confirmation step.
+        completed = complete_job(job=self.job, completed_by=self.cleaner)
         assignment.refresh_from_db()
-        self.assertEqual(cleaner_ack.status, CleaningJob.Status.ASSIGNED)
-        self.assertIsNotNone(assignment.cleaner_completed_at)
-        self.assertIsNone(assignment.host_completed_at)
-
-        with self.assertRaises(FeedbackError):
-            submit_review(
-                job=cleaner_ack,
-                reviewer=self.cleaner,
-                reviewee=self.host,
-                rating=5,
-                comment="Clear instructions.",
-            )
-
-        completed = complete_job(job=self.job, completed_by=self.host)
-        review = submit_review(
-            job=completed,
-            reviewer=self.host,
-            reviewee=self.cleaner,
-            rating=5,
-            comment="Reliable and on time.",
-        )
-
-        self.cleaner.cleaner_profile.refresh_from_db()
         self.assertEqual(completed.status, CleaningJob.Status.COMPLETED)
-        self.assertEqual(review.rating, 5)
-        self.assertEqual(self.cleaner.cleaner_profile.average_rating, 5)
+        self.assertIsNotNone(assignment.completed_at)
 
-        cleaner_review = submit_review(
-            job=completed,
-            reviewer=self.cleaner,
-            reviewee=self.host,
-            rating=5,
-            comment="Clear instructions.",
+        # Host can review right away. Rating stays hidden until the cleaner also
+        # reviews (double-blind), so it remains 0 after just the host's review.
+        submit_review(
+            job=completed, reviewer=self.host, reviewee=self.cleaner,
+            rating=5, comment="Reliable and on time.",
         )
-        self.assertEqual(cleaner_review.comment, "Clear instructions.")
+        self.cleaner.cleaner_profile.refresh_from_db()
+        self.assertEqual(self.cleaner.cleaner_profile.average_rating, 0)
+
+        # Once the cleaner also reviews, the pair is revealed and the rating updates.
+        submit_review(
+            job=completed, reviewer=self.cleaner, reviewee=self.host,
+            rating=5, comment="Clear instructions.",
+        )
+        self.cleaner.cleaner_profile.refresh_from_db()
+        self.assertEqual(self.cleaner.cleaner_profile.average_rating, 5)
 
     def test_cleaner_cannot_mark_completion_twice(self):
         self.move_job_to_past()
@@ -210,22 +195,23 @@ class MarketplaceServiceTests(TestCase):
         with self.assertRaisesMessage(MarketplaceError, "scheduled start time has passed"):
             complete_job(job=self.job, completed_by=self.cleaner)
 
-        with self.assertRaisesMessage(MarketplaceError, "scheduled end time has passed"):
+        # The host no longer has a completion step — only the cleaner can.
+        with self.assertRaisesMessage(MarketplaceError, "Only the assigned cleaner"):
             complete_job(job=self.job, completed_by=self.host)
 
-    def test_cleaner_can_mark_in_progress_job_done_before_end_time(self):
+    def test_cleaner_can_mark_in_progress_job_done(self):
         self.move_job_to_in_progress()
         publish_job(self.job)
         application = submit_application(job=self.job, cleaner=self.cleaner)
         assignment = accept_application(application=application, accepted_by=self.host)
 
-        acknowledged = complete_job(job=self.job, completed_by=self.cleaner)
+        completed = complete_job(job=self.job, completed_by=self.cleaner)
         assignment.refresh_from_db()
 
-        self.assertEqual(acknowledged.status, CleaningJob.Status.ASSIGNED)
-        self.assertIsNotNone(assignment.cleaner_completed_at)
-        self.assertIsNone(assignment.host_completed_at)
-        with self.assertRaisesMessage(MarketplaceError, "scheduled end time has passed"):
+        self.assertEqual(completed.status, CleaningJob.Status.COMPLETED)
+        self.assertIsNotNone(assignment.completed_at)
+        # The host can't complete it (there is no host completion step).
+        with self.assertRaisesMessage(MarketplaceError, "Only the assigned cleaner"):
             complete_job(job=self.job, completed_by=self.host)
 
     def test_admin_completion_marks_both_sides_complete(self):

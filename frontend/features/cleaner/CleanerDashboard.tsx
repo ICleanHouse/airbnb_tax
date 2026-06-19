@@ -609,12 +609,9 @@ export default function CleanerDashboard() {
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState("");
   const [completingJobId, setCompletingJobId] = useState<number | null>(null);
-  const [reviewJobId, setReviewJobId] = useState<number | null>(null);
-  const [reviewRating, setReviewRating] = useState(0);
-  const [reviewComment, setReviewComment] = useState("");
-  const [submittingReview, setSubmittingReview] = useState(false);
-  const [hoveredReviewStar, setHoveredReviewStar] = useState(0);
-  const [reviewError, setReviewError] = useState("");
+  const [reviewTarget, setReviewTarget] = useState<
+    { jobId: number; jobTitle: string; revieweeId: number; revieweeName: string } | null
+  >(null);
   const [cancelingApplicationId, setCancelingApplicationId] = useState<number | null>(null);
   const [offerActionId, setOfferActionId] = useState<number | null>(null);
   const [applicationActionError, setApplicationActionError] = useState("");
@@ -971,33 +968,15 @@ export default function CleanerDashboard() {
     }
   }
 
-  async function submitHostReview(assignment: AssignmentSummary, hostId?: number) {
-    if (!hostId || reviewRating === 0) return;
-    setSubmittingReview(true);
-    setReviewError("");
-    try {
-      const res = await apiFetch("/api/feedback/reviews/", {
-        method: "POST",
-        body: JSON.stringify({
-          job_id: assignment.job,
-          reviewee_id: hostId,
-          rating: reviewRating,
-          comment: reviewComment,
-        }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        setReviewError(messageFromResponse(data, "Could not submit feedback."));
-        return;
-      }
-      setReviews((prev) => [...prev, data as Review]);
-      setReviewJobId(null);
-      setReviewRating(0);
-      setReviewComment("");
-      setHoveredReviewStar(0);
-    } finally {
-      setSubmittingReview(false);
-    }
+  // Open the review window for this completed job (cleaner reviews the host).
+  function openReview(assignment: AssignmentSummary, hostId: number) {
+    const job = jobById.get(assignment.job);
+    setReviewTarget({
+      jobId: assignment.job,
+      jobTitle: assignment.job_title || job?.title || `Job #${assignment.job}`,
+      revieweeId: hostId,
+      revieweeName: job?.host_name || "the host",
+    });
   }
 
   async function cancelApplication(applicationId: number) {
@@ -1470,36 +1449,25 @@ export default function CleanerDashboard() {
     [completedAssignments],
   );
 
+  // A review notification (?reviewJob=) opens the review window for that job.
   useEffect(() => {
     if (!requestedReviewJobId || Number.isNaN(requestedReviewJobId)) return;
-    const targetAssignment = assignments.find((assignment) => assignment.job === requestedReviewJobId);
+    const targetAssignment = assignments.find((a) => a.job === requestedReviewJobId);
     const targetJob = jobs.find((job) => job.id === requestedReviewJobId);
     if (!targetAssignment || !targetJob?.host) return;
-
-    const jobStatus = targetJob.status || targetAssignment.job_status || "assigned";
-    const isComplete = Boolean(targetAssignment.completed_at || jobStatus === "completed");
-    const existingHostReview = reviews.find(
-      (review) => review.job === requestedReviewJobId && review.reviewee === targetJob.host,
-    );
-
-    if (!isComplete || existingHostReview) return;
+    const isComplete =
+      Boolean(targetAssignment.completed_at) ||
+      (targetJob.status || targetAssignment.job_status) === "completed";
+    if (!isComplete) return;
 
     setSection("applications");
-    setAppFilter("completed");
-    setReviewJobId(requestedReviewJobId);
-    setReviewRating(0);
-    setReviewComment("");
-    setHoveredReviewStar(0);
-    setReviewError("");
-  }, [assignments, jobs, requestedReviewJobId, reviews]);
-
-  useEffect(() => {
-    if (!requestedReviewJobId || reviewJobId !== requestedReviewJobId) return;
-    const card = document.getElementById(`assignment-${requestedReviewJobId}`);
-    if (card) {
-      card.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [requestedReviewJobId, reviewJobId]);
+    setReviewTarget({
+      jobId: requestedReviewJobId,
+      jobTitle: targetAssignment.job_title || targetJob.title || `Job #${requestedReviewJobId}`,
+      revieweeId: targetJob.host,
+      revieweeName: targetJob.host_name || "the host",
+    });
+  }, [assignments, jobs, requestedReviewJobId]);
 
   const blanks = firstWeekday(calYear, calMonth);
   const totalDays = daysInMonth(calYear, calMonth);
@@ -2126,77 +2094,13 @@ export default function CleanerDashboard() {
                               </div>
                               {hostId ? (
                                 <div className="host-app-review-row">
-                                  {existingHostReview ? (
-                                    <div className="host-review-given">
-                                      <span className="host-review-given-stars">
-                                        {"★".repeat(existingHostReview.rating)}{"☆".repeat(5 - existingHostReview.rating)}
-                                      </span>
-                                      {existingHostReview.comment ? (
-                                        <span className="host-review-given-comment">&quot;{existingHostReview.comment}&quot;</span>
-                                      ) : null}
-                                    </div>
-                                  ) : reviewJobId === assignment.job ? (
-                                    <div className="host-review-form">
-                                      <div className="host-stars">
-                                        {[1, 2, 3, 4, 5].map((star) => (
-                                          <button
-                                            key={star}
-                                            type="button"
-                                            className={`host-star${(hoveredReviewStar || reviewRating) >= star ? " host-star--on" : ""}`}
-                                            onMouseEnter={() => setHoveredReviewStar(star)}
-                                            onMouseLeave={() => setHoveredReviewStar(0)}
-                                            onClick={() => setReviewRating(star)}
-                                            aria-label={`${star} star${star !== 1 ? "s" : ""}`}
-                                          >★</button>
-                                        ))}
-                                      </div>
-                                      <textarea
-                                        className="host-review-textarea"
-                                        placeholder="Leave feedback for the host..."
-                                        rows={2}
-                                        value={reviewComment}
-                                        onChange={(event) => setReviewComment(event.target.value)}
-                                      />
-                                      {reviewError ? <p className="form-error cleaner-page-error">{reviewError}</p> : null}
-                                      <div className="host-review-actions">
-                                        <button
-                                          className="host-review-cancel"
-                                          type="button"
-                                          onClick={() => {
-                                            setReviewJobId(null);
-                                            setReviewRating(0);
-                                            setReviewComment("");
-                                            setHoveredReviewStar(0);
-                                            setReviewError("");
-                                          }}
-                                        >
-                                          Cancel
-                                        </button>
-                                        <button
-                                          className="host-review-submit"
-                                          type="button"
-                                          disabled={reviewRating === 0 || submittingReview}
-                                          onClick={() => void submitHostReview(assignment, hostId)}
-                                        >
-                                          {submittingReview ? "Saving..." : "Submit feedback"}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      className="host-review-trigger"
-                                      type="button"
-                                      onClick={() => {
-                                        setReviewJobId(assignment.job);
-                                        setReviewRating(0);
-                                        setReviewComment("");
-                                        setHoveredReviewStar(0);
-                                        setReviewError("");
-                                      }}
-                                    >
-                                      ★ Leave host feedback
-                                    </button>
-                                  )}
+                                  <button
+                                    className="host-review-trigger"
+                                    type="button"
+                                    onClick={() => openReview(assignment, hostId)}
+                                  >
+                                    ★ {existingHostReview ? "View review" : "Leave host feedback"}
+                                  </button>
                                 </div>
                               ) : null}
                             </li>

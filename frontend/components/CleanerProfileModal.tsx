@@ -42,11 +42,13 @@ export default function CleanerProfileModal({
   const [detail, setDetail] = useState<PublicCleanerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showAllAreas, setShowAllAreas] = useState(false);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
+    setShowAllAreas(false);
     apiFetch(`/api/accounts/public-cleaners/${cleanerId}/`)
       .then(async (res) => {
         if (!res.ok) throw new Error("Could not load this profile.");
@@ -67,7 +69,8 @@ export default function CleanerProfileModal({
   }, [cleanerId]);
 
   const name = detail?.display_name || "Cleaner";
-  const areas = (detail?.service_areas || []).join(" · ");
+  const serviceAreas = detail?.service_areas || [];
+  const visibleAreas = showAllAreas ? serviceAreas : serviceAreas.slice(0, 3);
   const languages = [detail?.native_language, ...(detail?.other_languages || [])]
     .filter(Boolean)
     .join(", ");
@@ -116,9 +119,18 @@ export default function CleanerProfileModal({
                     count={detail.completed_jobs_count}
                     size={16}
                   />
-                  {areas && (
+                  {serviceAreas.length > 0 && (
                     <p className="cleaner-profile-meta">
-                      <MapPin size={14} aria-hidden="true" /> {areas}
+                      <MapPin size={14} aria-hidden="true" /> {visibleAreas.join(" · ")}
+                      {serviceAreas.length > 3 && (
+                        <button
+                          type="button"
+                          className="cleaner-profile-areas-toggle"
+                          onClick={() => setShowAllAreas((v) => !v)}
+                        >
+                          {showAllAreas ? "Show less" : `Show all ${serviceAreas.length}`}
+                        </button>
+                      )}
                     </p>
                   )}
                   <div className="cleaner-profile-connect">

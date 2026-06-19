@@ -268,82 +268,55 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
         completed_by.id == assignment.cleaner_id
         or completed_by.id == assignment.assigned_member_id
     )
-    if is_cleaner_completion:
-        if job.scheduled_start > now:
-            raise MarketplaceError("Cleaner can mark this job done only after its scheduled start time has passed.")
-    elif job.scheduled_end > now:
-        raise MarketplaceError("This job can be completed only after its scheduled end time has passed.")
 
-    completed_side = ""
+    # The cleaner (or an admin) marks the cleaning done — there is no separate
+    # host confirmation step. The host's role after completion is to review.
+    if not (completed_by.is_platform_admin or is_cleaner_completion):
+        raise MarketplaceError("Only the assigned cleaner can mark this job done.")
 
-    if completed_by.is_platform_admin:
-        if assignment.host_completed_at and assignment.cleaner_completed_at:
-            raise MarketplaceError("This job has already been completed by both sides.")
-        assignment.host_completed_at = assignment.host_completed_at or now
-        assignment.cleaner_completed_at = assignment.cleaner_completed_at or now
-        completed_side = "admin"
-    elif completed_by.id == job.host_id:
-        if assignment.host_completed_at is not None:
-            raise MarketplaceError("Host has already marked this job complete.")
-        assignment.host_completed_at = now
-        completed_side = "host"
-    elif completed_by.id == assignment.cleaner_id or completed_by.id == assignment.assigned_member_id:
-        if assignment.cleaner_completed_at is not None:
-            raise MarketplaceError("Cleaner has already marked this job complete.")
-        assignment.cleaner_completed_at = now
-        completed_side = "cleaner"
+    if assignment.completed_at is not None:
+        raise MarketplaceError("This job has already been completed.")
 
-    update_fields = ["host_completed_at", "cleaner_completed_at", "updated_at"]
-    is_fully_completed = bool(assignment.host_completed_at and assignment.cleaner_completed_at)
-    if is_fully_completed and assignment.completed_at is None:
-        assignment.completed_at = now
-        update_fields.append("completed_at")
-    assignment.save(update_fields=update_fields)
+    if is_cleaner_completion and job.scheduled_start > now:
+        raise MarketplaceError(
+            "This job can be marked done only after its scheduled start time has passed."
+        )
 
-    if is_fully_completed and job.status != CleaningJob.Status.COMPLETED:
+    assignment.cleaner_completed_at = assignment.cleaner_completed_at or now
+    assignment.host_completed_at = assignment.host_completed_at or now
+    assignment.completed_at = now
+    assignment.save(
+        update_fields=["cleaner_completed_at", "host_completed_at", "completed_at", "updated_at"]
+    )
+
+    if job.status != CleaningJob.Status.COMPLETED:
         job.status = CleaningJob.Status.COMPLETED
         job.save(update_fields=["status", "updated_at"])
 
-    if completed_side == "cleaner" and not assignment.host_completed_at:
-        create_notification(
-            user=job.host,
-            notification_type="job.cleaner_completed",
-            title="Cleaner marked job complete",
-            body=f"{job.title} is ready for your completion confirmation.",
-            metadata={"job_id": job.id, "assignment_id": assignment.id},
-        )
-    elif completed_side == "host" and not assignment.cleaner_completed_at:
-        create_notification(
-            user=assignment.cleaner,
-            notification_type="job.host_completed",
-            title="Host marked job complete",
-            body=f"{job.title} is waiting for your completion confirmation.",
-            metadata={"job_id": job.id, "assignment_id": assignment.id},
-        )
+    # Both sides can now review each other (revealed double-blind / after window).
+    create_notification(
+        user=job.host,
+        notification_type="review.requested",
+        title="Leave a review",
+        body=f"{job.title} is complete — leave a review for your cleaner.",
+        metadata={"job_id": job.id, "reviewee_id": assignment.cleaner_id},
+    )
+    create_notification(
+        user=assignment.cleaner,
+        notification_type="review.requested",
+        title="Leave a review",
+        body=f"{job.title} is complete — leave a review for the host.",
+        metadata={"job_id": job.id, "reviewee_id": job.host_id},
+    )
+    send_job_completed_email.delay(job.id)
 
-    if is_fully_completed:
-        create_notification(
-            user=job.host,
-            notification_type="job.completed",
-            title="Cleaning completed",
-            body=f"{job.title} was marked completed by both sides.",
-            metadata={"job_id": job.id},
-        )
-        create_notification(
-            user=assignment.cleaner,
-            notification_type="review.requested",
-            title="Leave feedback",
-            body=f"Please review your experience for {job.title}.",
-            metadata={"job_id": job.id},
-        )
-        send_job_completed_email.delay(job.id)
     write_audit_log(
         actor=completed_by,
         action="job.completed",
         entity_type="CleaningJob",
         entity_id=job.id,
         request=request,
-        metadata={"side": completed_side, "fully_completed": is_fully_completed},
+        metadata={"by": "admin" if completed_by.is_platform_admin and not is_cleaner_completion else "cleaner"},
     )
     job.assignment = assignment
     return job

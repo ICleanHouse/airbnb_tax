@@ -6,6 +6,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { Briefcase, X } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import type { CurrentUser } from "../lib/api";
+import ConnectButton from "./ConnectButton";
 
 interface OpenJobLocation {
   id: number;
@@ -14,6 +15,7 @@ interface OpenJobLocation {
   scheduled_end: string;
   currency: string;
   proposed_price: string | null;
+  property_id: number;
   property_name: string;
   property_city: string;
   property_neighborhood: string;
@@ -29,11 +31,6 @@ interface Props {
   cityChangeSource: "select" | "map";
   currentUser: CurrentUser | null;
   onCityChange: (cityLabel: string) => void;
-}
-
-interface PopupOptions {
-  canOfferWork: boolean;
-  onOpenApplication: (job: OpenJobLocation) => void;
 }
 
 const CITY_CENTERS: Record<string, [number, number]> = {
@@ -61,73 +58,12 @@ function formatJobDate(value: string) {
   }).format(date);
 }
 
-function appendLine(parent: HTMLElement, className: string, text: string) {
-  const node = document.createElement("span");
-  node.className = className;
-  node.textContent = text;
-  parent.appendChild(node);
-}
-
 function messageFromResponse(data: unknown, fallback: string) {
   if (data && typeof data === "object" && "detail" in data) {
     const detail = (data as { detail?: unknown }).detail;
     if (typeof detail === "string" && detail.trim()) return detail;
   }
   return fallback;
-}
-
-function createPopup(job: OpenJobLocation, options: PopupOptions) {
-  const wrap = document.createElement("div");
-  wrap.className = "open-job-popup";
-
-  if (job.property_image) {
-    const image = document.createElement("img");
-    image.className = "open-job-popup-image";
-    image.src = job.property_image;
-    image.alt = job.property_name ? `${job.property_name} photo` : "Property photo";
-    image.loading = "lazy";
-    image.decoding = "async";
-    wrap.appendChild(image);
-  }
-
-  appendLine(wrap, "open-job-popup-title", job.title || "Open cleaning job");
-  appendLine(wrap, "open-job-popup-property", job.property_name || "Property");
-
-  const addressParts = [
-    job.property_address,
-    job.property_neighborhood,
-    job.property_city,
-  ].filter(Boolean);
-  if (addressParts.length) {
-    appendLine(wrap, "open-job-popup-address", addressParts.join(", "));
-  }
-
-  const meta = [
-    formatJobDate(job.scheduled_start),
-    job.proposed_price ? `${job.proposed_price} ${job.currency}` : "",
-  ].filter(Boolean);
-  if (meta.length) {
-    appendLine(wrap, "open-job-popup-meta", meta.join(" - "));
-  }
-
-  if (options.canOfferWork) {
-    const actionWrap = document.createElement("div");
-    actionWrap.className = "open-job-popup-actions";
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "open-job-popup-action";
-    button.textContent = "Offer cleaning";
-
-    button.addEventListener("click", () => {
-      options.onOpenApplication(job);
-    });
-
-    actionWrap.appendChild(button);
-    wrap.appendChild(actionWrap);
-  }
-
-  return wrap;
 }
 
 function readList<T>(data: T[] | { results?: T[] } | null): T[] {
@@ -182,6 +118,9 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
   const [applyMessage, setApplyMessage] = useState("");
   const [applyError, setApplyError] = useState("");
   const [applying, setApplying] = useState(false);
+  const [propertyJobs, setPropertyJobs] = useState<OpenJobLocation[] | null>(null);
+  const [hostId, setHostId] = useState<number | null>(null);
+  const [hostName, setHostName] = useState("");
 
   const where = cityLabel || "Bulgaria";
   const canOfferWork = currentUser?.role === "cleaner";
@@ -190,9 +129,38 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
     [cityLabel],
   );
 
+  // One marker per property — group the per-job markers that share an address.
+  const propertyGroups = useMemo(() => {
+    const groups = new Map<number, OpenJobLocation[]>();
+    for (const job of jobs) {
+      const existing = groups.get(job.property_id);
+      if (existing) existing.push(job);
+      else groups.set(job.property_id, [job]);
+    }
+    return Array.from(groups.values());
+  }, [jobs]);
+
   useEffect(() => {
     cityLabelRef.current = cityLabel;
   }, [cityLabel]);
+
+  const openPropertyOverlay = useCallback((group: OpenJobLocation[]) => {
+    setPropertyJobs(group);
+    setHostId(null);
+    setHostName("");
+
+    // Host identity is never exposed on the public map endpoint — fetch it from
+    // the authenticated job detail only when a cleaner can act on it.
+    if (!canOfferWork || group.length === 0) return;
+    apiFetch(`/api/marketplace/jobs/${group[0].id}/`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { host?: number; host_name?: string } | null) => {
+        if (!data) return;
+        if (typeof data.host === "number") setHostId(data.host);
+        if (data.host_name) setHostName(data.host_name);
+      })
+      .catch(() => null);
+  }, [canOfferWork]);
 
   const openApplicationOverlay = useCallback((job: OpenJobLocation) => {
     setApplyJob(job);
@@ -337,13 +305,15 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
 
     markerLayer.clearLayers();
 
-    const markers = jobs
-      .filter((job) => Number.isFinite(job.latitude) && Number.isFinite(job.longitude))
-      .map((job) =>
-        L.marker([job.latitude, job.longitude], { icon })
-          .bindPopup(createPopup(job, { canOfferWork, onOpenApplication: openApplicationOverlay }))
-          .addTo(markerLayer),
-      );
+    const markers = propertyGroups
+      .filter((group) => Number.isFinite(group[0].latitude) && Number.isFinite(group[0].longitude))
+      .map((group) => {
+        const lead = group[0];
+        const marker = L.marker([lead.latitude, lead.longitude], { icon });
+        marker.on("click", () => openPropertyOverlay(group));
+        marker.addTo(markerLayer);
+        return marker;
+      });
 
     window.setTimeout(() => map.invalidateSize(), 0);
     const markProgrammaticMove = () => {
@@ -374,7 +344,7 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
       markProgrammaticMove();
       map.setView(center, cityLabel ? 12 : 7, { animate: false });
     }
-  }, [canOfferWork, center, cityChangeSource, cityLabel, jobs, openApplicationOverlay]);
+  }, [center, cityChangeSource, cityLabel, propertyGroups, openPropertyOverlay]);
 
   return (
     <>
@@ -385,7 +355,7 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
           </div>
           <span className="open-job-map-count">
             <Briefcase size={14} aria-hidden />
-            {loading ? "Loading" : `${jobs.length} pin${jobs.length === 1 ? "" : "s"}`}
+            {loading ? "Loading" : `${propertyGroups.length} pin${propertyGroups.length === 1 ? "" : "s"}`}
           </span>
         </div>
 
@@ -401,6 +371,87 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
           </a>
         </p>
       </section>
+
+      {propertyJobs && propertyJobs.length > 0 ? (
+        <div
+          className="host-modal-backdrop open-job-property-backdrop"
+          onClick={() => setPropertyJobs(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Property open jobs"
+        >
+          <div className="host-modal open-job-property-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="host-modal-header">
+              <h2>{propertyJobs[0].property_name || "Property"}</h2>
+              <button type="button" className="host-modal-close" onClick={() => setPropertyJobs(null)} aria-label="Close">
+                <X size={18} aria-hidden />
+              </button>
+            </div>
+
+            <div className="open-job-property-body">
+            <div className="open-job-property-summary">
+              {propertyJobs[0].property_image ? (
+                <Image
+                  src={propertyJobs[0].property_image}
+                  alt=""
+                  width={300}
+                  height={236}
+                  unoptimized
+                />
+              ) : null}
+              <div className="open-job-property-summary-body">
+                <span className="open-job-property-address">
+                  {[
+                    propertyJobs[0].property_address,
+                    propertyJobs[0].property_neighborhood,
+                    propertyJobs[0].property_city,
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "Address not provided"}
+                </span>
+                {canOfferWork ? (
+                  <div className="open-job-property-host">
+                    <span>{hostName ? `Host: ${hostName}` : "Host"}</span>
+                    {hostId ? <ConnectButton targetUserId={hostId} /> : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <h3 className="open-job-property-subtitle">
+              Open jobs
+              <span className="open-job-property-count">{propertyJobs.length}</span>
+            </h3>
+            <ul className="open-job-property-list">
+              {propertyJobs.map((job) => (
+                <li key={job.id} className="open-job-property-job">
+                  <div className="open-job-property-job-info">
+                    <strong>{job.title || "Cleaning job"}</strong>
+                    <span>{formatJobDate(job.scheduled_start)}</span>
+                  </div>
+                  <div className="open-job-property-job-right">
+                    {job.proposed_price ? (
+                      <span className="open-job-property-job-price">
+                        {job.proposed_price} {job.currency}
+                      </span>
+                    ) : null}
+                    {canOfferWork ? (
+                      <button
+                        type="button"
+                        className="open-job-popup-action"
+                        onClick={() => openApplicationOverlay(job)}
+                      >
+                        Apply
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {applyJob ? (
         <div

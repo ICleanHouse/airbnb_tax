@@ -40,6 +40,7 @@ import Connections from "../../components/Connections";
 import AppdashGrid from "../../components/AppdashGrid";
 import { useDashView } from "../../lib/useDashView";
 import JobOfferModal from "../../components/JobOfferModal";
+import ReviewModal from "../../components/ReviewModal";
 import RatingStars from "../../components/RatingStars";
 import AccountDeletionPanel from "../../components/AccountDeletionPanel";
 
@@ -160,6 +161,21 @@ function daysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
 
+/**
+ * Client-side validation for the property size (m²): empty is allowed, otherwise
+ * it must be a positive whole or half number (a multiple of 0.5). Returns a
+ * user-facing message, or "" when valid. Validated in React so the user never
+ * has to round-trip to the server for this.
+ */
+function sqmError(value: string): string {
+  const v = value.trim();
+  if (v === "") return "";
+  const num = Number(v);
+  if (!Number.isFinite(num) || num <= 0) return "Enter a size greater than 0.";
+  if (!Number.isInteger(num * 2)) return "Size must be a whole or half number (e.g. 52 or 52.5).";
+  return "";
+}
+
 // ── Status display ─────────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<JobStatus, string> = {
@@ -222,17 +238,15 @@ export default function HostDashboard() {
   const [loadingData,  setLoadingData]  = useState(false);
   const [dataError,    setDataError]    = useState("");
   const [actingAppId,  setActingAppId]  = useState<number | null>(null);   // which app is being accepted/rejected
-  const [completingJobId, setCompletingJobId] = useState<number | null>(null);
   const [confirmDeleteJobId, setConfirmDeleteJobId] = useState<number | null>(null);
+  const [expandedAppsJobId, setExpandedAppsJobId] = useState<number | null>(null); // job whose applicants are shown in the calendar panel
   const [deletingJobId,      setDeletingJobId]      = useState<number | null>(null);
 
   // ── Reviews ────────────────────────────────────────────────────────────────
   const [reviews,         setReviews]         = useState<Review[]>([]);
-  const [reviewJobId,     setReviewJobId]     = useState<number | null>(null);
-  const [reviewRating,    setReviewRating]    = useState(0);
-  const [reviewComment,   setReviewComment]   = useState("");
-  const [submittingReview, setSubmittingReview] = useState(false);
-  const [hoveredStar,     setHoveredStar]     = useState(0);
+  const [reviewTarget, setReviewTarget] = useState<
+    { jobId: number; jobTitle: string; revieweeId: number; revieweeName: string } | null
+  >(null);
   const [appFilter, setAppFilter] = useState<"pending" | "active" | "completed" | "open" | "rating" | null>(null);
   const [dashView, setDashView] = useDashView();
 
@@ -344,9 +358,7 @@ export default function HostDashboard() {
   const requestedSection = searchParams.get("section");
   const requestedAppFilter = searchParams.get("appFilter");
   const reviewJobParam = searchParams.get("reviewJob");
-  const reviewIdParam = searchParams.get("reviewId");
   const requestedReviewJobId = reviewJobParam ? Number(reviewJobParam) : null;
-  const requestedReviewId = reviewIdParam ? Number(reviewIdParam) : null;
 
   // ── Auth check ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -621,6 +633,12 @@ export default function HostDashboard() {
   // ── Save property (create or update) ──────────────────────────────────────
   async function submitProperty(e: FormEvent) {
     e.preventDefault();
+    // Validate client-side before any request — size must be whole/half m².
+    const sqmErr = sqmError(propSqm);
+    if (sqmErr) {
+      setPropError(sqmErr);
+      return;
+    }
     setPropError("");
     setSavingProp(true);
     try {
@@ -818,43 +836,16 @@ export default function HostDashboard() {
   }
 
   // ── Submit review ───────────────────────────────────────────────────────────
-  async function submitReview(asgn: HostAssignment) {
-    if (reviewRating === 0) return;
-    setSubmittingReview(true);
-    try {
-      const res = await apiFetch("/api/feedback/reviews/", {
-        method: "POST",
-        body: JSON.stringify({
-          job_id: asgn.job,
-          reviewee_id: asgn.cleaner,
-          rating: reviewRating,
-          comment: reviewComment,
-        }),
-      });
-      if (!res.ok) return;
-      const newReview = await res.json() as Review;
-      setReviews((prev) => [...prev, newReview]);
-      setReviewJobId(null);
-      setReviewRating(0);
-      setReviewComment("");
-      setHoveredStar(0);
-    } finally {
-      setSubmittingReview(false);
-    }
-  }
-
-  // ── Complete assignment ─────────────────────────────────────────────────────
-  async function completeJob(jobId: number) {
-    setCompletingJobId(jobId);
-    try {
-      const res = await apiFetch(`/api/marketplace/jobs/${jobId}/complete/`, { method: "POST" });
-      if (!res.ok) return;
-      const updated = await res.json() as CleaningJob;
-      setAllJobs((prev) => prev.map((j) => (j.id === jobId ? updated : j)));
-      void loadAll();
-    } finally {
-      setCompletingJobId(null);
-    }
+  // ── Reviews ──────────────────────────────────────────────────────────────
+  // The cleaner marks a job done (no host completion step); the host then
+  // reviews the cleaner through the review window (ReviewModal).
+  function openReview(asgn: HostAssignment) {
+    setReviewTarget({
+      jobId: asgn.job,
+      jobTitle: asgn.job_title,
+      revieweeId: asgn.cleaner,
+      revieweeName: asgn.cleaner_name,
+    });
   }
 
   // ── ICS import handlers ────────────────────────────────────────────────────
@@ -1170,31 +1161,19 @@ export default function HostDashboard() {
     [completedAssignments],
   );
 
+  // A review notification (?reviewJob=) opens the review window for that job.
   useEffect(() => {
-    if (!requestedReviewId || Number.isNaN(requestedReviewId)) return;
-    const targetReview = hostReviews.find((review) => review.id === requestedReviewId);
-    if (!targetReview) return;
+    if (!requestedReviewJobId || Number.isNaN(requestedReviewJobId)) return;
+    const asgn = allAssignments.find((a) => a.job === requestedReviewJobId && a.completed_at);
+    if (!asgn) return;
     setSection("applications");
-    setAppFilter("rating");
-  }, [hostReviews, requestedReviewId]);
-
-  useEffect(() => {
-    if (section !== "applications" || appFilter !== "rating") return;
-
-    let targetId: string | null = null;
-    if (requestedReviewId && !Number.isNaN(requestedReviewId)) {
-      targetId = `host-review-${requestedReviewId}`;
-    } else if (requestedReviewJobId && !Number.isNaN(requestedReviewJobId)) {
-      const review = hostReviews.find((item) => item.job === requestedReviewJobId);
-      if (review) targetId = `host-review-${review.id}`;
-    }
-
-    if (!targetId) return;
-    const card = document.getElementById(targetId);
-    if (card) {
-      card.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [appFilter, hostReviews, requestedReviewId, requestedReviewJobId, section]);
+    setReviewTarget({
+      jobId: asgn.job,
+      jobTitle: asgn.job_title,
+      revieweeId: asgn.cleaner,
+      revieweeName: asgn.cleaner_name,
+    });
+  }, [requestedReviewJobId, allAssignments]);
 
   // ── Gates ──────────────────────────────────────────────────────────────────
   if (loadingMe) {
@@ -1710,14 +1689,6 @@ export default function HostDashboard() {
                         .filter((a) => !a.completed_at)
                         .sort((a, b) => a.job_scheduled_start.localeCompare(b.job_scheduled_start))
                         .map((asgn) => {
-                          const hostDone = Boolean(asgn.host_completed_at);
-                          const cleanerDone = Boolean(asgn.cleaner_completed_at);
-                          const canMarkComplete = !hostDone && isPastDateTime(asgn.job_scheduled_end, now);
-                          const completionLabel = hostDone
-                            ? "Waiting for cleaner"
-                            : cleanerDone
-                              ? "Cleaner confirmed"
-                              : "Assigned";
                           return (
                           <li key={asgn.id} className="host-app-card host-app-card--assigned">
                             <div className="host-app-card-left">
@@ -1749,17 +1720,7 @@ export default function HostDashboard() {
                               {asgn.agreed_price && (
                                 <span className="host-app-price">€{asgn.agreed_price}</span>
                               )}
-                              <span className="host-app-badge host-app-badge--assigned">{completionLabel}</span>
-                              {canMarkComplete && (
-                                <button
-                                  className="host-app-complete-btn"
-                                  type="button"
-                                  disabled={completingJobId === asgn.job}
-                                  onClick={() => void completeJob(asgn.job)}
-                                >
-                                  {completingJobId === asgn.job ? "…" : "Mark complete"}
-                                </button>
-                              )}
+                              <span className="host-app-badge host-app-badge--assigned">Assigned</span>
                             </div>
                           </li>
                           );
@@ -1810,81 +1771,16 @@ export default function HostDashboard() {
                             {/* Review row — full width */}
                             <div className="host-app-review-row">
                               {(() => {
-                                const existing = reviews.find(
-                                  (r) => r.job === asgn.job && r.reviewee === asgn.cleaner,
+                                const mine = reviews.find(
+                                  (r) => r.job === asgn.job && r.reviewer === me.id,
                                 );
-                                if (existing) {
-                                  return (
-                                    <div className="host-review-given">
-                                      <span className="host-review-given-stars">
-                                        {"★".repeat(existing.rating)}{"☆".repeat(5 - existing.rating)}
-                                      </span>
-                                      {existing.comment && (
-                                        <span className="host-review-given-comment">&quot;{existing.comment}&quot;</span>
-                                      )}
-                                    </div>
-                                  );
-                                }
-                                if (reviewJobId === asgn.job) {
-                                  return (
-                                    <div className="host-review-form">
-                                      <div className="host-stars">
-                                        {[1, 2, 3, 4, 5].map((star) => (
-                                          <button
-                                            key={star}
-                                            type="button"
-                                            className={`host-star${(hoveredStar || reviewRating) >= star ? " host-star--on" : ""}`}
-                                            onMouseEnter={() => setHoveredStar(star)}
-                                            onMouseLeave={() => setHoveredStar(0)}
-                                            onClick={() => setReviewRating(star)}
-                                            aria-label={`${star} star${star !== 1 ? "s" : ""}`}
-                                          >★</button>
-                                        ))}
-                                      </div>
-                                      <textarea
-                                        className="host-review-textarea"
-                                        placeholder="Optional written feedback…"
-                                        rows={2}
-                                        value={reviewComment}
-                                        onChange={(e) => setReviewComment(e.target.value)}
-                                      />
-                                      <div className="host-review-actions">
-                                        <button
-                                          className="host-review-cancel"
-                                          type="button"
-                                          onClick={() => {
-                                            setReviewJobId(null);
-                                            setReviewRating(0);
-                                            setReviewComment("");
-                                            setHoveredStar(0);
-                                          }}
-                                        >
-                                          Cancel
-                                        </button>
-                                        <button
-                                          className="host-review-submit"
-                                          type="button"
-                                          disabled={reviewRating === 0 || submittingReview}
-                                          onClick={() => void submitReview(asgn)}
-                                        >
-                                          {submittingReview ? "Saving…" : "Submit review"}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                }
                                 return (
                                   <button
                                     className="host-review-trigger"
                                     type="button"
-                                    onClick={() => {
-                                      setReviewJobId(asgn.job);
-                                      setReviewRating(0);
-                                      setReviewComment("");
-                                      setHoveredStar(0);
-                                    }}
+                                    onClick={() => openReview(asgn)}
                                   >
-                                    ★ Leave a review
+                                    ★ {mine ? "View review" : "Leave a review"}
                                   </button>
                                 );
                               })()}
@@ -2125,7 +2021,18 @@ export default function HostDashboard() {
                                 return <span className="host-job-activity host-job-activity--assigned">👤 {act.assignment.cleaner_name} · {completion}</span>;
                               }
                               if (act.pendingApps > 0) {
-                                return <span className="host-job-activity host-job-activity--apps">{act.pendingApps} application{act.pendingApps !== 1 ? "s" : ""}</span>;
+                                const open = expandedAppsJobId === job.id;
+                                return (
+                                  <button
+                                    type="button"
+                                    className="host-job-activity host-job-activity--apps host-job-activity--btn"
+                                    onClick={() => setExpandedAppsJobId(open ? null : job.id)}
+                                    aria-expanded={open}
+                                  >
+                                    {act.pendingApps} application{act.pendingApps !== 1 ? "s" : ""}
+                                    <ChevronRight size={13} aria-hidden className={open ? "host-job-apps-caret host-job-apps-caret--open" : "host-job-apps-caret"} />
+                                  </button>
+                                );
                               }
                               return null;
                             })()}
@@ -2160,16 +2067,6 @@ export default function HostDashboard() {
                                     </button>
                                   </>
                                 )}
-                                {job.status === "assigned" && !jobActivityMap.get(job.id)?.assignment?.host_completed_at && isPastDateTime(job.scheduled_end, now) && (
-                                  <button
-                                    className="host-job-complete-btn"
-                                    type="button"
-                                    disabled={completingJobId === job.id}
-                                    onClick={() => void completeJob(job.id)}
-                                  >
-                                    {completingJobId === job.id ? "…" : "Mark done"}
-                                  </button>
-                                )}
                                 {(job.status === "draft" || job.status === "open") && (
                                   confirmDeleteJobId === job.id ? (
                                     <div className="host-delete-confirm">
@@ -2203,6 +2100,47 @@ export default function HostDashboard() {
                               </div>
                             )}
                           </div>
+
+                          {expandedAppsJobId === job.id &&
+                            applications.some((a) => a.job === job.id && a.status === "pending") && (
+                            <div className="host-job-applicants">
+                              {applications
+                                .filter((a) => a.job === job.id && a.status === "pending")
+                                .map((app) => (
+                                  <div key={app.id} className="host-job-applicant">
+                                    <span className="host-job-applicant-name">{app.cleaner_name}</span>
+                                    <div className="host-job-applicant-actions">
+                                      {app.origin === "host_offered" ? (
+                                        <span className="host-app-badge host-app-badge--offer">
+                                          Offer sent · awaiting cleaner
+                                        </span>
+                                      ) : (
+                                        <>
+                                          <button
+                                            type="button"
+                                            className="host-app-accept-btn"
+                                            disabled={actingAppId === app.id}
+                                            onClick={() => void acceptApplication(app.id)}
+                                          >
+                                            <Check size={13} aria-hidden />
+                                            {actingAppId === app.id ? "…" : "Accept"}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="host-app-reject-btn"
+                                            disabled={actingAppId === app.id}
+                                            onClick={() => void rejectApplication(app.id)}
+                                          >
+                                            <X size={13} aria-hidden />
+                                            Decline
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -2344,8 +2282,12 @@ export default function HostDashboard() {
                   <span>Neighborhood / District</span>
                   <input
                     value={propNeighborhood}
-                    onChange={(e) => setPropNeighborhood(e.target.value)}
-                    placeholder="Auto-filled from map, or enter manually"
+                    readOnly
+                    className="prop-readonly-field"
+                    placeholder="Set automatically from the map pin"
+                    title="The district is taken from the map pin"
+                    tabIndex={-1}
+                    aria-readonly="true"
                   />
                 </label>
                 <label>
@@ -2359,7 +2301,7 @@ export default function HostDashboard() {
                     placeholder="e.g. 2"
                   />
                 </label>
-                <label>
+                <label className="prop-size-field">
                   <span>Size (m²)</span>
                   <input
                     type="number"
@@ -2368,7 +2310,12 @@ export default function HostDashboard() {
                     value={propSqm}
                     onChange={(e) => setPropSqm(e.target.value)}
                     placeholder="e.g. 65"
+                    aria-invalid={sqmError(propSqm) ? true : undefined}
+                    className={sqmError(propSqm) ? "input-invalid" : undefined}
                   />
+                  {sqmError(propSqm) && (
+                    <small className="field-error-text">{sqmError(propSqm)}</small>
+                  )}
                 </label>
                 <label>
                   <span>Default clean duration (min)</span>
@@ -2820,6 +2767,19 @@ export default function HostDashboard() {
           }))}
           onClose={() => setOfferTarget(null)}
           onOffered={() => void loadAll()}
+        />
+      )}
+
+      {reviewTarget && (
+        <ReviewModal
+          jobId={reviewTarget.jobId}
+          jobTitle={reviewTarget.jobTitle}
+          revieweeId={reviewTarget.revieweeId}
+          revieweeName={reviewTarget.revieweeName}
+          meId={me.id}
+          reviews={reviews}
+          onClose={() => setReviewTarget(null)}
+          onSubmitted={() => void loadAll()}
         />
       )}
     </>

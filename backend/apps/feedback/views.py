@@ -1,11 +1,12 @@
 import logging
 
+from django.db.models import Q, Subquery
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 
 from apps.feedback.models import Review
 from apps.feedback.serializers import ReviewSerializer
-from apps.feedback.services import FeedbackError, submit_review
+from apps.feedback.services import FeedbackError, revealed_received_reviews, submit_review
 
 
 logger = logging.getLogger("apps.feedback")
@@ -19,7 +20,10 @@ class ReviewViewSet(viewsets.ModelViewSet):
         queryset = Review.objects.select_related("job", "reviewer", "reviewee", "job__host")
         if user.is_platform_admin:
             return queryset
-        return queryset.filter(reviewer=user) | queryset.filter(reviewee=user, is_private_issue=False)
+        # Always your own reviews; received reviews only once revealed
+        # (counterpart submitted, or the review window has closed).
+        visible_received = Subquery(revealed_received_reviews(user).values("id"))
+        return queryset.filter(Q(reviewer=user) | Q(id__in=visible_received)).distinct()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

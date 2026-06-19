@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
-from django.db.models import Avg
+from django.db.models import Avg, Q, Subquery
+from django.utils import timezone
 
 from apps.accounts.models import CleanerProfile
 from apps.core.services import write_audit_log
@@ -12,9 +15,31 @@ from apps.notifications.services import create_notification
 
 User = get_user_model()
 
+# Double-blind review window: a review is revealed once BOTH sides have
+# submitted, OR this many days after completion (whichever comes first).
+REVIEW_WINDOW_DAYS = 14
+
 
 class FeedbackError(ValueError):
     pass
+
+
+def review_window_cutoff():
+    """Jobs completed at or before this instant have an expired review window."""
+    return timezone.now() - timedelta(days=REVIEW_WINDOW_DAYS)
+
+
+def revealed_received_reviews(user: User):
+    """
+    Reviews *about* ``user`` that are visible under the double-blind rule: the
+    counterpart review for the same job exists (i.e. ``user`` also reviewed), or
+    the review window has closed. Private-issue reports are never included.
+    """
+    reviewed_job_ids = Review.objects.filter(reviewer=user).values("job")
+    return Review.objects.filter(reviewee=user, is_private_issue=False).filter(
+        Q(job__in=Subquery(reviewed_job_ids))
+        | Q(job__assignment__completed_at__lte=review_window_cutoff())
+    )
 
 
 def submit_review(
@@ -29,14 +54,16 @@ def submit_review(
     request=None,
 ) -> Review:
     if job.status != CleaningJob.Status.COMPLETED:
-        raise FeedbackError("Reviews are allowed only after job completion.")
+        raise FeedbackError("Reviews are allowed only after the job is completed.")
 
     if not hasattr(job, "assignment"):
         raise FeedbackError("Reviewed job must have an assignment.")
 
     assignment = job.assignment
-    if not (assignment.host_completed_at and assignment.cleaner_completed_at):
-        raise FeedbackError("Reviews are allowed only after both host and cleaner mark the job complete.")
+    if assignment.completed_at and timezone.now() > assignment.completed_at + timedelta(
+        days=REVIEW_WINDOW_DAYS
+    ):
+        raise FeedbackError("The review window for this job has closed.")
 
     involved_user_ids = {job.host_id, assignment.cleaner_id}
     if assignment.assigned_member_id:
@@ -47,6 +74,9 @@ def submit_review(
     if reviewer.id == reviewee.id:
         raise FeedbackError("Users cannot review themselves.")
 
+    if Review.objects.filter(job=job, reviewer=reviewer, reviewee=reviewee).exists():
+        raise FeedbackError("You have already reviewed this job.")
+
     review = Review.objects.create(
         job=job,
         reviewer=reviewer,
@@ -56,14 +86,34 @@ def submit_review(
         private_note=private_note,
         is_private_issue=is_private_issue,
     )
+
+    counterpart = Review.objects.filter(job=job, reviewer=reviewee, reviewee=reviewer).first()
+
+    # Ratings reflect only revealed reviews, so recompute both directions in case
+    # this submission completed a pair (only cleaners carry a rating).
     refresh_cleaner_rating(reviewee)
-    create_notification(
-        user=reviewee,
-        notification_type="review.submitted",
-        title="New review received",
-        body=f"You received feedback for {job.title}.",
-        metadata={"job_id": job.id, "review_id": review.id},
-    )
+    refresh_cleaner_rating(reviewer)
+
+    if counterpart is not None:
+        # Both reviews now exist — they become visible to each other.
+        for recipient in (reviewer, reviewee):
+            create_notification(
+                user=recipient,
+                notification_type="review.submitted",
+                title="Reviews are now visible",
+                body=f"You and the other party have both reviewed {job.title}.",
+                metadata={"job_id": job.id, "review_id": review.id},
+            )
+    else:
+        # Prompt the other party to review so they can both see each other's.
+        create_notification(
+            user=reviewee,
+            notification_type="review.requested",
+            title="Leave a review",
+            body=f"You were reviewed for {job.title} — leave your review to see theirs.",
+            metadata={"job_id": job.id, "reviewee_id": reviewer.id},
+        )
+
     write_audit_log(
         actor=reviewer,
         action="review.submitted",
@@ -83,7 +133,8 @@ def refresh_cleaner_rating(user: User) -> None:
     except CleanerProfile.DoesNotExist:
         return
 
-    aggregate = Review.objects.filter(reviewee=user).aggregate(average=Avg("rating"))
+    # Only revealed reviews count toward the public rating (double-blind).
+    aggregate = revealed_received_reviews(user).aggregate(average=Avg("rating"))
     completed_count = user.cleaning_assignments.filter(job__status=CleaningJob.Status.COMPLETED).count()
     profile.average_rating = aggregate["average"] or 0
     profile.completed_jobs_count = completed_count

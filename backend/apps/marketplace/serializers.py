@@ -204,6 +204,7 @@ class CleaningJobSerializer(serializers.ModelSerializer):
 
 
 class OpenJobLocationSerializer(serializers.ModelSerializer):
+    property_id = serializers.IntegerField(source="property.id", read_only=True)
     property_name = serializers.CharField(source="property.name", read_only=True)
     property_city = serializers.CharField(source="property.city", read_only=True)
     property_neighborhood = serializers.CharField(source="property.neighborhood", read_only=True)
@@ -221,6 +222,7 @@ class OpenJobLocationSerializer(serializers.ModelSerializer):
             "scheduled_end",
             "currency",
             "proposed_price",
+            "property_id",
             "property_name",
             "property_city",
             "property_neighborhood",

@@ -158,6 +158,14 @@ class PublicCleanerDirectoryTests(TestCase):
             rating=5,
             comment="Spotless work",
         )
+        # Counterpart review so the pair is revealed under the double-blind rule.
+        Review.objects.create(
+            job=job,
+            reviewer=cleaner.user,
+            reviewee=host,
+            rating=5,
+            comment="Clear instructions",
+        )
 
         detail_url = reverse("public-cleaner-detail", args=[cleaner.id])
         response = self.client.get(detail_url)

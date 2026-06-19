@@ -108,6 +108,7 @@ class OpenJobLocationsViewTests(TestCase):
                 "scheduled_end",
                 "currency",
                 "proposed_price",
+                "property_id",
                 "property_name",
                 "property_city",
                 "property_neighborhood",
@@ -118,6 +119,7 @@ class OpenJobLocationsViewTests(TestCase):
             },
         )
         self.assertNotIn("host", data[0])
+        self.assertEqual(data[0]["property_id"], self.sofia_property.id)
         self.assertEqual(data[0]["property_address"], "1 Vitosha Boulevard")
         self.assertTrue(data[0]["property_image"].startswith("/media/property_images/"))
         self.assertEqual(data[0]["latitude"], 42.6977)

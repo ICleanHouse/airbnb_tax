@@ -1,0 +1,31 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="_card.css">
+<style>
+body{background:var(--canvas);}
+.lc{display:flex;flex-direction:column;gap:12px;width:220px;text-align:left;background:transparent;border:0;cursor:pointer;}
+.lc-cover{position:relative;width:100%;aspect-ratio:1/1;border-radius:14px;overflow:hidden;background:var(--canvas-2);}
+.lc-cover img{width:100%;height:100%;object-fit:cover;}
+.lc-badge{position:absolute;top:12px;left:12px;background:rgba(255,255,255,0.94);color:var(--ink);font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;box-shadow:var(--shadow-xs);}
+.lc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.lc-name{font-weight:600;font-size:15px;color:var(--ink);letter-spacing:-0.01em;}
+.lc-rating{display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:500;color:var(--ink);}
+.lc-rating .s{font-size:13px;}
+.lc-meta{font-size:14px;color:var(--muted);}
+</style></head><body>
+<div class="card" style="align-items:flex-start;flex-direction:row;gap:28px;">
+  <div class="lc">
+    <div class="lc-cover">
+      <img src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80" alt="">
+      <span class="lc-badge">Agency</span>
+    </div>
+    <div style="display:grid;gap:3px;padding:0 2px;">
+      <div class="lc-row"><span class="lc-name">Maria Dimitrova</span><span class="lc-rating"><span class="s">★</span>4.9</span></div>
+      <span class="lc-meta">Sofia · Lozenets, Oborishte</span>
+      <span class="lc-meta">32 jobs · 5+ years</span>
+    </div>
+  </div>
+  <span class="ds-meta" style="flex:1;align-self:center;">Photo-forward listing card — square cover (14px radius), Agency pill overlay, inline ★ rating. Cover zooms 1.04 on hover. Browses like an Airbnb grid.</span>
+</div>
+</body></html>

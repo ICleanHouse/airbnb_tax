@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 232 48" width="232" height="48" role="img" aria-label="Host Cleaners">
+  <rect width="48" height="48" rx="11" fill="#ff385c"/>
+  <path d="M24 10 L41 25 L35 25 L35 39 L13 39 L13 25 L7 25 Z" fill="#ffffff"/>
+  <path d="M24 25.5 Q25.2 30.6 30.3 31.8 Q25.2 33 24 38.1 Q22.8 33 17.7 31.8 Q22.8 30.6 24 25.5 Z" fill="#ff385c"/>
+  <text x="62" y="32" font-family="Geist, Inter, system-ui, -apple-system, sans-serif" font-size="25" font-weight="650" letter-spacing="-0.6" fill="#111111">Host Cleaners</text>
+</svg>

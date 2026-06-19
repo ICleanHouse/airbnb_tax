@@ -1,0 +1,20 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="_card.css">
+<style>
+.tab{display:inline-flex;align-items:center;gap:7px;min-height:42px;border:0;border-radius:999px;background:transparent;cursor:pointer;font-weight:600;font-size:14px;padding:0 16px;color:var(--text);font-family:inherit;}
+.tab.active{background:var(--ink);color:#fff;}
+.tab:not(.active):hover{background:var(--header-highlight);}
+.tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:12px;background:var(--header-highlight);color:var(--text);}
+.tab.active .tab-count{background:rgba(255,255,255,0.25);color:#fff;}
+</style></head><body>
+<div class="card">
+  <div class="row" style="gap:8px;">
+    <button class="tab active">Open jobs <span class="tab-count">5</span></button>
+    <button class="tab">Assigned <span class="tab-count">2</span></button>
+    <button class="tab">Completed</button>
+  </div>
+  <span class="ds-meta">Pill tabs — active = ink fill / white. Inline count chips track work in each lane.</span>
+</div>
+</body></html>

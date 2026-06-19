@@ -1,0 +1,19 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="_card.css">
+<style>
+.rs{display:inline-flex;align-items:center;gap:6px;}
+.rs-row{font-size:18px;line-height:1;}
+.on{color:var(--gold);}
+.off{color:#ddd;}
+.rs-val{font-size:14px;font-weight:600;color:var(--ink);}
+.rs-count{font-weight:400;color:var(--muted);}
+</style></head><body>
+<div class="card" style="gap:14px;">
+  <div class="rs"><span class="rs-row"><span class="on">★★★★★</span></span><span class="rs-val">4.9 <span class="rs-count">· 32 jobs</span></span></div>
+  <div class="rs"><span class="rs-row"><span class="on">★★★★</span><span class="off">★</span></span><span class="rs-val">4.0 <span class="rs-count">· 8 jobs</span></span></div>
+  <div class="rs"><span class="rs-row"><span class="off">★★★★★</span></span><span class="rs-val">New</span></div>
+  <span class="ds-meta">Read-only rating row — gold ★ on #ddd. Shows score · job count, or "New" for unrated supply.</span>
+</div>
+</body></html>

@@ -1,0 +1,25 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="_card.css">
+<style>
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;}
+.b-draft{background:rgba(170,170,170,0.15);color:var(--muted);}
+.b-open{background:var(--teal-tint);color:var(--teal);}
+.b-assigned{background:var(--gold-tint);color:var(--gold);}
+.b-completed{background:var(--success-tint);color:var(--success);}
+.b-cancelled{background:rgba(226,29,72,0.10);color:var(--brand-strong);}
+.b-disputed{background:var(--warning-tint);color:var(--warning);}
+</style></head><body>
+<div class="card">
+  <div class="row" style="gap:8px;">
+    <span class="badge b-draft">Draft</span>
+    <span class="badge b-open">Open</span>
+    <span class="badge b-assigned">Assigned</span>
+    <span class="badge b-completed">Completed</span>
+    <span class="badge b-cancelled">Cancelled</span>
+    <span class="badge b-disputed">Disputed</span>
+  </div>
+  <span class="ds-meta">Job-status badges — tinted fill + matching ink. The marketplace's core state vocabulary.</span>
+</div>
+</body></html>

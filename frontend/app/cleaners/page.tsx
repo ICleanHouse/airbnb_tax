@@ -44,7 +44,7 @@ export default function CleanersDirectoryPage() {
     <>
       <header className="host-topbar">
         <Link className="site-brand" href="/host">
-          <span className="brand-symbol"><ChevronLeft size={18} aria-hidden={true} /></span>
+          <span className="brand-symbol brand-symbol--icon"><ChevronLeft size={18} aria-hidden={true} /></span>
           <strong>Find a cleaner</strong>
         </Link>
         <div aria-hidden="true" />

@@ -153,14 +153,34 @@ img {
   font-size: 19px;
 }
 
+/* Wordmark — ink, sentence case, tight tracking (per brand spec). */
+.site-brand strong {
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Brand mark — the Host Cleaners "sparkling-clean home" tile, rendered from
+   the favicon SVG so the header and the browser tab share one source. */
 .brand-symbol {
   display: grid;
   width: 34px;
   height: 34px;
   place-items: center;
-  border-radius: 50%;
+  border-radius: 8px;
+  background: url("/assets/favicon.svg") center / cover no-repeat;
+}
+.brand-symbol > svg {
+  display: none;
+}
+/* Generic icon-tile reuse of the brand-symbol frame (e.g. a back chevron) —
+   keeps the coral tile + a visible icon instead of the brand mark. */
+.brand-symbol--icon {
   background: var(--brand);
   color: #ffffff;
+}
+.brand-symbol--icon > svg {
+  display: block;
 }
 
 .site-nav {

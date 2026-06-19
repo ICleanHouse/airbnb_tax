@@ -1,0 +1,162 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "ui_kits/web/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Geist))/i]",
+        "message": "Font not provided by the design system. Available: Geist."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {},
+    "tokens": [
+      "--brand",
+      "--brand-strong",
+      "--brand-tint",
+      "--canvas",
+      "--canvas-2",
+      "--dur",
+      "--dur-fast",
+      "--ease",
+      "--focus-ring",
+      "--font-sans",
+      "--fs-2xs",
+      "--fs-body",
+      "--fs-display",
+      "--fs-h1",
+      "--fs-h2",
+      "--fs-h3",
+      "--fs-h4",
+      "--fs-sm",
+      "--fs-xs",
+      "--gold",
+      "--gold-tint",
+      "--header-highlight",
+      "--ink",
+      "--lh-body",
+      "--lh-snug",
+      "--lh-tight",
+      "--line",
+      "--line-soft",
+      "--muted",
+      "--paper",
+      "--radius",
+      "--radius-card",
+      "--radius-img",
+      "--radius-lg",
+      "--radius-pill",
+      "--radius-sm",
+      "--shadow-card",
+      "--shadow-md",
+      "--shadow-modal",
+      "--shadow-sm",
+      "--shadow-xs",
+      "--success",
+      "--success-tint",
+      "--surface",
+      "--surface-soft",
+      "--teal",
+      "--teal-tint",
+      "--text",
+      "--warning",
+      "--warning-tint"
+    ],
+    "tokenKinds": {
+      "--brand": "color",
+      "--brand-strong": "color",
+      "--brand-tint": "color",
+      "--teal": "color",
+      "--teal-tint": "color",
+      "--gold": "color",
+      "--gold-tint": "color",
+      "--success": "color",
+      "--success-tint": "color",
+      "--warning": "color",
+      "--warning-tint": "color",
+      "--canvas": "color",
+      "--canvas-2": "color",
+      "--paper": "color",
+      "--surface": "color",
+      "--surface-soft": "color",
+      "--header-highlight": "color",
+      "--ink": "color",
+      "--text": "font",
+      "--muted": "color",
+      "--line": "color",
+      "--line-soft": "color",
+      "--radius-sm": "radius",
+      "--radius": "radius",
+      "--radius-card": "radius",
+      "--radius-lg": "radius",
+      "--radius-img": "radius",
+      "--radius-pill": "radius",
+      "--shadow-xs": "shadow",
+      "--shadow-sm": "shadow",
+      "--shadow-card": "shadow",
+      "--shadow-md": "shadow",
+      "--shadow-modal": "shadow",
+      "--focus-ring": "shadow",
+      "--ease": "other",
+      "--dur-fast": "other",
+      "--dur": "other",
+      "--font-sans": "font",
+      "--fs-display": "font",
+      "--fs-h1": "spacing",
+      "--fs-h2": "spacing",
+      "--fs-h3": "spacing",
+      "--fs-h4": "spacing",
+      "--fs-body": "spacing",
+      "--fs-sm": "spacing",
+      "--fs-xs": "spacing",
+      "--fs-2xs": "spacing",
+      "--lh-tight": "font",
+      "--lh-snug": "font",
+      "--lh-body": "font"
+    },
+    "fontFamilies": [
+      "Geist"
+    ]
+  }
+}

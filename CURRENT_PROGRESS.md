@@ -1,6 +1,24 @@
 # Current Progress Handoff
 
-Updated: 2026-06-16, after landing work-map additions, Sofia district canonicalization, cleaner/profile UI cleanup, chat/calendar refinements, and shared account-menu controls.
+Updated: 2026-06-20, after the two-way double-blind review window + cleaner-only completion change, and the map property-pin "all open jobs + connect host" addition.
+
+## Latest Work — Cleaner-Only Completion + Two-Way Double-Blind Reviews (2026-06-20)
+
+The job-completion + review flow was reworked end to end:
+
+- **Cleaner-only completion (host confirm step removed)**: `complete_job` (`apps/marketplace/services.py`) now treats the assigned cleaner (or an admin) marking a job done as the single completion event — the job goes straight to `completed`; there is no separate host acknowledgement. The host's "mark done / confirm" button was removed from the host dashboard. Cleaner completion is still gated to after `scheduled_start`.
+- **Both parties prompted to review**: on completion, `complete_job` sends a `review.requested` in-app notification to **both** the host (review your cleaner) and the cleaner (review the host), each carrying `{job_id, reviewee_id}`. `send_job_completed_email` still fires.
+- **Two-way double-blind reviews** (`apps/feedback/services.py`): `submit_review` enforces a `REVIEW_WINDOW_DAYS = 14` window. A review *about* a user is revealed only once the counterpart review for that job exists (both sides reviewed) **or** the 14-day window has closed (`revealed_received_reviews`). `ReviewViewSet.get_queryset` returns your own reviews always, received reviews only when revealed. When the second review lands, both parties get a `review.submitted` "Reviews are now visible" notification; otherwise the counterpart gets a `review.requested` prompt.
+- **Revealed-only ratings**: `refresh_cleaner_rating` averages only revealed reviews, so a cleaner's public rating/count never leaks an unrevealed score.
+- **Shared review window UI** (`frontend/components/ReviewModal.tsx`): one modal shows "Your review of X" (form or submitted state) + "X's review of you" (shown when revealed, otherwise a locked placeholder). Mounted in **both** `HostDashboard.tsx` and `CleanerDashboard.tsx`; opened from the completed-job "Leave a review" trigger and via the `?reviewJob=<id>` deep link.
+- **Notification routing** (`frontend/components/NotificationBell.tsx`): `review.requested` now routes to the correct dashboard based on the current path — `/host?section=applications&appFilter=completed&reviewJob=…` for hosts, `/cleaner?section=assignments&reviewJob=…` for cleaners (previously hard-coded to `/cleaner`).
+- **Verification**: `apps.feedback` + `apps.marketplace` backend suites pass (36 tests); frontend `npm.cmd run typecheck` + `npm.cmd run lint` clean.
+
+## Latest Work — Map Property Pin → All Open Jobs + Connect Host (2026-06-20)
+
+- **Property-grouped map pins**: `OpenJobMap.tsx` now renders one marker per property (grouping the per-job markers via a new public `property_id` field on `OpenJobLocationSerializer`). Clicking a pin opens a Property modal listing **all** of that property's open jobs (each with an Apply action).
+- **Connect with host from the map**: for authenticated cleaners, the Property modal shows the host name + a reusable `ConnectButton` (host identity is fetched from the authenticated `GET /api/marketplace/jobs/{id}/`, never from the public marker endpoint). The marker endpoint stays host-identity-free for guests.
+- **Verification**: `test_open_job_locations` updated for `property_id`; typecheck + lint clean.
 
 ## Latest Work — Landing Work Map + Cleaner Work Discovery (2026-06-16)
 

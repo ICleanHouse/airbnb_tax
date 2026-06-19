@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-06-16
+**Last updated:** 2026-06-20
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -182,15 +182,15 @@ AuditLog ──[references]────────► (any entity — polymorph
           │completed │ │ disputed │◄──┘
           └──────────┘ └──────────┘
                │
-               └──► reviews unlocked (both directions)
+               └──► reviews unlocked (both directions; double-blind reveal)
 ```
 
 **Rules:**
 - Only one `Assignment` per job (enforced at service layer).
 - Only one job per property can exist for the exact same `scheduled_start` and `scheduled_end` (serializer validation plus database constraint).
 - Competing applications are rejected when one is accepted.
-- Completion is time-gated: cleaners can mark done once `scheduled_start` is in the past; hosts/admins can complete once `scheduled_end` is in the past. Final job completion requires both host and cleaner acknowledgements, except admin completion can acknowledge both sides.
-- Reviews only allowed after `completed`.
+- **Completion is a single step by the assigned cleaner (or an admin)** — there is no separate host confirmation. Marking done sets `completed_at` and flips the job to `completed` immediately; `cleaner_completed_at`/`host_completed_at` are both stamped at that moment. Cleaner completion is time-gated to after `scheduled_start`.
+- Reviews only allowed after `completed`, and are **double-blind**: a review about a user is revealed only once both sides have reviewed that job, or after a 14-day window (`feedback.services.REVIEW_WINDOW_DAYS`). On completion both host and cleaner receive a `review.requested` prompt.
 - `disputed` requires admin inspection (not yet built).
 
 ### 2d. Cleaner Application Lifecycle
@@ -333,14 +333,15 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
           POST   /api/marketplace/jobs/                       (post job / ICS bulk create)
           POST   /api/marketplace/jobs/{id}/publish/          (draft → open)
           DELETE /api/marketplace/jobs/{id}/                  (delete; draft/open only)
-          POST   /api/marketplace/jobs/{id}/complete/         (mark done)
           POST   /api/marketplace/applications/{id}/accept/   (accept → creates assignment)
           POST   /api/marketplace/applications/{id}/reject/   (decline application)
-          POST   /api/feedback/reviews/                       (rate cleaner; body: job_id, reviewee_id)
+          POST   /api/feedback/reviews/                       (review cleaner via ReviewModal; body: job_id, reviewee_id)
   notes:
+    - Host no longer marks/confirms completion — the cleaner does. Host's role post-completion is to review.
+    - A review.requested notification deep-links here via ?reviewJob=<id>, opening ReviewModal (double-blind two-way window)
     - Job form uses separate date + start/end time fields (not datetime-local)
     - Summary cards are <button> elements driving appFilter state (pending/active/completed/open)
-    - hostRatingAvg = avg of reviews where reviewee === me.id (cleaner-written reviews of the host)
+    - hostRatingAvg = avg of reviews where reviewee === me.id (cleaner-written reviews of the host; revealed only)
 
 /cleaner                         [role: cleaner only]
   reads: GET /api/accounts/me/
@@ -352,7 +353,11 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
   writes: PATCH /api/accounts/users/{id}/
           PATCH /api/accounts/cleaners/{id}/
           POST /api/marketplace/applications/
-          POST /api/marketplace/jobs/{id}/complete/
+          POST /api/marketplace/jobs/{id}/complete/           (mark done — single-step completion)
+          POST /api/feedback/reviews/                         (review host via ReviewModal; body: job_id, reviewee_id)
+  notes:
+    - Cleaner marking done completes the job outright (no host confirm); a review.requested
+      notification deep-links via ?reviewJob=<id> into the ReviewModal double-blind window
 
 /agency   [NOT BUILT]             [role: agency only]
   planned reads: GET /api/accounts/me/
@@ -412,7 +417,7 @@ Full API surface with implementation state.
 | GET/POST | `/api/marketplace/jobs/` | Host/Cleaner | ✅ |
 | POST | `/api/marketplace/jobs/{id}/publish/` | Host | ✅ |
 | DELETE | `/api/marketplace/jobs/{id}/` | Host | ✅ — draft/open only |
-| POST | `/api/marketplace/jobs/{id}/complete/` | Host/Cleaner/Admin | ✅ |
+| POST | `/api/marketplace/jobs/{id}/complete/` | Cleaner/Admin | ✅ — single-step completion; host no longer confirms |
 | GET | `/api/marketplace/calendar/` | Required | ✅ |
 | GET/POST | `/api/marketplace/applications/` | Host/Cleaner/Agency | ✅ |
 | POST | `/api/marketplace/applications/{id}/accept/` | Host | ✅ |
@@ -439,7 +444,7 @@ Full API surface with implementation state.
 
 | Method | Route | Auth | Status |
 |---|---|---|---|
-| GET/POST | `/api/feedback/reviews/` | Required | ✅ |
+| GET/POST | `/api/feedback/reviews/` | Required | ✅ — two-way, double-blind. POST body: `job_id`, `reviewee_id`, `rating`, `comment`. GET returns own reviews + received reviews only once revealed (both submitted, or 14-day window closed) |
 | GET | `/api/notifications/notifications/` | Required | ✅ |
 | GET | `/api/calendars/conflicts/` | Required | ✅ |
 | GET | `/api/locations/cities/` | None | ✅ |
@@ -493,15 +498,21 @@ EVENT: assignment.cancelled                        ⬜ planned
   ├──► TASK: notify both parties
   └──► SIDE EFFECT: AuditLog entry
 
-EVENT: job.completed                               ✅ partial
+EVENT: job.completed                               ✅ implemented
+  │     trigger: assigned cleaner (or admin) marks done — single step, no host confirm
   ├──► TASK: send_job_completed_email              sends via Resend to host
-  ├──► SIDE EFFECT: assignment.host_completed_at / cleaner_completed_at recorded
-  ├──► SIDE EFFECT: assignment reaches full completion after both sides acknowledge
-  ├──► SIDE EFFECT: in-app Notifications to host + cleaner
-  └──► ⬜ planned: review-prompt task (scheduled delay)
+  ├──► SIDE EFFECT: assignment.completed_at set; cleaner_completed_at + host_completed_at stamped; job → completed
+  └──► SIDE EFFECT: review.requested in-app Notification to BOTH host and cleaner
+                   (metadata {job_id, reviewee_id}; deep-links to the review window)
 
-EVENT: review.submitted                            ⬜ planned
-  └──► SIDE EFFECT: CleanerProfile.rating recalculated
+EVENT: review.requested                            ✅ implemented
+  └──► SIDE EFFECT: NotificationBell deep-links to the review window
+                   (/host?...&reviewJob=ID for hosts, /cleaner?...&reviewJob=ID for cleaners)
+
+EVENT: review.submitted                            ✅ implemented
+  ├──► SIDE EFFECT: CleanerProfile.rating recalculated from REVEALED reviews only
+  ├──► IF counterpart review exists → both reviews revealed; review.submitted ("Reviews are now visible") to both
+  └──► ELSE → review.requested prompt sent to the counterpart so they unlock each other's
 
 EVENT: connection.request / connection.accepted    ✅ implemented (apps.connections)
   └──► SIDE EFFECT: create_notification to the other user; Connections badge polls unread-count
@@ -637,10 +648,13 @@ completed_at, cancelled_at
 
 ### Review
 ```
-job (FK), author (FK→User), subject (FK→User),
+job (FK), reviewer (FK→User), reviewee (FK→User),
 rating (1–5), comment,
-is_private, created_at
+private_note, is_private_issue, created_at
 ```
+Visibility (double-blind):
+- A review about a user is revealed only when the counterpart review for the same job exists, OR `assignment.completed_at` is older than `REVIEW_WINDOW_DAYS` (14). `is_private_issue=True` reports are never shown publicly.
+- `CleanerProfile.average_rating` / `completed_jobs_count` are recomputed from revealed reviews only.
 
 ### Notification
 ```
@@ -715,9 +729,9 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Cleaner applications | ✅ Complete |
 | Application acceptance + assignment | ✅ Complete |
 | Agency member delegation | ✅ Complete |
-| Job completion | ✅ Complete |
+| Job completion (single-step, cleaner/admin; no host confirm) | ✅ Complete |
 | Job deletion guard (draft/open only) | ✅ Complete |
-| Two-way reviews + rating update | ✅ Complete |
+| Two-way double-blind reviews + revealed-only rating update | ✅ Complete |
 | In-app notification records | ✅ Complete |
 | Calendar conflict API | ✅ Complete |
 | Application-submitted email (Resend) | ✅ Complete |
@@ -744,12 +758,12 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Host dashboard `/host` — ICS import modal | ✅ Complete |
 | Host dashboard — job form (date + start/end time fields) | ✅ Complete |
 | Host dashboard — delete job (two-step confirm; draft/open only) | ✅ Complete |
-| Host/Cleaner dashboards — time-gated job completion controls | ✅ Complete |
+| Cleaner dashboard — mark-done completion control (host confirm step removed) | ✅ Complete |
 | Host dashboard — job completion email to host via Resend | ✅ Complete |
 | Host dashboard — application submitted email to host via Resend | ✅ Complete |
 | Host dashboard — applications panel (summary cards, filter, pending/active/completed/open) | ✅ Complete |
-| Host dashboard — host rating display (avg from cleaner-written reviews) | ✅ Complete |
-| Host dashboard — star rating + review form (post-completion) | ✅ Complete |
+| Host dashboard — host rating display (avg from cleaner-written revealed reviews) | ✅ Complete |
+| Host + Cleaner — two-way double-blind review window (`ReviewModal`, deep-linked via `?reviewJob=`) | ✅ Complete |
 | Host dashboard — job activity context in calendar list | ✅ Complete |
 | Cookie consent banner | ✅ Complete |
 | `apiFetch` — CSRF, Content-Type, FormData-safe | ✅ Complete |
@@ -767,7 +781,7 @@ Rules that must never be broken regardless of task scope.
 | # | Rule | Where enforced |
 |---|---|---|
 | R1 | A job has at most one accepted `Assignment` | Service layer — `marketplace/services.py` |
-| R2 | Reviews only after job `completed` | Service layer + serializer permission |
+| R2 | Reviews only after job `completed`; two-way and double-blind (received reviews revealed only when both submit or the 14-day window closes; ratings count revealed reviews only) | `feedback/services.py` + `ReviewViewSet.get_queryset` |
 | R3 | Cleaners must be `verified` + `approved` before applying | Permission class in marketplace views |
 | R4 | Agencies assign only to `active` members | Service layer — agency delegation |
 | R5 | No payment processing in v1 | Architecture constraint |
@@ -783,4 +797,4 @@ Rules that must never be broken regardless of task scope.
 | R15 | Timezone `Europe/Sofia`; store UTC, display local | All datetime handling |
 | R16 | Signup field changes must update database models, migrations, serializers, frontend payloads, and tests together | Accounts signup/profile workflow |
 | R17 | A property cannot have two jobs for the exact same start/end time | `CleaningJob` unique constraint + serializer validation |
-| R18 | Cleaner completion is allowed after start time; host/admin completion is allowed after end time | `marketplace/services.py` + dashboard guards |
+| R18 | Job completion is a single step by the assigned cleaner (or admin) after `scheduled_start` — there is no host confirmation step | `marketplace/services.py` + dashboard guards |

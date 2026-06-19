@@ -117,7 +117,8 @@ This is a Windows dev machine. Commands and paths must match it.
 - Cleaners apply; hosts accept or reject.
 - Price can be proposed or agreed in the app, but payment is handled outside the platform in v1.
 - A cleaning job can have only one accepted cleaner assignment.
-- Reviews are two-way and only allowed after job completion.
+- The assigned cleaner (or an admin) marks a job done in a single step — there is no separate host confirmation. The host's post-completion role is to review.
+- Reviews are two-way and only allowed after job completion, and are double-blind: a received review is revealed only once both sides have reviewed that job or the 14-day window closes, and public ratings count revealed reviews only.
 - Admins must be able to inspect marketplace history for disputes and moderation.
 
 ## Current Implementation State
@@ -163,7 +164,7 @@ This is a Windows dev machine. Commands and paths must match it.
 - Cleaner applications.
 - Application acceptance (creates assignment, rejects competing applications).
 - Agency member delegation for accepted agency jobs.
-- Job completion.
+- Single-step job completion by the assigned cleaner (or admin) after `scheduled_start`; on completion both host and cleaner get a `review.requested` notification.
 
 **Notifications (`apps/notifications`)**
 
@@ -176,8 +177,8 @@ This is a Windows dev machine. Commands and paths must match it.
 
 **Feedback (`apps/feedback`)**
 
-- Two-way reviews after completion.
-- Cleaner rating summary updates.
+- Two-way **double-blind** reviews after completion (`submit_review`): a received review is revealed only once both parties review the job or the `REVIEW_WINDOW_DAYS = 14` window closes (`revealed_received_reviews`); `ReviewViewSet.get_queryset` enforces this. Submitting the second review notifies both ("Reviews are now visible"); otherwise the counterpart gets a `review.requested` prompt.
+- Cleaner rating summary (`refresh_cleaner_rating`) averages **revealed reviews only**.
 
 **Calendars (`apps/calendars`)**
 
@@ -250,7 +251,7 @@ This is a Windows dev machine. Commands and paths must match it.
 - Calendar view, open jobs, applications, assigned jobs, and profile sections.
 - Profile form supports first/last name, service-area dropdown, sex dropdown, bio, and profile picture upload preview.
 - Cleaner applications call `POST /api/marketplace/applications/`.
-- Assigned jobs can be marked complete through `POST /api/marketplace/jobs/{id}/complete/`. Cleaners can mark done after the scheduled start time; hosts/admins can complete only after the scheduled end time.
+- The assigned cleaner marks a job done through `POST /api/marketplace/jobs/{id}/complete/` after the scheduled start time — a single step that completes the job (no host confirmation). Both parties then review each other through the shared `ReviewModal` (double-blind), opened from the completed job or a `review.requested` notification (`?reviewJob=<id>`).
 
 ### Cleaner signup state
 

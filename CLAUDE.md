@@ -58,7 +58,8 @@ npm.cmd run typecheck && npm.cmd run lint
 
 - Cleaners must be verified before applying for jobs.
 - A job has at most one accepted cleaner assignment.
-- Reviews are two-way and only allowed after job completion.
+- Job completion is a single step by the assigned cleaner (or admin) — there is no host confirmation step.
+- Reviews are two-way, allowed only after job completion, and double-blind: a received review is revealed only once both sides review the job or the 14-day window closes; public ratings count revealed reviews only.
 - Payments happen outside the platform — never add payment processing unless explicitly requested.
 - Public `/` is a marketing landing page; authenticated workspaces go behind auth routes.
 - Internal app calendar is the source of truth; external calendars (Google, iCal) sync into it.
@@ -122,10 +123,10 @@ docker-compose.yml
 
 - **Job form — date + time range**: separate cleaning date + start time / end time fields (replaced single datetime-local input).
 - **Delete job**: two-step confirm UI; backend guard in `CleaningJobViewSet.destroy()` — only `draft` or `open` jobs may be deleted.
-- **Host/cleaner completion timing**: cleaners can mark assigned jobs done after the scheduled start time; hosts/admins can confirm completion after the scheduled end time. Both sides must acknowledge before the job is fully completed and reviews unlock.
+- **Single-step completion**: the assigned cleaner (or an admin) marks a job done after its scheduled start time, which completes the job outright — there is **no** host confirmation step (the host's mark-done button was removed). `complete_job` then sends a `review.requested` notification to **both** host and cleaner (metadata `{job_id, reviewee_id}`).
 - **Job completion email**: `send_job_completed_email` Celery task fires from `complete_job` service; sends via Resend. Template: `notifications/job_completed_email.html`.
 - **Application submitted email**: `send_application_submitted_email` Celery task fires from `submit_application` service; sends via Resend. Template: `notifications/application_submitted_email.html`.
-- **Star rating + review form**: after completion, host rates cleaner (1–5 stars + comment). `POST /api/feedback/reviews/` — body must use `job_id` and `reviewee_id` (not `job`/`reviewee`).
+- **Two-way double-blind review window** (`frontend/components/ReviewModal.tsx`): after completion both sides review each other through one shared modal (mounted in host + cleaner dashboards; opened from the completed job or a `review.requested` notification via `?reviewJob=<id>`). `POST /api/feedback/reviews/` — body uses `job_id` and `reviewee_id` (not `job`/`reviewee`). Double-blind: a received review is revealed only once both submit or the `REVIEW_WINDOW_DAYS = 14` window closes (`feedback/services.py` `revealed_received_reviews`; `ReviewViewSet.get_queryset`); `refresh_cleaner_rating` counts revealed reviews only. `NotificationBell` routes `review.requested` to `/host` or `/cleaner` based on the current path.
 - **Applications dashboard redesign**: 4-card summary (Pending / Active / Completed / Open jobs). Cards are `<button>` elements with `appFilter` state; clicking a card filters the subsections shown below. Open jobs subsection appears only when `appFilter === "open"`.
 - **Host rating display**: `hostRatingAvg` computed from `reviews.filter(r => r.reviewee === me.id)` (reviews written by cleaners about the host); shown in Applications header as ★ stars + numeric score.
 - **Job activity context in calendar panel**: shows "👤 cleaner" (assigned), "✓ cleaner" (completed), or "N applications" (open with pending apps).

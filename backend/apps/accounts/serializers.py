@@ -42,6 +42,7 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "phone_number",
             "preferred_language",
+            "dashboard_prefs",
             "role",
             "account_status",
             "is_approved",
@@ -60,6 +61,11 @@ class UserSerializer(serializers.ModelSerializer):
             "phone_verified_at",
             "account_status",
         ]
+
+    def validate_dashboard_prefs(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("dashboard_prefs must be an object.")
+        return value
 
     @transaction.atomic
     def create(self, validated_data):

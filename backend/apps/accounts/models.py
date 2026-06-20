@@ -60,6 +60,10 @@ class User(AbstractUser):
         choices=Language.choices,
         default=Language.BULGARIAN,
     )
+    # Per-user UI preferences (e.g. the Applications dashboard card layout:
+    # which summary cards are shown and in what order). Free-form JSON so the
+    # frontend can extend it without a migration per tweak.
+    dashboard_prefs = models.JSONField(default=dict, blank=True)
     approved_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(
         "self",

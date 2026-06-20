@@ -6188,6 +6188,104 @@ img {
   transform: none;
 }
 
+/* ── Customisable Applications cards: edit mode (reorder + show/hide) ── */
+.host-appdash-edit-btn {
+  align-self: center;
+  padding: 7px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.cleaner-apps-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.host-appdash-edit {
+  margin-bottom: 28px;
+}
+.host-appdash-edit-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.host-appdash-grid--editing {
+  margin-bottom: 16px;
+}
+/* In edit mode a card is a draggable container, not a filter button */
+.host-appdash-card--editing {
+  cursor: grab;
+  padding-top: 30px;            /* room for the grip + eye row */
+  user-select: none;
+}
+.host-appdash-card--editing:active {
+  cursor: grabbing;
+}
+.host-appdash-card--dragging {
+  opacity: 0.45;
+}
+.host-appdash-grip {
+  position: absolute;
+  top: 9px;
+  left: 12px;
+  display: inline-flex;
+  color: var(--muted);
+}
+.host-appdash-eye {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.host-appdash-eye:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+.host-appdash-hidden {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.host-appdash-hidden-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.host-appdash-hidden-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.host-appdash-hidden-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.host-appdash-hidden-chip:hover {
+  border-style: solid;
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
 /* Money card value — slightly smaller to fit the currency figure */
 .host-appdash-value--money {
   font-size: 26px;

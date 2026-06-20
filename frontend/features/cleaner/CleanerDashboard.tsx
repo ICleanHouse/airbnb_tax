@@ -31,7 +31,7 @@ import DistrictMapSelector from "../../components/DistrictMapSelector";
 import NotificationBell from "../../components/NotificationBell";
 import Connections from "../../components/Connections";
 import AppdashGrid from "../../components/AppdashGrid";
-import { useDashView } from "../../lib/useDashView";
+import { useAppdashPrefs } from "../../lib/useAppdashPrefs";
 import RatingStars from "../../components/RatingStars";
 import ReviewModal from "../../components/ReviewModal";
 import AccountDeletionPanel from "../../components/AccountDeletionPanel";
@@ -558,7 +558,7 @@ export default function CleanerDashboard() {
   const [dataError, setDataError] = useState("");
   const [section, setSection] = useState<Section>("calendar");
   const [appFilter, setAppFilter] = useState<CleanerAppFilter>(null);
-  const [dashView, setDashView] = useDashView();
+  const appdash = useAppdashPrefs(me);
   const [jobCityFilter, setJobCityFilter] = useState<string>("");
 
   const now = useMemo(() => new Date(), []);
@@ -1693,25 +1693,6 @@ export default function CleanerDashboard() {
                     </button>
                   </div>
                 </div>
-                <div className="account-view-toggle" role="group" aria-label="Dashboard view">
-                  <span className="account-view-toggle-label">Dashboard</span>
-                  <div className="account-view-toggle-opts">
-                    <button
-                      type="button"
-                      className={`account-view-toggle-opt${dashView === "bento" ? " active" : ""}`}
-                      onClick={() => setDashView("bento")}
-                    >
-                      Cards
-                    </button>
-                    <button
-                      type="button"
-                      className={`account-view-toggle-opt${dashView === "donut" ? " active" : ""}`}
-                      onClick={() => setDashView("donut")}
-                    >
-                      Donut
-                    </button>
-                  </div>
-                </div>
                 <button type="button" className="cleaner-account-menu-item cleaner-account-menu-item--danger" role="menuitem" onClick={() => void logout()}>
                   <LogOut size={16} aria-hidden />
                   Log out
@@ -1911,20 +1892,30 @@ export default function CleanerDashboard() {
                 <p className="eyebrow" style={{ margin: "0 0 4px" }}>Your work</p>
                 <h1 className="host-section-title">Applications</h1>
               </div>
-              <button
-                className="secondary-link admin-refresh-button"
-                type="button"
-                onClick={() => void loadAll()}
-                disabled={loadingData}
-              >
-                <RefreshCcw size={15} aria-hidden />
-                {loadingData ? "Loading..." : "Refresh"}
-              </button>
+              <div className="cleaner-apps-header-actions">
+                {!loadingData && (
+                  <button
+                    type="button"
+                    className="secondary-link host-appdash-edit-btn"
+                    onClick={() => appdash.setEditing(!appdash.editing)}
+                  >
+                    {appdash.editing ? "Done" : "Edit cards"}
+                  </button>
+                )}
+                <button
+                  className="secondary-link admin-refresh-button"
+                  type="button"
+                  onClick={() => void loadAll()}
+                  disabled={loadingData}
+                >
+                  <RefreshCcw size={15} aria-hidden />
+                  {loadingData ? "Loading..." : "Refresh"}
+                </button>
+              </div>
             </div>
 
             {!loadingData && (
               <AppdashGrid
-                view={dashView}
                 appFilter={appFilter}
                 setAppFilter={setAppFilter}
                 pending={pendingApplications}
@@ -1937,6 +1928,10 @@ export default function CleanerDashboard() {
                 moneyLabel="Income"
                 moneyValue={formatMoney(totalIncome)}
                 moneyCount={completedAssignments.length}
+                cards={appdash.cards}
+                editing={appdash.editing}
+                onMove={appdash.moveCard}
+                onToggle={appdash.toggleCard}
               />
             )}
 

@@ -3400,6 +3400,21 @@ img {
   background: rgba(0, 0, 0, 0.48);
 }
 
+/* Portal shell for CleanerProfileModal — rendered into document.body so no
+   parent transform or stacking context can interfere with compositing order.
+   Background starts transparent and is set to dark via JS after one rAF so
+   the modal card's GPU tile layer is fully rasterized first (avoids the
+   "dimmed card on first paint" artifact caused by Chrome layer scheduling). */
+.host-modal-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  transition: background-color 180ms ease;
+}
+
 .host-modal {
   display: grid;
   width: min(600px, 100%);

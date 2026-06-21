@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Check,
   Home as HomeIcon,
@@ -23,9 +23,23 @@ type Language = "BG" | "EN";
 export default function Home() {
   const [language, setLanguage] = useState<Language>("EN");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [audience, setAudience] = useState<Audience>("host");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  // Restore cached user before first paint so there is no flash of the wrong UI.
+  useLayoutEffect(() => {
+    try {
+      const hint = localStorage.getItem("hc_user_hint");
+      if (hint) {
+        setCurrentUser(JSON.parse(hint) as CurrentUser);
+        setAuthChecked(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Initialise the audience from the ?as= URL param (shareable / deep-linkable).
   useEffect(() => {
@@ -46,9 +60,19 @@ export default function Home() {
 
     apiFetch("/api/accounts/me/", { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: CurrentUser | null) => setCurrentUser(data))
+      .then((data: CurrentUser | null) => {
+        setCurrentUser(data);
+        if (data) {
+          localStorage.setItem("hc_user_hint", JSON.stringify(data));
+        } else {
+          localStorage.removeItem("hc_user_hint");
+        }
+      })
       .catch(() => null)
-      .finally(() => window.clearTimeout(timeoutId));
+      .finally(() => {
+        setAuthChecked(true);
+        window.clearTimeout(timeoutId);
+      });
 
     return () => {
       window.clearTimeout(timeoutId);
@@ -69,6 +93,7 @@ export default function Home() {
 
   async function handleLogout() {
     await apiFetch("/api/accounts/logout/", { method: "POST" });
+    localStorage.removeItem("hc_user_hint");
     setCurrentUser(null);
     setAccountMenuOpen(false);
   }
@@ -108,7 +133,7 @@ export default function Home() {
         </a>
 
         <div className="header-actions">
-          {currentUser ? (
+          {authChecked && currentUser ? (
             <>
               {currentUser.is_platform_admin ? (
                 <a className="text-link" href={dashboardHref}>
@@ -180,7 +205,7 @@ export default function Home() {
                 ) : null}
               </div>
             </>
-          ) : (
+          ) : authChecked ? (
             <>
               <a className="text-link login-link" href="/login">
                 Log in
@@ -189,8 +214,8 @@ export default function Home() {
                 Sign up
               </a>
             </>
-          )}
-          {!currentUser ? (
+          ) : null}
+          {authChecked && !currentUser ? (
             <label className="language-picker" aria-label="Language">
               <select
                 value={language}
@@ -204,7 +229,7 @@ export default function Home() {
         </div>
       </header>
 
-      {currentUser ? (
+      {authChecked && currentUser ? (
         /* Logged-in home — compact, role-aware: hosts browse cleaners, cleaners
            get the jobs/properties map. No marketing copy or audience toggle. */
         <>
@@ -229,7 +254,7 @@ export default function Home() {
             )}
           </section>
         </>
-      ) : (
+      ) : authChecked ? (
         /* Public landing — full marketing hero + audience self-select. */
         <>
           <section className="landing-hero" id="top">
@@ -264,7 +289,7 @@ export default function Home() {
             {audience === "host" ? <CleanerBrowser /> : <AreaDemandPanel currentUser={currentUser} />}
           </section>
         </>
-      )}
+      ) : null}
     </main>
   );
 }

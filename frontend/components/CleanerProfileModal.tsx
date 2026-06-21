@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Car, MapPin, MessageSquare, X } from "lucide-react";
 import { apiFetch, type PublicCleanerDetail } from "../lib/api";
 import RatingStars from "./RatingStars";
@@ -43,6 +44,15 @@ export default function CleanerProfileModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAllAreas, setShowAllAreas] = useState(false);
+  const [backdropActive, setBackdropActive] = useState(false);
+
+  // Delay the dark backdrop by one rAF so the modal card's GPU tile layer is
+  // fully rasterized before we composite it over the dark background, avoiding
+  // an initial "dimmed card" artifact caused by Chrome layer scheduling order.
+  useLayoutEffect(() => {
+    const id = requestAnimationFrame(() => setBackdropActive(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -76,8 +86,13 @@ export default function CleanerProfileModal({
     .join(", ");
   const exp = detail ? experienceLabel(detail.experience_level) : "";
 
-  return (
-    <div className="host-modal-backdrop" onClick={onClose} role="presentation">
+  return createPortal(
+    <div
+      className="host-modal-shell"
+      onClick={onClose}
+      role="presentation"
+      style={{ background: backdropActive ? "rgba(0, 0, 0, 0.48)" : "transparent" }}
+    >
       <div
         className="host-modal cleaner-profile-modal"
         onClick={(e) => e.stopPropagation()}
@@ -197,6 +212,7 @@ export default function CleanerProfileModal({
 
         {footer && <div className="cleaner-profile-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

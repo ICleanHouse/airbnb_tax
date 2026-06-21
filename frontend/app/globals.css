@@ -82,6 +82,8 @@
 
 * {
   box-sizing: border-box;
+  cursor: default;
+  user-select: none;
 }
 
 html {
@@ -103,6 +105,12 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+textarea {
+  cursor: text;
+  user-select: text;
 }
 
 button {

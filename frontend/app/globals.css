@@ -5269,6 +5269,16 @@ img {
 
 /* ── Property location map ──────────────────────────────────────────────── */
 
+.prop-address-locked-notice {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: #fff8e1;
+  border: 1px solid #f6cc65;
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--gold);
+}
+
 .prop-location-section {
   margin: 0 0 16px;
 }

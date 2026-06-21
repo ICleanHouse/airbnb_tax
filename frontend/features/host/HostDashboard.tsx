@@ -283,6 +283,12 @@ export default function HostDashboard() {
   // ── Property form ──────────────────────────────────────────────────────────
   const [showPropForm, setShowPropForm]  = useState(false);
   const [editingPropId, setEditingPropId] = useState<number | null>(null);   // null = create mode
+  const editingPropHasActiveJobs = useMemo(() => {
+    if (editingPropId === null) return false;
+    return allJobs.some(
+      (j) => j.property === editingPropId && ["draft", "open", "assigned"].includes(j.status),
+    );
+  }, [allJobs, editingPropId]);
   const [propName,          setPropName]          = useState("");
   const [propCity,          setPropCity]          = useState("Sofia");
   const [propAddress,       setPropAddress]       = useState("");
@@ -2238,7 +2244,12 @@ export default function HostDashboard() {
                 </label>
                 <label>
                   <span>City *</span>
-                  <select required value={propCity} onChange={(e) => { setPropCity(e.target.value); if (editingPropId === null) { setPropLat(null); setPropLng(null); } }}>
+                  <select
+                    required
+                    value={propCity}
+                    disabled={editingPropHasActiveJobs}
+                    onChange={(e) => { setPropCity(e.target.value); if (editingPropId === null) { setPropLat(null); setPropLng(null); } }}
+                  >
                     <option value="Sofia">Sofia</option>
                     <option value="Plovdiv">Plovdiv</option>
                     <option value="Varna">Varna</option>
@@ -2246,8 +2257,17 @@ export default function HostDashboard() {
                 </label>
               </div>
 
+              {editingPropHasActiveJobs && (
+                <p className="prop-address-locked-notice">
+                  Address cannot be changed while this property has active jobs (draft, open, or assigned).
+                </p>
+              )}
+
               {/* ── Location map ── */}
-              <div className="prop-location-section">
+              <div
+                className="prop-location-section"
+                style={editingPropHasActiveJobs ? { pointerEvents: "none", opacity: 0.5 } : undefined}
+              >
                 <p className="prop-location-label">Pin location on map <span className="prop-location-hint">(click to set)</span></p>
                 <PropertyLocationPicker
                   lat={propLat}
@@ -2267,7 +2287,8 @@ export default function HostDashboard() {
                   <span>Street address</span>
                   <input
                     value={propAddress}
-                    onChange={(e) => setPropAddress(e.target.value)}
+                    readOnly={editingPropHasActiveJobs}
+                    onChange={(e) => !editingPropHasActiveJobs && setPropAddress(e.target.value)}
                     placeholder="Auto-filled from map, or enter manually"
                   />
                 </label>

@@ -1,6 +1,10 @@
 from rest_framework import serializers
 
+from apps.marketplace.models import CleaningJob
 from apps.properties.models import ExternalCalendarConnection, Property, PropertyImage, Reservation
+
+_ADDRESS_FIELDS = {"address", "city", "neighborhood", "latitude", "longitude"}
+_ACTIVE_JOB_STATUSES = {CleaningJob.Status.DRAFT, CleaningJob.Status.OPEN, CleaningJob.Status.ASSIGNED}
 
 
 class PropertyImageSerializer(serializers.ModelSerializer):
@@ -51,6 +55,33 @@ class PropertySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "host", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        instance = self.instance
+        if instance is None:
+            return attrs
+
+        changing_address = _ADDRESS_FIELDS.intersection(attrs)
+        if not changing_address:
+            return attrs
+
+        actual_changes = {
+            f for f in changing_address
+            if str(attrs[f]) != str(getattr(instance, f) or "")
+        }
+        if not actual_changes:
+            return attrs
+
+        has_active_jobs = CleaningJob.objects.filter(
+            property=instance,
+            status__in=_ACTIVE_JOB_STATUSES,
+        ).exists()
+        if has_active_jobs:
+            raise serializers.ValidationError(
+                "Cannot change the address while there are active jobs (draft, open, or assigned) on this property."
+            )
+
+        return attrs
 
 
 class ExternalCalendarConnectionSerializer(serializers.ModelSerializer):

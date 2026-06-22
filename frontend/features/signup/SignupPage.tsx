@@ -7,7 +7,6 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Building2,
   CalendarDays,
-  Camera,
   Check,
   ChevronDown,
   ChevronLeft,

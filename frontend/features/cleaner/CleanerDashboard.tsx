@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Gift,
   Home as HomeIcon,
+  LayoutGrid,
   LogOut,
   Plus,
   RefreshCcw,
@@ -560,6 +561,8 @@ export default function CleanerDashboard() {
   const [appFilter, setAppFilter] = useState<CleanerAppFilter>(null);
   const appdash = useAppdashPrefs(me);
   const [jobCityFilter, setJobCityFilter] = useState<string>("");
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
+  const [railExpanded, setRailExpanded] = useState(false);
 
   const now = useMemo(() => new Date(), []);
   const [calYear, setCalYear] = useState(now.getFullYear());
@@ -1419,6 +1422,26 @@ export default function CleanerDashboard() {
     return map;
   }, [jobs]);
 
+  const myProperties = useMemo(() => {
+    const map = new Map<number, { id: number; name: string; city: string; hostName: string }>();
+    for (const assignment of assignments) {
+      const job = jobById.get(assignment.job);
+      if (!job || map.has(job.property)) continue;
+      map.set(job.property, {
+        id: job.property,
+        name: job.property_name || `Property #${job.property}`,
+        city: job.property_city || "",
+        hostName: job.host_name || "Host",
+      });
+    }
+    return Array.from(map.values());
+  }, [assignments, jobById]);
+
+  const scopedJobIds = useMemo(() => {
+    if (!selectedPropertyId) return null;
+    return new Set(jobs.filter((j) => j.property === selectedPropertyId).map((j) => j.id));
+  }, [jobs, selectedPropertyId]);
+
   const openJobs = useMemo(() => {
     let result = jobs.filter((job) => job.status === "open");
     if (jobCityFilter) {
@@ -1436,12 +1459,12 @@ export default function CleanerDashboard() {
   }, [jobs]);
 
   const activeAssignments = useMemo(
-    () => assignments.filter((assignment) => !assignment.completed_at),
-    [assignments],
+    () => assignments.filter((a) => !a.completed_at && (!scopedJobIds || scopedJobIds.has(a.job))),
+    [assignments, scopedJobIds],
   );
   const completedAssignments = useMemo(
-    () => assignments.filter((assignment) => Boolean(assignment.completed_at)),
-    [assignments],
+    () => assignments.filter((a) => Boolean(a.completed_at) && (!scopedJobIds || scopedJobIds.has(a.job))),
+    [assignments, scopedJobIds],
   );
 
   /** Total income = sum of agreed_price across fully-completed assignments. */
@@ -1474,9 +1497,14 @@ export default function CleanerDashboard() {
   const totalDays = daysInMonth(calYear, calMonth);
   const monthPrefix = `${calYear}-${pad(calMonth + 1)}-`;
 
+  const scopedCalendarItems = useMemo(
+    () => (scopedJobIds ? calendarItems.filter((item) => scopedJobIds.has(item.job)) : calendarItems),
+    [calendarItems, scopedJobIds],
+  );
+
   const calendarItemsByDay = useMemo(() => {
     const map = new Map<number, CalendarItem[]>();
-    for (const item of calendarItems) {
+    for (const item of scopedCalendarItems) {
       const ds = dateOnly(item.starts_at);
       if (ds.startsWith(monthPrefix)) {
         const day = parseInt(ds.slice(8), 10);
@@ -1488,16 +1516,16 @@ export default function CleanerDashboard() {
       dayItems.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
     }
     return map;
-  }, [calendarItems, monthPrefix]);
+  }, [scopedCalendarItems, monthPrefix]);
 
   const visibleCalendarItems = useMemo(() => {
     if (selectedDay !== null) {
       const target = `${monthPrefix}${pad(selectedDay)}`;
-      return calendarItems.filter((item) => dateOnly(item.starts_at) === target);
+      return scopedCalendarItems.filter((item) => dateOnly(item.starts_at) === target);
     }
-    return [...calendarItems].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
-  }, [calendarItems, monthPrefix, selectedDay]);
-  const incompleteCalendarItemCount = calendarItems.filter(
+    return [...scopedCalendarItems].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  }, [scopedCalendarItems, monthPrefix, selectedDay]);
+  const incompleteCalendarItemCount = scopedCalendarItems.filter(
     (item) => !item.completed_at && item.job_status !== "completed",
   ).length;
 
@@ -1525,7 +1553,9 @@ export default function CleanerDashboard() {
   const pendingOffers = applications.filter(
     (application) => application.origin === "host_offered" && application.status === "pending",
   );
-  const selfApplications = applications.filter((application) => application.origin !== "host_offered");
+  const selfApplications = applications.filter(
+    (application) => application.origin !== "host_offered" && (!scopedJobIds || scopedJobIds.has(application.job)),
+  );
   const pendingSelfApplications = selfApplications
     .filter((application) => application.status === "pending")
     .sort((a, b) => (a.job_scheduled_start ?? "").localeCompare(b.job_scheduled_start ?? ""));
@@ -1704,6 +1734,85 @@ export default function CleanerDashboard() {
       </header>
 
       <main className="host-page cleaner-page">
+        <div className="host-workspace">
+
+        {/* ── Property navigation rail (desktop) ── */}
+        {me.is_approved && section !== "profile" && myProperties.length > 0 && (
+          <aside
+            className={`host-rail${railExpanded ? " host-rail--expanded" : " host-rail--mini"}`}
+            aria-label="Properties under my care"
+          >
+            <div className="host-rail-head">
+              <button
+                type="button"
+                className="host-rail-toggle"
+                onClick={() => setRailExpanded((v) => !v)}
+                title={railExpanded ? "Collapse properties panel" : "Expand properties panel"}
+                aria-label={railExpanded ? "Collapse properties panel" : "Expand properties panel"}
+              >
+                {railExpanded ? <ChevronLeft size={18} aria-hidden /> : <ChevronRight size={18} aria-hidden />}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className={`host-rail-card host-rail-card--btn${selectedPropertyId == null ? " host-rail-card--active" : ""}`}
+              onClick={() => setSelectedPropertyId(null)}
+              title="All properties"
+              aria-label="All properties"
+            >
+              <span className="host-rail-thumb host-rail-thumb--icon">
+                <LayoutGrid size={22} aria-hidden />
+              </span>
+              <span className="host-rail-card-text host-rail-fade">
+                <span className="host-rail-card-name">All properties</span>
+              </span>
+            </button>
+
+            <div className="host-rail-list">
+              {myProperties.map((p) => (
+                <div key={p.id} className={`host-rail-card${selectedPropertyId === p.id ? " host-rail-card--active" : ""}`}>
+                  <button
+                    type="button"
+                    className="host-rail-card-main"
+                    onClick={() => setSelectedPropertyId(p.id)}
+                    title={p.name}
+                    aria-label={p.name}
+                  >
+                    <span className="host-rail-thumb">
+                      <span className="host-rail-thumb--empty"><Building2 size={22} aria-hidden /></span>
+                    </span>
+                    <span className="host-rail-card-text host-rail-fade">
+                      <span className="host-rail-card-name">{p.name}</span>
+                      {p.city && <span className="host-rail-card-city">{p.city}</span>}
+                      <span className="host-rail-card-city" style={{ color: "var(--muted)", fontSize: "11px" }}>{p.hostName}</span>
+                    </span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </aside>
+        )}
+
+        <div className="host-workspace-main">
+
+        {/* ── Property selector (mobile — rail collapses to a dropdown) ── */}
+        {me.is_approved && section !== "profile" && myProperties.length > 0 && (
+          <div className="host-rail-mobile">
+            <select
+              className="host-rail-mobile-select"
+              value={selectedPropertyId ?? ""}
+              onChange={(e) => setSelectedPropertyId(e.target.value ? Number(e.target.value) : null)}
+              aria-label="Filter by property"
+            >
+              <option value="">All properties</option>
+              {myProperties.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}{p.hostName ? ` (${p.hostName})` : ""}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {!me.is_approved && (
           <div className="host-pending-banner">
             Your account is <strong>{me.account_status}</strong>. You can complete your profile while marketplace access waits for admin approval.
@@ -2728,6 +2837,8 @@ export default function CleanerDashboard() {
             )}
           </div>
         )}
+        </div>{/* host-workspace-main */}
+        </div>{/* host-workspace */}
       </main>
 
       {districtOverlayOpen ? (

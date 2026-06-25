@@ -1,14 +1,10 @@
 "use client";
 
 import { Search, Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export type Audience = "host" | "cleaner";
 
-/**
- * Landing-page audience self-select: "Find a cleaner" (hosts) vs "Find cleaning
- * work" (cleaners). Controlled — the page owns the value and syncs it to the
- * ?as= URL param so the choice is shareable and can deep-link signup.
- */
 export default function AudienceToggle({
   value,
   onChange,
@@ -16,8 +12,9 @@ export default function AudienceToggle({
   value: Audience;
   onChange: (next: Audience) => void;
 }) {
+  const t = useTranslations("audienceToggle");
   return (
-    <div className="audience-toggle" role="tablist" aria-label="What are you looking for?">
+    <div className="audience-toggle" role="tablist" aria-label={t("ariaLabel")}>
       <button
         type="button"
         role="tab"
@@ -26,7 +23,7 @@ export default function AudienceToggle({
         onClick={() => onChange("host")}
       >
         <Search size={16} aria-hidden />
-        Find a cleaner
+        {t("findCleaner")}
       </button>
       <button
         type="button"
@@ -36,7 +33,7 @@ export default function AudienceToggle({
         onClick={() => onChange("cleaner")}
       >
         <Sparkles size={16} aria-hidden />
-        Find cleaning work
+        {t("findWork")}
       </button>
     </div>
   );

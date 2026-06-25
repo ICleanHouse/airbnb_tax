@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Users,
   X,
@@ -31,18 +32,6 @@ function localDateKey(iso: string): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
-function fmtDateSeparator(iso: string, now = new Date()): string {
-  const date = new Date(iso);
-  if (localDateKey(iso) === localDateKey(now.toISOString())) {
-    return "Today";
-  }
-  if (date.getFullYear() !== now.getFullYear()) {
-    return date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  }
-  const dateLabel = date.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
-  return `${dateLabel}, ${fmtTime(iso)}`;
-}
-
 /**
  * Connections launcher — a nav button (with unread badge) that opens a right-hand
  * drawer listing connection requests + accepted connections, an in-app chat
@@ -58,8 +47,21 @@ export default function Connections({
    *  still mount — use this on pages that show the bell but have no nav tab. */
   showTrigger?: boolean;
 }) {
+  const t = useTranslations("components.connections");
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Connection[]>([]);
+
+  function fmtDateSeparator(iso: string, now = new Date()): string {
+    const date = new Date(iso);
+    if (localDateKey(iso) === localDateKey(now.toISOString())) {
+      return t("today");
+    }
+    if (date.getFullYear() !== now.getFullYear()) {
+      return date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    }
+    const dateLabel = date.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+    return `${dateLabel}, ${fmtTime(iso)}`;
+  }
   const [loadingList, setLoadingList] = useState(false);
   const [unread, setUnread] = useState(0);
   const [pendingReq, setPendingReq] = useState(0);
@@ -222,11 +224,11 @@ export default function Connections({
           type="button"
           className="host-tab connections-tab"
           onClick={() => setOpen((v) => !v)}
-          aria-label={`Connections${badge > 0 ? `, ${badge} new` : ""}`}
+          aria-label={badge > 0 ? t("tabAriaLabelNew", { count: badge }) : t("tabAriaLabel")}
           aria-expanded={open}
         >
           <Users size={15} aria-hidden />
-          Connections
+          {t("tabLabel")}
           {badge > 0 && (
             <span className="host-tab-count host-tab-count--alert">{badge > 9 ? "9+" : badge}</span>
           )}
@@ -235,7 +237,7 @@ export default function Connections({
 
       {open && (
         <div className="connections-overlay">
-          <aside className="connections-drawer" ref={ref} role="dialog" aria-label="Connections">
+          <aside className="connections-drawer" ref={ref} role="dialog" aria-label={t("drawerAriaLabel")}>
             {active ? (
               <div className="connections-chat">
                 <div className="connections-chat-head">
@@ -243,7 +245,7 @@ export default function Connections({
                     type="button"
                     className="connections-icon-btn"
                     onClick={() => setActiveId(null)}
-                    aria-label="Back to connections"
+                    aria-label={t("backAriaLabel")}
                   >
                     <ChevronLeft size={18} aria-hidden />
                   </button>
@@ -264,13 +266,13 @@ export default function Connections({
                     className={`connections-shared-toggle${showShared ? " active" : ""}`}
                     onClick={() => setShowShared((v) => !v)}
                   >
-                    Shared
+                    {t("sharedBtn")}
                   </button>
                   <button
                     type="button"
                     className="connections-icon-btn"
                     onClick={() => setOpen(false)}
-                    aria-label="Close"
+                    aria-label={t("closeAriaLabel")}
                   >
                     <X size={18} aria-hidden />
                   </button>
@@ -279,13 +281,13 @@ export default function Connections({
                 {showShared ? (
                   <div className="connections-shared">
                     {shared == null ? (
-                      <p className="connections-empty">Loading…</p>
+                      <p className="connections-empty">{t("sharedLoading")}</p>
                     ) : shared.cleanings_count === 0 ? (
-                      <p className="connections-empty">No shared cleanings yet.</p>
+                      <p className="connections-empty">{t("sharedEmpty")}</p>
                     ) : (
                       <>
                         <h4 className="connections-shared-title">
-                          <Building2 size={13} aria-hidden /> Properties
+                          <Building2 size={13} aria-hidden /> {t("sharedProperties")}
                         </h4>
                         <ul className="connections-shared-list">
                           {shared.properties.map((p) => (
@@ -296,7 +298,7 @@ export default function Connections({
                           ))}
                         </ul>
                         <h4 className="connections-shared-title">
-                          <CalendarDays size={13} aria-hidden /> Cleanings ({shared.cleanings_count})
+                          <CalendarDays size={13} aria-hidden /> {t("sharedCleanings", { count: shared.cleanings_count })}
                         </h4>
                         <ul className="connections-shared-list">
                           {shared.cleanings.slice(0, 20).map((c) => (
@@ -316,7 +318,7 @@ export default function Connections({
                           className="connections-remove"
                           onClick={() => void remove(active.id)}
                         >
-                          <Trash2 size={13} aria-hidden /> Remove connection
+                          <Trash2 size={13} aria-hidden /> {t("removeConnection")}
                         </button>
                       </>
                     )}
@@ -325,7 +327,7 @@ export default function Connections({
                   <>
                     <div className="connections-thread" ref={threadRef}>
                       {messages.length === 0 ? (
-                        <p className="connections-empty">Say hello 👋</p>
+                        <p className="connections-empty">{t("chatEmpty")}</p>
                       ) : (
                         messages.map((m, index) => {
                           const showDateSeparator = index === 0
@@ -357,10 +359,10 @@ export default function Connections({
                       <input
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
-                        placeholder={`Message ${active.other_user_name.split(" ")[0]}…`}
-                        aria-label="Message"
+                        placeholder={t("messagePlaceholder", { firstName: active.other_user_name.split(" ")[0] })}
+                        aria-label={t("messageAriaLabel")}
                       />
-                      <button type="submit" disabled={sending || !draft.trim()} aria-label="Send">
+                      <button type="submit" disabled={sending || !draft.trim()} aria-label={t("sendAriaLabel")}>
                         <Send size={16} aria-hidden />
                       </button>
                     </form>
@@ -370,12 +372,12 @@ export default function Connections({
             ) : (
               <>
                 <div className="connections-head">
-                  <strong>Connections</strong>
+                  <strong>{t("heading")}</strong>
                   <button
                     type="button"
                     className="connections-icon-btn"
                     onClick={() => setOpen(false)}
-                    aria-label="Close"
+                    aria-label={t("closeAriaLabel")}
                   >
                     <X size={18} aria-hidden />
                   </button>
@@ -383,12 +385,12 @@ export default function Connections({
 
                 <div className="connections-body">
                   {loadingList ? (
-                    <p className="connections-empty">Loading…</p>
+                    <p className="connections-empty">{t("listLoading")}</p>
                   ) : (
                     <>
                       {incoming.length > 0 && (
                         <div className="connections-group">
-                          <h4 className="connections-group-title">Requests</h4>
+                          <h4 className="connections-group-title">{t("requestsTitle")}</h4>
                           {incoming.map((c) => (
                             <div key={c.id} className="connection-row">
                               <div className="connection-avatar">
@@ -401,14 +403,14 @@ export default function Connections({
                               </div>
                               <div className="connection-row-main">
                                 <strong>{c.other_user_name}</strong>
-                                <span>wants to connect</span>
+                                <span>{t("wantsToConnect")}</span>
                               </div>
                               <div className="connection-row-actions">
                                 <button
                                   type="button"
                                   className="connections-accept"
                                   onClick={() => void accept(c.id)}
-                                  aria-label="Accept"
+                                  aria-label={t("acceptAriaLabel")}
                                 >
                                   <Check size={15} aria-hidden />
                                 </button>
@@ -416,7 +418,7 @@ export default function Connections({
                                   type="button"
                                   className="connections-decline"
                                   onClick={() => void decline(c.id)}
-                                  aria-label="Decline"
+                                  aria-label={t("declineAriaLabel")}
                                 >
                                   <X size={15} aria-hidden />
                                 </button>
@@ -428,12 +430,11 @@ export default function Connections({
 
                       <div className="connections-group">
                         <h4 className="connections-group-title">
-                          Connected{connected.length > 0 ? ` · ${connected.length}` : ""}
+                          {connected.length > 0 ? t("connectedTitleCount", { count: connected.length }) : t("connectedTitle")}
                         </h4>
                         {connected.length === 0 ? (
                           <p className="connections-empty">
-                            No connections yet. Connect with people you work with to chat and track
-                            shared cleanings.
+                            {t("emptyConnected")}
                           </p>
                         ) : (
                           connected.map((c) => (
@@ -468,7 +469,7 @@ export default function Connections({
 
                       {outgoing.length > 0 && (
                         <div className="connections-group">
-                          <h4 className="connections-group-title">Pending</h4>
+                          <h4 className="connections-group-title">{t("pendingTitle")}</h4>
                           {outgoing.map((c) => (
                             <div key={c.id} className="connection-row">
                               <div className="connection-avatar">
@@ -481,14 +482,14 @@ export default function Connections({
                               </div>
                               <div className="connection-row-main">
                                 <strong>{c.other_user_name}</strong>
-                                <span>request sent</span>
+                                <span>{t("requestSent")}</span>
                               </div>
                               <button
                                 type="button"
                                 className="connections-cancel"
                                 onClick={() => void remove(c.id)}
                               >
-                                Cancel
+                                {t("cancelBtn")}
                               </button>
                             </div>
                           ))}

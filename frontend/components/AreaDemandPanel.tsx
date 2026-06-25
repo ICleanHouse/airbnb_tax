@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Briefcase, Sparkles, Users } from "lucide-react";
+import Link from "next/link";
 import { apiFetch } from "../lib/api";
 import type { CurrentUser } from "../lib/api";
 import { cities } from "../lib/cityDistricts";
@@ -25,6 +27,7 @@ type CityChangeSource = "select" | "map";
  * deep-links signup with the cleaner role preselected.
  */
 export default function AreaDemandPanel({ currentUser }: { currentUser: CurrentUser | null }) {
+  const t = useTranslations("components.areaDemandPanel");
   const [cityLabel, setCityLabel] = useState("");
   const [cityChangeSource, setCityChangeSource] = useState<CityChangeSource>("select");
   const [stats, setStats] = useState<AreaStats | null>(null);
@@ -60,19 +63,19 @@ export default function AreaDemandPanel({ currentUser }: { currentUser: CurrentU
     };
   }, [cityLabel]);
 
-  const where = cityLabel || "Bulgaria";
+  const where = cityLabel || t("defaultCity");
   const cards = [
-    { icon: Users, value: stats?.active_hosts ?? 0, label: "Hosts hiring", tone: "teal" as const },
-    { icon: Briefcase, value: stats?.open_jobs ?? 0, label: "Open jobs", tone: "brand" as const },
-    { icon: Sparkles, value: stats?.jobs_this_week ?? 0, label: "Posted this week", tone: "gold" as const },
+    { icon: Users, value: stats?.active_hosts ?? 0, label: t("hostsHiring"), tone: "teal" as const },
+    { icon: Briefcase, value: stats?.open_jobs ?? 0, label: t("openJobs"), tone: "brand" as const },
+    { icon: Sparkles, value: stats?.jobs_this_week ?? 0, label: t("postedThisWeek"), tone: "gold" as const },
   ];
 
   return (
     <div className="area-demand">
       <div className="area-demand-head">
-        <label className="area-demand-field" aria-label="City">
+        <label className="area-demand-field" aria-label={t("cityAriaLabel")}>
           <select value={cityLabel} onChange={(e) => selectCity(e.target.value)}>
-            <option value="">All of Bulgaria</option>
+            <option value="">{t("allBulgaria")}</option>
             {cities.map((c) => (
               <option key={c.value} value={c.label}>
                 {c.label}
@@ -81,7 +84,7 @@ export default function AreaDemandPanel({ currentUser }: { currentUser: CurrentU
           </select>
         </label>
         <p className="area-demand-caption">
-          Live cleaning demand in <strong>{where}</strong>
+          {t("demandCaption", { city: where })}
         </p>
       </div>
 
@@ -104,14 +107,11 @@ export default function AreaDemandPanel({ currentUser }: { currentUser: CurrentU
 
       {!currentUser ? (
         <div className="area-demand-cta">
-          <p>
-            <strong>{stats?.verified_cleaners ?? 0}</strong> verified cleaners already work here.
-            Add your profile and start getting jobs.
-          </p>
-          <a className="primary-link" href="/signup?role=cleaner">
+          <p>{t("ctaText", { count: stats?.verified_cleaners ?? 0 })}</p>
+          <Link className="primary-link" href="/signup?role=cleaner">
             <Sparkles size={15} aria-hidden />
-            Join as a cleaner
-          </a>
+            {t("joinAsCleaner")}
+          </Link>
         </div>
       ) : null}
     </div>

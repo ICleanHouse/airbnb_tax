@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ServiceZone, SupportedLanguage } from "../types/locations";
@@ -20,6 +21,7 @@ export default function DistrictChecklist({
   disabledZoneIds = [],
   language = "bg",
 }: DistrictChecklistProps) {
+  const t = useTranslations("components.districtChecklist");
   const [query, setQuery] = useState("");
   const selected = useMemo(() => new Set(selectedZoneIds), [selectedZoneIds]);
   const disabled = useMemo(() => new Set(disabledZoneIds), [disabledZoneIds]);
@@ -41,12 +43,12 @@ export default function DistrictChecklist({
   }
 
   return (
-    <section className="district-selector__fallback" aria-label="District checklist">
+    <section className="district-selector__fallback" aria-label={t("ariaLabel")}>
       <label className="district-selector__search">
         <Search size={16} aria-hidden="true" />
         <input
           type="search"
-          placeholder="Search district"
+          placeholder={t("searchPlaceholder")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -70,7 +72,7 @@ export default function DistrictChecklist({
             </label>
           );
         })}
-        {filteredZones.length === 0 ? <p className="district-selector__empty">No districts match this search.</p> : null}
+        {filteredZones.length === 0 ? <p className="district-selector__empty">{t("noMatch")}</p> : null}
       </div>
     </section>
   );

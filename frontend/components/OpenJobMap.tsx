@@ -3,6 +3,7 @@
 import "leaflet/dist/leaflet.css";
 import Image from "next/image";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Briefcase, X } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import type { CurrentUser } from "../lib/api";
@@ -100,6 +101,7 @@ function cityFromMapCenter(center: { lat: number; lng: number }) {
 }
 
 export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, onCityChange }: Props) {
+  const t = useTranslations("components.openJobMap");
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerLayerRef = useRef<any>(null);
@@ -122,7 +124,7 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
   const [hostId, setHostId] = useState<number | null>(null);
   const [hostName, setHostName] = useState("");
 
-  const where = cityLabel || "Bulgaria";
+  const where = cityLabel || t("defaultCity");
   const canOfferWork = currentUser?.role === "cleaner";
   const center = useMemo<[number, number]>(
     () => CITY_CENTERS[cityLabel] ?? BULGARIA_CENTER,
@@ -196,13 +198,13 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
       });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        setApplyError(messageFromResponse(data, "Could not submit application."));
+        setApplyError(messageFromResponse(data, t("errors.submitFailed")));
         return;
       }
 
       setApplyJob(null);
     } catch {
-      setApplyError("Could not submit application.");
+      setApplyError(t("errors.submitFailed"));
     } finally {
       setApplying(false);
     }
@@ -216,7 +218,7 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
 
     apiFetch(`/api/marketplace/open-job-locations/${query}`)
       .then((res) => {
-        if (!res.ok) throw new Error("Could not load job locations.");
+        if (!res.ok) throw new Error(t("errors.loadLocationsFailed"));
         return res.json();
       })
       .then((data) => {
@@ -225,7 +227,7 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
       .catch(() => {
         if (!cancelled) {
           setJobs([]);
-          setError("Could not load the work map right now.");
+          setError(t("errors.loadMapFailed"));
         }
       })
       .finally(() => {
@@ -235,7 +237,7 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
     return () => {
       cancelled = true;
     };
-  }, [cityLabel]);
+  }, [cityLabel, t]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -348,20 +350,20 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
 
   return (
     <>
-      <section className="open-job-map-card" aria-label={`Open cleaning work map for ${where}`}>
+      <section className="open-job-map-card" aria-label={t("sectionAriaLabel", { city: where })}>
         <div className="open-job-map-head">
           <div>
-            <h2>Open host addresses in {where}</h2>
+            <h2>{t("heading", { city: where })}</h2>
           </div>
           <span className="open-job-map-count">
             <Briefcase size={14} aria-hidden />
-            {loading ? "Loading" : `${propertyGroups.length} pin${propertyGroups.length === 1 ? "" : "s"}`}
+            {loading ? t("loading") : t("pinCount", { count: propertyGroups.length })}
           </span>
         </div>
 
         <div className="open-job-map-shell">
           <div ref={containerRef} className="open-job-map" />
-          {loading ? <div className="open-job-map-state">Loading map pins...</div> : null}
+          {loading ? <div className="open-job-map-state">{t("loadingPins")}</div> : null}
           {!loading && error ? <div className="open-job-map-state">{error}</div> : null}
         </div>
         <p className="map-data-credit">
@@ -378,12 +380,12 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
           onClick={() => setPropertyJobs(null)}
           role="dialog"
           aria-modal="true"
-          aria-label="Property open jobs"
+          aria-label={t("propertyDialogAriaLabel")}
         >
           <div className="host-modal open-job-property-modal" onClick={(event) => event.stopPropagation()}>
             <div className="host-modal-header">
-              <h2>{propertyJobs[0].property_name || "Property"}</h2>
-              <button type="button" className="host-modal-close" onClick={() => setPropertyJobs(null)} aria-label="Close">
+              <h2>{propertyJobs[0].property_name || t("propertyFallback")}</h2>
+              <button type="button" className="host-modal-close" onClick={() => setPropertyJobs(null)} aria-label={t("closeAriaLabel")}>
                 <X size={18} aria-hidden />
               </button>
             </div>
@@ -407,11 +409,11 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
                     propertyJobs[0].property_city,
                   ]
                     .filter(Boolean)
-                    .join(", ") || "Address not provided"}
+                    .join(", ") || t("addressNotProvided")}
                 </span>
                 {canOfferWork ? (
                   <div className="open-job-property-host">
-                    <span>{hostName ? `Host: ${hostName}` : "Host"}</span>
+                    <span>{hostName ? t("hostWithName", { name: hostName }) : t("hostFallback")}</span>
                     {hostId ? <ConnectButton targetUserId={hostId} /> : null}
                   </div>
                 ) : null}
@@ -419,14 +421,14 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
             </div>
 
             <h3 className="open-job-property-subtitle">
-              Open jobs
+              {t("openJobsHeading")}
               <span className="open-job-property-count">{propertyJobs.length}</span>
             </h3>
             <ul className="open-job-property-list">
               {propertyJobs.map((job) => (
                 <li key={job.id} className="open-job-property-job">
                   <div className="open-job-property-job-info">
-                    <strong>{job.title || "Cleaning job"}</strong>
+                    <strong>{job.title || t("cleaningJobFallback")}</strong>
                     <span>{formatJobDate(job.scheduled_start)}</span>
                   </div>
                   <div className="open-job-property-job-right">
@@ -441,7 +443,7 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
                         className="open-job-popup-action"
                         onClick={() => openApplicationOverlay(job)}
                       >
-                        Apply
+                        {t("applyBtn")}
                       </button>
                     ) : null}
                   </div>
@@ -459,12 +461,12 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
           onClick={() => setApplyJob(null)}
           role="dialog"
           aria-modal="true"
-          aria-label="Apply for job"
+          aria-label={t("applyDialogAriaLabel")}
         >
           <div className="host-modal open-job-apply-modal" onClick={(event) => event.stopPropagation()}>
             <div className="host-modal-header">
-              <h2>Apply for job</h2>
-              <button type="button" className="host-modal-close" onClick={() => setApplyJob(null)} aria-label="Close">
+              <h2>{t("applyDialogHeading")}</h2>
+              <button type="button" className="host-modal-close" onClick={() => setApplyJob(null)} aria-label={t("closeAriaLabel")}>
                 <X size={18} aria-hidden />
               </button>
             </div>
@@ -480,15 +482,15 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
                   />
                 ) : null}
                 <div className="open-job-apply-summary-body">
-                  <strong>{applyJob.property_name || applyJob.title || "Property"}</strong>
-                  <span>{applyJob.property_address || "Address not provided"}</span>
-                  <span>{applyJob.host_name ? `Host: ${applyJob.host_name}` : "Host: loading..."}</span>
+                  <strong>{applyJob.property_name || applyJob.title || t("propertyFallback")}</strong>
+                  <span>{applyJob.property_address || t("addressNotProvided")}</span>
+                  <span>{applyJob.host_name ? t("hostWithName", { name: applyJob.host_name }) : t("hostLoading")}</span>
                   <span>{formatJobDate(applyJob.scheduled_start)}</span>
                 </div>
               </div>
 
               <label>
-                <span>Your price ({applyJob.currency || "EUR"})</span>
+                <span>{t("yourPrice", { currency: applyJob.currency || "EUR" })}</span>
                 <input
                   type="number"
                   min="0"
@@ -499,22 +501,22 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
                 />
               </label>
               <label>
-                <span>Message to host</span>
+                <span>{t("messageToHost")}</span>
                 <textarea
                   rows={4}
                   value={applyMessage}
                   onChange={(event) => setApplyMessage(event.target.value)}
-                  placeholder="Confirm availability, timing, and anything the host should know."
+                  placeholder={t("messagePlaceholder")}
                 />
               </label>
 
               {applyError ? <p className="form-error">{applyError}</p> : null}
               <div className="host-form-actions">
                 <button className="secondary-link" type="button" onClick={() => setApplyJob(null)}>
-                  Cancel
+                  {t("cancelBtn")}
                 </button>
                 <button className="primary-link auth-submit" type="submit" disabled={applying}>
-                  {applying ? "Sending..." : "Submit application"}
+                  {applying ? t("sending") : t("submitBtn")}
                 </button>
               </div>
             </form>

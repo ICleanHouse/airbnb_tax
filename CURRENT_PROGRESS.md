@@ -1,5 +1,54 @@
 # Current Progress Handoff
 
+Updated: 2026-06-25, after the full frontend i18n localisation with next-intl v4.
+
+## Latest Work — Full Frontend i18n Localisation (2026-06-25)
+
+Completed the full Bulgarian/English localisation of the Next.js frontend using **next-intl v4.13.0**. Bulgarian is the default locale (no URL prefix); English is `/en/…`.
+
+### Infrastructure (C0–C1)
+
+- Installed `next-intl` v4 and wired `createNextIntlPlugin` in `frontend/next.config.mjs`.
+- Created `frontend/i18n/request.ts` (server config), `frontend/i18n/routing.ts` (locale list + `defaultLocale: "bg"`, `localePrefix: "as-needed"`), and `frontend/middleware.ts` (locale-detection middleware).
+- Moved all routes under `frontend/app/[locale]/` (mirroring the existing structure without path changes for the default Bulgarian locale).
+- Bootstrapped `frontend/messages/en.json` (English, source of truth) and `frontend/messages/bg.json` (Bulgarian).
+- Fixed a post-migration stale-cache issue in `frontend/i18n/request.ts` — next-intl v4 uses `import()` directly, not a `getRequestConfig` wrapper.
+
+### Pages and components localised (C2–C12)
+
+| Chunk | Scope |
+|---|---|
+| C2 | Shared nav + landing page (`nav.*`, `landing.*`), `AudienceToggle.tsx` |
+| C3 | Login + full signup wizard (`login.*`, `signup.*`) — all 7 steps, validation, errors |
+| C4–C5 | Host dashboard — topbar, rail, calendar, job form, property form, ICS import, all modals (`host.*`) |
+| C6–C7 | Cleaner dashboard — topbar, tabs, profile form, all options and validation (`cleaner.*`) |
+| C8 | Admin panel (`admin.*`) |
+| C9 | `CleanerBrowser`, `CleanerProfileCard`, `CleanerProfileModal`, `RatingStars`, `AppdashGrid` |
+| C10 | `ReviewModal`, `NotificationBell`, `Connections`, `ConnectButton`, `JobOfferModal` |
+| C11 | `AccountDeletionPanel`, `AreaDemandPanel`, `OpenJobMap`, `DistrictMapSelector`, `PropertyLocationPicker`, `DistrictChecklist`, `DistrictSelectedTags` |
+| C12 | `/cleaners` directory page, `/app` workspace page |
+
+### Key patterns established
+
+- ICU message syntax: `{count, plural, one {# item} other {# items}}` for all plurals.
+- Module-level functions with hardcoded strings moved inside components as closures over `t` (examples: `timeAgo` in `NotificationBell`, `fmtDateSeparator` in `Connections`, `statusCopy` in `/app/page.tsx`).
+- Arrays via `t.raw("key") as string[]` (months, weekdays, calDays).
+- Dynamic key lookup via `t(\`subkey.${variable}\` as Parameters<typeof t>[0])`.
+- `useTranslations` hook is stable — safe to include in `useEffect`/`useMemo` deps.
+- Also fixed a latent bug: `en.json` and `bg.json` had duplicate top-level `"components"` keys (cookie banner was stranded in an earlier block from C1). Both files are now merged.
+
+### Verification
+
+`npm.cmd run typecheck` → 0 errors. `npm.cmd run lint` → 0 errors, 5 pre-existing warnings (unchanged from before i18n work).
+
+### Documentation updated
+
+`CLAUDE.md` — new Localisation section (namespace map, usage patterns, domain glossary).
+`DEV.md` — new Localisation section (infrastructure files, adding new strings, namespace map, glossary).
+`TGN.md` — updated "last updated" date; added R19 and R20 to the Critical Rules Index.
+
+---
+
 Updated: 2026-06-20, after the two-way double-blind review window + cleaner-only completion change, and the map property-pin "all open jobs + connect host" addition.
 
 ## Latest Work — Cleaner-Only Completion + Two-Way Double-Blind Reviews (2026-06-20)

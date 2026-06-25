@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-06-20
+**Last updated:** 2026-06-25
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -798,3 +798,5 @@ Rules that must never be broken regardless of task scope.
 | R16 | Signup field changes must update database models, migrations, serializers, frontend payloads, and tests together | Accounts signup/profile workflow |
 | R17 | A property cannot have two jobs for the exact same start/end time | `CleaningJob` unique constraint + serializer validation |
 | R18 | Job completion is a single step by the assigned cleaner (or admin) after `scheduled_start` — there is no host confirmation step | `marketplace/services.py` + dashboard guards |
+| R19 | All new user-facing strings must ship with both `en.json` and `bg.json` values; keys are English camelCase; values only differ between files | `frontend/messages/` — next-intl v4 |
+| R20 | Never use hardcoded UI strings in components — always use `useTranslations` from next-intl | Frontend convention; module-level functions with strings must move inside the component |

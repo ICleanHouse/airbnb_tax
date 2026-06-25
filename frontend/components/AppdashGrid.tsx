@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Wallet, Clock, Briefcase, CheckCircle2, ClipboardList, Star, GripVertical, EyeOff, Plus } from "lucide-react";
 import { ALL_APPDASH_CARDS, type AppdashCardKey } from "../lib/useAppdashPrefs";
 
@@ -64,12 +65,11 @@ export default function AppdashGrid({
   onMove,
   onToggle,
 }: AppdashGridProps) {
+  const t = useTranslations("components.appdashGrid");
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
-  const ratingSub =
-    ratingCount > 0 ? `${ratingCount} review${ratingCount !== 1 ? "s" : ""} received` : "no reviews yet";
-  const moneySub =
-    moneyCount > 0 ? `from ${moneyCount} cleaning${moneyCount !== 1 ? "s" : ""}` : "no completed jobs yet";
+  const ratingSub = ratingCount > 0 ? t("ratingReceived", { count: ratingCount }) : t("noRatingYet");
+  const moneySub = moneyCount > 0 ? t("fromCleanings", { count: moneyCount }) : t("noCompletedJobs");
 
   const catalog: Record<AppdashCardKey, CardDescriptor> = {
     money: {
@@ -85,9 +85,9 @@ export default function AppdashGrid({
     },
     pending: {
       key: "pending",
-      label: "Pending",
+      label: t("pending"),
       value: String(pending),
-      sub: "applications",
+      sub: t("pendingSub"),
       icon: <Clock size={17} aria-hidden />,
       chipClass: "host-appdash-chip--brand",
       variantClass: "",
@@ -96,9 +96,9 @@ export default function AppdashGrid({
     },
     active: {
       key: "active",
-      label: "Active",
+      label: t("active"),
       value: String(active),
-      sub: "assignments",
+      sub: t("activeSub"),
       icon: <Briefcase size={17} aria-hidden />,
       chipClass: "host-appdash-chip--gold",
       variantClass: "host-appdash-card--gold",
@@ -107,9 +107,9 @@ export default function AppdashGrid({
     },
     completed: {
       key: "completed",
-      label: "Completed",
+      label: t("completed"),
       value: String(completed),
-      sub: "cleanings",
+      sub: t("completedSub"),
       icon: <CheckCircle2 size={17} aria-hidden />,
       chipClass: "host-appdash-chip--green",
       variantClass: "host-appdash-card--green",
@@ -118,7 +118,7 @@ export default function AppdashGrid({
     },
     open: {
       key: "open",
-      label: "Open jobs",
+      label: t("openJobs"),
       value: String(open),
       sub: openSub,
       icon: <ClipboardList size={17} aria-hidden />,
@@ -129,7 +129,7 @@ export default function AppdashGrid({
     },
     rating: {
       key: "rating",
-      label: "My rating",
+      label: t("myRating"),
       value: rating !== null ? rating.toFixed(1) : "—",
       sub: ratingSub,
       icon: <Star size={17} aria-hidden />,
@@ -190,7 +190,7 @@ export default function AppdashGrid({
 
   return (
     <div className="host-appdash-edit">
-      <p className="host-appdash-edit-hint">Drag to reorder · tap the eye to hide a card.</p>
+      <p className="host-appdash-edit-hint">{t("editHint")}</p>
       <div className="host-appdash-grid host-appdash-grid--editing">
         {cards.map((key, index) => {
           const d = catalog[key];
@@ -212,8 +212,8 @@ export default function AppdashGrid({
               <button
                 type="button"
                 className="host-appdash-eye"
-                aria-label={`Hide ${d.label}`}
-                title={`Hide ${d.label}`}
+                aria-label={t("hideCard", { label: d.label })}
+                title={t("hideCard", { label: d.label })}
                 onClick={() => onToggle(key)}
               >
                 <EyeOff size={14} aria-hidden />
@@ -226,7 +226,7 @@ export default function AppdashGrid({
 
       {hidden.length > 0 && (
         <div className="host-appdash-hidden">
-          <span className="host-appdash-hidden-label">Hidden cards</span>
+          <span className="host-appdash-hidden-label">{t("hiddenCards")}</span>
           <div className="host-appdash-hidden-chips">
             {hidden.map((key) => (
               <button

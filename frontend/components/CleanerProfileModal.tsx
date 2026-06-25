@@ -2,11 +2,14 @@
 
 import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { Car, MapPin, MessageSquare, X } from "lucide-react";
 import { apiFetch, type PublicCleanerDetail } from "../lib/api";
 import RatingStars from "./RatingStars";
 import ConnectButton from "./ConnectButton";
-import { experienceLabel } from "./CleanerProfileCard";
+
+const EXPERIENCE_DISPLAY_KEYS = ["none", "1_year", "2_years", "3_years", "4_years", "5_years", "more_than_5_years"] as const;
+type ExperienceDisplayKey = typeof EXPERIENCE_DISPLAY_KEYS[number];
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -40,6 +43,9 @@ export default function CleanerProfileModal({
   onClose: () => void;
   footer?: React.ReactNode;
 }) {
+  const t = useTranslations("components.cleanerProfileModal");
+  const tCard = useTranslations("components.cleanerCard");
+  const tED = useTranslations("components.cleanerCard.experienceDisplay");
   const [detail, setDetail] = useState<PublicCleanerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -61,7 +67,7 @@ export default function CleanerProfileModal({
     setShowAllAreas(false);
     apiFetch(`/api/accounts/public-cleaners/${cleanerId}/`)
       .then(async (res) => {
-        if (!res.ok) throw new Error("Could not load this profile.");
+        if (!res.ok) throw new Error(t("loadError"));
         return (await res.json()) as PublicCleanerDetail;
       })
       .then((data) => {
@@ -76,15 +82,18 @@ export default function CleanerProfileModal({
     return () => {
       active = false;
     };
-  }, [cleanerId]);
+  }, [cleanerId, t]);
 
-  const name = detail?.display_name || "Cleaner";
+  const name = detail?.display_name || tCard("defaultName");
   const serviceAreas = detail?.service_areas || [];
   const visibleAreas = showAllAreas ? serviceAreas : serviceAreas.slice(0, 3);
   const languages = [detail?.native_language, ...(detail?.other_languages || [])]
     .filter(Boolean)
     .join(", ");
-  const exp = detail ? experienceLabel(detail.experience_level) : "";
+  const expKey = detail && EXPERIENCE_DISPLAY_KEYS.includes(detail.experience_level as ExperienceDisplayKey)
+    ? (detail.experience_level as ExperienceDisplayKey)
+    : "none";
+  const exp = detail ? tED(expKey) : "";
 
   return createPortal(
     <div
@@ -101,14 +110,14 @@ export default function CleanerProfileModal({
         aria-label={`${name} profile`}
       >
         <div className="host-modal-header">
-          <h2>Cleaner profile</h2>
-          <button type="button" className="host-modal-close" onClick={onClose} aria-label="Close">
+          <h2>{t("heading")}</h2>
+          <button type="button" className="host-modal-close" onClick={onClose} aria-label={t("closeAriaLabel")}>
             <X size={18} />
           </button>
         </div>
 
         <div className="cleaner-profile-body">
-          {loading && <div className="host-empty-state">Loading profile…</div>}
+          {loading && <div className="host-empty-state">{t("loadingProfile")}</div>}
           {error && <div className="host-empty-state">{error}</div>}
 
           {detail && !loading && (
@@ -126,7 +135,7 @@ export default function CleanerProfileModal({
                   <h3>
                     {name}
                     {detail.kind === "agency" && (
-                      <span className="cleaner-profile-card-tag">Agency</span>
+                      <span className="cleaner-profile-card-tag">{tCard("agencyChip")}</span>
                     )}
                   </h3>
                   <RatingStars
@@ -143,7 +152,7 @@ export default function CleanerProfileModal({
                           className="cleaner-profile-areas-toggle"
                           onClick={() => setShowAllAreas((v) => !v)}
                         >
-                          {showAllAreas ? "Show less" : `Show all ${serviceAreas.length}`}
+                          {showAllAreas ? t("showLess") : t("showAll", { count: serviceAreas.length })}
                         </button>
                       )}
                     </p>
@@ -159,21 +168,21 @@ export default function CleanerProfileModal({
               <dl className="cleaner-profile-facts">
                 {exp && (
                   <div>
-                    <dt>Experience</dt>
+                    <dt>{t("dtExperience")}</dt>
                     <dd>{exp}</dd>
                   </div>
                 )}
                 {languages && (
                   <div>
-                    <dt>Languages</dt>
+                    <dt>{t("dtLanguages")}</dt>
                     <dd>{languages}</dd>
                   </div>
                 )}
                 {detail.has_own_car && (
                   <div>
-                    <dt>Transport</dt>
+                    <dt>{t("dtTransport")}</dt>
                     <dd>
-                      <Car size={14} aria-hidden="true" /> Has own car
+                      <Car size={14} aria-hidden="true" /> {t("ddOwnCar")}
                     </dd>
                   </div>
                 )}
@@ -181,7 +190,7 @@ export default function CleanerProfileModal({
 
               <div className="cleaner-profile-reviews">
                 <h4>
-                  Reviews
+                  {t("reviewsHeading")}
                   <span className="cleaner-profile-reviews-count">
                     {detail.reviews.length}
                   </span>
@@ -189,7 +198,7 @@ export default function CleanerProfileModal({
                 {detail.reviews.length === 0 ? (
                   <p className="host-empty-state cleaner-profile-noreviews">
                     <MessageSquare size={18} aria-hidden="true" />
-                    No reviews yet.
+                    {t("noReviews")}
                   </p>
                 ) : (
                   <ul className="review-list">

@@ -1,43 +1,30 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { CheckCircle2, Clock3, LogOut, ShieldCheck, ShieldAlert, UserRoundCog } from "lucide-react";
-import { CurrentUser, apiFetch, roleLabel } from "../../lib/api";
-import AccountDeletionPanel from "../../components/AccountDeletionPanel";
-
-function statusCopy(user: CurrentUser) {
-  if (user.account_status === "approved") {
-    return {
-      title: `${roleLabel(user.role)} workspace`,
-      body: "Your account is approved. Marketplace tools can now be opened for your role.",
-      icon: CheckCircle2,
-    };
-  }
-  if (user.account_status === "rejected") {
-    return {
-      title: "Account request rejected",
-      body: "Your signup request was not approved. Contact support if this looks incorrect.",
-      icon: ShieldAlert,
-    };
-  }
-  if (user.account_status === "suspended") {
-    return {
-      title: "Account suspended",
-      body: "Marketplace access is paused while an admin reviews the account.",
-      icon: ShieldAlert,
-    };
-  }
-  return {
-    title: "Waiting for admin approval",
-    body: "You can complete onboarding details while the marketplace team reviews your account.",
-    icon: Clock3,
-  };
-}
+import { CurrentUser, apiFetch } from "../../../lib/api";
+import AccountDeletionPanel from "../../../components/AccountDeletionPanel";
 
 export default function AppEntryPage() {
+  const t = useTranslations("app");
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  function statusCopy(u: CurrentUser) {
+    const role = t(`roleLabels.${u.role}` as Parameters<typeof t>[0]);
+    if (u.account_status === "approved") {
+      return { title: t("statusCopy.approved.title", { role }), body: t("statusCopy.approved.body"), icon: CheckCircle2 };
+    }
+    if (u.account_status === "rejected") {
+      return { title: t("statusCopy.rejected.title"), body: t("statusCopy.rejected.body"), icon: ShieldAlert };
+    }
+    if (u.account_status === "suspended") {
+      return { title: t("statusCopy.suspended.title"), body: t("statusCopy.suspended.body"), icon: ShieldAlert };
+    }
+    return { title: t("statusCopy.pending.title"), body: t("statusCopy.pending.body"), icon: Clock3 };
+  }
 
   useEffect(() => {
     async function loadUser() {
@@ -74,8 +61,8 @@ export default function AppEntryPage() {
     return (
       <main className="app-page">
         <section className="app-shell">
-          <p className="eyebrow">Loading</p>
-          <h1>Checking account</h1>
+          <p className="eyebrow">{t("loading.eyebrow")}</p>
+          <h1>{t("loading.heading")}</h1>
         </section>
       </main>
     );
@@ -85,14 +72,14 @@ export default function AppEntryPage() {
     return (
       <main className="app-page">
         <section className="app-shell">
-          <p className="eyebrow">Protected area</p>
-          <h1>Log in to continue</h1>
+          <p className="eyebrow">{t("notLoggedIn.eyebrow")}</p>
+          <h1>{t("notLoggedIn.heading")}</h1>
           <div className="join-actions">
             <Link className="primary-link" href="/login">
-              Log in
+              {t("notLoggedIn.loginBtn")}
             </Link>
             <Link className="secondary-link" href="/signup">
-              Sign up
+              {t("notLoggedIn.signupBtn")}
             </Link>
           </div>
         </section>
@@ -111,18 +98,18 @@ export default function AppEntryPage() {
             <span className="brand-symbol">
               <UserRoundCog size={18} aria-hidden />
             </span>
-            <strong>Host Cleaners</strong>
+            <strong>{t("header.brandName")}</strong>
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {user.is_platform_admin && (
               <Link className="secondary-link logout-button" href="/admin">
                 <ShieldCheck size={16} aria-hidden />
-                Admin panel
+                {t("header.adminPanelBtn")}
               </Link>
             )}
             <button className="secondary-link logout-button" type="button" onClick={logout}>
               <LogOut size={16} aria-hidden />
-              Log out
+              {t("header.logOutBtn")}
             </button>
           </div>
         </header>
@@ -132,7 +119,7 @@ export default function AppEntryPage() {
             <StatusIcon size={24} />
           </div>
           <div>
-            <p className="eyebrow">{roleLabel(user.role)}</p>
+            <p className="eyebrow">{t(`roleLabels.${user.role}` as Parameters<typeof t>[0])}</p>
             <h1>{copy.title}</h1>
             <p>{copy.body}</p>
           </div>
@@ -140,17 +127,17 @@ export default function AppEntryPage() {
 
         <div className="workspace-grid">
           <article>
-            <span>Account</span>
+            <span>{t("accountCard.label")}</span>
             <strong>{user.email}</strong>
-            <p>Status: {user.account_status}</p>
+            <p>{t("accountCard.statusLine", { status: user.account_status })}</p>
           </article>
           <article>
-            <span>Next step</span>
-            <strong>{user.is_approved ? "Open role tools" : "Complete profile details"}</strong>
+            <span>{t("nextStepCard.label")}</span>
+            <strong>{user.is_approved ? t("nextStepCard.openTools") : t("nextStepCard.completeProfile")}</strong>
             <p>
               {user.role === "agency"
-                ? "Agency profiles can invite cleaners and assign accepted agency work after approval."
-                : "Profile details stay available while marketplace permissions are gated."}
+                ? t("nextStepCard.agencyBody")
+                : t("nextStepCard.defaultBody")}
             </p>
           </article>
         </div>

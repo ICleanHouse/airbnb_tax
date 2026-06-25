@@ -233,6 +233,87 @@ npm.cmd run typecheck
 npm.cmd run lint
 ```
 
+## Localisation (i18n)
+
+The frontend is fully localised with **next-intl v4** (App Router native). Bulgarian is the default/primary locale (no URL prefix); English is `/en/…`.
+
+### Message files
+
+```
+frontend/messages/en.json   ← English (source of truth)
+frontend/messages/bg.json   ← Bulgarian (default locale)
+```
+
+Both files must always be in sync — adding a key to one requires adding it to the other. Keys are in English camelCase; only the values differ between files.
+
+### Infrastructure files
+
+```
+frontend/i18n/request.ts    ← next-intl server config (loads the right messages/locale)
+frontend/i18n/routing.ts    ← locale list + defaultLocale + localePrefix config
+frontend/middleware.ts       ← next-intl locale-detection middleware
+frontend/app/[locale]/      ← all app routes live under this segment
+```
+
+### Using translations
+
+In any Client Component:
+
+```typescript
+import { useTranslations } from "next-intl";
+
+const t = useTranslations("namespace");  // dot-separated nesting works too
+return <p>{t("key")}</p>;
+// ICU plural:  t("count", { count: n })
+// Interpolation: t("greeting", { name: "Ana" })
+// Arrays:  t.raw("monthsFull") as string[]
+```
+
+For module-level functions that need translated strings, move them inside the component as closures over `t` — `useTranslations` returns a stable reference so adding `t` to a `useEffect`/`useMemo` dependency array is safe.
+
+### Adding new user-facing strings
+
+1. Add the key + English value to `frontend/messages/en.json` under the matching namespace.
+2. Add the same key + Bulgarian value to `frontend/messages/bg.json`.
+3. Use `t("key")` in the component.
+4. Run `npm.cmd run typecheck && npm.cmd run lint` — both must pass clean.
+
+### Namespace map
+
+| Namespace | Covers |
+|---|---|
+| `nav` | Shared header nav links (landing) |
+| `landing` | Landing page hero/copy |
+| `login` | Login page |
+| `signup` | Signup wizard (all steps, validation, modals) |
+| `host` | Host dashboard (topbar, rail, calendar, forms, ICS import, modals) |
+| `cleaner` | Cleaner dashboard (topbar, tabs, profile form) |
+| `admin` | Admin panel |
+| `cleaners` | `/cleaners` directory page |
+| `app` | `/app` workspace page |
+| `common` | Shared primitives (months, weekdays, cancel/save/back/continue) |
+| `errors` | Global error boundary strings |
+| `components.*` | Shared components (see sub-namespaces below) |
+
+Component sub-namespaces under `components`:
+
+`cookieBanner`, `cleanerBrowser`, `cleanerCard`, `cleanerProfileModal`, `appdashGrid`, `ratingStars`, `reviewModal`, `notificationBell`, `connectButton`, `jobOfferModal`, `connections`, `accountDeletionPanel`, `areaDemandPanel`, `openJobMap`, `districtMapSelector`, `propertyLocationPicker`, `districtChecklist`, `districtSelectedTags`
+
+### Domain glossary (Bulgarian)
+
+| English | Bulgarian |
+|---|---|
+| Job (cleaning job) | Поръчка |
+| Host | Домакин |
+| Cleaner | Почистващ |
+| Assignment | Назначение |
+| Applications | Позиции |
+| Offer | Оферта |
+| Verified | Верифициран |
+| Rating | Рейтинг |
+| Property | Имот |
+| Dashboard | Табло |
+
 PowerShell may block `npm.ps1` with an execution policy error. Use `npm.cmd` commands on Windows to avoid changing execution policy.
 
 Do not run `npm.cmd run build` while `npm.cmd run dev` is running. Both write to `frontend/.next`, and running them together can produce missing generated files. If the frontend shows a stale Next.js runtime error, stop the dev server, remove `.next`, and restart:

@@ -16,13 +16,14 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="en">
+    <html lang="bg">
       <body>
         <main className="app-page">
           <section className="app-shell">
             <div className="auth-heading">
-              <h1>Something went wrong</h1>
-              <p>Refresh the page and try again.</p>
+              {/* global-error renders outside NextIntlClientProvider — strings are hardcoded */}
+              <h1>Нещо се обърка</h1>
+              <p>Презаредете страницата и опитайте отново.</p>
             </div>
           </section>
         </main>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -12,16 +12,22 @@ import {
   User,
   UserRoundCheck,
 } from "lucide-react";
-import { apiFetch, CurrentUser, roleLabel } from "../lib/api";
-import CleanerBrowser from "../components/CleanerBrowser";
-import AudienceToggle, { type Audience } from "../components/AudienceToggle";
-import AreaDemandPanel from "../components/AreaDemandPanel";
-import NotificationBell from "../components/NotificationBell";
-
-type Language = "BG" | "EN";
+import { useTranslations, useLocale } from "next-intl";
+import Link from "next/link";
+import { useRouter, usePathname } from "../../i18n/navigation";
+import { apiFetch, CurrentUser, roleLabel } from "../../lib/api";
+import CleanerBrowser from "../../components/CleanerBrowser";
+import AudienceToggle, { type Audience } from "../../components/AudienceToggle";
+import AreaDemandPanel from "../../components/AreaDemandPanel";
+import NotificationBell from "../../components/NotificationBell";
 
 export default function Home() {
-  const [language, setLanguage] = useState<Language>("EN");
+  const tNav = useTranslations("nav");
+  const tLanding = useTranslations("landing");
+  const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [audience, setAudience] = useState<Audience>("host");
@@ -98,6 +104,10 @@ export default function Home() {
     setAccountMenuOpen(false);
   }
 
+  function switchLocale(next: "bg" | "en") {
+    router.replace(pathname, { locale: next });
+  }
+
   async function changePreferredLanguage(preferredLanguage: "bg" | "en") {
     if (!currentUser) return;
     const response = await apiFetch(`/api/accounts/users/${currentUser.id}/`, {
@@ -107,6 +117,7 @@ export default function Home() {
     if (response.ok) {
       setCurrentUser((await response.json()) as CurrentUser);
     }
+    switchLocale(preferredLanguage);
   }
 
   const dashboardHref = currentUser?.is_platform_admin
@@ -125,11 +136,11 @@ export default function Home() {
   return (
     <main className="site-shell">
       <header className="site-header">
-        <a className="site-brand" href="#top" aria-label="Host Cleaners home">
+        <a className="site-brand" href="#top" aria-label={tNav("brandAriaLabel")}>
           <span className="brand-symbol">
             <HomeIcon size={18} aria-hidden />
           </span>
-          <strong>Host Cleaners</strong>
+          <strong>{tNav("brandName")}</strong>
         </a>
 
         <div className="header-actions">
@@ -138,12 +149,12 @@ export default function Home() {
               {currentUser.is_platform_admin ? (
                 <a className="text-link" href={dashboardHref}>
                   <AdminIcon size={15} aria-hidden />
-                  Admin panel
+                  {tNav("adminPanel")}
                 </a>
               ) : (
                 <a className="text-link" href={dashboardHref}>
                   <LayoutDashboard size={15} aria-hidden />
-                  Dashboard
+                  {tNav("dashboard")}
                 </a>
               )}
               <NotificationBell />
@@ -154,38 +165,38 @@ export default function Home() {
                   onClick={() => setAccountMenuOpen((open) => !open)}
                   aria-haspopup="menu"
                   aria-expanded={accountMenuOpen}
-                  aria-label="Account menu"
+                  aria-label={tNav("accountMenuAriaLabel")}
                 >
                   <User size={18} aria-hidden />
                 </button>
                 {accountMenuOpen ? (
-                  <div className="cleaner-account-menu-dropdown" role="menu" aria-label="Account menu">
+                  <div className="cleaner-account-menu-dropdown" role="menu" aria-label={tNav("accountMenuAriaLabel")}>
                     <div className="cleaner-account-menu-identity">
                       <strong>
                         {`${currentUser.first_name} ${currentUser.last_name}`.trim()
                           || currentUser.email.split("@")[0]}
                       </strong>
-                      <span>{currentUser.is_platform_admin ? "Admin" : roleLabel(currentUser.role)}</span>
+                      <span>{currentUser.is_platform_admin ? tNav("adminRole") : roleLabel(currentUser.role)}</span>
                     </div>
                     <a className="cleaner-account-menu-item" href={profileHref} role="menuitem">
                       <UserRoundCheck size={16} aria-hidden />
-                      Profile
+                      {tNav("profile")}
                     </a>
                     <div className="account-language-picker">
-                      <span>Language</span>
-                      <div className="account-language-slider" role="group" aria-label="Language">
+                      <span>{tNav("language")}</span>
+                      <div className="account-language-slider" role="group" aria-label={tNav("language")}>
                         <button
                           type="button"
-                          className={currentUser.preferred_language === "bg" ? "active" : ""}
-                          aria-pressed={currentUser.preferred_language === "bg"}
+                          className={locale === "bg" ? "active" : ""}
+                          aria-pressed={locale === "bg"}
                           onClick={() => void changePreferredLanguage("bg")}
                         >
                           BG
                         </button>
                         <button
                           type="button"
-                          className={currentUser.preferred_language === "en" ? "active" : ""}
-                          aria-pressed={currentUser.preferred_language === "en"}
+                          className={locale === "en" ? "active" : ""}
+                          aria-pressed={locale === "en"}
                           onClick={() => void changePreferredLanguage("en")}
                         >
                           EN
@@ -199,7 +210,7 @@ export default function Home() {
                       onClick={() => void handleLogout()}
                     >
                       <LogOut size={16} aria-hidden />
-                      Log out
+                      {tNav("logOut")}
                     </button>
                   </div>
                 ) : null}
@@ -207,22 +218,22 @@ export default function Home() {
             </>
           ) : authChecked ? (
             <>
-              <a className="text-link login-link" href="/login">
-                Log in
-              </a>
-              <a className="primary-link" href={`/signup?role=${audience}`}>
-                Sign up
-              </a>
+              <Link className="text-link login-link" href="/login">
+                {tNav("logIn")}
+              </Link>
+              <Link className="primary-link" href={`/signup?role=${audience}`}>
+                {tNav("signUp")}
+              </Link>
             </>
           ) : null}
           {authChecked && !currentUser ? (
-            <label className="language-picker" aria-label="Language">
+            <label className="language-picker" aria-label={tNav("language")}>
               <select
-                value={language}
-                onChange={(event) => setLanguage(event.target.value as Language)}
+                value={locale}
+                onChange={(e) => switchLocale(e.target.value as "bg" | "en")}
               >
-                <option value="EN">EN</option>
-                <option value="BG">BG</option>
+                <option value="en">EN</option>
+                <option value="bg">BG</option>
               </select>
             </label>
           ) : null}
@@ -230,18 +241,18 @@ export default function Home() {
       </header>
 
       {authChecked && currentUser ? (
-        /* Logged-in home — compact, role-aware: hosts browse cleaners, cleaners
-           get the jobs/properties map. No marketing copy or audience toggle. */
         <>
           <section className="home-hero" id="top">
             <div className="home-hero-inner">
               <p className="eyebrow">
-                Welcome back{currentUser.first_name ? `, ${currentUser.first_name}` : ""}
+                {currentUser.first_name
+                  ? tLanding("welcomeBackNamed", { name: currentUser.first_name })
+                  : tLanding("welcomeBack")}
               </p>
               <h1>
                 {currentUser.role === "cleaner"
-                  ? "Cleaning jobs near you"
-                  : "Find a verified cleaner"}
+                  ? tLanding("loggedInCleanerHeading")
+                  : tLanding("loggedInHostHeading")}
               </h1>
             </div>
           </section>
@@ -255,30 +266,29 @@ export default function Home() {
           </section>
         </>
       ) : authChecked ? (
-        /* Public landing — full marketing hero + audience self-select. */
         <>
           <section className="landing-hero" id="top">
             <div className="landing-hero-inner">
-              <p className="eyebrow">Short-term rental turnover cleaning · Bulgaria</p>
+              <p className="eyebrow">{tLanding("eyebrow")}</p>
               <h1>
                 {audience === "host"
-                  ? "Find a verified cleaner near you"
-                  : "Find cleaning work near you"}
+                  ? tLanding("heroHostHeading")
+                  : tLanding("heroCleanerHeading")}
               </h1>
               <p className="landing-hero-copy">
                 {audience === "host"
-                  ? "Browse trusted cleaners across Bulgaria. Filter by city and district, then open a profile to see ratings and reviews."
-                  : "See how many hosts are hiring in your area and join the verified cleaner network — free."}
+                  ? tLanding("heroHostCopy")
+                  : tLanding("heroCleanerCopy")}
               </p>
               <div className="landing-hero-chips">
                 <span className="trust-chip">
-                  <Check size={14} aria-hidden /> Verified cleaners
+                  <Check size={14} aria-hidden /> {tLanding("chipVerified")}
                 </span>
                 <span className="trust-chip">
-                  <Star size={14} aria-hidden /> Rated &amp; reviewed
+                  <Star size={14} aria-hidden /> {tLanding("chipRated")}
                 </span>
                 <span className="trust-chip">
-                  <MapPin size={14} aria-hidden /> Across Bulgaria
+                  <MapPin size={14} aria-hidden /> {tLanding("chipBulgaria")}
                 </span>
               </div>
               <AudienceToggle value={audience} onChange={changeAudience} />

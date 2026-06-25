@@ -2,23 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Bell, Check } from "lucide-react";
 import { apiFetch, type AppNotification } from "../lib/api";
 
 const BASE = "/api/notifications/notifications";
 const POLL_MS = 30_000;
-
-function timeAgo(iso: string): string {
-  const then = new Date(iso).getTime();
-  const diff = Date.now() - then;
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
-}
 
 /**
  * Shared notification bell for the host and cleaner topbars. Polls the unread
@@ -26,8 +15,21 @@ function timeAgo(iso: string): string {
  * mark-all-read against the persisted Notification model.
  */
 export default function NotificationBell() {
+  const t = useTranslations("components.notificationBell");
   const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  function timeAgo(iso: string): string {
+    const then = new Date(iso).getTime();
+    const diff = Date.now() - then;
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 1) return t("timeAgo.justNow");
+    if (mins < 60) return t("timeAgo.minutesAgo", { count: mins });
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return t("timeAgo.hoursAgo", { count: hrs });
+    const days = Math.floor(hrs / 24);
+    return t("timeAgo.daysAgo", { count: days });
+  }
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -192,7 +194,7 @@ export default function NotificationBell() {
       <button
         type="button"
         className="notif-bell-trigger"
-        aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ""}`}
+        aria-label={unread > 0 ? t("ariaLabelUnread", { count: unread }) : t("ariaLabel")}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
@@ -203,19 +205,19 @@ export default function NotificationBell() {
       {open && (
         <div className="notif-dropdown" role="menu">
           <div className="notif-dropdown-head">
-            <strong>Notifications</strong>
+            <strong>{t("heading")}</strong>
             {unread > 0 && (
               <button type="button" className="notif-markall" onClick={() => void markAll()}>
-                <Check size={13} aria-hidden /> Mark all read
+                <Check size={13} aria-hidden /> {t("markAllRead")}
               </button>
             )}
           </div>
 
           <div className="notif-dropdown-body">
             {loading ? (
-              <p className="notif-empty">Loading…</p>
+              <p className="notif-empty">{t("loading")}</p>
             ) : items.length === 0 ? (
-              <p className="notif-empty">You&apos;re all caught up.</p>
+              <p className="notif-empty">{t("empty")}</p>
             ) : (
               <ul className="notif-list">
                 {items.map((n) => (

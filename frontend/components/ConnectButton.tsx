@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { UserPlus, Clock, Check } from "lucide-react";
 import { apiFetch, type Connection } from "../lib/api";
 
@@ -18,6 +19,7 @@ export default function ConnectButton({
   targetUserId: number;
   className?: string;
 }) {
+  const t = useTranslations("components.connectButton");
   const [state, setState] = useState<State>("loading");
 
   useEffect(() => {
@@ -58,20 +60,20 @@ export default function ConnectButton({
   if (state === "connected") {
     return (
       <span className={`connect-btn connect-btn--done ${className}`}>
-        <Check size={13} aria-hidden /> Connected
+        <Check size={13} aria-hidden /> {t("connected")}
       </span>
     );
   }
   if (state === "pending") {
     return (
       <span className={`connect-btn connect-btn--pending ${className}`}>
-        <Clock size={13} aria-hidden /> Pending
+        <Clock size={13} aria-hidden /> {t("pending")}
       </span>
     );
   }
   return (
     <button type="button" className={`connect-btn ${className}`} onClick={() => void connect()}>
-      <UserPlus size={13} aria-hidden /> Connect
+      <UserPlus size={13} aria-hidden /> {t("connect")}
     </button>
   );
 }

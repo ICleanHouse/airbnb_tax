@@ -3,6 +3,7 @@
 // Leaflet requires the browser's window object, so it must not run on the server.
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 export interface LocationResult {
   lat: number;
@@ -82,6 +83,7 @@ const PIN_HTML = `<span style="display:block;width:22px;height:22px;background:#
 const NOMINATIM_MIN_INTERVAL_MS = 1100;
 
 export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Props) {
+  const t = useTranslations("components.propertyLocationPicker");
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapRef      = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<any>(null);
@@ -311,8 +313,8 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
   return (
     <div className="prop-map-wrap" ref={wrapRef}>
       {/* Map — rendered first so it sits at the top */}
-      <div ref={containerRef} className="prop-map-container" aria-label="Property location map" />
-      {geocoding && <p className="prop-map-status">Getting address…</p>}
+      <div ref={containerRef} className="prop-map-container" aria-label={t("mapAriaLabel")} />
+      {geocoding && <p className="prop-map-status">{t("gettingAddress")}</p>}
 
       {/* Search — below the map; dropdown opens upward */}
       <div className="prop-map-search-wrap">
@@ -322,7 +324,7 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
             id="prop-map-suggestions"
             className="prop-map-suggestions"
             role="listbox"
-            aria-label="Address suggestions"
+            aria-label={t("suggestionsAriaLabel")}
           >
             {suggestions.map((s, i) => {
               const { main, sub } = formatSuggestion(s);
@@ -350,12 +352,12 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
             modal's own <form>, and nested forms are invalid HTML (the inner one
             gets dropped, so a submit button would submit the outer form and
             close the modal). */}
-        <div className="prop-map-search-row" role="search" aria-label="Address search">
+        <div className="prop-map-search-row" role="search" aria-label={t("searchAriaLabel")}>
           <div className="prop-map-search-field">
             <input
               type="search"
               className="prop-map-search-input"
-              placeholder="Search address in Bulgaria…"
+              placeholder={t("searchPlaceholder")}
               value={searchQuery}
               autoComplete="off"
               aria-autocomplete="list"
@@ -372,16 +374,16 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
             onClick={handleSearch}
             disabled={searching || searchQuery.trim().length < 3}
           >
-            Search
+            {t("searchBtn")}
           </button>
         </div>
 
         {searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
-          <p className="prop-map-search-tip">Type {3 - searchQuery.trim().length} more character{3 - searchQuery.trim().length !== 1 ? "s" : ""}…</p>
+          <p className="prop-map-search-tip">{t("typeMore", { count: 3 - searchQuery.trim().length })}</p>
         )}
       </div>
 
-      <p className="prop-map-hint">Click the map to pin the exact location, or search for an address below.</p>
+      <p className="prop-map-hint">{t("hint")}</p>
       <p className="map-data-credit">
         Map data and geocoding:{" "}
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">

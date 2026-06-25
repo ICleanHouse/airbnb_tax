@@ -182,6 +182,64 @@ If a task has no tag, ask before proceeding.
 - Close or delete tasks
 - Touch `config/settings.py` production settings without being asked
 
+## Localisation (i18n)
+
+The frontend is fully localised with **next-intl v4** (App Router native). Bulgarian is the default/primary locale (no URL prefix); English is `/en/…`.
+
+**Rule: keys stay in English. Only values get translated. `en.json` and `bg.json` must always be in sync.**
+
+### Infrastructure
+
+```
+frontend/messages/en.json        ← English (source of truth)
+frontend/messages/bg.json        ← Bulgarian (default locale)
+frontend/i18n/request.ts         ← server config
+frontend/i18n/routing.ts         ← locale list + defaultLocale
+frontend/middleware.ts            ← locale-detection middleware
+frontend/app/[locale]/           ← all routes live under this segment
+```
+
+### Using translations
+
+```typescript
+const t = useTranslations("namespace");
+t("key")                                    // plain string
+t("key", { count: n })                      // ICU plural: "{count, plural, one {# item} other {# items}}"
+t("key", { name })                          // interpolation
+t.raw("arrayKey") as string[]               // arrays (months, weekdays)
+t(`subkey.${variable}` as Parameters<typeof t>[0])  // dynamic key lookup
+```
+
+Module-level functions that need translated strings must be moved inside the component as closures over `t`. `useTranslations` returns a stable reference — adding `t` to `useEffect`/`useMemo` dependency arrays is safe and required by ESLint.
+
+### Adding new strings
+
+1. Add key + English value to `frontend/messages/en.json` under the matching namespace.
+2. Add the same key + Bulgarian value to `frontend/messages/bg.json`.
+3. Use `t("key")` in the component.
+4. Run `npm.cmd run typecheck && npm.cmd run lint` — both must pass.
+
+### Namespace map
+
+| Namespace | Covers |
+|---|---|
+| `nav` | Shared header nav |
+| `landing` | Landing hero/copy |
+| `login` | Login page |
+| `signup` | Signup wizard (all steps) |
+| `host` | Host dashboard (topbar, rail, calendar, forms, ICS import) |
+| `cleaner` | Cleaner dashboard (topbar, tabs, profile form) |
+| `admin` | Admin panel |
+| `cleaners` | `/cleaners` directory page |
+| `app` | `/app` workspace page |
+| `common` | Shared primitives (months, weekdays, cancel/save/back) |
+| `errors` | Global error boundary |
+| `components.*` | Shared components — see sub-namespaces: `cookieBanner`, `cleanerBrowser`, `cleanerCard`, `cleanerProfileModal`, `appdashGrid`, `ratingStars`, `reviewModal`, `notificationBell`, `connectButton`, `jobOfferModal`, `connections`, `accountDeletionPanel`, `areaDemandPanel`, `openJobMap`, `districtMapSelector`, `propertyLocationPicker`, `districtChecklist`, `districtSelectedTags` |
+
+### Domain glossary (BG/EN)
+
+Поръчка = job · Домакин = host · Почистващ = cleaner · Назначение = assignment · Позиции = applications · Оферта = offer · Верифициран = verified · Рейтинг = rating · Имот = property · Табло = dashboard
+
 ## CSS Design System (globals.css)
 
 All UI is written in plain CSS with these shared tokens and classes. **Do not add a CSS library — extend globals.css.**

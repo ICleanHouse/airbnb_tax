@@ -19,6 +19,7 @@ import {
   UserPlus,
   UserRoundCheck,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { apiFetch, UserRole } from "../../lib/api";
 import { cities } from "../../lib/cityDistricts";
 
@@ -53,27 +54,16 @@ type SignupDraft = {
   password_confirm: string;
 };
 
-const roles: Array<{ value: SignupRole; label: string; description: string; icon: typeof Home }> = [
-  { value: "host", label: "Host", description: "Post cleaning jobs for your properties.", icon: Home },
-  { value: "cleaner", label: "Cleaner", description: "Join the network and find cleaning jobs.", icon: Sparkles },
-  { value: "agency", label: "Agency", description: "Manage teams and assign cleaning jobs.", icon: Building2 },
-];
+type EmailErrorKey = "emailRequired" | "emailInvalid" | "emailDomain" | "emailDomainHyphen" | "emailDomainChars" | "emailEnding";
 
-const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-const weekdayLabels = ["M", "T", "W", "T", "F", "S", "S"];
-const sexOptions = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "prefer_not_to_say", label: "Prefer not to say" },
-];
 const primaryLanguageOptions = [
-  { value: "Български", label: "Български" },
-  { value: "Русский", label: "Русский" },
-  { value: "English", label: "English" },
-  { value: "Română", label: "Română" },
-  { value: "Српски", label: "Српски" },
-  { value: "Ελληνικά", label: "Ελληνικά" },
-  { value: "other", label: "Other" },
+  { value: "Български" },
+  { value: "Русский" },
+  { value: "English" },
+  { value: "Română" },
+  { value: "Српски" },
+  { value: "Ελληνικά" },
+  { value: "other" },
 ];
 const otherLanguageOptions = [
   "Українська",
@@ -109,15 +99,6 @@ const otherLanguageOptions = [
   "Bahasa Melayu",
   "Kiswahili",
 ];
-const experienceOptions = [
-  { value: "none", label: "I don't have experience" },
-  { value: "1_year", label: "1 year" },
-  { value: "2_years", label: "2 years" },
-  { value: "3_years", label: "3 years" },
-  { value: "4_years", label: "4 years" },
-  { value: "5_years", label: "5 years" },
-  { value: "more_than_5_years", label: "More than 5 years of experience" },
-];
 const introductionMaxLength = 1500;
 const PROFILE_CROP_PREVIEW_SIZE = 360;
 const PROFILE_CROP_EXPORT_SIZE = 720;
@@ -151,24 +132,24 @@ function clampProfileCropOffset(offset: { x: number; y: number }, source: CropSo
   };
 }
 
-function validateEmailAddress(rawEmail: string): string | null {
+function validateEmailAddress(rawEmail: string): EmailErrorKey | null {
   const email = rawEmail.trim();
-  if (!email) return "Email is required.";
+  if (!email) return "emailRequired";
   const atIndex = email.lastIndexOf("@");
-  if (atIndex <= 0 || atIndex !== email.indexOf("@") || atIndex === email.length - 1) return "Enter a valid email address.";
+  if (atIndex <= 0 || atIndex !== email.indexOf("@") || atIndex === email.length - 1) return "emailInvalid";
   const localPart = email.slice(0, atIndex);
   const domainPart = email.slice(atIndex + 1).toLowerCase();
   if (localPart.startsWith(".") || localPart.endsWith(".") || localPart.includes("..") || !/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(localPart)) {
-    return "Enter a valid email address.";
+    return "emailInvalid";
   }
   const labels = domainPart.split(".");
-  if (labels.length < 2) return "Email domain must include a valid ending (for example .com or .bg).";
+  if (labels.length < 2) return "emailDomain";
   for (const label of labels) {
-    if (!label) return "Invalid email domain.";
-    if (label.startsWith("-") || label.endsWith("-")) return "Email domain labels cannot start or end with a hyphen.";
-    if (!/^[a-z0-9-]+$/.test(label)) return "Email domain labels can only use letters, numbers, and hyphens.";
+    if (!label) return "emailDomain";
+    if (label.startsWith("-") || label.endsWith("-")) return "emailDomainHyphen";
+    if (!/^[a-z0-9-]+$/.test(label)) return "emailDomainChars";
   }
-  if (!/^[a-z]{2,24}$/.test(labels[labels.length - 1])) return "Email ending is not valid.";
+  if (!/^[a-z]{2,24}$/.test(labels[labels.length - 1])) return "emailEnding";
   return null;
 }
 
@@ -233,6 +214,40 @@ function hasProgress(step: SignupStep) {
 }
 
 export default function SignupPage() {
+  const tS = useTranslations("signup");
+  const tC = useTranslations("common");
+
+  const monthNames = tC.raw("months") as string[];
+  const weekdayLabels = tC.raw("weekdays") as string[];
+
+  const roles: Array<{ value: SignupRole; label: string; description: string; icon: typeof Home }> = [
+    { value: "host", label: tS("role.host.label"), description: tS("role.host.description"), icon: Home },
+    { value: "cleaner", label: tS("role.cleaner.label"), description: tS("role.cleaner.description"), icon: Sparkles },
+    { value: "agency", label: tS("role.agency.label"), description: tS("role.agency.description"), icon: Building2 },
+  ];
+  const sexOptions = [
+    { value: "male", label: tS("personalInfo.male") },
+    { value: "female", label: tS("personalInfo.female") },
+    { value: "prefer_not_to_say", label: tS("personalInfo.preferNotToSay") },
+  ];
+  const experienceOptions = [
+    { value: "none", label: tS("experience.none") },
+    { value: "1_year", label: tS("experience.1year") },
+    { value: "2_years", label: tS("experience.2years") },
+    { value: "3_years", label: tS("experience.3years") },
+    { value: "4_years", label: tS("experience.4years") },
+    { value: "5_years", label: tS("experience.5years") },
+    { value: "more_than_5_years", label: tS("experience.moreThan5") },
+  ];
+  const emailErrorMessages: Record<EmailErrorKey, string> = {
+    emailRequired: tS("account.error.emailRequired"),
+    emailInvalid: tS("account.error.emailInvalid"),
+    emailDomain: tS("account.error.emailDomain"),
+    emailDomainHyphen: tS("account.error.emailDomainHyphen"),
+    emailDomainChars: tS("account.error.emailDomainChars"),
+    emailEnding: tS("account.error.emailEnding"),
+  };
+
   const prefersReducedMotion = useReducedMotion();
   const cutoffDate = adultCutoffDate();
   const yearOptions = Array.from({ length: 83 }, (_, index) => cutoffDate.getFullYear() - index);
@@ -454,8 +469,10 @@ export default function SignupPage() {
     }
     const image = new window.Image();
     image.onload = () => setCropImageElement(image);
-    image.onerror = () => setCropError("Could not load image preview.");
+    image.onerror = () => setCropError(tS("cropModal.error.loadPreview"));
     image.src = cropSource.src;
+  // tS is stable across renders
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cropSource]);
 
   useEffect(() => {
@@ -483,6 +500,13 @@ export default function SignupPage() {
   const canContinueLocation = Boolean(selectedCity && selectedZones.size > 0);
   const totalSteps = role === "cleaner" ? 7 : 2;
   const progressPercent = Math.round(((stepIndex(step, role) + 1) / totalSteps) * 100);
+
+  const passwordChecks = [
+    { label: tS("account.passwordCheck.length"), passed: password.length >= 8 },
+    { label: tS("account.passwordCheck.letter"), passed: /\p{L}/u.test(password) },
+    { label: tS("account.passwordCheck.number"), passed: /\p{N}/u.test(password) },
+    { label: tS("account.passwordCheck.special"), passed: /[^\p{L}\p{N}]/u.test(password) },
+  ];
 
   function selectedNativeLanguage() {
     if (languageChoice === "other") return otherLanguage;
@@ -543,14 +567,14 @@ export default function SignupPage() {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        setSubmitError(typeof data.detail === "string" ? data.detail : "Could not create the account. Check your details and try again.");
+        setSubmitError(typeof data.detail === "string" ? data.detail : tS("account.error.createFallback"));
         setSubmitting(false);
         return;
       }
       clearSignupStorage();
       window.location.href = "/app";
     } catch {
-      setSubmitError("Could not create the account. Check your connection and try again.");
+      setSubmitError(tS("account.error.createNetwork"));
       setSubmitting(false);
     }
   }
@@ -558,13 +582,13 @@ export default function SignupPage() {
   async function submitAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors: SignupFieldErrors = {};
-    if (!firstName.trim()) nextErrors.first_name = "First name is required.";
-    if (!lastName.trim()) nextErrors.last_name = "Last name is required.";
-    const emailError = validateEmailAddress(email);
-    if (emailError) nextErrors.email = emailError;
+    if (!firstName.trim()) nextErrors.first_name = tS("account.error.firstNameRequired");
+    if (!lastName.trim()) nextErrors.last_name = tS("account.error.lastNameRequired");
+    const emailErrorKey = validateEmailAddress(email);
+    if (emailErrorKey) nextErrors.email = emailErrorMessages[emailErrorKey];
     const hasPasswordRules = hasPasswordRequirements(password);
-    if (!hasPasswordRules) nextErrors.password = "Password must be at least 8 characters long and contain at least one letter, one number, and one special character.";
-    if (password !== confirmPassword) nextErrors.password_confirm = "Passwords do not match.";
+    if (!hasPasswordRules) nextErrors.password = tS("account.error.passwordWeak");
+    if (password !== confirmPassword) nextErrors.password_confirm = tS("account.error.passwordMatch");
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
       return;
@@ -587,7 +611,7 @@ export default function SignupPage() {
         if (Array.isArray(data.email)) nextErrors.email = data.email[0];
         else if (typeof data.email === "string") nextErrors.email = data.email;
         else if (typeof data.detail === "string") nextErrors.form = data.detail;
-        else nextErrors.form = "Could not send the confirmation code. Try again.";
+        else nextErrors.form = tS("account.error.codeNotSent");
         setFieldErrors(nextErrors);
         setSubmitting(false);
         return;
@@ -602,7 +626,7 @@ export default function SignupPage() {
       setSubmitting(false);
       goTo("confirm_email", 1);
     } catch {
-      setFieldErrors({ form: "Could not send the confirmation code. Check your connection and try again." });
+      setFieldErrors({ form: tS("account.error.codeNotSentNetwork") });
       setSubmitting(false);
     }
   }
@@ -612,7 +636,7 @@ export default function SignupPage() {
     if (submitting) return;
     const normalizedCode = code.replace(/\D/g, "").slice(0, 6);
     if (normalizedCode.length !== 6) {
-      setCodeError("Enter the 6-digit code.");
+      setCodeError(tS("confirmEmail.error.codeShort"));
       return;
     }
     setSubmitting(true);
@@ -626,12 +650,12 @@ export default function SignupPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         const nextCodeError = Array.isArray(data.code) ? data.code[0] : data.code;
-        setCodeError(typeof nextCodeError === "string" ? nextCodeError : "The confirmation code is incorrect.");
+        setCodeError(typeof nextCodeError === "string" ? nextCodeError : tS("confirmEmail.error.codeIncorrect"));
         setSubmitting(false);
         return;
       }
       if (typeof data.email_verification_token !== "string") {
-        setCodeError("Could not verify this email. Request a new code and try again.");
+        setCodeError(tS("confirmEmail.error.verifyFailed"));
         setSubmitting(false);
         return;
       }
@@ -639,7 +663,7 @@ export default function SignupPage() {
       setSubmitting(false);
       goTo("role", 1);
     } catch {
-      setCodeError("Could not verify the code. Check your connection and try again.");
+      setCodeError(tS("confirmEmail.error.verifyNetwork"));
       setSubmitting(false);
     }
   }
@@ -660,22 +684,22 @@ export default function SignupPage() {
         }),
       });
       if (!response.ok) {
-        setCodeError("Could not send a new code. Try again.");
+        setCodeError(tS("confirmEmail.error.resendFailed"));
         setResending(false);
         return;
       }
       const data = await response.json().catch(() => ({}));
       if (typeof data.email_verification_token === "string") {
         setEmailVerificationToken(data.email_verification_token);
-        setCodeNotice("Email verification is disabled. You can continue.");
+        setCodeNotice(tS("confirmEmail.notice.verificationDisabled"));
         setResending(false);
         goTo("role", 1);
         return;
       }
-      setCodeNotice("A new confirmation code was sent.");
+      setCodeNotice(tS("confirmEmail.notice.codeSent"));
       setResending(false);
     } catch {
-      setCodeError("Could not send a new code. Check your connection and try again.");
+      setCodeError(tS("confirmEmail.error.resendNetwork"));
       setResending(false);
     }
   }
@@ -780,10 +804,10 @@ export default function SignupPage() {
   function submitPersonalInfo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors: PersonalInfoErrors = {};
-    if (!birthDate) nextErrors.birth_date = "Birth date is required.";
-    else if (!isValidDateValue(birthDate)) nextErrors.birth_date = "Enter a valid birth date.";
-    else if (!isAdultBirthDate(birthDate)) nextErrors.birth_date = "You must be at least 18 years old to sign up as a cleaner.";
-    if (!sex) nextErrors.sex = "Sex is required.";
+    if (!birthDate) nextErrors.birth_date = tS("personalInfo.error.birthDateRequired");
+    else if (!isValidDateValue(birthDate)) nextErrors.birth_date = tS("personalInfo.error.birthDateInvalid");
+    else if (!isAdultBirthDate(birthDate)) nextErrors.birth_date = tS("personalInfo.error.birthDateAge");
+    if (!sex) nextErrors.sex = tS("personalInfo.error.sexRequired");
     if (Object.keys(nextErrors).length > 0) {
       setPersonalErrors(nextErrors);
       return;
@@ -794,7 +818,7 @@ export default function SignupPage() {
   function continueFromLanguage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedNativeLanguage()) {
-      setLanguageError(languageChoice === "other" ? "Choose a language from the dropdown." : "Choose your native language.");
+      setLanguageError(languageChoice === "other" ? tS("language.error.chooseFromDropdown") : tS("language.error.chooseLanguage"));
       return;
     }
     goTo("experience", 1);
@@ -804,7 +828,7 @@ export default function SignupPage() {
     event.preventDefault();
     if (!role || role !== "cleaner" || !selectedCity || !emailVerificationToken) return;
     if (!experience) {
-      setExperienceError("Choose your experience level.");
+      setExperienceError(tS("experience.error.choose"));
       return;
     }
     goTo("introduction", 1);
@@ -868,7 +892,7 @@ export default function SignupPage() {
       outputCanvas.height = PROFILE_CROP_EXPORT_SIZE;
       const context = outputCanvas.getContext("2d");
       if (!context) {
-        setCropError("Could not prepare cropped image.");
+        setCropError(tS("cropModal.error.prepareCrop"));
         setCropBusy(false);
         return;
       }
@@ -889,7 +913,7 @@ export default function SignupPage() {
       setShowEmptyPhotoPrompt(false);
       closeCropEditor();
     } catch {
-      setCropError("Could not apply crop. Please try again.");
+      setCropError(tS("cropModal.error.applyCrop"));
       setCropBusy(false);
     }
   }
@@ -938,12 +962,12 @@ export default function SignupPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setProfileImageError("Please choose a valid image file.");
+      setProfileImageError(tS("profilePhoto.error.invalidFile"));
       event.target.value = "";
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setProfileImageError("Please choose an image up to 5 MB.");
+      setProfileImageError(tS("profilePhoto.error.tooLarge"));
       event.target.value = "";
       return;
     }
@@ -966,12 +990,12 @@ export default function SignupPage() {
           });
         };
         image.onerror = () => {
-          setProfileImageError("Could not open this image. Please choose another file.");
+          setProfileImageError(tS("profilePhoto.error.openFailed"));
         };
         image.src = reader.result;
       }
     };
-    reader.onerror = () => setProfileImageError("Could not read this image. Try another file.");
+    reader.onerror = () => setProfileImageError(tS("profilePhoto.error.readFailed"));
     reader.readAsDataURL(file);
     event.target.value = "";
   }
@@ -998,7 +1022,7 @@ export default function SignupPage() {
     event.preventDefault();
     if (!role || role !== "cleaner" || !selectedCity || !emailVerificationToken) return;
     if (introduction.length > introductionMaxLength) {
-      setIntroductionError(`Keep your introduction under ${introductionMaxLength} characters.`);
+      setIntroductionError(tS("introduction.error.tooLong", { max: introductionMaxLength }));
       return;
     }
     if (!introduction.trim()) {
@@ -1032,10 +1056,6 @@ export default function SignupPage() {
     goTo("profile_photo", 1);
   }
 
-  function returnToProfilePhoto() {
-    setShowEmptyPhotoPrompt(false);
-  }
-
   function openProfilePhotoPicker() {
     setShowEmptyPhotoPrompt(false);
     window.requestAnimationFrame(() => {
@@ -1043,42 +1063,35 @@ export default function SignupPage() {
     });
   }
 
-  const passwordChecks = [
-    { label: "At least 8 characters", passed: password.length >= 8 },
-    { label: "At least one letter (any alphabet)", passed: /\p{L}/u.test(password) },
-    { label: "At least one number", passed: /\p{N}/u.test(password) },
-    { label: "At least one special character", passed: /[^\p{L}\p{N}]/u.test(password) },
-  ];
-
   function renderStep() {
     if (step === "account") {
       return (
         <>
           <div className="auth-heading">
-            <h1>Create account</h1>
+            <h1>{tS("account.heading")}</h1>
           </div>
           {/* Social sign-up (Google/Apple) is not wired up yet — hidden until
               real OAuth is implemented to avoid dead, trust-eroding buttons. */}
           <form className="auth-form" onSubmit={submitAccount} noValidate>
             <div className="form-grid signup-form-grid">
               <label>
-                <span>First name</span>
+                <span>{tS("account.firstNameLabel")}</span>
                 <input autoComplete="given-name" aria-invalid={Boolean(fieldErrors.first_name)} className={fieldErrors.first_name ? "input-invalid" : ""} required value={firstName} onChange={(event) => { setFirstName(event.target.value); clearFieldError("first_name"); }} />
                 {fieldErrors.first_name ? <small className="field-error-text">{fieldErrors.first_name}</small> : null}
               </label>
               <label>
-                <span>Last name</span>
+                <span>{tS("account.lastNameLabel")}</span>
                 <input autoComplete="family-name" aria-invalid={Boolean(fieldErrors.last_name)} className={fieldErrors.last_name ? "input-invalid" : ""} required value={lastName} onChange={(event) => { setLastName(event.target.value); clearFieldError("last_name"); }} />
                 {fieldErrors.last_name ? <small className="field-error-text">{fieldErrors.last_name}</small> : null}
               </label>
               <label>
-                <span>Email</span>
+                <span>{tS("account.emailLabel")}</span>
                 <input autoComplete="email" aria-invalid={Boolean(fieldErrors.email)} className={fieldErrors.email ? "input-invalid" : ""} required type="email" value={email} onChange={(event) => { setEmail(event.target.value); clearFieldError("email"); }} />
                 {fieldErrors.email ? <small className="field-error-text">{fieldErrors.email}</small> : null}
               </label>
               <label>
-                <span>Password</span>
-                <input autoComplete="new-password" aria-invalid={Boolean(fieldErrors.password)} className={fieldErrors.password ? "input-invalid" : ""} minLength={8} required type="password" value={password} onChange={(event) => { setPassword(event.target.value); clearFieldError("password"); }} placeholder="At least 8 characters" />
+                <span>{tS("account.passwordLabel")}</span>
+                <input autoComplete="new-password" aria-invalid={Boolean(fieldErrors.password)} className={fieldErrors.password ? "input-invalid" : ""} minLength={8} required type="password" value={password} onChange={(event) => { setPassword(event.target.value); clearFieldError("password"); }} placeholder={tS("account.passwordPlaceholder")} />
                 {fieldErrors.password ? <small className="field-error-text">{fieldErrors.password}</small> : null}
                 {password.length > 0 ? (
                   <ul className="password-checklist" aria-live="polite">
@@ -1092,7 +1105,7 @@ export default function SignupPage() {
                 ) : null}
               </label>
               <label>
-                <span>Confirm password</span>
+                <span>{tS("account.confirmPasswordLabel")}</span>
                 <input autoComplete="new-password" aria-invalid={Boolean(fieldErrors.password_confirm)} className={fieldErrors.password_confirm ? "input-invalid" : ""} minLength={8} required type="password" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); clearFieldError("password_confirm"); }} />
                 {fieldErrors.password_confirm ? <small className="field-error-text">{fieldErrors.password_confirm}</small> : null}
               </label>
@@ -1101,15 +1114,15 @@ export default function SignupPage() {
             {submitting ? (
               <div className="signup-loading-status" role="status" aria-live="polite">
                 <span className="signup-loading-spinner" aria-hidden />
-                <span>Sending confirmation code...</span>
+                <span>{tS("account.sendingCode")}</span>
               </div>
             ) : null}
             <button className="primary-link auth-submit" type="submit" disabled={submitting}>
               <UserRoundCheck size={18} aria-hidden />
-              {submitting ? "Sending code" : "Create account"}
+              {submitting ? tS("account.sendingCodeBtn") : tS("account.createAccount")}
             </button>
           </form>
-          <p className="auth-switch">Already registered? <Link href="/login">Log in</Link></p>
+          <p className="auth-switch">{tS("account.alreadyRegistered")} <Link href="/login">{tS("account.logIn")}</Link></p>
         </>
       );
     }
@@ -1118,17 +1131,17 @@ export default function SignupPage() {
       return (
         <>
           <div className="auth-heading">
-            <h1>Confirm your email</h1>
-            <p>Enter the 6-digit code sent to <strong>{email || "your email"}</strong>.</p>
+            <h1>{tS("confirmEmail.heading")}</h1>
+            <p>{tS("confirmEmail.subtitle", { email: email || "your email" })}</p>
           </div>
           <form className="auth-form signup-code-form" onSubmit={verifyCode} noValidate>
             <label className="signup-code-label">
-              <span>Confirmation code</span>
+              <span>{tS("confirmEmail.codeLabel")}</span>
               <div className={codeError ? "signup-code-boxes input-invalid" : "signup-code-boxes"} onClick={() => codeInputRef.current?.focus()}>
                 {Array.from({ length: 6 }, (_, index) => (
                   <span className={`${code[index] ? "signup-code-box filled" : "signup-code-box"}${codeInputFocused && code.length < 6 && index === code.length ? " active" : ""}`} key={index}>{code[index] ?? ""}</span>
                 ))}
-                <input id="signup-code-input" ref={codeInputRef} className="signup-code-input" inputMode="numeric" maxLength={6} pattern="[0-9]{6}" value={code} onChange={(event) => { setCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setCodeError(""); }} onFocus={() => setCodeInputFocused(true)} onBlur={() => setCodeInputFocused(false)} autoComplete="one-time-code" aria-label="Confirmation code" aria-invalid={Boolean(codeError)} autoFocus />
+                <input id="signup-code-input" ref={codeInputRef} className="signup-code-input" inputMode="numeric" maxLength={6} pattern="[0-9]{6}" value={code} onChange={(event) => { setCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setCodeError(""); }} onFocus={() => setCodeInputFocused(true)} onBlur={() => setCodeInputFocused(false)} autoComplete="one-time-code" aria-label={tS("confirmEmail.codeLabel")} aria-invalid={Boolean(codeError)} autoFocus />
               </div>
               {codeError ? <small className="field-error-text">{codeError}</small> : null}
               {codeNotice ? <small className="signup-code-notice">{codeNotice}</small> : null}
@@ -1136,11 +1149,11 @@ export default function SignupPage() {
             <div className="signup-nav-actions signup-nav-actions--confirm">
               <button className="secondary-link signup-resend-button" type="button" onClick={resendCode} disabled={resending}>
                 <RotateCw size={17} aria-hidden />
-                {resending ? "Sending" : "Resend code"}
+                {resending ? tS("confirmEmail.resending") : tS("confirmEmail.resend")}
               </button>
               <button className="primary-link auth-submit" type="submit" disabled={submitting || code.length !== 6}>
                 <MailCheck size={18} aria-hidden />
-                {submitting ? "Checking code" : "Confirm email"}
+                {submitting ? tS("confirmEmail.checking") : tS("confirmEmail.confirm")}
               </button>
             </div>
           </form>
@@ -1152,9 +1165,9 @@ export default function SignupPage() {
       return (
         <>
           <div className="auth-heading">
-            <h1>Choose account type</h1>
+            <h1>{tS("role.heading")}</h1>
           </div>
-          <div className="role-grid" role="radiogroup" aria-label="Account type">
+          <div className="role-grid" role="radiogroup" aria-label={tS("role.ariaLabel")}>
             {roles.map((option) => {
               const Icon = option.icon;
               return (
@@ -1169,10 +1182,10 @@ export default function SignupPage() {
           <div className="signup-nav-actions">
             <button type="button" className="secondary-link" onClick={() => goTo("confirm_email", -1)}>
               <ChevronLeft size={16} aria-hidden />
-              Back
+              {tC("back")}
             </button>
             <button className="primary-link auth-submit" type="button" disabled={!role} onClick={continueFromRole}>
-              Continue
+              {tC("continue")}
             </button>
           </div>
         </>
@@ -1183,42 +1196,42 @@ export default function SignupPage() {
       return (
         <>
           <div className="auth-heading">
-            <h1>Select your city and area</h1>
+            <h1>{tS("location.heading")}</h1>
           </div>
           {role === "host" ? (
             <label className="signup-city-picker">
-              <span>Company name <small className="signup-optional">(optional)</small></span>
+              <span>{tS("location.companyNameLabel")} <small className="signup-optional">{tS("location.optional")}</small></span>
               <input
                 type="text"
                 value={companyName}
                 onChange={(event) => setCompanyName(event.target.value)}
-                placeholder="e.g. Sunny Stays Property Management"
+                placeholder={tS("location.companyNamePlaceholder")}
                 autoComplete="organization"
               />
             </label>
           ) : null}
           <label className="signup-city-picker">
-            <span>City</span>
+            <span>{tS("location.cityLabel")}</span>
             <select value={city} onChange={(event) => { setCity(event.target.value); setSelectedZones(new Set()); setAvailableChoice(""); setSelectedChoice(""); setDistrictSearch(""); }}>
-              <option value="">Choose city</option>
+              <option value="">{tS("location.cityPlaceholder")}</option>
               {cities.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </label>
           {selectedCity ? (
             <section className="zones-panel" aria-label={`${selectedCity.label} neighborhoods`}>
               <header className="zones-panel-head">
-                <strong>Area selection</strong>
+                <strong>{tS("location.areaSelection")}</strong>
                 <div className="zones-actions">
-                  <button type="button" onClick={selectAllZones}>Select all</button>
-                  <button type="button" onClick={clearZones}>Clear all</button>
+                  <button type="button" onClick={selectAllZones}>{tS("location.selectAll")}</button>
+                  <button type="button" onClick={clearZones}>{tS("location.clearAll")}</button>
                 </div>
               </header>
               <div className="dual-zone-transfer">
                 <label className="dual-zone-list">
-                  <span>List of Districts:</span>
-                  <div className="dual-zone-listbox" role="listbox" aria-label="List of Districts" onDragOver={(event) => event.preventDefault()} onDrop={handleDropToAvailable}>
+                  <span>{tS("location.listOfDistricts")}</span>
+                  <div className="dual-zone-listbox" role="listbox" aria-label={tS("location.listOfDistricts")} onDragOver={(event) => event.preventDefault()} onDrop={handleDropToAvailable}>
                     <div className="dual-zone-listbox-search-wrap">
-                      <input className="dual-zone-search" type="text" placeholder="Search district" value={districtSearch} onChange={(event) => setDistrictSearch(event.target.value)} />
+                      <input className="dual-zone-search" type="text" placeholder={tS("location.searchDistrict")} value={districtSearch} onChange={(event) => setDistrictSearch(event.target.value)} />
                     </div>
                     <div className="dual-zone-items">
                       {filteredAvailableZones.map((zone) => (
@@ -1230,12 +1243,12 @@ export default function SignupPage() {
                   </div>
                 </label>
                 <div className="dual-zone-controls">
-                  <button type="button" onClick={addNeighborhood} disabled={!availableChoice} aria-label="Add neighborhood">▶</button>
-                  <button type="button" onClick={removeNeighborhood} disabled={!selectedChoice} aria-label="Remove neighborhood">◀</button>
+                  <button type="button" onClick={addNeighborhood} disabled={!availableChoice} aria-label={tS("location.addNeighborhood")}>▶</button>
+                  <button type="button" onClick={removeNeighborhood} disabled={!selectedChoice} aria-label={tS("location.removeNeighborhood")}>◀</button>
                 </div>
                 <label className="dual-zone-list">
-                  <span>Selected Districts:</span>
-                  <div className="dual-zone-listbox" role="listbox" aria-label="Selected Districts" onDragOver={(event) => event.preventDefault()} onDrop={handleDropToSelected}>
+                  <span>{tS("location.selectedDistricts")}</span>
+                  <div className="dual-zone-listbox" role="listbox" aria-label={tS("location.selectedDistricts")} onDragOver={(event) => event.preventDefault()} onDrop={handleDropToSelected}>
                     <div className="dual-zone-items">
                       {selectedZoneList.map((zone) => (
                         <button type="button" key={zone} className={selectedChoice === zone ? "dual-zone-item selected" : "dual-zone-item"} onClick={() => setSelectedChoice(zone)} onDoubleClick={() => removeSpecificNeighborhood(zone)} draggable onDragStart={() => { setDraggedZone(zone); setDragSource("selected"); }} onDragEnd={() => { setDraggedZone(null); setDragSource(null); }}>
@@ -1252,10 +1265,10 @@ export default function SignupPage() {
           <div className="signup-nav-actions">
             <button type="button" className="secondary-link" onClick={() => goTo(role === "cleaner" ? "personal_info" : "role", -1)}>
               <ChevronLeft size={16} aria-hidden />
-              Back
+              {tC("back")}
             </button>
             <button className="primary-link auth-submit" type="button" disabled={!canContinueLocation || submitting} onClick={continueFromLocation}>
-              {submitting ? "Creating account" : role === "cleaner" ? "Continue" : "Create account"}
+              {submitting ? tS("location.creatingAccount") : role === "cleaner" ? tC("continue") : tS("location.createAccount")}
             </button>
           </div>
         </>
@@ -1266,13 +1279,13 @@ export default function SignupPage() {
       return (
         <>
           <div className="auth-heading">
-            <h1>Personal information</h1>
+            <h1>{tS("personalInfo.heading")}</h1>
           </div>
           <form className="auth-form signup-personal-form" onSubmit={submitPersonalInfo} noValidate>
             <div className="form-grid">
               <fieldset className="signup-sex-field">
-                <legend>Sex</legend>
-                <div className={personalErrors.sex ? "signup-sex-options input-invalid" : "signup-sex-options"} role="group" aria-label="Sex">
+                <legend>{tS("personalInfo.sexLegend")}</legend>
+                <div className={personalErrors.sex ? "signup-sex-options input-invalid" : "signup-sex-options"} role="group" aria-label={tS("personalInfo.sexLegend")}>
                   {sexOptions.map((option) => (
                     <button type="button" key={option.value} className={sex === option.value ? "signup-sex-option selected" : "signup-sex-option"} aria-pressed={sex === option.value} onClick={() => { setSex(option.value); setPersonalErrors((prev) => ({ ...prev, sex: undefined })); }}>
                       {option.label}
@@ -1282,11 +1295,11 @@ export default function SignupPage() {
                 {personalErrors.sex ? <small className="field-error-text">{personalErrors.sex}</small> : null}
               </fieldset>
               <div className="signup-birthdate-field">
-                <span>Date of birth</span>
+                <span>{tS("personalInfo.birthDateLabel")}</span>
                 <div className={personalErrors.birth_date ? "birthdate-picker input-invalid" : "birthdate-picker"}>
                   <div className="birthdate-input-row">
-                    <input type="date" value={birthDate} min={minBirthDate} max={maxBirthDate} onChange={(event) => changeBirthDate(event.target.value)} aria-label="Date of birth" className="birthdate-input" />
-                    <button type="button" className="birthdate-toggle" onClick={() => setCalendarOpen((open) => !open)} aria-label="Choose birth date from calendar" aria-expanded={calendarOpen}>
+                    <input type="date" value={birthDate} min={minBirthDate} max={maxBirthDate} onChange={(event) => changeBirthDate(event.target.value)} aria-label={tS("personalInfo.birthDateLabel")} className="birthdate-input" />
+                    <button type="button" className="birthdate-toggle" onClick={() => setCalendarOpen((open) => !open)} aria-label={tS("personalInfo.calendarAriaLabel")} aria-expanded={calendarOpen}>
                       <CalendarDays size={18} aria-hidden />
                     </button>
                   </div>
@@ -1294,16 +1307,16 @@ export default function SignupPage() {
                     <div className="birthdate-calendar">
                       <div className="birthdate-calendar-head">
                         <div className="birthdate-month-selectors">
-                          <select value={calendarMonth} onChange={(event) => setCalendarMonth(Number(event.target.value))} aria-label="Birth month">
+                          <select value={calendarMonth} onChange={(event) => setCalendarMonth(Number(event.target.value))} aria-label={tS("personalInfo.monthAriaLabel")}>
                             {monthNames.map((month, index) => <option key={month} value={index}>{month}</option>)}
                           </select>
-                          <select value={calendarYear} onChange={(event) => setCalendarYear(Number(event.target.value))} aria-label="Birth year">
+                          <select value={calendarYear} onChange={(event) => setCalendarYear(Number(event.target.value))} aria-label={tS("personalInfo.yearAriaLabel")}>
                             {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
                           </select>
                         </div>
                         <div className="birthdate-month-arrows">
-                          <button type="button" onClick={() => moveMonth(-1)} aria-label="Previous month"><ChevronLeft size={22} aria-hidden /></button>
-                          <button type="button" onClick={() => moveMonth(1)} aria-label="Next month"><ChevronRight size={22} aria-hidden /></button>
+                          <button type="button" onClick={() => moveMonth(-1)} aria-label={tS("personalInfo.prevMonthAriaLabel")}><ChevronLeft size={22} aria-hidden /></button>
+                          <button type="button" onClick={() => moveMonth(1)} aria-label={tS("personalInfo.nextMonthAriaLabel")}><ChevronRight size={22} aria-hidden /></button>
                         </div>
                       </div>
                       <div className="birthdate-weekdays">
@@ -1328,8 +1341,8 @@ export default function SignupPage() {
               </div>
             </div>
             <div className="signup-nav-actions">
-              <button type="button" className="secondary-link" onClick={() => goTo("role", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
-              <button className="primary-link auth-submit" type="submit">Continue</button>
+              <button type="button" className="secondary-link" onClick={() => goTo("role", -1)}><ChevronLeft size={16} aria-hidden />{tC("back")}</button>
+              <button className="primary-link auth-submit" type="submit">{tC("continue")}</button>
             </div>
           </form>
         </>
@@ -1340,25 +1353,26 @@ export default function SignupPage() {
       return (
         <>
           <div className="auth-heading">
-            <h1>Native language</h1>
+            <h1>{tS("language.heading")}</h1>
           </div>
           <form className="auth-form signup-experience-form" onSubmit={continueFromLanguage} noValidate>
-            <div className="signup-experience-options" role="radiogroup" aria-label="Native language">
+            <div className="signup-experience-options" role="radiogroup" aria-label={tS("language.ariaLabel")}>
               {primaryLanguageOptions.map((option) => {
                 const selected = languageChoice === option.value;
                 const checked = option.value === "other" ? selected && Boolean(otherLanguage) : selected;
+                const displayLabel = option.value === "other" ? tS("language.other") : option.value;
                 if (option.value === "other") {
                   return (
                     <div className="signup-language-other-wrap" key={option.value}>
                       <button type="button" className={selected ? "signup-experience-option signup-language-other-trigger selected" : "signup-experience-option signup-language-other-trigger"} aria-checked={selected} role="radio" onClick={() => { setLanguageChoice(option.value); setOtherDropdownOpen((open) => (languageChoice === option.value ? !open : true)); setLanguageError(""); }}>
-                        <span>{otherLanguage || option.label}</span>
+                        <span>{otherLanguage || displayLabel}</span>
                         <span className="signup-language-other-icons">
                           {checked ? <span className="signup-experience-check" aria-hidden><Check size={15} /></span> : null}
                           <ChevronDown size={18} aria-hidden />
                         </span>
                       </button>
                       {selected && otherDropdownOpen ? (
-                        <div className="signup-language-dropdown" id="signup-other-language-list" role="listbox" aria-label="Other languages">
+                        <div className="signup-language-dropdown" id="signup-other-language-list" role="listbox" aria-label={tS("language.otherDropdownAriaLabel")}>
                           {otherLanguageOptions.map((language) => (
                             <button type="button" key={language} className={otherLanguage === language ? "signup-language-dropdown-option selected" : "signup-language-dropdown-option"} role="option" aria-selected={otherLanguage === language} onClick={() => { setOtherLanguage(language); setOtherDropdownOpen(false); setLanguageError(""); }}>
                               {language}
@@ -1371,7 +1385,7 @@ export default function SignupPage() {
                 }
                 return (
                   <button type="button" key={option.value} className={selected ? "signup-experience-option selected" : "signup-experience-option"} aria-checked={selected} role="radio" onClick={() => { setLanguageChoice(option.value); setOtherLanguage(""); setOtherDropdownOpen(false); setLanguageError(""); }}>
-                    <span>{option.label}</span>
+                    <span>{displayLabel}</span>
                     {checked ? <span className="signup-experience-check" aria-hidden><Check size={15} /></span> : null}
                   </button>
                 );
@@ -1379,8 +1393,8 @@ export default function SignupPage() {
             </div>
             {languageError ? <p className="form-error">{languageError}</p> : null}
             <div className="signup-nav-actions">
-              <button type="button" className="secondary-link" onClick={() => goTo("location", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
-              <button className="primary-link auth-submit" type="submit" disabled={!selectedNativeLanguage()}>Continue</button>
+              <button type="button" className="secondary-link" onClick={() => goTo("location", -1)}><ChevronLeft size={16} aria-hidden />{tC("back")}</button>
+              <button className="primary-link auth-submit" type="submit" disabled={!selectedNativeLanguage()}>{tC("continue")}</button>
             </div>
           </form>
         </>
@@ -1391,10 +1405,10 @@ export default function SignupPage() {
       return (
         <>
           <div className="auth-heading">
-            <h1>Do you have experience?</h1>
+            <h1>{tS("experience.heading")}</h1>
           </div>
           <form className="auth-form signup-experience-form" onSubmit={submitExperience} noValidate>
-            <div className="signup-experience-options" role="radiogroup" aria-label="Cleaning experience">
+            <div className="signup-experience-options" role="radiogroup" aria-label={tS("experience.ariaLabel")}>
               {experienceOptions.map((option) => {
                 const selected = experience === option.value;
                 return (
@@ -1407,8 +1421,8 @@ export default function SignupPage() {
             </div>
             {experienceError ? <p className="form-error">{experienceError}</p> : null}
             <div className="signup-nav-actions">
-              <button type="button" className="secondary-link" onClick={() => goTo("native_language", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
-              <button className="primary-link auth-submit" type="submit" disabled={!experience}>Continue</button>
+              <button type="button" className="secondary-link" onClick={() => goTo("native_language", -1)}><ChevronLeft size={16} aria-hidden />{tC("back")}</button>
+              <button className="primary-link auth-submit" type="submit" disabled={!experience}>{tC("continue")}</button>
             </div>
           </form>
         </>
@@ -1419,11 +1433,11 @@ export default function SignupPage() {
       return (
         <>
           <div className="auth-heading">
-            <h1>Introduce yourself</h1>
+            <h1>{tS("introduction.heading")}</h1>
           </div>
           <form className="auth-form signup-introduction-form" onSubmit={submitIntroduction} noValidate>
             <label className="signup-introduction-label">
-              <span>Your introduction</span>
+              <span>{tS("introduction.label")}</span>
               <textarea
                 aria-invalid={Boolean(introductionError)}
                 className={introductionError ? "input-invalid" : ""}
@@ -1431,7 +1445,7 @@ export default function SignupPage() {
                 onBlur={() => setIntroductionFocused(false)}
                 onChange={(event) => changeIntroduction(event.target.value)}
                 onFocus={() => setIntroductionFocused(true)}
-                placeholder={introductionFocused ? "" : "Hosts read descriptions to find the best match.\nShare your experience, work style, and what makes you reliable.\nMake your profile feel clear and trustworthy."}
+                placeholder={introductionFocused ? "" : tS("introduction.placeholder")}
                 ref={introductionInputRef}
                 style={{ height: 200 }}
                 value={introduction}
@@ -1443,8 +1457,8 @@ export default function SignupPage() {
             </label>
             {submitError ? <p className="form-error">{submitError}</p> : null}
             <div className="signup-nav-actions">
-              <button type="button" className="secondary-link" onClick={() => goTo("experience", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
-              <button className="primary-link auth-submit" type="submit">Continue</button>
+              <button type="button" className="secondary-link" onClick={() => goTo("experience", -1)}><ChevronLeft size={16} aria-hidden />{tC("back")}</button>
+              <button className="primary-link auth-submit" type="submit">{tC("continue")}</button>
             </div>
           </form>
         </>
@@ -1455,8 +1469,8 @@ export default function SignupPage() {
       return (
         <>
           <div className="auth-heading">
-            <h1>Add a profile photo</h1>
-            <p>A clear profile photo helps hosts trust your profile faster. You can skip this and add it later.</p>
+            <h1>{tS("profilePhoto.heading")}</h1>
+            <p>{tS("profilePhoto.subtitle")}</p>
           </div>
           <form className="auth-form signup-profile-photo-form" onSubmit={submitProfilePhoto} noValidate>
             <div className="signup-profile-photo-preview-wrap">
@@ -1464,9 +1478,9 @@ export default function SignupPage() {
                 type="button"
                 className={profileImage ? "signup-profile-photo-trigger has-image" : "signup-profile-photo-trigger"}
                 onClick={openProfilePhotoPicker}
-                aria-label={profileImage ? "Edit profile photo" : "Upload profile photo"}
+                aria-label={profileImage ? tS("profilePhoto.editAriaLabel") : tS("profilePhoto.uploadAriaLabel")}
               >
-                <div className="signup-profile-photo-preview" aria-label="Profile photo preview">
+                <div className="signup-profile-photo-preview" aria-label={tS("profilePhoto.previewAriaLabel")}>
                   {profileImage ? (
                     <Image src={profileImage} alt="Selected profile" width={148} height={148} unoptimized />
                   ) : (
@@ -1474,7 +1488,7 @@ export default function SignupPage() {
                       <User size={48} />
                     </span>
                   )}
-                  <span className="signup-profile-photo-hover-hint">{profileImage ? "Edit photo" : "Upload photo"}</span>
+                  <span className="signup-profile-photo-hover-hint">{profileImage ? tS("profilePhoto.editHint") : tS("profilePhoto.uploadHint")}</span>
                 </div>
               </button>
             </div>
@@ -1482,8 +1496,8 @@ export default function SignupPage() {
             {profileImageError ? <p className="form-error">{profileImageError}</p> : null}
             {submitError ? <p className="form-error">{submitError}</p> : null}
             <div className="signup-nav-actions">
-              <button type="button" className="secondary-link" onClick={() => goTo("introduction", -1)}><ChevronLeft size={16} aria-hidden />Back</button>
-              <button className="primary-link auth-submit" type="submit" disabled={submitting}>{submitting ? "Creating account" : "Create account"}</button>
+              <button type="button" className="secondary-link" onClick={() => goTo("introduction", -1)}><ChevronLeft size={16} aria-hidden />{tC("back")}</button>
+              <button className="primary-link auth-submit" type="submit" disabled={submitting}>{submitting ? tS("profilePhoto.creatingAccount") : tS("profilePhoto.createAccount")}</button>
             </div>
           </form>
         </>
@@ -1500,7 +1514,7 @@ export default function SignupPage() {
           <span className="brand-symbol">
             <UserPlus size={18} aria-hidden />
           </span>
-          <strong>Host Cleaners</strong>
+          <strong>{tS("brandName")}</strong>
         </Link>
         {hasProgress(step) ? (
           <div className="signup-progress-wrap" aria-label="Signup progress">
@@ -1540,14 +1554,14 @@ export default function SignupPage() {
         >
           <div className="host-modal cleaner-crop-modal" onClick={(event) => event.stopPropagation()}>
             <div className="host-modal-header">
-              <h2 id="signup-crop-title">Adjust your profile photo</h2>
-              <button type="button" className="host-modal-close" onClick={closeCropEditor} aria-label="Close">
+              <h2 id="signup-crop-title">{tS("cropModal.title")}</h2>
+              <button type="button" className="host-modal-close" onClick={closeCropEditor} aria-label={tS("cropModal.closeAriaLabel")}>
                 ×
               </button>
             </div>
             <div className="cleaner-crop-modal-body">
               <p className="cleaner-crop-hint">
-                Drag to center your photo. Use zoom to crop tighter or wider.
+                {tS("cropModal.hint")}
               </p>
               <div className="cleaner-crop-canvas-wrap">
                 <canvas
@@ -1564,7 +1578,7 @@ export default function SignupPage() {
               </div>
               <div className="cleaner-crop-controls">
                 <label className="cleaner-crop-zoom" htmlFor="signup-crop-zoom">
-                  <span>Zoom</span>
+                  <span>{tS("cropModal.zoomLabel")}</span>
                   <input
                     id="signup-crop-zoom"
                     type="range"
@@ -1579,18 +1593,18 @@ export default function SignupPage() {
                 <div className="cleaner-crop-actions cleaner-crop-actions--all">
                   <div className="cleaner-crop-actions-left">
                     <button className="secondary-link" type="button" onClick={() => setCropOffset({ x: 0, y: 0 })}>
-                      Recenter
+                      {tS("cropModal.recenter")}
                     </button>
                     <button className="secondary-link" type="button" onClick={() => setCropZoomLevel(PROFILE_CROP_MIN_ZOOM)}>
-                      Reset zoom
+                      {tS("cropModal.resetZoom")}
                     </button>
                   </div>
                   <div className="cleaner-crop-actions-right">
                     <button className="secondary-link" type="button" onClick={closeCropEditor}>
-                      Cancel
+                      {tS("cropModal.cancel")}
                     </button>
                     <button className="primary-link auth-submit" type="button" onClick={applyCropResult} disabled={cropBusy}>
-                      {cropBusy ? "Applying..." : "Use this image"}
+                      {cropBusy ? tS("cropModal.applying") : tS("cropModal.useImage")}
                     </button>
                   </div>
                 </div>
@@ -1603,21 +1617,18 @@ export default function SignupPage() {
       {showEmptyBioPrompt ? (
         <div className="signup-empty-bio-backdrop" role="dialog" aria-modal="true" aria-labelledby="empty-bio-title" aria-describedby="empty-bio-description">
           <div className="signup-empty-bio-modal">
-            <h2 id="empty-bio-title">Improve your matching by 53%!</h2>
-            <p id="empty-bio-description">
-              A short bio helps hosts understand a cleaner&apos;s experience, reliability, and work style before they choose who to work with.
-              You can add one now, or create the account and update it later.
-            </p>
+            <h2 id="empty-bio-title">{tS("emptyBioPrompt.heading")}</h2>
+            <p id="empty-bio-description">{tS("emptyBioPrompt.body")}</p>
             <div className="signup-empty-bio-footer">
               <div className="signup-empty-bio-icon" aria-hidden>
                 <Sparkles size={24} />
               </div>
               <div className="signup-empty-bio-actions">
                 <button type="button" className="primary-link auth-submit" onClick={returnToIntroduction}>
-                  Add Bio
+                  {tS("emptyBioPrompt.addBio")}
                 </button>
                 <button type="button" className="signup-empty-bio-text-action" onClick={createAccountWithoutBio} disabled={submitting}>
-                  {submitting ? "Loading" : "Continue without bio"}
+                  {submitting ? tS("emptyBioPrompt.loading") : tS("emptyBioPrompt.continueWithout")}
                 </button>
               </div>
             </div>
@@ -1627,22 +1638,19 @@ export default function SignupPage() {
       {showEmptyPhotoPrompt ? (
         <div className="signup-empty-bio-backdrop" role="dialog" aria-modal="true" aria-labelledby="empty-photo-title" aria-describedby="empty-photo-description">
           <div className="signup-empty-bio-modal">
-            <h2 id="empty-photo-title">Users with profile pictures are 78% more likely to find a job.</h2>
-            <p id="empty-photo-description">
-              Hosts want reliable people in their homes. A clear photo makes your profile feel trustworthy and helps you get picked faster.
-            </p>
+            <h2 id="empty-photo-title">{tS("emptyPhotoPrompt.heading")}</h2>
+            <p id="empty-photo-description">{tS("emptyPhotoPrompt.body")}</p>
             <div className="signup-empty-bio-footer">
               <div className="signup-empty-bio-icon" aria-hidden>
                 <Sparkles size={24} />
               </div>
               <div className="signup-empty-bio-actions">
                 <button type="button" className="primary-link auth-submit" onClick={openProfilePhotoPicker}>
-                  Upload Photo
+                  {tS("emptyPhotoPrompt.upload")}
                 </button>
                 <button type="button" className="signup-empty-bio-text-action" onClick={createCleanerAccount} disabled={submitting}>
-                  {submitting ? "Creating account" : "Create account without photo"}
+                  {submitting ? tS("emptyPhotoPrompt.creatingAccount") : tS("emptyPhotoPrompt.createWithout")}
                 </button>
-
               </div>
             </div>
           </div>

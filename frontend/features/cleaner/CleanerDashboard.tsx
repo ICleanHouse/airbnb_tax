@@ -25,6 +25,7 @@ import {
   UserRoundCheck,
   X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { apiFetch, CurrentUser } from "../../lib/api";
 import { money, formatMoney } from "../../lib/money";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
@@ -208,18 +209,7 @@ type ProfileFieldErrors = Partial<Record<ProfileFieldErrorKey, string>>;
 type Section = "calendar" | "applications" | "offers" | "profile";
 type CleanerAppFilter = "pending" | "active" | "completed" | "open" | "rating" | null;
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const BIRTHDATE_MONTH_NAMES = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-const BIRTHDATE_WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
-const sexOptions: Array<{ value: CleanerSex; label: string }> = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "prefer_not_to_say", label: "Prefer not to say" },
-];
+const sexOptionValues: CleanerSex[] = ["male", "female", "prefer_not_to_say"];
 const nativeLanguageOptions = [
   { value: "Български", label: "Български" },
   { value: "Русский", label: "Русский" },
@@ -250,30 +240,15 @@ const additionalLanguageOptions = [
   "Magyar",
   "Русиньскый",
 ];
-const educationOptions = [
-  { value: "none", label: "No education" },
-  { value: "primary", label: "Primary education" },
-  { value: "high_school", label: "High school" },
-  { value: "higher", label: "Higher education" },
-];
-const experienceOptions = [
-  { value: "none", label: "I don't have experience" },
-  { value: "1_year", label: "1 year" },
-  { value: "2_years", label: "2 years" },
-  { value: "3_years", label: "3 years" },
-  { value: "4_years", label: "4 years" },
-  { value: "5_years", label: "5 years" },
-  { value: "more_than_5_years", label: "More than 5 years of experience" },
-];
+const educationOptionValues = ["none", "primary", "high_school", "higher"] as const;
+type EducationValue = typeof educationOptionValues[number];
+const experienceOptionValues = ["none", "1_year", "2_years", "3_years", "4_years", "5_years", "more_than_5_years"] as const;
+type ExperienceValue = typeof experienceOptionValues[number];
 const otherLanguageCatalog = Array.from(
   new Set([...nativeLanguageOptions.map((option) => option.value), ...additionalLanguageOptions]),
 ).sort((a, b) => a.localeCompare(b, "bg"));
-const personalPreferenceOptions = [
-  { value: "provide_cleaning_supplies", label: "Provide cleaning supplies" },
-  { value: "wash_and_dry_linen_towels", label: "Wash and dry linen and towels" },
-  { value: "iron_and_fold_linen_towels", label: "Iron and fold linen and towels" },
-  { value: "pet_friendly_homes", label: "Accept homes with pets" },
-] as const;
+const personalPreferenceValues = ["provide_cleaning_supplies", "wash_and_dry_linen_towels", "iron_and_fold_linen_towels", "pet_friendly_homes"] as const;
+type PersonalPreferenceValue = typeof personalPreferenceValues[number];
 const DEFAULT_PROFILE_IMAGE = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f3f4f6"/><stop offset="100%" stop-color="#e5e7eb"/></linearGradient></defs><rect width="240" height="240" fill="url(#g)"/><circle cx="120" cy="88" r="40" fill="#cbd5e1"/><path d="M40 214c8-40 38-62 80-62s72 22 80 62H40z" fill="#cbd5e1"/></svg>',
 )}`;
@@ -337,28 +312,6 @@ function isValidDateValue(value: string) {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
-const STATUS_LABEL: Record<JobStatus, string> = {
-  draft: "Draft",
-  open: "Open",
-  assigned: "Assigned",
-  completed: "Done",
-  cancelled: "Cancelled",
-  disputed: "Disputed",
-};
-
-const APPLICATION_LABEL: Record<ApplicationStatus, string> = {
-  pending: "Pending",
-  accepted: "Accepted",
-  rejected: "Rejected",
-  withdrawn: "Withdrawn",
-};
-
-const CALENDAR_LABEL: Record<CalendarItemType, string> = {
-  open_job: "Open",
-  application: "Applied",
-  assignment: "Assigned",
-  offer: "Offer",
-};
 
 function calendarItemColor(item: CalendarItem) {
   if (item.item_type === "offer") {
@@ -424,7 +377,7 @@ function choiceToBool(value: "" | "yes" | "no"): boolean | null {
 }
 
 function sanitizePersonalPreferences(value: string[]) {
-  const allowed = new Set<string>(personalPreferenceOptions.map((option) => option.value));
+  const allowed = new Set<string>(personalPreferenceValues);
   return Array.from(new Set(value.filter((item) => allowed.has(item))));
 }
 
@@ -538,6 +491,50 @@ function jobPlace(job?: Pick<CleaningJob, "property_name" | "property_city" | "p
 }
 
 export default function CleanerDashboard() {
+  const t = useTranslations("cleaner");
+  const tC = useTranslations("common");
+  const tNav = useTranslations("nav");
+  const MONTHS = tC.raw("monthsFull") as string[];
+  const DAYS = tC.raw("calDays") as string[];
+  const STATUS_LABEL: Record<JobStatus, string> = {
+    draft:     t("calendar.statusLabel.draft"),
+    open:      t("calendar.statusLabel.open"),
+    assigned:  t("calendar.statusLabel.assigned"),
+    completed: t("calendar.statusLabel.completed"),
+    cancelled: t("calendar.statusLabel.cancelled"),
+    disputed:  t("calendar.statusLabel.disputed"),
+  };
+  const APPLICATION_LABEL: Record<ApplicationStatus, string> = {
+    pending:   t("calendar.applicationLabel.pending"),
+    accepted:  t("calendar.applicationLabel.accepted"),
+    rejected:  t("calendar.applicationLabel.rejected"),
+    withdrawn: t("calendar.applicationLabel.withdrawn"),
+  };
+  const CALENDAR_LABEL: Record<CalendarItemType, string> = {
+    open_job:    t("calendar.calendarLabel.open_job"),
+    application: t("calendar.calendarLabel.application"),
+    assignment:  t("calendar.calendarLabel.assignment"),
+    offer:       t("calendar.calendarLabel.offer"),
+  };
+  const BIRTHDATE_MONTH_NAMES = tC.raw("months") as string[];
+  const BIRTHDATE_WEEKDAY_LABELS = tC.raw("weekdays") as string[];
+  const sexOptions: Array<{ value: CleanerSex; label: string }> = sexOptionValues.map((v) => ({
+    value: v,
+    label: t(`profile.sexOptions.${v}`),
+  }));
+  const tPF = useTranslations("cleaner.profileForm");
+  const educationOptions: Array<{ value: EducationValue; label: string }> = educationOptionValues.map((v) => ({
+    value: v,
+    label: tPF(`educationOptions.${v}` as Parameters<typeof tPF>[0]),
+  }));
+  const experienceOptions: Array<{ value: string; label: string }> = experienceOptionValues.map((v) => ({
+    value: v,
+    label: tPF(`experienceOptions.${v}` as Parameters<typeof tPF>[0]),
+  }));
+  const personalPreferenceOptions: Array<{ value: PersonalPreferenceValue; label: string }> = personalPreferenceValues.map((v) => ({
+    value: v,
+    label: tPF(`personalPreferenceOptions.${v}` as Parameters<typeof tPF>[0]),
+  }));
   const searchParams = useSearchParams();
   const cutoffDate = useMemo(() => adultCutoffDate(), []);
   const cutoffYear = cutoffDate.getFullYear();
@@ -662,7 +659,7 @@ export default function CleanerDashboard() {
     }
     const image = new window.Image();
     image.onload = () => setCropImageElement(image);
-    image.onerror = () => setCropError("Could not load image preview.");
+    image.onerror = () => setCropError(t("errors.loadImage"));
     image.src = cropSource.src;
   }, [cropSource]);
 
@@ -769,7 +766,7 @@ export default function CleanerDashboard() {
       } else {
         setProfileFieldErrors((current) => ({
           ...current,
-          birth_date: "You must be at least 18 years old to work as a cleaner.",
+          birth_date: t("profileForm.errors.birthDateAge"),
         }));
       }
     }
@@ -862,13 +859,13 @@ export default function CleanerDashboard() {
         setProfile(ownProfile);
         if (ownProfile) syncProfileForm(ownProfile, me ? { first_name: me.first_name, last_name: me.last_name } : undefined);
       } else {
-        setDataError("Could not load cleaner profile.");
+        setDataError(t("errors.loadProfile"));
       }
 
       if (jobsRes.ok) {
         setJobs(readList<CleaningJob>(await jobsRes.json()));
       } else if (!dataError) {
-        setDataError("Could not load jobs.");
+        setDataError(t("errors.loadJobs"));
       }
 
       if (applicationsRes.ok) {
@@ -884,7 +881,7 @@ export default function CleanerDashboard() {
       }
     } catch {
       if (!silent) {
-        setDataError("Network error. Check that the backend is running.");
+        setDataError(t("errors.network"));
       }
     } finally {
       if (!silent) setLoadingData(false);
@@ -945,7 +942,7 @@ export default function CleanerDashboard() {
         }),
       });
       if (!res.ok) {
-        setApplyError(messageFromResponse(await res.json(), "Could not submit application."));
+        setApplyError(messageFromResponse(await res.json(), t("errors.submitApplication")));
         return;
       }
       const application = (await res.json()) as CleanerApplication;
@@ -990,7 +987,7 @@ export default function CleanerDashboard() {
       const res = await apiFetch(`/api/marketplace/applications/${applicationId}/withdraw/`, { method: "POST" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setApplicationActionError(messageFromResponse(data, "Could not cancel application."));
+        setApplicationActionError(messageFromResponse(data, t("profileForm.errors.cancelApplication")));
         return;
       }
       const updated = data as CleanerApplication;
@@ -1008,7 +1005,7 @@ export default function CleanerDashboard() {
       const res = await apiFetch(`/api/marketplace/applications/${applicationId}/accept-offer/`, { method: "POST" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setApplicationActionError(messageFromResponse(data, "Could not accept the offer."));
+        setApplicationActionError(messageFromResponse(data, t("profileForm.errors.acceptOffer")));
         return;
       }
       void loadAll();
@@ -1025,7 +1022,7 @@ export default function CleanerDashboard() {
       const res = await apiFetch(`/api/marketplace/applications/${applicationId}/decline-offer/`, { method: "POST" });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setApplicationActionError(messageFromResponse(data, "Could not decline the offer."));
+        setApplicationActionError(messageFromResponse(data, t("profileForm.errors.declineOffer")));
         return;
       }
       const updated = data as CleanerApplication;
@@ -1092,7 +1089,7 @@ export default function CleanerDashboard() {
       outputCanvas.height = PROFILE_CROP_EXPORT_SIZE;
       const context = outputCanvas.getContext("2d");
       if (!context) {
-        setCropError("Could not prepare cropped image.");
+        setCropError(t("profileForm.errors.cropPrepare"));
         setCropBusy(false);
         return;
       }
@@ -1111,7 +1108,7 @@ export default function CleanerDashboard() {
       setProfileImage(outputCanvas.toDataURL("image/jpeg", 0.92));
       closeCropEditor();
     } catch {
-      setCropError("Could not apply crop. Please try again.");
+      setCropError(t("profileForm.errors.cropApply"));
       setCropBusy(false);
     }
   }
@@ -1161,7 +1158,7 @@ export default function CleanerDashboard() {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       setProfileError("");
-      setProfileFieldErrors((current) => ({ ...current, profile_image: "Please choose a valid image file." }));
+      setProfileFieldErrors((current) => ({ ...current, profile_image: t("errors.invalidImage") }));
       event.target.value = "";
       return;
     }
@@ -1189,7 +1186,7 @@ export default function CleanerDashboard() {
           setProfileError("");
           setProfileFieldErrors((current) => ({
             ...current,
-            profile_image: "Could not open this image. Please choose another file.",
+            profile_image: t("errors.openImage"),
           }));
         };
         image.src = reader.result;
@@ -1244,13 +1241,13 @@ export default function CleanerDashboard() {
     if (!profile || !me) return;
     const serviceAreas = normalizeServiceAreasByCity(profileServiceAreas, profileDistrictCity);
     const nextFieldErrors: ProfileFieldErrors = {};
-    if (!profileFirstName.trim()) nextFieldErrors.first_name = "First name is required.";
-    if (!profileLastName.trim()) nextFieldErrors.last_name = "Last name is required.";
-    if (!profileBirthDate) nextFieldErrors.birth_date = "Birth date is required.";
-    else if (!isValidDateValue(profileBirthDate)) nextFieldErrors.birth_date = "Enter a valid birth date.";
-    else if (!isAdultBirthDate(profileBirthDate)) nextFieldErrors.birth_date = "You must be at least 18 years old to work as a cleaner.";
-    if (!profileDistrictCity) nextFieldErrors.district_city = "Choose a city before saving location details.";
-    if (serviceAreas.length === 0) nextFieldErrors.service_areas = "Add at least one district from the selected city.";
+    if (!profileFirstName.trim()) nextFieldErrors.first_name = t("profileForm.errors.firstNameRequired");
+    if (!profileLastName.trim()) nextFieldErrors.last_name = t("profileForm.errors.lastNameRequired");
+    if (!profileBirthDate) nextFieldErrors.birth_date = t("profileForm.errors.birthDateRequired");
+    else if (!isValidDateValue(profileBirthDate)) nextFieldErrors.birth_date = t("profileForm.errors.birthDateInvalid");
+    else if (!isAdultBirthDate(profileBirthDate)) nextFieldErrors.birth_date = t("profileForm.errors.birthDateAge");
+    if (!profileDistrictCity) nextFieldErrors.district_city = t("profileForm.errors.districtCityRequired");
+    if (serviceAreas.length === 0) nextFieldErrors.service_areas = t("profileForm.errors.serviceAreasRequired");
     if (Object.keys(nextFieldErrors).length > 0) {
       setProfileFieldErrors(nextFieldErrors);
       setProfileError("");
@@ -1278,7 +1275,7 @@ export default function CleanerDashboard() {
             first_name: "first_name",
             last_name: "last_name",
           },
-          "Could not save name details.",
+          t("profileForm.errors.saveName"),
         );
         setProfileFieldErrors((current) => ({ ...current, ...fieldErrors }));
         setProfileError(Object.keys(fieldErrors).length > 0 ? "" : formError);
@@ -1303,7 +1300,7 @@ export default function CleanerDashboard() {
           profile_image: profileImage,
           bio: profileBio,
         },
-        "Could not save profile changes.",
+        t("profileForm.errors.saveProfile"),
         { first_name: updatedUser.first_name, last_name: updatedUser.last_name },
       );
       if (success) setProfileSaved(true);
@@ -1324,7 +1321,7 @@ export default function CleanerDashboard() {
   function openDistrictOverlay() {
     if (!selectedDistrictCity) {
       setProfileError("");
-      setProfileFieldErrors((current) => ({ ...current, district_city: "Choose a city first." }));
+      setProfileFieldErrors((current) => ({ ...current, district_city: t("profileForm.errors.chooseCityFirst") }));
       return;
     }
     const fallbackZones = fallbackServiceZones(selectedDistrictCity.value);
@@ -1431,7 +1428,7 @@ export default function CleanerDashboard() {
         id: job.property,
         name: job.property_name || `Property #${job.property}`,
         city: job.property_city || "",
-        hostName: job.host_name || "Host",
+        hostName: job.host_name || t("profileForm.fallbackHostName"),
       });
     }
     return Array.from(map.values());
@@ -1565,7 +1562,7 @@ export default function CleanerDashboard() {
     ? myReceivedReviews.reduce((sum, review) => sum + review.rating, 0) / myReceivedReviews.length
     : null;
   const fullName = `${me?.first_name || ""} ${me?.last_name || ""}`.trim();
-  const displayName = fullName || me?.email.split("@")[0] || "Cleaner";
+  const displayName = fullName || me?.email.split("@")[0] || t("profileForm.fallbackDisplayName");
   const currentProfileSnapshot = useMemo(
     () => buildProfileSnapshot({
       firstName: profileFirstName.trim(),
@@ -1610,16 +1607,16 @@ export default function CleanerDashboard() {
   const hasProfileChanges = Boolean(savedProfileSnapshot && currentProfileSnapshot !== savedProfileSnapshot);
 
   if (loadingMe) {
-    return <main className="host-page cleaner-page"><p className="host-loading">Loading...</p></main>;
+    return <main className="host-page cleaner-page"><p className="host-loading">{t("gates.loading")}</p></main>;
   }
 
   if (!me) {
     return (
       <main className="host-page cleaner-page">
         <section className="admin-gate">
-          <p className="eyebrow">Protected area</p>
-          <h1>Log in to continue</h1>
-          <Link className="primary-link" href="/login">Go to login</Link>
+          <p className="eyebrow">{t("gates.notLoggedIn.eyebrow")}</p>
+          <h1>{t("gates.notLoggedIn.heading")}</h1>
+          <Link className="primary-link" href="/login">{t("gates.notLoggedIn.link")}</Link>
         </section>
       </main>
     );
@@ -1629,10 +1626,10 @@ export default function CleanerDashboard() {
     return (
       <main className="host-page cleaner-page">
         <section className="admin-gate">
-          <p className="eyebrow">Cleaners only</p>
-          <h1>Wrong dashboard</h1>
-          <p>This dashboard is for individual cleaner accounts.</p>
-          <Link className="secondary-link" href="/app">Go to your workspace</Link>
+          <p className="eyebrow">{t("gates.wrongRole.eyebrow")}</p>
+          <h1>{t("gates.wrongRole.heading")}</h1>
+          <p>{t("gates.wrongRole.body")}</p>
+          <Link className="secondary-link" href="/app">{t("gates.wrongRole.link")}</Link>
         </section>
       </main>
     );
@@ -1643,7 +1640,7 @@ export default function CleanerDashboard() {
       <header className="host-topbar cleaner-topbar">
         <Link className="site-brand" href="/">
           <span className="brand-symbol"><HomeIcon size={18} aria-hidden /></span>
-          <strong>Host Cleaners</strong>
+          <strong>{tNav("brandName")}</strong>
         </Link>
 
         <nav className="host-section-tabs" aria-label="Dashboard sections">
@@ -1653,7 +1650,7 @@ export default function CleanerDashboard() {
             onClick={() => setSection("calendar")}
           >
             <CalendarDays size={15} aria-hidden />
-            Jobs &amp; Calendar
+            {t("topbar.calendarTab")}
             {incompleteCalendarItemCount > 0 && <span className="host-tab-count">{incompleteCalendarItemCount}</span>}
           </button>
           <button
@@ -1662,7 +1659,7 @@ export default function CleanerDashboard() {
             onClick={() => setSection("applications")}
           >
             <ClipboardList size={15} aria-hidden />
-            Applications
+            {t("topbar.applicationsTab")}
             {pendingApplications + activeAssignments.length > 0 && (
               <span className="host-tab-count">{pendingApplications + activeAssignments.length}</span>
             )}
@@ -1673,7 +1670,7 @@ export default function CleanerDashboard() {
             onClick={() => setSection("offers")}
           >
             <Gift size={15} aria-hidden />
-            Offers
+            {t("topbar.offersTab")}
             {pendingOffers.length > 0 && <span className="host-tab-count host-tab-count--gold">{pendingOffers.length}</span>}
           </button>
           <Connections meId={me.id} />
@@ -1688,23 +1685,23 @@ export default function CleanerDashboard() {
               onClick={() => setAccountMenuOpen((current) => !current)}
               aria-haspopup="menu"
               aria-expanded={accountMenuOpen}
-              aria-label="Account menu"
+              aria-label={t("topbar.accountMenuAriaLabel")}
             >
               <User size={18} aria-hidden />
             </button>
             {accountMenuOpen ? (
-              <div className="cleaner-account-menu-dropdown" role="menu" aria-label="Account menu">
+              <div className="cleaner-account-menu-dropdown" role="menu" aria-label={t("topbar.accountMenuAriaLabel")}>
                 <div className="cleaner-account-menu-identity">
                   <strong>{displayName}</strong>
-                  <span>Cleaner</span>
+                  <span>{t("topbar.role")}</span>
                 </div>
                 <button type="button" className="cleaner-account-menu-item" role="menuitem" onClick={openProfileFromMenu}>
                   <UserRoundCheck size={16} aria-hidden />
-                  Profile
+                  {t("topbar.profile")}
                 </button>
                 <div className="account-language-picker">
-                  <span>Language</span>
-                  <div className="account-language-slider" role="group" aria-label="Language">
+                  <span>{t("topbar.language")}</span>
+                  <div className="account-language-slider" role="group" aria-label={t("topbar.language")}>
                     <button
                       type="button"
                       className={me.preferred_language === "bg" ? "active" : ""}
@@ -1725,7 +1722,7 @@ export default function CleanerDashboard() {
                 </div>
                 <button type="button" className="cleaner-account-menu-item cleaner-account-menu-item--danger" role="menuitem" onClick={() => void logout()}>
                   <LogOut size={16} aria-hidden />
-                  Log out
+                  {t("topbar.logOut")}
                 </button>
               </div>
             ) : null}
@@ -1740,15 +1737,15 @@ export default function CleanerDashboard() {
         {me.is_approved && section !== "profile" && myProperties.length > 0 && (
           <aside
             className={`host-rail${railExpanded ? " host-rail--expanded" : " host-rail--mini"}`}
-            aria-label="Properties under my care"
+            aria-label={t("rail.ariaLabel")}
           >
             <div className="host-rail-head">
               <button
                 type="button"
                 className="host-rail-toggle"
                 onClick={() => setRailExpanded((v) => !v)}
-                title={railExpanded ? "Collapse properties panel" : "Expand properties panel"}
-                aria-label={railExpanded ? "Collapse properties panel" : "Expand properties panel"}
+                title={railExpanded ? t("rail.collapseAriaLabel") : t("rail.expandAriaLabel")}
+                aria-label={railExpanded ? t("rail.collapseAriaLabel") : t("rail.expandAriaLabel")}
               >
                 {railExpanded ? <ChevronLeft size={18} aria-hidden /> : <ChevronRight size={18} aria-hidden />}
               </button>
@@ -1758,14 +1755,14 @@ export default function CleanerDashboard() {
               type="button"
               className={`host-rail-card host-rail-card--btn${selectedPropertyId == null ? " host-rail-card--active" : ""}`}
               onClick={() => setSelectedPropertyId(null)}
-              title="All properties"
-              aria-label="All properties"
+              title={t("rail.allProperties")}
+              aria-label={t("rail.allProperties")}
             >
               <span className="host-rail-thumb host-rail-thumb--icon">
                 <LayoutGrid size={22} aria-hidden />
               </span>
               <span className="host-rail-card-text host-rail-fade">
-                <span className="host-rail-card-name">All properties</span>
+                <span className="host-rail-card-name">{t("rail.allProperties")}</span>
               </span>
             </button>
 
@@ -1803,9 +1800,9 @@ export default function CleanerDashboard() {
               className="host-rail-mobile-select"
               value={selectedPropertyId ?? ""}
               onChange={(e) => setSelectedPropertyId(e.target.value ? Number(e.target.value) : null)}
-              aria-label="Filter by property"
+              aria-label={t("rail.filterAriaLabel")}
             >
-              <option value="">All properties</option>
+              <option value="">{t("rail.allProperties")}</option>
               {myProperties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}{p.hostName ? ` (${p.hostName})` : ""}</option>
               ))}
@@ -1815,12 +1812,12 @@ export default function CleanerDashboard() {
 
         {!me.is_approved && (
           <div className="host-pending-banner">
-            Your account is <strong>{me.account_status}</strong>. You can complete your profile while marketplace access waits for admin approval.
+            {t("pendingBanner", { status: me.account_status })}
           </div>
         )}
         {me.is_approved && profile && !profile.is_verified && (
           <div className="host-pending-banner cleaner-verification-banner">
-            Your cleaner profile is <strong>{profile.verification_status}</strong>. Job applications unlock after admin verification.
+            {t("verificationBanner", { status: profile.verification_status })}
           </div>
         )}
         {dataError && <p className="form-error cleaner-page-error">{dataError}</p>}
@@ -1829,8 +1826,8 @@ export default function CleanerDashboard() {
           <div className="host-section">
             <div className="host-section-header">
               <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Cleaner schedule</p>
-                <h1 className="host-section-title">Jobs &amp; Calendar</h1>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{t("calendar.eyebrow")}</p>
+                <h1 className="host-section-title">{t("calendar.title")}</h1>
               </div>
               <button
                 className="secondary-link admin-refresh-button"
@@ -1842,24 +1839,24 @@ export default function CleanerDashboard() {
                 disabled={loadingData || loadingCalendar}
               >
                 <RefreshCcw size={15} aria-hidden />
-                {loadingData || loadingCalendar ? "Loading..." : "Refresh"}
+                {loadingData || loadingCalendar ? t("calendar.loading") : t("calendar.refresh")}
               </button>
             </div>
 
             {!me.is_approved ? (
               <div className="host-empty-state">
                 <CalendarDays size={40} />
-                <p>Calendar opens after your account is approved.</p>
+                <p>{t("calendar.notApproved")}</p>
               </div>
             ) : (
               <div className="host-jobs-layout cleaner-calendar-layout">
                 <div className="host-calendar">
                   <div className="host-cal-nav">
-                    <button type="button" className="host-cal-arrow" onClick={prevMonth} aria-label="Previous month">
+                    <button type="button" className="host-cal-arrow" onClick={prevMonth} aria-label={t("calendar.prevMonth")}>
                       <ChevronLeft size={16} />
                     </button>
                     <span className="host-cal-title">{MONTHS[calMonth]} {calYear}</span>
-                    <button type="button" className="host-cal-arrow" onClick={nextMonth} aria-label="Next month">
+                    <button type="button" className="host-cal-arrow" onClick={nextMonth} aria-label={t("calendar.nextMonth")}>
                       <ChevronRight size={16} />
                     </button>
                   </div>
@@ -1881,7 +1878,7 @@ export default function CleanerDashboard() {
                           type="button"
                           className={`host-cal-day${isToday ? " today" : ""}${isSelected ? " selected" : ""}`}
                           onClick={() => setSelectedDay(isSelected ? null : day)}
-                          title={dayItems.length > 0 ? `${dayItems.length} calendar item(s)` : "No items"}
+                          title={dayItems.length > 0 ? t("calendar.calItemTooltip", { count: dayItems.length }) : t("calendar.noItemsTooltip")}
                         >
                           <span className="host-cal-day-num">{day}</span>
                           <div className="host-cal-thumbs">
@@ -1921,16 +1918,16 @@ export default function CleanerDashboard() {
                     {selectedDay !== null && (
                       <button className="host-clear-day" type="button" onClick={() => setSelectedDay(null)}>
                         <X size={13} aria-hidden />
-                        Show all
+                        {t("calendar.showAll")}
                       </button>
                     )}
                   </div>
 
                   {loadingCalendar ? (
-                    <p className="host-empty cleaner-calendar-loading">Loading calendar...</p>
+                    <p className="host-empty cleaner-calendar-loading">{t("calendar.loading")}</p>
                   ) : visibleCalendarItems.length === 0 ? (
                     <div className="host-job-empty">
-                      <p>No calendar items {selectedDay ? "on this day" : "this month"}.</p>
+                      <p>{selectedDay ? t("calendar.noItemsDay") : t("calendar.noItemsMonth")}</p>
                     </div>
                   ) : (
                     <ul className="host-job-list">
@@ -1959,7 +1956,7 @@ export default function CleanerDashboard() {
                                 {item.item_type === "application" && item.application_status
                                   ? APPLICATION_LABEL[item.application_status]
                                   : item.item_type === "assignment" && (item.completed_at || item.job_status === "completed")
-                                    ? "Completed"
+                                    ? t("calendar.completed")
                                     : CALENDAR_LABEL[item.item_type]}
                               </span>
                               {item.price && <span className="host-job-price">{money(item.price, item.currency)}</span>}
@@ -1969,7 +1966,7 @@ export default function CleanerDashboard() {
                                   type="button"
                                   onClick={() => openApply(linkedJob)}
                                 >
-                                  Apply
+                                  {t("calendar.apply")}
                                 </button>
                               )}
                               {item.can_complete && isPastDateTime(item.starts_at, now) && (
@@ -1979,7 +1976,7 @@ export default function CleanerDashboard() {
                                   disabled={completingJobId === item.job}
                                   onClick={() => void completeJob(item.job)}
                                 >
-                                  {completingJobId === item.job ? "Saving..." : "Mark done"}
+                                  {completingJobId === item.job ? t("calendar.saving") : t("calendar.markDone")}
                                 </button>
                               )}
                             </div>
@@ -1998,8 +1995,8 @@ export default function CleanerDashboard() {
           <div className="host-section">
             <div className="host-section-header">
               <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Your work</p>
-                <h1 className="host-section-title">Applications</h1>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{t("apps.eyebrow")}</p>
+                <h1 className="host-section-title">{t("apps.title")}</h1>
               </div>
               <div className="cleaner-apps-header-actions">
                 {!loadingData && (
@@ -2008,7 +2005,7 @@ export default function CleanerDashboard() {
                     className="secondary-link host-appdash-edit-btn"
                     onClick={() => appdash.setEditing(!appdash.editing)}
                   >
-                    {appdash.editing ? "Done" : "Edit cards"}
+                    {appdash.editing ? t("apps.doneEditing") : t("apps.editCards")}
                   </button>
                 )}
                 <button
@@ -2018,7 +2015,7 @@ export default function CleanerDashboard() {
                   disabled={loadingData}
                 >
                   <RefreshCcw size={15} aria-hidden />
-                  {loadingData ? "Loading..." : "Refresh"}
+                  {loadingData ? t("apps.loading") : t("apps.refresh")}
                 </button>
               </div>
             </div>
@@ -2031,10 +2028,10 @@ export default function CleanerDashboard() {
                 active={activeAssignments.length}
                 completed={completedAssignments.length}
                 open={openJobs.length}
-                openSub="to apply"
+                openSub={t("apps.openSub")}
                 rating={myRatingAvg}
                 ratingCount={myReceivedReviews.length}
-                moneyLabel="Income"
+                moneyLabel={t("apps.moneyLabel")}
                 moneyValue={formatMoney(totalIncome)}
                 moneyCount={completedAssignments.length}
                 cards={appdash.cards}
@@ -2045,7 +2042,7 @@ export default function CleanerDashboard() {
             )}
 
             {loadingData ? (
-              <p className="host-empty">Loading...</p>
+              <p className="host-empty">{t("apps.loading")}</p>
             ) : (
               <>
                 {applicationActionError ? <p className="form-error cleaner-page-error">{applicationActionError}</p> : null}
@@ -2054,14 +2051,14 @@ export default function CleanerDashboard() {
                 {(appFilter === null || appFilter === "pending") && (
                   <div className="host-apps-subsection">
                     <h2 className="host-apps-subtitle">
-                      Pending applications
+                      {t("apps.pending.title")}
                       {pendingApplications > 0 && <span className="host-apps-subtitle-count">{pendingApplications}</span>}
                     </h2>
                     {pendingSelfApplications.length === 0 ? (
                       <div className="host-apps-empty">
                         <Send size={32} />
-                        <p>No pending applications.</p>
-                        <span className="host-apps-empty-hint">Apply to open jobs and they appear here until the host responds.</span>
+                        <p>{t("apps.pending.empty")}</p>
+                        <span className="host-apps-empty-hint">{t("apps.pending.emptyHint")}</span>
                       </div>
                     ) : (
                       <ul className="host-apps-list">
@@ -2086,7 +2083,7 @@ export default function CleanerDashboard() {
                                 <span className="host-app-price">{money(application.proposed_price || application.job_proposed_price, "EUR")}</span>
                               )}
                               <div className="host-app-actions">
-                                <span className="host-app-badge host-app-badge--assigned">Awaiting host</span>
+                                <span className="host-app-badge host-app-badge--assigned">{t("apps.pending.awaitingHost")}</span>
                                 <button
                                   className="host-app-reject-btn"
                                   type="button"
@@ -2094,7 +2091,7 @@ export default function CleanerDashboard() {
                                   onClick={() => void cancelApplication(application.id)}
                                 >
                                   <X size={13} aria-hidden />
-                                  {cancelingApplicationId === application.id ? "..." : "Withdraw"}
+                                  {cancelingApplicationId === application.id ? "..." : t("apps.pending.withdraw")}
                                 </button>
                               </div>
                             </div>
@@ -2108,12 +2105,12 @@ export default function CleanerDashboard() {
                 {/* Active assignments */}
                 {(appFilter === null || appFilter === "active") && (
                   <div className="host-apps-subsection">
-                    <h2 className="host-apps-subtitle">Active assignments</h2>
+                    <h2 className="host-apps-subtitle">{t("apps.active.title")}</h2>
                     {activeAssignments.length === 0 ? (
                       <div className="host-apps-empty">
                         <ClipboardList size={32} />
-                        <p>No active assignments yet.</p>
-                        <span className="host-apps-empty-hint">Accepted jobs appear here.</span>
+                        <p>{t("apps.active.empty")}</p>
+                        <span className="host-apps-empty-hint">{t("apps.active.emptyHint")}</span>
                       </div>
                     ) : (
                       <ul className="host-apps-list">
@@ -2124,9 +2121,9 @@ export default function CleanerDashboard() {
                           const hostDone = Boolean(assignment.host_completed_at);
                           const canMarkComplete = !cleanerDone && isPastDateTime(assignment.job_scheduled_start || job?.scheduled_start, now);
                           const statusText = cleanerDone && !hostDone
-                            ? "Waiting for host"
+                            ? t("apps.active.waitingHost")
                             : hostDone && !cleanerDone
-                              ? "Host confirmed"
+                              ? t("apps.active.hostConfirmed")
                               : STATUS_LABEL[jobStatus];
                           return (
                             <li id={`assignment-${assignment.job}`} key={assignment.id} className="host-app-card host-app-card--assigned">
@@ -2151,7 +2148,7 @@ export default function CleanerDashboard() {
                                     disabled={completingJobId === assignment.job}
                                     onClick={() => void completeJob(assignment.job)}
                                   >
-                                    {completingJobId === assignment.job ? "..." : "Mark done"}
+                                    {completingJobId === assignment.job ? "..." : t("apps.active.markDone")}
                                   </button>
                                 )}
                               </div>
@@ -2166,11 +2163,11 @@ export default function CleanerDashboard() {
                 {/* Completed */}
                 {(appFilter === "completed" || (appFilter === null && completedAssignments.length > 0)) && (
                   <div className="host-apps-subsection">
-                    <h2 className="host-apps-subtitle host-apps-subtitle--muted">Completed</h2>
+                    <h2 className="host-apps-subtitle host-apps-subtitle--muted">{t("apps.completed.title")}</h2>
                     {completedAssignments.length === 0 ? (
                       <div className="host-apps-empty">
                         <CheckCircle2 size={32} />
-                        <p>No completed cleanings yet.</p>
+                        <p>{t("apps.completed.empty")}</p>
                       </div>
                     ) : (
                       <ul className="host-apps-list">
@@ -2195,7 +2192,7 @@ export default function CleanerDashboard() {
                                 {(assignment.agreed_price || job?.agreed_price) && (
                                   <span className="host-app-price">{money(assignment.agreed_price || job?.agreed_price, job?.currency)}</span>
                                 )}
-                                <span className="host-app-badge host-app-badge--done">Done</span>
+                                <span className="host-app-badge host-app-badge--done">{t("apps.completed.badge")}</span>
                               </div>
                               {hostId ? (
                                 <div className="host-app-review-row">
@@ -2204,7 +2201,7 @@ export default function CleanerDashboard() {
                                     type="button"
                                     onClick={() => openReview(assignment, hostId)}
                                   >
-                                    ★ {existingHostReview ? "View review" : "Leave host feedback"}
+                                    ★ {existingHostReview ? t("apps.completed.viewReview") : t("apps.completed.leaveReview")}
                                   </button>
                                 </div>
                               ) : null}
@@ -2220,20 +2217,20 @@ export default function CleanerDashboard() {
                 {(appFilter === null || appFilter === "open") && (
                   <div className="host-apps-subsection">
                     <h2 className="host-apps-subtitle">
-                      Open jobs
+                      {t("apps.openJobs.title")}
                       {openJobs.length > 0 && <span className="host-apps-subtitle-count">{openJobs.length}</span>}
                     </h2>
 
                     {availableJobCities.length > 1 && (
                       <div className="cleaner-location-filter">
-                        <span className="cleaner-location-filter-label">Filter by city:</span>
+                        <span className="cleaner-location-filter-label">{t("apps.openJobs.filterLabel")}</span>
                         <div className="cleaner-filter-chips">
                           <button
                             type="button"
                             className={`cleaner-filter-chip${!jobCityFilter ? " active" : ""}`}
                             onClick={() => setJobCityFilter("")}
                           >
-                            All
+                            {t("apps.openJobs.filterAll")}
                           </button>
                           {availableJobCities.map((city) => (
                             <button
@@ -2252,16 +2249,16 @@ export default function CleanerDashboard() {
                     {openJobs.length === 0 ? (
                       <div className="host-apps-empty">
                         <Briefcase size={32} />
-                        <p>{jobCityFilter ? `No open jobs in ${jobCityFilter} right now.` : "No open jobs are visible right now."}</p>
+                        <p>{jobCityFilter ? t("apps.openJobs.emptyFiltered", { city: jobCityFilter }) : t("apps.openJobs.empty")}</p>
                       </div>
                     ) : (
                       <ul className="host-apps-list">
                         {openJobs.map((job) => {
                           const application = applicationsByJob.get(job.id);
                           const disabledReason = !me.is_approved
-                            ? "Account approval required"
+                            ? t("apps.openJobs.approvalRequired")
                             : !profile?.is_verified
-                              ? "Profile verification required"
+                              ? t("apps.openJobs.verificationRequired")
                               : "";
                           return (
                             <li key={job.id} className="host-app-card">
@@ -2297,7 +2294,7 @@ export default function CleanerDashboard() {
                                       onClick={() => openApply(job)}
                                     >
                                       <Send size={13} aria-hidden />
-                                      Apply
+                                      {t("apps.openJobs.apply")}
                                     </button>
                                   )}
                                 </div>
@@ -2313,15 +2310,15 @@ export default function CleanerDashboard() {
                 {/* My rating */}
                 {appFilter === "rating" && (
                   <div className="host-apps-subsection">
-                    <h2 className="host-apps-subtitle">My rating</h2>
+                    <h2 className="host-apps-subtitle">{t("apps.rating.title")}</h2>
                     <div className="host-rating-display">
                       <RatingStars rating={myRatingAvg ?? 0} count={myReceivedReviews.length} size={16} />
                     </div>
                     {myReceivedReviews.length === 0 ? (
                       <div className="host-apps-empty">
                         <Star size={32} />
-                        <p>No reviews yet.</p>
-                        <span className="host-apps-empty-hint">Hosts can review you after a completed cleaning.</span>
+                        <p>{t("apps.rating.empty")}</p>
+                        <span className="host-apps-empty-hint">{t("apps.rating.emptyHint")}</span>
                       </div>
                     ) : (
                       <ul className="review-list">
@@ -2349,17 +2346,17 @@ export default function CleanerDashboard() {
           <div className="host-section">
             <div className="host-section-header">
               <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{pendingOffers.length} pending</p>
-                <h1 className="host-section-title">Direct offers</h1>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{t("offers.eyebrow", { count: pendingOffers.length })}</p>
+                <h1 className="host-section-title">{t("offers.title")}</h1>
               </div>
             </div>
 
             {loadingData ? (
-              <p className="host-empty">Loading offers...</p>
+              <p className="host-empty">{t("offers.loading")}</p>
             ) : pendingOffers.length === 0 ? (
               <div className="host-empty-state">
                 <Gift size={40} />
-                <p>When a host offers you a job directly, it appears here.</p>
+                <p>{t("offers.empty")}</p>
               </div>
             ) : (
               <>
@@ -2371,7 +2368,7 @@ export default function CleanerDashboard() {
                       <li key={offer.id} className="cleaner-job-card cleaner-offer-card">
                         <div className="cleaner-job-main">
                           <div>
-                            <span className="cleaner-offer-badge"><Gift size={12} aria-hidden /> Offer</span>
+                            <span className="cleaner-offer-badge"><Gift size={12} aria-hidden /> {t("offers.badge")}</span>
                             <strong>{offer.job_title || job?.title || `Job #${offer.job}`}</strong>
                             <span>{offer.job_property_name || jobPlace(job)}</span>
                           </div>
@@ -2389,7 +2386,7 @@ export default function CleanerDashboard() {
                             onClick={() => void acceptOffer(offer.id)}
                           >
                             <Check size={14} aria-hidden />
-                            {offerActionId === offer.id ? "Working..." : "Accept"}
+                            {offerActionId === offer.id ? t("offers.working") : t("offers.accept")}
                           </button>
                           <button
                             className="cleaner-action-primary cleaner-action-cancel"
@@ -2397,7 +2394,7 @@ export default function CleanerDashboard() {
                             disabled={offerActionId === offer.id}
                             onClick={() => void declineOffer(offer.id)}
                           >
-                            <X size={14} aria-hidden /> Decline
+                            <X size={14} aria-hidden /> {t("offers.decline")}
                           </button>
                         </div>
                       </li>
@@ -2413,14 +2410,14 @@ export default function CleanerDashboard() {
           <div className="host-section">
             <div className="host-section-header">
               <div>
-                <h1 className="host-section-title">Cleaner Profile</h1>
+                <h1 className="host-section-title">{t("profile.title")}</h1>
               </div>
             </div>
 
             {!profile ? (
               <div className="host-empty-state">
                 <UserRoundCheck size={40} />
-                <p>Cleaner profile was not found for this account.</p>
+                <p>{t("profile.notFound")}</p>
               </div>
             ) : (
               <div className="cleaner-profile-layout">
@@ -2430,12 +2427,12 @@ export default function CleanerDashboard() {
                   <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
                     <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-account-title">
                       <div className="cleaner-profile-section-head">
-                        <h2 id="cleaner-account-title">Account &amp; personal information</h2>
+                        <h2 id="cleaner-account-title">{t("profile.accountSection")}</h2>
                       </div>
                       <div className="cleaner-profile-account-row">
                         <label className="cleaner-avatar-uploader">
                           <input type="file" accept="image/*" onChange={onProfileImageChange} />
-                          <span className="cleaner-avatar-label">Profile image</span>
+                          <span className="cleaner-avatar-label">{t("profile.profileImageLabel")}</span>
                           <span className="cleaner-avatar-frame">
                             <Image
                               src={profileImage || DEFAULT_PROFILE_IMAGE}
@@ -2453,7 +2450,7 @@ export default function CleanerDashboard() {
                         </label>
                         <div className="form-grid">
                           <label>
-                            <span>First name</span>
+                            <span>{t("profile.firstName")}</span>
                             <input
                               aria-invalid={Boolean(profileFieldErrors.first_name)}
                               className={profileFieldErrors.first_name ? "input-invalid" : ""}
@@ -2466,7 +2463,7 @@ export default function CleanerDashboard() {
                             {profileFieldErrors.first_name ? <small className="field-error-text">{profileFieldErrors.first_name}</small> : null}
                           </label>
                           <label>
-                            <span>Last name</span>
+                            <span>{t("profile.lastName")}</span>
                             <input
                               aria-invalid={Boolean(profileFieldErrors.last_name)}
                               className={profileFieldErrors.last_name ? "input-invalid" : ""}
@@ -2479,11 +2476,11 @@ export default function CleanerDashboard() {
                             {profileFieldErrors.last_name ? <small className="field-error-text">{profileFieldErrors.last_name}</small> : null}
                           </label>
                           <label className="cleaner-account-email-field">
-                            <span>Email</span>
+                            <span>{t("profile.email")}</span>
                             <input value={me.email} readOnly />
                           </label>
                           <label className="cleaner-sex-picker">
-                            <span>Sex</span>
+                            <span>{t("profile.sex")}</span>
                             <select
                               aria-invalid={Boolean(profileFieldErrors.sex)}
                               className={profileFieldErrors.sex ? "input-invalid" : ""}
@@ -2500,7 +2497,7 @@ export default function CleanerDashboard() {
                             {profileFieldErrors.sex ? <small className="field-error-text">{profileFieldErrors.sex}</small> : null}
                           </label>
                           <label>
-                            <span>Date of birth</span>
+                            <span>{t("profile.dateOfBirth")}</span>
                             <div className={profileFieldErrors.birth_date ? "birthdate-picker input-invalid" : "birthdate-picker"}>
                               <div className="birthdate-input-row">
                                 <input
@@ -2509,14 +2506,14 @@ export default function CleanerDashboard() {
                                   min={minBirthDate}
                                   max={maxBirthDate}
                                   onChange={(event) => changeProfileBirthDate(event.target.value)}
-                                aria-label="Date of birth"
+                                aria-label={t("profile.dateOfBirth")}
                                   className="birthdate-input"
                                 />
                                 <button
                                   type="button"
                                   className="birthdate-toggle"
                                   onClick={() => setProfileBirthCalendarOpen((open) => !open)}
-                                  aria-label="Choose birth date from calendar"
+                                  aria-label={t("profile.chooseBirthDate")}
                                   aria-expanded={profileBirthCalendarOpen}
                                 >
                                   <CalendarDays size={18} aria-hidden />
@@ -2529,7 +2526,7 @@ export default function CleanerDashboard() {
                                       <select
                                         value={profileBirthCalendarMonth}
                                         onChange={(event) => setProfileBirthCalendarPosition(profileBirthCalendarYear, Number(event.target.value))}
-                                        aria-label="Birth month"
+                                        aria-label={t("profile.birthMonth")}
                                       >
                                         {BIRTHDATE_MONTH_NAMES.map((month, index) => (
                                           <option
@@ -2547,7 +2544,7 @@ export default function CleanerDashboard() {
                                           const nextYear = Number(event.target.value);
                                           setProfileBirthCalendarPosition(nextYear, profileBirthCalendarMonth);
                                         }}
-                                        aria-label="Birth year"
+                                        aria-label={t("profile.birthYear")}
                                       >
                                         {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
                                       </select>
@@ -2598,10 +2595,10 @@ export default function CleanerDashboard() {
                   <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
                     <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-location-title">
                       <div className="cleaner-profile-section-head">
-                        <h2 id="cleaner-location-title">Location</h2>
+                        <h2 id="cleaner-location-title">{tPF("location")}</h2>
                       </div>
                       <label className="cleaner-district-city-picker">
-                        <span>City</span>
+                        <span>{tPF("city")}</span>
                         <select
                           aria-invalid={Boolean(profileFieldErrors.district_city)}
                           className={profileFieldErrors.district_city ? "input-invalid" : ""}
@@ -2616,21 +2613,21 @@ export default function CleanerDashboard() {
                             setProfileServiceAreas(normalizedAreas.join("\n"));
                           }}
                         >
-                          <option value="">Choose city</option>
+                          <option value="">{tPF("chooseCity")}</option>
                           {cities.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                         </select>
                         {profileFieldErrors.district_city ? <small className="field-error-text">{profileFieldErrors.district_city}</small> : null}
                       </label>
                       <div className="cleaner-service-areas-section">
                         <div className="cleaner-service-areas-header">
-                          <span>Service areas</span>
+                          <span>{tPF("serviceAreas")}</span>
                           <button
                             type="button"
                             className="secondary-link cleaner-add-districts-button"
                             onClick={openDistrictOverlay}
                             disabled={!profileDistrictCity}
                           >
-                            Add districts
+                            {tPF("addDistricts")}
                           </button>
                         </div>
                         {normalizedServiceAreasForSave.length > 0 ? (
@@ -2640,22 +2637,22 @@ export default function CleanerDashboard() {
                             ))}
                           </div>
                         ) : (
-                          <p className="host-form-hint">No service areas selected.</p>
+                          <p className="host-form-hint">{tPF("noServiceAreas")}</p>
                         )}
                         {profileFieldErrors.service_areas ? <small className="field-error-text">{profileFieldErrors.service_areas}</small> : null}
                       </div>
-                      <p className="host-form-hint">Select a <strong>City</strong> and then use <strong>Add districts</strong> to manage service areas.</p>
+                      <p className="host-form-hint">{tPF("locationHint")}</p>
                     </section>
                   </form>
 
                   <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
                     <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-experience-title">
                       <div className="cleaner-profile-section-head">
-                        <h2 id="cleaner-experience-title">Experience</h2>
+                        <h2 id="cleaner-experience-title">{tPF("experience")}</h2>
                       </div>
                       <div className="form-grid">
                         <label>
-                          <span>My Native language</span>
+                          <span>{tPF("nativeLanguage")}</span>
                           <select
                             aria-invalid={Boolean(profileFieldErrors.native_language)}
                             className={profileFieldErrors.native_language ? "input-invalid" : ""}
@@ -2672,7 +2669,7 @@ export default function CleanerDashboard() {
                           {profileFieldErrors.native_language ? <small className="field-error-text">{profileFieldErrors.native_language}</small> : null}
                         </label>
                         <label>
-                          <span>Education</span>
+                          <span>{tPF("education")}</span>
                           <select
                             aria-invalid={Boolean(profileFieldErrors.education)}
                             className={profileFieldErrors.education ? "input-invalid" : ""}
@@ -2689,7 +2686,7 @@ export default function CleanerDashboard() {
                           {profileFieldErrors.education ? <small className="field-error-text">{profileFieldErrors.education}</small> : null}
                         </label>
                         <label>
-                          <span>Cleaning experience</span>
+                          <span>{tPF("cleaningExperience")}</span>
                           <select
                             aria-invalid={Boolean(profileFieldErrors.experience_level)}
                             className={profileFieldErrors.experience_level ? "input-invalid" : ""}
@@ -2706,7 +2703,7 @@ export default function CleanerDashboard() {
                           {profileFieldErrors.experience_level ? <small className="field-error-text">{profileFieldErrors.experience_level}</small> : null}
                         </label>
                         <label>
-                          <span>Driving license</span>
+                          <span>{tPF("drivingLicense")}</span>
                           <select
                             aria-invalid={Boolean(profileFieldErrors.has_driving_license)}
                             className={profileFieldErrors.has_driving_license ? "input-invalid" : ""}
@@ -2716,15 +2713,15 @@ export default function CleanerDashboard() {
                               clearProfileFieldError("has_driving_license");
                             }}
                           >
-                            {profileHasDrivingLicense === "" ? <option value="">Select</option> : null}
-                            <option value="yes">I have a driving license</option>
-                            <option value="no">I don&apos;t have a driving license</option>
+                            {profileHasDrivingLicense === "" ? <option value="">{tPF("select")}</option> : null}
+                            <option value="yes">{tPF("drivingYes")}</option>
+                            <option value="no">{tPF("drivingNo")}</option>
                           </select>
                           {profileFieldErrors.has_driving_license ? <small className="field-error-text">{profileFieldErrors.has_driving_license}</small> : null}
                         </label>
                         {profileHasDrivingLicense === "yes" ? (
                           <label>
-                            <span>Personal car</span>
+                            <span>{tPF("personalCar")}</span>
                             <select
                               aria-invalid={Boolean(profileFieldErrors.has_own_car)}
                               className={profileFieldErrors.has_own_car ? "input-invalid" : ""}
@@ -2734,9 +2731,9 @@ export default function CleanerDashboard() {
                                 clearProfileFieldError("has_own_car");
                               }}
                             >
-                              {profileHasOwnCar === "" ? <option value="">Select</option> : null}
-                              <option value="yes">I have a personal car</option>
-                              <option value="no">I don&apos;t have a personal car</option>
+                              {profileHasOwnCar === "" ? <option value="">{tPF("select")}</option> : null}
+                              <option value="yes">{tPF("carYes")}</option>
+                              <option value="no">{tPF("carNo")}</option>
                             </select>
                             {profileFieldErrors.has_own_car ? <small className="field-error-text">{profileFieldErrors.has_own_car}</small> : null}
                           </label>
@@ -2744,9 +2741,9 @@ export default function CleanerDashboard() {
                       </div>
                       <div className="cleaner-other-languages-section">
                         <div className="cleaner-other-languages-header">
-                          <span>Other languages</span>
+                          <span>{tPF("otherLanguages")}</span>
                           <button type="button" className="secondary-link cleaner-other-languages-button" onClick={openOtherLanguagesOverlay}>
-                            Select languages
+                            {tPF("selectLanguages")}
                           </button>
                         </div>
                         {profileOtherLanguages.length > 0 ? (
@@ -2756,7 +2753,7 @@ export default function CleanerDashboard() {
                             ))}
                           </div>
                         ) : (
-                          <p className="host-form-hint">No additional languages selected.</p>
+                          <p className="host-form-hint">{tPF("noOtherLanguages")}</p>
                         )}
                         {profileFieldErrors.other_languages ? <small className="field-error-text">{profileFieldErrors.other_languages}</small> : null}
                       </div>
@@ -2766,9 +2763,9 @@ export default function CleanerDashboard() {
                   <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
                     <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-extra-services-title">
                       <div className="cleaner-profile-section-head">
-                        <h2 id="cleaner-extra-services-title">Extra services offered</h2>
+                        <h2 id="cleaner-extra-services-title">{tPF("extraServices")}</h2>
                       </div>
-                      <div className="cleaner-preferences-grid" role="group" aria-label="Extra services offered">
+                      <div className="cleaner-preferences-grid" role="group" aria-label={tPF("extraServices")}>
                         {personalPreferenceOptions.map((option) => {
                           const selected = profilePersonalPreferences.includes(option.value);
                           return (
@@ -2798,10 +2795,10 @@ export default function CleanerDashboard() {
                   <form className="host-form cleaner-profile-form cleaner-profile-category-form" onSubmit={preventCategoryFormSubmit}>
                     <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-introduction-title">
                       <div className="cleaner-profile-section-head">
-                        <h2 id="cleaner-introduction-title">Introduction</h2>
+                        <h2 id="cleaner-introduction-title">{tPF("introduction")}</h2>
                       </div>
                       <label>
-                        <span>Your introduction</span>
+                        <span>{tPF("introductionLabel")}</span>
                         <textarea
                           aria-invalid={Boolean(profileFieldErrors.bio)}
                           className={profileFieldErrors.bio ? "input-invalid" : ""}
@@ -2812,7 +2809,7 @@ export default function CleanerDashboard() {
                             setProfileBio(event.target.value);
                             clearProfileFieldError("bio");
                           }}
-                          placeholder="Experience, property types, languages, and work style..."
+                          placeholder={tPF("bioPlaceholder")}
                         />
                         {profileFieldErrors.bio ? <small className="field-error-text">{profileFieldErrors.bio}</small> : null}
                       </label>
@@ -2820,14 +2817,14 @@ export default function CleanerDashboard() {
                   </form>
 
                   <div className="host-form-actions cleaner-profile-save-actions">
-                    {profileSaved ? <p className="cleaner-success cleaner-profile-save-status" aria-live="polite"><CheckCircle2 size={15} aria-hidden />Profile saved.</p> : null}
+                    {profileSaved ? <p className="cleaner-success cleaner-profile-save-status" aria-live="polite"><CheckCircle2 size={15} aria-hidden />{tPF("profileSaved")}</p> : null}
                     <button
                       className="primary-link auth-submit"
                       type="button"
                       disabled={savingProfile || !hasProfileChanges || !hasSelectedDistricts}
                       onClick={() => void submitAllProfileChanges()}
                     >
-                      {savingProfile ? "Saving..." : "Save changes"}
+                      {savingProfile ? tPF("saving") : tPF("saveChanges")}
                     </button>
                   </div>
                   <AccountDeletionPanel email={me.email} />
@@ -2842,22 +2839,24 @@ export default function CleanerDashboard() {
       </main>
 
       {districtOverlayOpen ? (
-        <div className="host-modal-backdrop cleaner-district-backdrop" onClick={closeDistrictOverlay} role="dialog" aria-modal="true" aria-label="Add districts">
+        <div className="host-modal-backdrop cleaner-district-backdrop" onClick={closeDistrictOverlay} role="dialog" aria-modal="true" aria-label={tPF("districtsModal.ariaLabel")}>
           <div className="host-modal host-modal--wide cleaner-district-modal" onClick={(event) => event.stopPropagation()}>
             <div className="host-modal-header">
               <div>
-                <h2>Add districts</h2>
+                <h2>{tPF("districtsModal.title")}</h2>
                 <p className="host-modal-subtitle">
-                  Select districts in {selectedDistrictCity?.label ?? "the selected city"} and add them to your service areas.
+                  {selectedDistrictCity
+                    ? tPF("districtsModal.subtitle", { city: selectedDistrictCity.label })
+                    : tPF("districtsModal.chooseCity")}
                 </p>
               </div>
-              <button type="button" className="host-modal-close" onClick={closeDistrictOverlay} aria-label="Close">
+              <button type="button" className="host-modal-close" onClick={closeDistrictOverlay} aria-label={tC("close")}>
                 <X size={18} />
               </button>
             </div>
             <div className="host-form cleaner-district-overlay-form">
               {selectedDistrictCity ? (
-                <section className="zones-panel" aria-label={`${selectedDistrictCity.label} districts`}>
+                <section className="zones-panel" aria-label={tPF("districtsModal.zonesAriaLabel", { city: selectedDistrictCity.label })}>
                   <DistrictMapSelector
                     citySlug={selectedDistrictCity.value}
                     selectedZoneIds={districtSelectedZoneIds}
@@ -2868,12 +2867,12 @@ export default function CleanerDashboard() {
                   />
                 </section>
               ) : (
-                <p className="host-form-hint">Choose a city to select districts.</p>
+                <p className="host-form-hint">{tPF("districtsModal.chooseCity")}</p>
               )}
 
               <div className="host-form-actions">
                 <button className="secondary-link" type="button" onClick={closeDistrictOverlay}>
-                  Cancel
+                  {tPF("districtsModal.cancel")}
                 </button>
                 <button
                   className="primary-link auth-submit"
@@ -2881,7 +2880,7 @@ export default function CleanerDashboard() {
                   onClick={applyDistrictsToServiceAreas}
                   disabled={!selectedDistrictCity || districtSelectedZoneIds.length === 0}
                 >
-                  Add districts
+                  {tPF("districtsModal.addDistricts")}
                 </button>
               </div>
             </div>
@@ -2890,27 +2889,27 @@ export default function CleanerDashboard() {
       ) : null}
 
       {otherLanguagesOverlayOpen ? (
-        <div className="host-modal-backdrop" onClick={closeOtherLanguagesOverlay} role="dialog" aria-modal="true" aria-label="Select other languages">
+        <div className="host-modal-backdrop" onClick={closeOtherLanguagesOverlay} role="dialog" aria-modal="true" aria-label={tPF("languagesModal.ariaLabel")}>
           <div className="host-modal cleaner-other-languages-modal" onClick={(event) => event.stopPropagation()}>
             <div className="host-modal-header">
               <div>
-                <h2>Select other languages</h2>
-                <p className="host-modal-subtitle">Choose additional languages you speak besides your native language.</p>
+                <h2>{tPF("languagesModal.title")}</h2>
+                <p className="host-modal-subtitle">{tPF("languagesModal.subtitle")}</p>
               </div>
-              <button type="button" className="host-modal-close" onClick={closeOtherLanguagesOverlay} aria-label="Close">
+              <button type="button" className="host-modal-close" onClick={closeOtherLanguagesOverlay} aria-label={tC("close")}>
                 <X size={18} />
               </button>
             </div>
             <div className="host-form cleaner-other-languages-overlay-form">
               <div className="dual-zone-transfer">
                 <label className="dual-zone-list">
-                  <span>Available languages:</span>
-                  <div className="dual-zone-listbox" role="listbox" aria-label="Available languages">
+                  <span>{tPF("languagesModal.available")}</span>
+                  <div className="dual-zone-listbox" role="listbox" aria-label={tPF("languagesModal.availableAriaLabel")}>
                     <div className="dual-zone-listbox-search-wrap">
                       <input
                         className="dual-zone-search"
                         type="text"
-                        placeholder="Search language"
+                        placeholder={tPF("languagesModal.search")}
                         value={otherLanguageSearch}
                         onChange={(event) => setOtherLanguageSearch(event.target.value)}
                       />
@@ -2930,8 +2929,8 @@ export default function CleanerDashboard() {
                   </div>
                 </label>
                 <label className="dual-zone-list">
-                  <span>Selected languages:</span>
-                  <div className="dual-zone-listbox" role="listbox" aria-label="Selected languages">
+                  <span>{tPF("languagesModal.selected")}</span>
+                  <div className="dual-zone-listbox" role="listbox" aria-label={tPF("languagesModal.selectedAriaLabel")}>
                     <div className="dual-zone-items">
                       {profileOtherLanguages.map((language) => (
                         <button
@@ -2947,10 +2946,10 @@ export default function CleanerDashboard() {
                   </div>
                 </label>
               </div>
-              <p className="host-form-hint">Click an available language to add it. Click a selected language to remove it.</p>
+              <p className="host-form-hint">{tPF("languagesModal.hint")}</p>
               <div className="host-form-actions cleaner-other-languages-actions">
                 <button className="primary-link auth-submit" type="button" onClick={closeOtherLanguagesOverlay}>
-                  Done
+                  {tPF("languagesModal.done")}
                 </button>
               </div>
             </div>
@@ -2964,18 +2963,18 @@ export default function CleanerDashboard() {
           onClick={closeCropEditor}
           role="dialog"
           aria-modal="true"
-          aria-label="Crop profile image"
+          aria-label={tPF("cropModal.ariaLabel")}
         >
           <div className="host-modal cleaner-crop-modal" onClick={(event) => event.stopPropagation()}>
             <div className="host-modal-header">
-              <h2>Adjust profile image</h2>
-              <button type="button" className="host-modal-close" onClick={closeCropEditor} aria-label="Close">
+              <h2>{tPF("cropModal.title")}</h2>
+              <button type="button" className="host-modal-close" onClick={closeCropEditor} aria-label={tC("close")}>
                 <X size={18} />
               </button>
             </div>
             <div className="cleaner-crop-modal-body">
               <p className="cleaner-crop-hint">
-                Drag to center your photo. Use zoom to crop tighter or wider.
+                {tPF("cropModal.hint")}
               </p>
               <div className="cleaner-crop-canvas-wrap">
                 <canvas
@@ -2992,7 +2991,7 @@ export default function CleanerDashboard() {
               </div>
               <div className="cleaner-crop-controls">
                 <label className="cleaner-crop-zoom" htmlFor="profile-crop-zoom">
-                  <span>Zoom</span>
+                  <span>{tPF("cropModal.zoom")}</span>
                   <input
                     id="profile-crop-zoom"
                     type="range"
@@ -3007,7 +3006,7 @@ export default function CleanerDashboard() {
                 <div className="cleaner-crop-actions cleaner-crop-actions--all">
                   <div className="cleaner-crop-actions-left">
                     <button type="button" className="secondary-link" onClick={resetCropPosition}>
-                      Center image
+                      {tPF("cropModal.center")}
                     </button>
                     <button
                       type="button"
@@ -3017,15 +3016,15 @@ export default function CleanerDashboard() {
                         resetCropPosition();
                       }}
                     >
-                      Reset
+                      {tPF("cropModal.reset")}
                     </button>
                   </div>
                   <div className="cleaner-crop-actions-right">
                     <button className="secondary-link" type="button" onClick={closeCropEditor}>
-                      Cancel
+                      {tPF("cropModal.cancel")}
                     </button>
                     <button className="primary-link auth-submit" type="button" onClick={applyCropResult} disabled={cropBusy}>
-                      {cropBusy ? "Applying..." : "Use this image"}
+                      {cropBusy ? tPF("cropModal.applying") : tPF("cropModal.useImage")}
                     </button>
                   </div>
                 </div>
@@ -3042,12 +3041,12 @@ export default function CleanerDashboard() {
           onClick={() => setApplyJob(null)}
           role="dialog"
           aria-modal="true"
-          aria-label="Apply for job"
+          aria-label={t("applyModal.ariaLabel")}
         >
           <div className="host-modal" onClick={(event) => event.stopPropagation()}>
             <div className="host-modal-header">
-              <h2>Apply for job</h2>
-              <button type="button" className="host-modal-close" onClick={() => setApplyJob(null)} aria-label="Close">
+              <h2>{t("applyModal.title")}</h2>
+              <button type="button" className="host-modal-close" onClick={() => setApplyJob(null)} aria-label={tC("close")}>
                 <X size={18} />
               </button>
             </div>
@@ -3058,7 +3057,7 @@ export default function CleanerDashboard() {
                 <span>{fmtDateTime(applyJob.scheduled_start)} - {fmtTime(applyJob.scheduled_end)}</span>
               </div>
               <label>
-                <span>Your price (EUR)</span>
+                <span>{t("applyModal.price")}</span>
                 <input
                   type="number"
                   min="0"
@@ -3069,21 +3068,21 @@ export default function CleanerDashboard() {
                 />
               </label>
               <label>
-                <span>Message to host</span>
+                <span>{t("applyModal.message")}</span>
                 <textarea
                   rows={4}
                   value={applyMessage}
                   onChange={(event) => setApplyMessage(event.target.value)}
-                  placeholder="Confirm availability, timing, and anything the host should know."
+                  placeholder={t("applyModal.messagePlaceholder")}
                 />
               </label>
               {applyError && <p className="form-error">{applyError}</p>}
               <div className="host-form-actions">
                 <button className="secondary-link" type="button" onClick={() => setApplyJob(null)}>
-                  Cancel
+                  {t("applyModal.cancel")}
                 </button>
                 <button className="primary-link auth-submit" type="submit" disabled={applying}>
-                  {applying ? "Sending..." : "Submit application"}
+                  {applying ? t("applyModal.sending") : t("applyModal.submit")}
                 </button>
               </div>
             </form>

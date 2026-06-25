@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ShieldCheck, SlidersHorizontal, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { apiFetch } from "../lib/api";
 
 const CONSENT_KEY = "host-cleaners-cookie-consent";
@@ -21,6 +22,7 @@ function getVisitorId() {
 }
 
 export default function CookieConsentBanner() {
+  const t = useTranslations("components.cookieBanner");
   const [visible, setVisible] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -56,21 +58,18 @@ export default function CookieConsentBanner() {
   }
 
   return (
-    <aside className="cookie-banner" aria-label="Cookie consent">
+    <aside className="cookie-banner" aria-label={t("ariaLabel")}>
       <div className="cookie-icon" aria-hidden>
         <ShieldCheck size={20} />
       </div>
       <div>
-        <h2>Cookie choices</h2>
-        <p>
-          Essential cookies keep login and security working. Analytics and marketing cookies stay
-          off unless you allow them.
-        </p>
+        <h2>{t("heading")}</h2>
+        <p>{t("body")}</p>
       </div>
       <div className="cookie-actions">
         <button type="button" onClick={() => saveConsent(false, false)} disabled={saving}>
           <X size={16} aria-hidden />
-          Essential only
+          {t("essentialOnly")}
         </button>
         <button
           className="primary-cookie-action"
@@ -79,7 +78,7 @@ export default function CookieConsentBanner() {
           disabled={saving}
         >
           <SlidersHorizontal size={16} aria-hidden />
-          Accept optional
+          {t("acceptOptional")}
         </button>
       </div>
     </aside>

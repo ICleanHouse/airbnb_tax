@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
@@ -13,8 +13,9 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { apiFetch, CurrentUser, roleLabel, UserRole } from "../../lib/api";
-import { useLiveRefresh } from "../../lib/useLiveRefresh";
+import { useTranslations } from "next-intl";
+import { apiFetch, CurrentUser, roleLabel, UserRole } from "../../../lib/api";
+import { useLiveRefresh } from "../../../lib/useLiveRefresh";
 
 interface AdminUser {
   id: number;
@@ -32,13 +33,14 @@ interface AdminUser {
 
 type Filter = "pending" | "approved" | "all";
 
-const STATUS_FILTER_LABELS: Record<Filter, string> = {
-  pending: "Pending approval",
-  approved: "Approved",
-  all: "All accounts",
-};
-
 function AdminPageContent() {
+  const t = useTranslations("admin");
+  const tNav = useTranslations("nav");
+  const STATUS_FILTER_LABELS: Record<Filter, string> = {
+    pending: t("sidebar.filterLabels.pending"),
+    approved: t("sidebar.filterLabels.approved"),
+    all: t("sidebar.filterLabels.all"),
+  };
   const searchParams = useSearchParams();
   const initialFilter = (["pending", "approved", "all"].includes(searchParams.get("filter") ?? "")
     ? searchParams.get("filter")
@@ -74,7 +76,7 @@ function AdminPageContent() {
     try {
       const res = await apiFetch("/api/accounts/users/");
       if (!res.ok) {
-        if (!silent) setFetchError("Failed to load accounts.");
+        if (!silent) setFetchError(t("errors.loadFailed"));
         return;
       }
       const data: unknown = await res.json();
@@ -85,7 +87,7 @@ function AdminPageContent() {
           : ((data as { results: AdminUser[] }).results ?? []),
       );
     } catch {
-      if (!silent) setFetchError("Network error — check the backend is running.");
+      if (!silent) setFetchError(t("errors.networkError"));
     } finally {
       if (!silent) setLoadingUsers(false);
     }
@@ -107,7 +109,7 @@ function AdminPageContent() {
         method: "POST",
       });
       if (!res.ok) {
-        setActionError("Approval failed — please try again.");
+        setActionError(t("errors.approveFailed"));
         return;
       }
       setAllUsers((prev) =>
@@ -128,7 +130,7 @@ function AdminPageContent() {
         method: "POST",
       });
       if (!res.ok) {
-        setActionError("Rejection failed — please try again.");
+        setActionError(t("errors.rejectFailed"));
         return;
       }
       setAllUsers((prev) =>
@@ -148,7 +150,7 @@ function AdminPageContent() {
   if (loadingMe) {
     return (
       <main className="admin-page">
-        <p className="admin-loading">Checking session…</p>
+        <p className="admin-loading">{t("gates.loading")}</p>
       </main>
     );
   }
@@ -157,10 +159,10 @@ function AdminPageContent() {
     return (
       <main className="admin-page">
         <section className="admin-gate">
-          <p className="eyebrow">Protected area</p>
-          <h1>Log in to continue</h1>
+          <p className="eyebrow">{t("gates.notLoggedIn.eyebrow")}</p>
+          <h1>{t("gates.notLoggedIn.heading")}</h1>
           <Link className="primary-link" href="/login">
-            Go to login
+            {t("gates.notLoggedIn.link")}
           </Link>
         </section>
       </main>
@@ -171,11 +173,11 @@ function AdminPageContent() {
     return (
       <main className="admin-page">
         <section className="admin-gate">
-          <p className="eyebrow">Admin only</p>
-          <h1>Access restricted</h1>
-          <p>This panel is reserved for marketplace administrators.</p>
+          <p className="eyebrow">{t("gates.wrongRole.eyebrow")}</p>
+          <h1>{t("gates.wrongRole.heading")}</h1>
+          <p>{t("gates.wrongRole.body")}</p>
           <Link className="secondary-link" href="/app">
-            Go to your dashboard
+            {t("gates.wrongRole.link")}
           </Link>
         </section>
       </main>
@@ -199,10 +201,10 @@ function AdminPageContent() {
           <span className="brand-symbol">
             <HomeIcon size={18} aria-hidden />
           </span>
-          <strong>Host Cleaners</strong>
+          <strong>{tNav("brandName")}</strong>
         </Link>
 
-        <span className="admin-topbar-label">Admin panel</span>
+        <span className="admin-topbar-label">{t("topbar.panelLabel")}</span>
 
         <div className="admin-topbar-right">
           <span className="user-chip">
@@ -210,11 +212,11 @@ function AdminPageContent() {
             <span className="user-chip-dot" aria-hidden>
               ·
             </span>
-            Admin
+            {t("topbar.role")}
           </span>
           <button className="text-link logout-trigger" type="button" onClick={logout}>
             <LogOut size={15} aria-hidden />
-            Log out
+            {t("topbar.logOut")}
           </button>
         </div>
       </header>
@@ -223,7 +225,7 @@ function AdminPageContent() {
       <div className="admin-body">
         {/* ── Sidebar ── */}
         <aside className="admin-sidebar">
-          <p className="admin-sidebar-label">Accounts</p>
+          <p className="admin-sidebar-label">{t("sidebar.accountsLabel")}</p>
           <nav className="admin-nav">
             {(["pending", "approved", "all"] as Filter[]).map((f) => (
               <button
@@ -250,7 +252,7 @@ function AdminPageContent() {
           <div className="admin-section-header">
             <div>
               <p className="eyebrow" style={{ margin: "0 0 4px" }}>
-                {visibleUsers.length} account{visibleUsers.length !== 1 ? "s" : ""}
+                {t("section.accountCount", { count: visibleUsers.length })}
               </p>
               <h1 className="admin-section-title">{STATUS_FILTER_LABELS[filter]}</h1>
             </div>
@@ -259,10 +261,10 @@ function AdminPageContent() {
               type="button"
               onClick={() => void loadUsers()}
               disabled={loadingUsers}
-              aria-label="Refresh list"
+              aria-label={t("section.refreshAriaLabel")}
             >
               <RefreshCcw size={15} aria-hidden />
-              {loadingUsers ? "Loading…" : "Refresh"}
+              {loadingUsers ? t("section.loading") : t("section.refresh")}
             </button>
           </div>
 
@@ -272,14 +274,14 @@ function AdminPageContent() {
 
           {/* User list */}
           {loadingUsers ? (
-            <p className="admin-empty">Loading accounts…</p>
+            <p className="admin-empty">{t("section.loadingAccounts")}</p>
           ) : visibleUsers.length === 0 ? (
             <div className="admin-empty-state">
               <CheckCircle2 size={36} />
               <p>
                 {filter === "pending"
-                  ? "No accounts waiting for review."
-                  : "No accounts found."}
+                  ? t("section.emptyPending")
+                  : t("section.emptyOther")}
               </p>
             </div>
           ) : (
@@ -310,7 +312,7 @@ function AdminPageContent() {
                     {/* Role + status chips */}
                     <div className="admin-user-meta">
                       <span className="admin-role-chip">
-                        {user.is_platform_admin ? "Admin" : roleLabel(user.role)}
+                        {user.is_platform_admin ? t("userRow.adminChip") : roleLabel(user.role)}
                       </span>
                       <span
                         className={`admin-status-chip admin-status-${user.account_status}`}
@@ -330,7 +332,7 @@ function AdminPageContent() {
                             onClick={() => void approve(user.id)}
                           >
                             <CheckCircle2 size={14} aria-hidden />
-                            {busy ? "…" : "Approve"}
+                            {busy ? t("userRow.busy") : t("userRow.approve")}
                           </button>
                           <button
                             className="admin-action-reject"
@@ -339,20 +341,20 @@ function AdminPageContent() {
                             onClick={() => void reject(user.id)}
                           >
                             <XCircle size={14} aria-hidden />
-                            {busy ? "…" : "Reject"}
+                            {busy ? t("userRow.busy") : t("userRow.reject")}
                           </button>
                         </>
                       )}
                       {user.account_status === "approved" && (
                         <span className="admin-action-label admin-action-label--approved">
                           <CheckCircle2 size={14} aria-hidden />
-                          Approved
+                          {t("userRow.approved")}
                         </span>
                       )}
                       {user.account_status === "rejected" && (
                         <span className="admin-action-label admin-action-label--rejected">
                           <ShieldX size={14} aria-hidden />
-                          Rejected
+                          {t("userRow.rejected")}
                         </span>
                       )}
                     </div>
@@ -367,9 +369,14 @@ function AdminPageContent() {
   );
 }
 
+function AdminPageFallback() {
+  const t = useTranslations("admin");
+  return <main className="admin-page">{t("section.suspenseFallback")}</main>;
+}
+
 export default function AdminPage() {
   return (
-    <Suspense fallback={<main className="admin-page">Loading...</main>}>
+    <Suspense fallback={<AdminPageFallback />}>
       <AdminPageContent />
     </Suspense>
   );

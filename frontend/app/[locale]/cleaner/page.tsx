@@ -1,6 +1,6 @@
-import { Suspense } from "react";
+﻿import { Suspense } from "react";
 
-import CleanerDashboard from "../../features/cleaner/CleanerDashboard";
+import CleanerDashboard from "../../../features/cleaner/CleanerDashboard";
 
 export default function CleanerPage() {
   return (

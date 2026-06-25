@@ -31,6 +31,7 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 import { Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { apiFetch, CurrentUser, type FavouriteCleaner } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
@@ -147,12 +148,6 @@ interface CleaningJob {
 
 // ── Calendar helpers ───────────────────────────────────────────────────────────
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 /** First weekday of month, Mon = 0 */
 function firstWeekday(year: number, month: number) {
   return (new Date(year, month, 1).getDay() + 6) % 7;
@@ -167,12 +162,12 @@ function daysInMonth(year: number, month: number) {
  * user-facing message, or "" when valid. Validated in React so the user never
  * has to round-trip to the server for this.
  */
-function sqmError(value: string): string {
+function sqmError(value: string, errorZero: string, errorHalf: string): string {
   const v = value.trim();
   if (v === "") return "";
   const num = Number(v);
-  if (!Number.isFinite(num) || num <= 0) return "Enter a size greater than 0.";
-  if (!Number.isInteger(num * 2)) return "Size must be a whole or half number (e.g. 52 or 52.5).";
+  if (!Number.isFinite(num) || num <= 0) return errorZero;
+  if (!Number.isInteger(num * 2)) return errorHalf;
   return "";
 }
 
@@ -185,14 +180,6 @@ const STATUS_COLOR: Record<JobStatus, string> = {
   completed: "#22c55e",
   cancelled: "var(--brand)",
   disputed:  "#f97316",
-};
-const STATUS_LABEL: Record<JobStatus, string> = {
-  draft:     "Draft",
-  open:      "Open",
-  assigned:  "Assigned",
-  completed: "Done",
-  cancelled: "Cancelled",
-  disputed:  "Disputed",
 };
 
 // ── Format helpers ─────────────────────────────────────────────────────────────
@@ -222,6 +209,21 @@ function dateOnly(iso: string) { return iso.slice(0, 10); }
 // ══════════════════════════════════════════════════════════════════════════════
 
 export default function HostDashboard() {
+  const t = useTranslations("host");
+  const tC = useTranslations("common");
+  const tNav = useTranslations("nav");
+  const MONTHS = tC.raw("monthsFull") as string[];
+  const DAYS = tC.raw("calDays") as string[];
+  const STATUS_LABEL: Record<JobStatus, string> = {
+    draft:     t("jobs.status.draft"),
+    open:      t("jobs.status.open"),
+    assigned:  t("jobs.status.assigned"),
+    completed: t("jobs.status.completed"),
+    cancelled: t("jobs.status.cancelled"),
+    disputed:  t("jobs.status.disputed"),
+  };
+  const sqmErr = (value: string) => sqmError(value, t("propForm.sqmErrorZero"), t("propForm.sqmErrorHalf"));
+
   const searchParams = useSearchParams();
   const [me, setMe]           = useState<CurrentUser | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
@@ -467,7 +469,7 @@ export default function HostDashboard() {
         const d: unknown = await pRes.json();
         setProperties(Array.isArray(d) ? d as Property[] : (d as { results: Property[] }).results ?? []);
       } else if (!silent) {
-        setDataError("Could not load properties.");
+        setDataError(t("errors.loadProperties"));
       }
       if (jRes.ok) {
         const d: unknown = await jRes.json();
@@ -491,7 +493,7 @@ export default function HostDashboard() {
       }
     } catch {
       if (!silent) {
-        setDataError("Network error. Check that the backend is running.");
+        setDataError(t("errors.network"));
       }
     } finally {
       if (!silent) setLoadingData(false);
@@ -640,9 +642,9 @@ export default function HostDashboard() {
   async function submitProperty(e: FormEvent) {
     e.preventDefault();
     // Validate client-side before any request — size must be whole/half m².
-    const sqmErr = sqmError(propSqm);
-    if (sqmErr) {
-      setPropError(sqmErr);
+    const sqmErrMsg = sqmErr(propSqm);
+    if (sqmErrMsg) {
+      setPropError(sqmErrMsg);
       return;
     }
     setPropError("");
@@ -678,7 +680,7 @@ export default function HostDashboard() {
       if (!res.ok) {
         const data = await res.json() as Record<string, unknown>;
         const msgs = Object.values(data).flat().join(" ");
-        setPropError(msgs || "Could not save property.");
+        setPropError(msgs || t("errors.saveProp"));
         return;
       }
 
@@ -761,7 +763,7 @@ export default function HostDashboard() {
       if (!res.ok) {
         const data = await res.json() as Record<string, unknown>;
         const msgs = Object.values(data).flat().join(" ");
-        setJobError(msgs || "Could not save job.");
+        setJobError(msgs || t("errors.saveJob"));
         return;
       }
       const savedJob = await res.json() as CleaningJob;
@@ -875,25 +877,25 @@ export default function HostDashboard() {
     try {
       let res: Response;
       if (icsInputMode === "url") {
-        if (!icsUrl.trim()) { setIcsError("Please paste an Airbnb calendar URL."); setIcsParsing(false); return; }
+        if (!icsUrl.trim()) { setIcsError(t("icsModal.errorNoUrl")); setIcsParsing(false); return; }
         res = await apiFetch("/api/properties/fetch-ics-url/", {
           method: "POST",
           body: JSON.stringify({ url: icsUrl.trim() }),
         });
       } else {
-        if (!icsFile) { setIcsError("Please select an .ics file."); setIcsParsing(false); return; }
+        if (!icsFile) { setIcsError(t("icsModal.errorNoFile")); setIcsParsing(false); return; }
         const formData = new FormData();
         formData.append("ics_file", icsFile);
         res = await apiFetch("/api/properties/parse-ics/", { method: "POST", body: formData });
       }
       const data = await res.json() as IcsEvent[] | { detail: string };
       if (!res.ok) {
-        setIcsError((data as { detail: string }).detail ?? "Failed to parse calendar.");
+        setIcsError((data as { detail: string }).detail ?? t("icsModal.errorParseFailed"));
         return;
       }
       const events = data as IcsEvent[];
       if (events.length === 0) {
-        setIcsError("No reservations found. Blocked dates are excluded automatically.");
+        setIcsError(t("icsModal.errorNoReservations"));
         return;
       }
       setIcsEvents(events);
@@ -905,9 +907,9 @@ export default function HostDashboard() {
   }
 
   async function importIcsJobs() {
-    if (!icsPropId) { setIcsError("Please select a property."); return; }
+    if (!icsPropId) { setIcsError(t("icsModal.errorNoProp")); return; }
     const toCreate = icsEvents.filter((e) => icsSelected.has(e.uid));
-    if (toCreate.length === 0) { setIcsError("Select at least one event to import."); return; }
+    if (toCreate.length === 0) { setIcsError(t("icsModal.errorNoEvents")); return; }
 
     const prop = properties.find((p) => p.id === parseInt(icsPropId));
     const durationMs = (prop?.default_cleaning_duration_minutes ?? 120) * 60 * 1000;
@@ -989,7 +991,7 @@ export default function HostDashboard() {
         }),
       });
       if (!userRes.ok) {
-        setAccountError("Could not save your account details.");
+        setAccountError(t("errors.saveAccount"));
         return;
       }
       if (hostProfileId != null) {
@@ -1002,7 +1004,7 @@ export default function HostDashboard() {
           }),
         });
         if (!hpRes.ok) {
-          setAccountError("Could not save your host profile.");
+          setAccountError(t("errors.saveHostProfile"));
           return;
         }
       }
@@ -1183,15 +1185,15 @@ export default function HostDashboard() {
 
   // ── Gates ──────────────────────────────────────────────────────────────────
   if (loadingMe) {
-    return <main className="host-page"><p className="host-loading">Loading…</p></main>;
+    return <main className="host-page"><p className="host-loading">{t("gates.loading")}</p></main>;
   }
   if (!me) {
     return (
       <main className="host-page">
         <section className="admin-gate">
-          <p className="eyebrow">Protected area</p>
-          <h1>Log in to continue</h1>
-          <Link className="primary-link" href="/login">Go to login</Link>
+          <p className="eyebrow">{t("gates.notLoggedIn.eyebrow")}</p>
+          <h1>{t("gates.notLoggedIn.heading")}</h1>
+          <Link className="primary-link" href="/login">{t("gates.notLoggedIn.link")}</Link>
         </section>
       </main>
     );
@@ -1200,10 +1202,10 @@ export default function HostDashboard() {
     return (
       <main className="host-page">
         <section className="admin-gate">
-          <p className="eyebrow">Hosts only</p>
-          <h1>Wrong dashboard</h1>
-          <p>This dashboard is for property owners.</p>
-          <Link className="secondary-link" href="/app">Go to your workspace</Link>
+          <p className="eyebrow">{t("gates.wrongRole.eyebrow")}</p>
+          <h1>{t("gates.wrongRole.heading")}</h1>
+          <p>{t("gates.wrongRole.body")}</p>
+          <Link className="secondary-link" href="/app">{t("gates.wrongRole.link")}</Link>
         </section>
       </main>
     );
@@ -1222,7 +1224,7 @@ export default function HostDashboard() {
       <header className="host-topbar">
         <Link className="site-brand" href="/">
           <span className="brand-symbol"><HomeIcon size={18} aria-hidden /></span>
-          <strong>Host Cleaners</strong>
+          <strong>{tNav("brandName")}</strong>
         </Link>
 
         <nav className="host-section-tabs" aria-label="Dashboard sections">
@@ -1232,7 +1234,7 @@ export default function HostDashboard() {
             onClick={() => setSection("jobs")}
           >
             <CalendarDays size={15} aria-hidden />
-            Jobs &amp; Calendar
+            {t("topbar.jobsTab")}
           </button>
           <button
             type="button"
@@ -1240,7 +1242,7 @@ export default function HostDashboard() {
             onClick={() => setSection("applications")}
           >
             <ClipboardList size={15} aria-hidden />
-            Applications
+            {t("topbar.applicationsTab")}
             {pendingCount > 0 && (
               <span className="host-tab-count host-tab-count--alert">{pendingCount}</span>
             )}
@@ -1251,7 +1253,7 @@ export default function HostDashboard() {
         <div className="host-topbar-right">
           <Link className="text-link" href="/cleaners">
             <Users size={15} aria-hidden />
-            Find cleaners
+            {t("topbar.findCleaners")}
           </Link>
           <NotificationBell />
           <div className="cleaner-account-menu" ref={accountMenuRef}>
@@ -1261,23 +1263,23 @@ export default function HostDashboard() {
               onClick={() => setAccountMenuOpen((v) => !v)}
               aria-haspopup="menu"
               aria-expanded={accountMenuOpen}
-              aria-label="Account menu"
+              aria-label={t("topbar.accountMenuAriaLabel")}
             >
               <User size={18} aria-hidden />
             </button>
             {accountMenuOpen && (
-              <div className="cleaner-account-menu-dropdown" role="menu" aria-label="Account menu">
+              <div className="cleaner-account-menu-dropdown" role="menu" aria-label={t("topbar.accountMenuAriaLabel")}>
                 <div className="cleaner-account-menu-identity">
                   <strong>{displayName}</strong>
-                  <span>Host</span>
+                  <span>{t("topbar.role")}</span>
                 </div>
                 <button type="button" className="cleaner-account-menu-item" role="menuitem" onClick={openAccountFromMenu}>
                   <UserRoundCheck size={16} aria-hidden />
-                  Profile
+                  {t("topbar.profile")}
                 </button>
                 <div className="account-language-picker">
-                  <span>Language</span>
-                  <div className="account-language-slider" role="group" aria-label="Language">
+                  <span>{t("topbar.language")}</span>
+                  <div className="account-language-slider" role="group" aria-label={t("topbar.language")}>
                     <button
                       type="button"
                       className={me.preferred_language === "bg" ? "active" : ""}
@@ -1303,7 +1305,7 @@ export default function HostDashboard() {
                   onClick={() => void logout()}
                 >
                   <LogOut size={16} aria-hidden />
-                  Log out
+                  {t("topbar.logOut")}
                 </button>
               </div>
             )}
@@ -1317,15 +1319,15 @@ export default function HostDashboard() {
         {isApproved && section !== "account" && (
           <aside
             className={`host-rail${railExpanded ? " host-rail--expanded" : " host-rail--mini"}`}
-            aria-label="Your properties"
+            aria-label={t("rail.ariaLabel")}
           >
             <div className="host-rail-head">
               <button
                 type="button"
                 className="host-rail-toggle"
                 onClick={toggleRail}
-                title={railExpanded ? "Collapse properties panel" : "Expand properties panel"}
-                aria-label={railExpanded ? "Collapse properties panel" : "Expand properties panel"}
+                title={railExpanded ? t("rail.collapseAriaLabel") : t("rail.expandAriaLabel")}
+                aria-label={railExpanded ? t("rail.collapseAriaLabel") : t("rail.expandAriaLabel")}
               >
                 {railExpanded ? <ChevronLeft size={18} aria-hidden /> : <ChevronRight size={18} aria-hidden />}
               </button>
@@ -1335,14 +1337,14 @@ export default function HostDashboard() {
               type="button"
               className={`host-rail-card host-rail-card--btn${selectedPropertyId == null ? " host-rail-card--active" : ""}`}
               onClick={() => setSelectedPropertyId(null)}
-              title="All properties"
-              aria-label="All properties"
+              title={t("rail.allProperties")}
+              aria-label={t("rail.allProperties")}
             >
               <span className="host-rail-thumb host-rail-thumb--icon">
                 <LayoutGrid size={22} aria-hidden />
               </span>
               <span className="host-rail-card-text host-rail-fade">
-                <span className="host-rail-card-name">All properties</span>
+                <span className="host-rail-card-name">{t("rail.allProperties")}</span>
               </span>
             </button>
 
@@ -1394,14 +1396,14 @@ export default function HostDashboard() {
               type="button"
               className="host-rail-card host-rail-card--btn host-rail-card--add"
               onClick={openCreateProp}
-              title="Add property"
-              aria-label="Add property"
+              title={t("rail.addProperty")}
+              aria-label={t("rail.addProperty")}
             >
               <span className="host-rail-thumb host-rail-thumb--icon host-rail-thumb--add">
                 <Plus size={22} aria-hidden />
               </span>
               <span className="host-rail-card-text host-rail-fade">
-                <span className="host-rail-card-name">Add property</span>
+                <span className="host-rail-card-name">{t("rail.addProperty")}</span>
               </span>
             </button>
           </aside>
@@ -1415,15 +1417,15 @@ export default function HostDashboard() {
               className="host-rail-mobile-select"
               value={selectedPropertyId ?? ""}
               onChange={(e) => setSelectedPropertyId(e.target.value ? Number(e.target.value) : null)}
-              aria-label="Filter by property"
+              aria-label={t("rail.filterAriaLabel")}
             >
-              <option value="">All properties</option>
+              <option value="">{t("rail.allProperties")}</option>
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
             <button type="button" className="host-rail-mobile-add" onClick={openCreateProp}>
-              <Plus size={15} aria-hidden /> Add
+              <Plus size={15} aria-hidden /> {t("rail.addShort")}
             </button>
           </div>
         )}
@@ -1431,8 +1433,7 @@ export default function HostDashboard() {
         {/* ── Pending banner ── */}
         {!isApproved && (
           <div className="host-pending-banner">
-            ⏳ Your account is <strong>{me.account_status}</strong>. You can browse, but cannot
-            create properties or jobs until a marketplace admin approves your account.
+            ⏳ {t("pendingBanner", { status: me.account_status })}
           </div>
         )}
         {dataError && <p className="form-error" style={{ margin: "16px 24px 0" }}>{dataError}</p>}
@@ -1442,8 +1443,8 @@ export default function HostDashboard() {
           <div className="host-section">
             <div className="host-section-header">
               <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Cleaner requests</p>
-                <h1 className="host-section-title">Applications</h1>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{t("apps.eyebrow")}</p>
+                <h1 className="host-section-title">{t("apps.title")}</h1>
               </div>
               {!loadingData && (
                 <button
@@ -1451,7 +1452,7 @@ export default function HostDashboard() {
                   className="secondary-link host-appdash-edit-btn"
                   onClick={() => appdash.setEditing(!appdash.editing)}
                 >
-                  {appdash.editing ? "Done" : "Edit cards"}
+                  {appdash.editing ? t("apps.doneEditing") : t("apps.editCards")}
                 </button>
               )}
             </div>
@@ -1465,10 +1466,10 @@ export default function HostDashboard() {
                 active={assignments.filter((a) => !a.completed_at).length}
                 completed={completedAssignments.length}
                 open={jobs.filter((j) => j.status === "open").length}
-                openSub="awaiting cleaners"
+                openSub={t("apps.openSub")}
                 rating={hostRatingAvg}
                 ratingCount={hostReviews.length}
-                moneyLabel="Spent"
+                moneyLabel={t("apps.moneyLabel")}
                 moneyValue={formatMoney(totalSpent)}
                 moneyCount={completedAssignments.length}
                 cards={appdash.cards}
@@ -1482,7 +1483,7 @@ export default function HostDashboard() {
             {!loadingData && favourites.length > 0 && (
               <div className="host-apps-subsection host-mycleaners">
                 <h2 className="host-apps-subtitle">
-                  <Heart size={15} aria-hidden fill="currentColor" /> My cleaners
+                  <Heart size={15} aria-hidden fill="currentColor" /> {t("apps.myCleaners")}
                 </h2>
                 <div className="host-mycleaners-grid">
                   {favourites.map((fav) => (
@@ -1513,7 +1514,7 @@ export default function HostDashboard() {
                             className="host-app-view-profile"
                             onClick={() => setViewProfileId(fav.cleaner_profile_id)}
                           >
-                            View
+                            {t("apps.view")}
                           </button>
                         )}
                         <button
@@ -1521,7 +1522,7 @@ export default function HostDashboard() {
                           className="host-offer-trigger"
                           onClick={() => setOfferTarget({ userId: fav.cleaner, name: fav.cleaner_name })}
                         >
-                          <Send size={12} aria-hidden /> Offer
+                          <Send size={12} aria-hidden /> {t("apps.offer")}
                         </button>
                         <button
                           type="button"
@@ -1539,14 +1540,14 @@ export default function HostDashboard() {
             )}
 
             {loadingData ? (
-              <p className="host-empty">Loading…</p>
+              <p className="host-empty">{t("apps.loading")}</p>
             ) : (
               <>
                 {/* ── Pending applications ── */}
                 {(appFilter === null || appFilter === "pending") && (
                 <div className="host-apps-subsection">
                   <h2 className="host-apps-subtitle">
-                    Awaiting your review
+                    {t("apps.pending.title")}
                     {pendingCount > 0 && (
                       <span className="host-apps-subtitle-count">{pendingCount}</span>
                     )}
@@ -1555,9 +1556,9 @@ export default function HostDashboard() {
                   {applications.filter((a) => a.status === "pending").length === 0 ? (
                     <div className="host-apps-empty">
                       <ClipboardList size={32} />
-                      <p>No pending applications.</p>
+                      <p>{t("apps.pending.empty")}</p>
                       <span className="host-apps-empty-hint">
-                        Cleaners will appear here once they apply to your open jobs.
+                        {t("apps.pending.emptyHint")}
                       </span>
                     </div>
                   ) : (
@@ -1596,25 +1597,25 @@ export default function HostDashboard() {
                                     className="host-app-view-profile"
                                     onClick={() => setViewProfileId(app.cleaner_profile_id)}
                                   >
-                                    View profile
+                                    {t("apps.pending.viewProfile")}
                                   </button>
                                 )}
                                 <button
                                   type="button"
                                   className={`host-fav-toggle${isFavourited(app.cleaner) ? " host-fav-toggle--on" : ""}`}
                                   aria-pressed={isFavourited(app.cleaner)}
-                                  aria-label={isFavourited(app.cleaner) ? "Remove from saved cleaners" : "Save cleaner"}
+                                  aria-label={isFavourited(app.cleaner) ? t("apps.pending.saved") : t("apps.pending.save")}
                                   onClick={() => void toggleFavourite(app.cleaner)}
                                 >
                                   <Heart size={13} aria-hidden fill={isFavourited(app.cleaner) ? "currentColor" : "none"} />
-                                  {isFavourited(app.cleaner) ? "Saved" : "Save"}
+                                  {isFavourited(app.cleaner) ? t("apps.pending.saved") : t("apps.pending.save")}
                                 </button>
                                 <button
                                   type="button"
                                   className="host-offer-trigger"
                                   onClick={() => setOfferTarget({ userId: app.cleaner, name: app.cleaner_name })}
                                 >
-                                  <Send size={13} aria-hidden /> Offer job
+                                  <Send size={13} aria-hidden /> {t("apps.pending.offerJob")}
                                 </button>
                               </div>
 
@@ -1629,7 +1630,7 @@ export default function HostDashboard() {
                               ) : app.job_proposed_price ? (
                                 <span className="host-app-price host-app-price--job">
                                   €{app.job_proposed_price}
-                                  <small>listed</small>
+                                  <small>{t("apps.pending.listed")}</small>
                                 </span>
                               ) : null}
 
@@ -1638,7 +1639,7 @@ export default function HostDashboard() {
                                   // The host sent this offer — only the cleaner can accept it,
                                   // so there's no Accept button here, just a withdraw option.
                                   <span className="host-app-badge host-app-badge--offer">
-                                    Offer sent · awaiting cleaner
+                                    {t("apps.pending.offerSent")}
                                   </span>
                                 ) : (
                                   <button
@@ -1648,7 +1649,7 @@ export default function HostDashboard() {
                                     onClick={() => void acceptApplication(app.id)}
                                   >
                                     <Check size={13} aria-hidden />
-                                    {actingAppId === app.id ? "…" : "Accept"}
+                                    {actingAppId === app.id ? "…" : t("apps.pending.accept")}
                                   </button>
                                 )}
                                 <button
@@ -1658,7 +1659,7 @@ export default function HostDashboard() {
                                   onClick={() => void rejectApplication(app.id)}
                                 >
                                   <X size={13} aria-hidden />
-                                  {app.origin === "host_offered" ? "Withdraw" : "Decline"}
+                                  {app.origin === "host_offered" ? t("apps.pending.withdraw") : t("apps.pending.decline")}
                                 </button>
                               </div>
                             </div>
@@ -1672,14 +1673,14 @@ export default function HostDashboard() {
                 {/* ── Active assignments ── */}
                 {(appFilter === null || appFilter === "active") && (
                 <div className="host-apps-subsection">
-                  <h2 className="host-apps-subtitle">Active assignments</h2>
+                  <h2 className="host-apps-subtitle">{t("apps.active.title")}</h2>
 
                   {assignments.filter((a) => !a.completed_at).length === 0 ? (
                     <div className="host-apps-empty">
                       <Check size={32} />
-                      <p>No active assignments yet.</p>
+                      <p>{t("apps.active.empty")}</p>
                       <span className="host-apps-empty-hint">
-                        Accept a cleaner application to create an assignment.
+                        {t("apps.active.emptyHint")}
                       </span>
                     </div>
                   ) : (
@@ -1719,7 +1720,7 @@ export default function HostDashboard() {
                               {asgn.agreed_price && (
                                 <span className="host-app-price">€{asgn.agreed_price}</span>
                               )}
-                              <span className="host-app-badge host-app-badge--assigned">Assigned</span>
+                              <span className="host-app-badge host-app-badge--assigned">{t("apps.active.badge")}</span>
                             </div>
                           </li>
                           );
@@ -1732,11 +1733,11 @@ export default function HostDashboard() {
                 {/* ── Recently completed ── */}
                 {(appFilter === "completed" || (appFilter === null && assignments.filter((a) => a.completed_at).length > 0)) && (
                   <div className="host-apps-subsection">
-                    <h2 className="host-apps-subtitle host-apps-subtitle--muted">Completed</h2>
+                    <h2 className="host-apps-subtitle host-apps-subtitle--muted">{t("apps.completed.title")}</h2>
                     {assignments.filter((a) => a.completed_at).length === 0 ? (
                       <div className="host-apps-empty">
                         <Check size={32} />
-                        <p>No completed cleanings yet.</p>
+                        <p>{t("apps.completed.empty")}</p>
                       </div>
                     ) : (
                     <ul className="host-apps-list">
@@ -1765,7 +1766,7 @@ export default function HostDashboard() {
                               {asgn.agreed_price && (
                                 <span className="host-app-price">€{asgn.agreed_price}</span>
                               )}
-                              <span className="host-app-badge host-app-badge--done">✓ Done</span>
+                              <span className="host-app-badge host-app-badge--done">{t("apps.completed.badge")}</span>
                             </div>
                             {/* Review row — full width */}
                             <div className="host-app-review-row">
@@ -1779,7 +1780,7 @@ export default function HostDashboard() {
                                     type="button"
                                     onClick={() => openReview(asgn)}
                                   >
-                                    ★ {mine ? "View review" : "Leave a review"}
+                                    ★ {mine ? t("apps.completed.viewReview") : t("apps.completed.leaveReview")}
                                   </button>
                                 );
                               })()}
@@ -1794,9 +1795,9 @@ export default function HostDashboard() {
                 {/* ── Reviews received ── */}
                 {appFilter === "rating" && (
                   <div className="host-apps-subsection">
-                    <h2 className="host-apps-subtitle">Reviews received</h2>
+                    <h2 className="host-apps-subtitle">{t("apps.reviews.title")}</h2>
                     {hostReviews.length === 0 ? (
-                      <p className="host-empty">No reviews yet — ratings appear after a completed job.</p>
+                      <p className="host-empty">{t("apps.reviews.empty")}</p>
                     ) : (
                       <ul className="host-app-list">
                         {hostReviews.map((r) => {
@@ -1824,13 +1825,13 @@ export default function HostDashboard() {
                 {/* ── Open jobs listing ── */}
                 {appFilter === "open" && (
                   <div className="host-apps-subsection">
-                    <h2 className="host-apps-subtitle">Open jobs</h2>
+                    <h2 className="host-apps-subtitle">{t("apps.openJobs.title")}</h2>
                     {jobs.filter((j) => j.status === "open").length === 0 ? (
                       <div className="host-apps-empty">
                         <CalendarDays size={32} />
-                        <p>No open jobs.</p>
+                        <p>{t("apps.openJobs.empty")}</p>
                         <span className="host-apps-empty-hint">
-                          Publish a draft job to start receiving applications.
+                          {t("apps.openJobs.emptyHint")}
                         </span>
                       </div>
                     ) : (
@@ -1851,7 +1852,7 @@ export default function HostDashboard() {
                                     </span>
                                     {act?.pendingApps ? (
                                       <span className="host-job-activity host-job-activity--apps">
-                                        {act.pendingApps} application{act.pendingApps !== 1 ? "s" : ""}
+                                        {t("apps.openJobs.appsCount", { count: act.pendingApps })}
                                       </span>
                                     ) : null}
                                   </div>
@@ -1860,7 +1861,7 @@ export default function HostDashboard() {
                                   {job.proposed_price && (
                                     <span className="host-app-price">€{job.proposed_price}</span>
                                   )}
-                                  <span className="host-app-badge host-app-badge--open">Open</span>
+                                  <span className="host-app-badge host-app-badge--open">{t("apps.openJobs.badge")}</span>
                                 </div>
                               </li>
                             );
@@ -1879,8 +1880,8 @@ export default function HostDashboard() {
           <div className="host-section">
             <div className="host-section-header">
               <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Turnover schedule</p>
-                <h1 className="host-section-title">Jobs &amp; Calendar</h1>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{t("jobs.eyebrow")}</p>
+                <h1 className="host-section-title">{t("jobs.title")}</h1>
               </div>
               {isApproved && properties.length > 0 && (
                 <div className="host-section-actions">
@@ -1890,7 +1891,7 @@ export default function HostDashboard() {
                     onClick={openIcsModal}
                   >
                     <Upload size={16} aria-hidden />
-                    Import ICS
+                    {t("jobs.importIcs")}
                   </button>
                   <button
                     className="primary-link"
@@ -1898,7 +1899,7 @@ export default function HostDashboard() {
                     onClick={() => { setJobError(""); openJobForm(undefined, undefined, selectedPropertyId ?? undefined); }}
                   >
                     <Plus size={16} aria-hidden />
-                    Post a job
+                    {t("jobs.postJob")}
                   </button>
                 </div>
               )}
@@ -1907,7 +1908,7 @@ export default function HostDashboard() {
             {!isApproved ? (
               <div className="host-empty-state">
                 <CalendarDays size={40} />
-                <p>Jobs are available after your account is approved.</p>
+                <p>{t("jobs.notApproved")}</p>
               </div>
             ) : properties.length === 0 ? (
               <div className="host-activation">
@@ -1915,15 +1916,12 @@ export default function HostDashboard() {
                   <Building2 size={26} aria-hidden />
                 </span>
                 <div className="host-activation-body">
-                  <h2>Add your first property</h2>
-                  <p>
-                    Set it up once, then post a turnover cleaning in under a minute —
-                    verified cleaners in your area can apply right away.
-                  </p>
+                  <h2>{t("jobs.firstProp.heading")}</h2>
+                  <p>{t("jobs.firstProp.body")}</p>
                 </div>
                 <button className="primary-link host-activation-cta" type="button" onClick={openCreateProp}>
                   <Plus size={16} aria-hidden />
-                  Add your first property
+                  {t("jobs.firstProp.cta")}
                 </button>
               </div>
             ) : loadingData ? (
@@ -1934,11 +1932,11 @@ export default function HostDashboard() {
                 {/* ── Calendar panel ── */}
                 <div className="host-calendar">
                   <div className="host-cal-nav">
-                    <button type="button" className="host-cal-arrow" onClick={prevMonth} aria-label="Previous month">
+                    <button type="button" className="host-cal-arrow" onClick={prevMonth} aria-label={t("jobs.cal.prevMonth")}>
                       <ChevronLeft size={16} />
                     </button>
                     <span className="host-cal-title">{MONTHS[calMonth]} {calYear}</span>
-                    <button type="button" className="host-cal-arrow" onClick={nextMonth} aria-label="Next month">
+                    <button type="button" className="host-cal-arrow" onClick={nextMonth} aria-label={t("jobs.cal.nextMonth")}>
                       <ChevronRight size={16} />
                     </button>
                   </div>
@@ -1972,21 +1970,21 @@ export default function HostDashboard() {
                         onClick={() => setSelectedDay(null)}
                       >
                         <X size={13} aria-hidden />
-                        Show all
+                        {t("jobs.cal.showAll")}
                       </button>
                     )}
                   </div>
 
                   {visibleJobs.length === 0 ? (
                     <div className="host-job-empty">
-                      <p>No jobs {selectedDay ? "on this day" : "this month"}.</p>
+                      <p>{selectedDay ? t("jobs.cal.noJobsDay") : t("jobs.cal.noJobsMonth")}</p>
                       <button
                         className="secondary-link"
                         type="button"
                         onClick={() => { setJobError(""); openJobForm(selectedDay ?? undefined, undefined, selectedPropertyId ?? undefined); }}
                       >
                         <Plus size={14} aria-hidden />
-                        Post one
+                        {t("jobs.cal.postOne")}
                       </button>
                     </div>
                   ) : (
@@ -2013,10 +2011,10 @@ export default function HostDashboard() {
                               }
                               if (act.assignment) {
                                 const completion = act.assignment.host_completed_at
-                                  ? "waiting for cleaner"
+                                  ? t("jobs.cal.waitingCleaner")
                                   : act.assignment.cleaner_completed_at
-                                    ? "cleaner confirmed"
-                                    : "assigned";
+                                    ? t("jobs.cal.cleanerConfirmed")
+                                    : t("jobs.cal.assigned");
                                 return <span className="host-job-activity host-job-activity--assigned">👤 {act.assignment.cleaner_name} · {completion}</span>;
                               }
                               if (act.pendingApps > 0) {
@@ -2028,7 +2026,7 @@ export default function HostDashboard() {
                                     onClick={() => setExpandedAppsJobId(open ? null : job.id)}
                                     aria-expanded={open}
                                   >
-                                    {act.pendingApps} application{act.pendingApps !== 1 ? "s" : ""}
+                                    {t("apps.openJobs.appsCount", { count: act.pendingApps })}
                                     <ChevronRight size={13} aria-hidden className={open ? "host-job-apps-caret host-job-apps-caret--open" : "host-job-apps-caret"} />
                                   </button>
                                 );
@@ -2054,13 +2052,13 @@ export default function HostDashboard() {
                                       type="button"
                                       onClick={() => void publishJob(job.id)}
                                     >
-                                      Publish
+                                      {t("jobs.publish")}
                                     </button>
                                     <button
                                       className="host-edit-btn"
                                       type="button"
                                       onClick={() => { setJobError(""); openJobForm(undefined, job); }}
-                                      aria-label="Edit job"
+                                      aria-label={t("jobs.editAriaLabel")}
                                     >
                                       <Pencil size={14} aria-hidden />
                                     </button>
@@ -2075,14 +2073,14 @@ export default function HostDashboard() {
                                         disabled={deletingJobId === job.id}
                                         onClick={() => void deleteJob(job.id)}
                                       >
-                                        {deletingJobId === job.id ? "…" : "Delete"}
+                                        {deletingJobId === job.id ? "…" : t("jobs.delete")}
                                       </button>
                                       <button
                                         className="host-delete-confirm-no"
                                         type="button"
                                         onClick={() => setConfirmDeleteJobId(null)}
                                       >
-                                        Cancel
+                                        {t("common.cancel")}
                                       </button>
                                     </div>
                                   ) : (
@@ -2090,7 +2088,7 @@ export default function HostDashboard() {
                                       className="host-delete-btn"
                                       type="button"
                                       onClick={() => setConfirmDeleteJobId(job.id)}
-                                      aria-label="Delete job"
+                                      aria-label={t("jobs.deleteAriaLabel")}
                                     >
                                       <Trash2 size={14} aria-hidden />
                                     </button>
@@ -2111,7 +2109,7 @@ export default function HostDashboard() {
                                     <div className="host-job-applicant-actions">
                                       {app.origin === "host_offered" ? (
                                         <span className="host-app-badge host-app-badge--offer">
-                                          Offer sent · awaiting cleaner
+                                          {t("apps.pending.offerSent")}
                                         </span>
                                       ) : (
                                         <>
@@ -2122,7 +2120,7 @@ export default function HostDashboard() {
                                             onClick={() => void acceptApplication(app.id)}
                                           >
                                             <Check size={13} aria-hidden />
-                                            {actingAppId === app.id ? "…" : "Accept"}
+                                            {actingAppId === app.id ? "…" : t("apps.pending.accept")}
                                           </button>
                                           <button
                                             type="button"
@@ -2131,7 +2129,7 @@ export default function HostDashboard() {
                                             onClick={() => void rejectApplication(app.id)}
                                           >
                                             <X size={13} aria-hidden />
-                                            Decline
+                                            {t("apps.pending.decline")}
                                           </button>
                                         </>
                                       )}
@@ -2155,54 +2153,54 @@ export default function HostDashboard() {
           <div className="host-section">
             <div className="host-section-header">
               <div>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>Your account</p>
-                <h1 className="host-section-title">Host profile</h1>
+                <p className="eyebrow" style={{ margin: "0 0 4px" }}>{t("account.eyebrow")}</p>
+                <h1 className="host-section-title">{t("account.title")}</h1>
               </div>
             </div>
 
             <form className="host-form host-account-form" onSubmit={(e) => void saveAccount(e)}>
               <div className="form-grid">
                 <label>
-                  <span>First name</span>
+                  <span>{t("account.firstName")}</span>
                   <input value={accountFirstName} onChange={(e) => setAccountFirstName(e.target.value)} />
                 </label>
                 <label>
-                  <span>Last name</span>
+                  <span>{t("account.lastName")}</span>
                   <input value={accountLastName} onChange={(e) => setAccountLastName(e.target.value)} />
                 </label>
                 <label>
-                  <span>Phone number</span>
+                  <span>{t("account.phone")}</span>
                   <input value={accountPhone} onChange={(e) => setAccountPhone(e.target.value)} placeholder="+359…" />
                 </label>
                 <label>
-                  <span>Email</span>
+                  <span>{t("account.email")}</span>
                   <input value={me.email} readOnly disabled />
                 </label>
                 <label>
-                  <span>Company name</span>
-                  <input value={accountCompany} onChange={(e) => setAccountCompany(e.target.value)} placeholder="Optional" />
+                  <span>{t("account.company")}</span>
+                  <input value={accountCompany} onChange={(e) => setAccountCompany(e.target.value)} placeholder={t("account.companyPlaceholder")} />
                 </label>
                 <label>
-                  <span>City</span>
-                  <input value={accountCity} onChange={(e) => setAccountCity(e.target.value)} placeholder="Sofia" />
+                  <span>{t("account.city")}</span>
+                  <input value={accountCity} onChange={(e) => setAccountCity(e.target.value)} placeholder={t("account.cityPlaceholder")} />
                 </label>
               </div>
 
               <label>
-                <span>Notes</span>
+                <span>{t("account.notes")}</span>
                 <textarea
                   rows={3}
                   value={accountNotes}
                   onChange={(e) => setAccountNotes(e.target.value)}
-                  placeholder="Anything cleaners should know about working with you…"
+                  placeholder={t("account.notesPlaceholder")}
                 />
               </label>
 
               {accountError && <p className="form-error">{accountError}</p>}
-              {accountSaved && <p className="cleaner-success">Profile saved.</p>}
+              {accountSaved && <p className="cleaner-success">{t("account.saved")}</p>}
               <div className="host-form-actions">
                 <button className="primary-link auth-submit" type="submit" disabled={savingAccount}>
-                  {savingAccount ? "Saving…" : "Save changes"}
+                  {savingAccount ? t("common.saving") : t("account.saveChanges")}
                 </button>
               </div>
             </form>
@@ -2220,12 +2218,12 @@ export default function HostDashboard() {
           onClick={closePropForm}
           role="dialog"
           aria-modal="true"
-          aria-label={editingPropId !== null ? "Edit property" : "Add property"}
+          aria-label={editingPropId !== null ? t("propForm.editTitle") : t("propForm.addTitle")}
         >
           <div className="host-modal host-modal--wide" onClick={(e) => e.stopPropagation()}>
             <div className="host-modal-header">
-              <h2>{editingPropId !== null ? "Edit property" : "Add property"}</h2>
-              <button type="button" className="host-modal-close" onClick={closePropForm} aria-label="Close">
+              <h2>{editingPropId !== null ? t("propForm.editTitle") : t("propForm.addTitle")}</h2>
+              <button type="button" className="host-modal-close" onClick={closePropForm} aria-label={t("common.close")}>
                 <X size={18} />
               </button>
             </div>
@@ -2234,16 +2232,16 @@ export default function HostDashboard() {
               {/* ── Basic info ── */}
               <div className="form-grid">
                 <label>
-                  <span>Property name *</span>
+                  <span>{t("propForm.name")}</span>
                   <input
                     required
                     value={propName}
                     onChange={(e) => setPropName(e.target.value)}
-                    placeholder="Sea View Apartment"
+                    placeholder={t("propForm.namePlaceholder")}
                   />
                 </label>
                 <label>
-                  <span>City *</span>
+                  <span>{t("propForm.city")}</span>
                   <select
                     required
                     value={propCity}
@@ -2259,7 +2257,7 @@ export default function HostDashboard() {
 
               {editingPropHasActiveJobs && (
                 <p className="prop-address-locked-notice">
-                  Address cannot be changed while this property has active jobs (draft, open, or assigned).
+                  {t("propForm.addressLocked")}
                 </p>
               )}
 
@@ -2268,7 +2266,7 @@ export default function HostDashboard() {
                 className="prop-location-section"
                 style={editingPropHasActiveJobs ? { pointerEvents: "none", opacity: 0.5 } : undefined}
               >
-                <p className="prop-location-label">Pin location on map <span className="prop-location-hint">(click to set)</span></p>
+                <p className="prop-location-label">{t("propForm.mapLabel")} <span className="prop-location-hint">{t("propForm.mapHint")}</span></p>
                 <PropertyLocationPicker
                   lat={propLat}
                   lng={propLng}
@@ -2284,55 +2282,55 @@ export default function HostDashboard() {
 
               <div className="form-grid">
                 <label>
-                  <span>Street address</span>
+                  <span>{t("propForm.address")}</span>
                   <input
                     value={propAddress}
                     readOnly={editingPropHasActiveJobs}
                     onChange={(e) => !editingPropHasActiveJobs && setPropAddress(e.target.value)}
-                    placeholder="Auto-filled from map, or enter manually"
+                    placeholder={t("propForm.addressPlaceholder")}
                   />
                 </label>
                 <label>
-                  <span>Neighborhood / District</span>
+                  <span>{t("propForm.neighborhood")}</span>
                   <input
                     value={propNeighborhood}
                     readOnly
                     className="prop-readonly-field"
-                    placeholder="Set automatically from the map pin"
-                    title="The district is taken from the map pin"
+                    placeholder={t("propForm.neighborhoodPlaceholder")}
+                    title={t("propForm.neighborhoodTitle")}
                     tabIndex={-1}
                     aria-readonly="true"
                   />
                 </label>
                 <label>
-                  <span>Bedrooms</span>
+                  <span>{t("propForm.bedrooms")}</span>
                   <input
                     type="number"
                     min="0"
                     step="1"
                     value={propBedrooms}
                     onChange={(e) => setPropBedrooms(e.target.value)}
-                    placeholder="e.g. 2"
+                    placeholder={t("propForm.bedroomsPlaceholder")}
                   />
                 </label>
                 <label className="prop-size-field">
-                  <span>Size (m²)</span>
+                  <span>{t("propForm.sqm")}</span>
                   <input
                     type="number"
                     min="0"
                     step="0.5"
                     value={propSqm}
                     onChange={(e) => setPropSqm(e.target.value)}
-                    placeholder="e.g. 65"
-                    aria-invalid={sqmError(propSqm) ? true : undefined}
-                    className={sqmError(propSqm) ? "input-invalid" : undefined}
+                    placeholder={t("propForm.sqmPlaceholder")}
+                    aria-invalid={sqmErr(propSqm) ? true : undefined}
+                    className={sqmErr(propSqm) ? "input-invalid" : undefined}
                   />
-                  {sqmError(propSqm) && (
-                    <small className="field-error-text">{sqmError(propSqm)}</small>
+                  {sqmErr(propSqm) && (
+                    <small className="field-error-text">{sqmErr(propSqm)}</small>
                   )}
                 </label>
                 <label>
-                  <span>Default clean duration (min)</span>
+                  <span>{t("propForm.duration")}</span>
                   <input
                     type="number"
                     min="30"
@@ -2342,31 +2340,31 @@ export default function HostDashboard() {
                   />
                 </label>
                 <label>
-                  <span>Default price (EUR)</span>
+                  <span>{t("propForm.price")}</span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={propPrice}
                     onChange={(e) => setPropPrice(e.target.value)}
-                    placeholder="e.g. 45"
+                    placeholder={t("propForm.pricePlaceholder")}
                   />
                 </label>
               </div>
 
               <label>
-                <span>Description</span>
+                <span>{t("propForm.description")}</span>
                 <textarea
                   rows={3}
                   value={propDescription}
                   onChange={(e) => setPropDescription(e.target.value)}
-                  placeholder="Describe the property for cleaners — layout, special features, parking…"
+                  placeholder={t("propForm.descriptionPlaceholder")}
                 />
               </label>
 
               {/* ── Photos ── */}
               <div className="prop-photos-section">
-                <p className="prop-photos-label">Photos</p>
+                <p className="prop-photos-label">{t("propForm.photos")}</p>
 
                 {/* Existing images (edit mode) */}
                 {existingImages.length > 0 && (
@@ -2380,7 +2378,7 @@ export default function HostDashboard() {
                           className="prop-photo-delete"
                           disabled={deletingImageIds.has(img.id)}
                           onClick={() => void deleteExistingImage(img.id)}
-                          aria-label="Remove photo"
+                          aria-label={t("propForm.removePhoto")}
                         >
                           {deletingImageIds.has(img.id) ? "…" : <Trash2 size={13} />}
                         </button>
@@ -2400,11 +2398,11 @@ export default function HostDashboard() {
                           type="button"
                           className="prop-photo-delete"
                           onClick={() => removeNewImage(idx)}
-                          aria-label="Remove photo"
+                          aria-label={t("propForm.removePhoto")}
                         >
                           <X size={13} />
                         </button>
-                        <span className="prop-photo-new-badge">New</span>
+                        <span className="prop-photo-new-badge">{t("propForm.newBadge")}</span>
                       </div>
                     ))}
                   </div>
@@ -2413,7 +2411,7 @@ export default function HostDashboard() {
                 {/* Upload button */}
                 <label className="prop-photos-upload-btn">
                   <Upload size={15} aria-hidden />
-                  Add photos
+                  {t("propForm.addPhotos")}
                   <input
                     ref={photoInputRef}
                     type="file"
@@ -2423,18 +2421,18 @@ export default function HostDashboard() {
                     onChange={handlePhotoChange}
                   />
                 </label>
-                <p className="prop-photos-hint">JPG, PNG, WebP — multiple files allowed.</p>
+                <p className="prop-photos-hint">{t("propForm.photosHint")}</p>
               </div>
 
               {propError && <p className="form-error">{propError}</p>}
               <div className="host-form-actions">
                 <button className="secondary-link" type="button" onClick={closePropForm}>
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button className="primary-link auth-submit" type="submit" disabled={savingProp}>
                   {savingProp
-                    ? (newImageFiles.length > 0 ? "Uploading…" : "Saving…")
-                    : (editingPropId !== null ? "Save changes" : "Add property")}
+                    ? (newImageFiles.length > 0 ? t("common.uploading") : t("common.saving"))
+                    : (editingPropId !== null ? t("account.saveChanges") : t("propForm.addTitle"))}
                 </button>
               </div>
             </form>
@@ -2449,19 +2447,19 @@ export default function HostDashboard() {
           onClick={() => setShowIcsModal(false)}
           role="dialog"
           aria-modal="true"
-          aria-label="Import Airbnb calendar"
+          aria-label={t("icsModal.ariaLabel")}
         >
           <div className="host-modal host-modal--wide" onClick={(e) => e.stopPropagation()}>
             <div className="host-modal-header">
               <div>
-                <h2>Import from Airbnb</h2>
+                <h2>{t("icsModal.title")}</h2>
                 <p className="host-modal-subtitle">
                   {icsStep === 1
-                    ? "Upload your Airbnb .ics file to create cleaning jobs automatically."
-                    : `Found ${icsEvents.length} reservation${icsEvents.length !== 1 ? "s" : ""}. Select the ones to import.`}
+                    ? t("icsModal.step1Subtitle")
+                    : t("icsModal.step2Subtitle", { count: icsEvents.length })}
                 </p>
               </div>
-              <button type="button" className="host-modal-close" onClick={() => setShowIcsModal(false)} aria-label="Close">
+              <button type="button" className="host-modal-close" onClick={() => setShowIcsModal(false)} aria-label={t("common.close")}>
                 <X size={18} />
               </button>
             </div>
@@ -2470,13 +2468,13 @@ export default function HostDashboard() {
             {icsStep === 1 && (
               <div className="host-form">
                 <label>
-                  <span>Property *</span>
+                  <span>{t("icsModal.propertyLabel")}</span>
                   <select
                     required
                     value={icsPropId}
                     onChange={(e) => setIcsPropId(e.target.value)}
                   >
-                    <option value="">Select a property…</option>
+                    <option value="">{t("icsModal.propertyPlaceholder")}</option>
                     {properties.map((p) => (
                       <option key={p.id} value={p.id}>{p.name} — {p.city}</option>
                     ))}
@@ -2490,24 +2488,24 @@ export default function HostDashboard() {
                     className={`host-ics-mode-tab${icsInputMode === "file" ? " host-ics-mode-tab--active" : ""}`}
                     onClick={() => { setIcsInputMode("file"); setIcsError(""); }}
                   >
-                    Upload file
+                    {t("icsModal.uploadFile")}
                   </button>
                   <button
                     type="button"
                     className={`host-ics-mode-tab${icsInputMode === "url" ? " host-ics-mode-tab--active" : ""}`}
                     onClick={() => { setIcsInputMode("url"); setIcsError(""); }}
                   >
-                    Paste link
+                    {t("icsModal.pasteLink")}
                   </button>
                 </div>
 
                 {icsInputMode === "file" ? (
                   <>
                     <label className="host-ics-file-label">
-                      <span>Airbnb calendar file (.ics) *</span>
+                      <span>{t("icsModal.fileLabel")}</span>
                       <div className="host-ics-drop-zone">
                         <Upload size={28} className="host-ics-drop-icon" aria-hidden />
-                        <span>{icsFile ? icsFile.name : "Click to choose file or drop here"}</span>
+                        <span>{icsFile ? icsFile.name : t("icsModal.dropZone")}</span>
                         <input
                           type="file"
                           accept=".ics,text/calendar"
@@ -2517,13 +2515,13 @@ export default function HostDashboard() {
                       </div>
                     </label>
                     <p className="host-form-hint">
-                      Airbnb → Calendar → Export calendar → download the .ics file and upload it here.
+                      {t("icsModal.fileHint")}
                     </p>
                   </>
                 ) : (
                   <>
                     <label>
-                      <span>Airbnb calendar link *</span>
+                      <span>{t("icsModal.urlLabel")}</span>
                       <input
                         type="url"
                         value={icsUrl}
@@ -2533,7 +2531,7 @@ export default function HostDashboard() {
                       />
                     </label>
                     <p className="host-form-hint">
-                      Airbnb → Listing → Calendar → Connect other calendars → Export calendar → copy the link and paste it above.
+                      {t("icsModal.urlHint")}
                     </p>
                   </>
                 )}
@@ -2541,7 +2539,7 @@ export default function HostDashboard() {
                 {icsError && <p className="form-error">{icsError}</p>}
                 <div className="host-form-actions">
                   <button className="secondary-link" type="button" onClick={() => setShowIcsModal(false)}>
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                   <button
                     className="primary-link auth-submit"
@@ -2549,7 +2547,7 @@ export default function HostDashboard() {
                     disabled={icsParsing || !icsPropId || (icsInputMode === "file" ? !icsFile : !icsUrl.trim())}
                     onClick={() => void parseIcs()}
                   >
-                    {icsParsing ? "Reading…" : "Continue"}
+                    {icsParsing ? t("icsModal.reading") : t("icsModal.continue")}
                   </button>
                 </div>
               </div>
@@ -2561,20 +2559,20 @@ export default function HostDashboard() {
                 {icsImportDone ? (
                   <div className="host-ics-done">
                     <p className="host-ics-done-count">
-                      ✅ {icsImportDone.created} job{icsImportDone.created !== 1 ? "s" : ""} created as draft
-                      {icsImportDone.skipped > 0 && ` · ${icsImportDone.skipped} skipped`}
+                      ✅ {t("icsModal.doneCreated", { count: icsImportDone.created })}
+                      {icsImportDone.skipped > 0 && ` · ${t("icsModal.doneSkipped", { count: icsImportDone.skipped })}`}
                     </p>
-                    <p className="host-form-hint">Publish each job to make it visible to cleaners.</p>
+                    <p className="host-form-hint">{t("icsModal.doneHint")}</p>
                     <div className="host-form-actions">
                       <button className="primary-link" type="button" onClick={() => setShowIcsModal(false)}>
-                        Done
+                        {t("icsModal.done")}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <>
                     <label>
-                      <span>Cleaning start time on checkout day</span>
+                      <span>{t("icsModal.startTimeLabel")}</span>
                       <input
                         type="time"
                         value={icsStartTime}
@@ -2593,9 +2591,9 @@ export default function HostDashboard() {
                             : new Set(icsEvents.map((e) => e.uid))
                         )}
                       >
-                        {icsSelected.size === icsEvents.length ? "Deselect all" : "Select all"}
+                        {icsSelected.size === icsEvents.length ? t("icsModal.deselectAll") : t("icsModal.selectAll")}
                       </button>
-                      <span className="host-muted">{icsSelected.size} of {icsEvents.length} selected</span>
+                      <span className="host-muted">{t("icsModal.selectedCount", { selected: icsSelected.size, total: icsEvents.length })}</span>
                     </div>
 
                     <ul className="host-ics-events">
@@ -2614,8 +2612,8 @@ export default function HostDashboard() {
                           <div className="host-ics-event-info">
                             <strong className="host-ics-event-summary">{ev.summary}</strong>
                             <span className="host-ics-event-dates">
-                              Check-in {ev.checkin} → Checkout <strong>{ev.checkout}</strong>
-                              <span className="host-ics-event-nights">· {ev.nights} night{ev.nights !== 1 ? "s" : ""}</span>
+                              {t("icsModal.checkin")} {ev.checkin} → {t("icsModal.checkout")} <strong>{ev.checkout}</strong>
+                              <span className="host-ics-event-nights">· {t("icsModal.nights", { nights: ev.nights })}</span>
                             </span>
                           </div>
                           <span className="host-ics-event-clean">
@@ -2632,7 +2630,7 @@ export default function HostDashboard() {
                         type="button"
                         onClick={() => { setIcsStep(1); setIcsError(""); }}
                       >
-                        Back
+                        {t("icsModal.back")}
                       </button>
                       <button
                         className="primary-link auth-submit"
@@ -2641,8 +2639,8 @@ export default function HostDashboard() {
                         onClick={() => void importIcsJobs()}
                       >
                         {icsImporting
-                          ? `Creating jobs…`
-                          : `Create ${icsSelected.size} job${icsSelected.size !== 1 ? "s" : ""}`}
+                          ? t("icsModal.creatingJobs")
+                          : t("icsModal.createJobs", { count: icsSelected.size })}
                       </button>
                     </div>
                   </>
@@ -2660,24 +2658,24 @@ export default function HostDashboard() {
           onClick={() => setShowJobForm(false)}
           role="dialog"
           aria-modal="true"
-          aria-label={editingJobId !== null ? "Edit job" : "Post a cleaning job"}
+          aria-label={editingJobId !== null ? t("jobForm.editTitle") : t("jobForm.postTitle")}
         >
           <div className="host-modal" onClick={(e) => e.stopPropagation()}>
             <div className="host-modal-header">
-              <h2>{editingJobId !== null ? "Edit job" : "Post a cleaning job"}</h2>
-              <button type="button" className="host-modal-close" onClick={() => setShowJobForm(false)} aria-label="Close">
+              <h2>{editingJobId !== null ? t("jobForm.editTitle") : t("jobForm.postTitle")}</h2>
+              <button type="button" className="host-modal-close" onClick={() => setShowJobForm(false)} aria-label={t("common.close")}>
                 <X size={18} />
               </button>
             </div>
             <form className="host-form" onSubmit={(e) => void submitJob(e)}>
               <label>
-                <span>Property *</span>
+                <span>{t("icsModal.propertyLabel")}</span>
                 <select
                   required
                   value={jobPropId}
                   onChange={(e) => setJobPropId(e.target.value)}
                 >
-                  <option value="">Select a property…</option>
+                  <option value="">{t("icsModal.propertyPlaceholder")}</option>
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} — {p.city}
@@ -2686,17 +2684,17 @@ export default function HostDashboard() {
                 </select>
               </label>
               <label>
-                <span>Job title *</span>
+                <span>{t("jobForm.titleLabel")}</span>
                 <input
                   required
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
-                  placeholder="Guest checkout cleaning"
+                  placeholder={t("jobForm.titlePlaceholder")}
                 />
               </label>
               <div className="form-grid">
                 <label style={{ gridColumn: "1 / -1" }}>
-                  <span>Cleaning date *</span>
+                  <span>{t("jobForm.date")}</span>
                   <input
                     required
                     type="date"
@@ -2705,7 +2703,7 @@ export default function HostDashboard() {
                   />
                 </label>
                 <label>
-                  <span>Start time *</span>
+                  <span>{t("jobForm.startTime")}</span>
                   <input
                     required
                     type="time"
@@ -2714,7 +2712,7 @@ export default function HostDashboard() {
                   />
                 </label>
                 <label>
-                  <span>End time *</span>
+                  <span>{t("jobForm.endTime")}</span>
                   <input
                     required
                     type="time"
@@ -2723,7 +2721,7 @@ export default function HostDashboard() {
                   />
                 </label>
                 <label>
-                  <span>Proposed price (EUR)</span>
+                  <span>{t("jobForm.price")}</span>
                   <input
                     type="number"
                     min="0"
@@ -2735,26 +2733,26 @@ export default function HostDashboard() {
                 </label>
               </div>
               <label>
-                <span>Notes / special instructions</span>
+                <span>{t("jobForm.notes")}</span>
                 <textarea
                   rows={3}
                   value={jobDesc}
                   onChange={(e) => setJobDesc(e.target.value)}
-                  placeholder="Any access notes, key location, special requirements…"
+                  placeholder={t("jobForm.notesPlaceholder")}
                 />
               </label>
               {editingJobId === null && (
                 <p className="host-form-hint">
-                  Jobs are saved as <strong>Draft</strong> first. Publish to make them visible to cleaners.
+                  {t.rich("jobForm.draftHint", { strong: (chunks) => <strong>{chunks}</strong> })}
                 </p>
               )}
               {jobError && <p className="form-error">{jobError}</p>}
               <div className="host-form-actions">
                 <button className="secondary-link" type="button" onClick={() => setShowJobForm(false)}>
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button className="primary-link auth-submit" type="submit" disabled={savingJob}>
-                  {savingJob ? "Saving…" : editingJobId !== null ? "Save changes" : "Save as draft"}
+                  {savingJob ? t("common.saving") : editingJobId !== null ? t("account.saveChanges") : t("jobForm.saveAsDraft")}
                 </button>
               </div>
             </form>

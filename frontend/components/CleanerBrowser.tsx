@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { MapPin } from "lucide-react";
 import { apiFetch, type PublicCleaner } from "../lib/api";
 import { useLiveRefresh } from "../lib/useLiveRefresh";
@@ -51,6 +52,7 @@ function cleanerMatchesZone(cleaner: PublicCleaner, zone: ServiceZone) {
  * inside the profile modal (host-only).
  */
 export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?: boolean }) {
+  const t = useTranslations("components.cleanerBrowser");
   const [cleaners, setCleaners] = useState<PublicCleaner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -69,7 +71,7 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
     try {
       const res = await apiFetch("/api/accounts/public-cleaners/");
       if (!res.ok) {
-        if (!silent) setError("Could not load cleaners right now.");
+        if (!silent) setError(t("loadError"));
         return;
       }
       const data: unknown = await res.json();
@@ -78,7 +80,7 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
         : ((data as { results?: PublicCleaner[] }).results ?? []);
       setCleaners(list);
     } catch {
-      if (!silent) setError("Could not load cleaners right now.");
+      if (!silent) setError(t("loadError"));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -155,7 +157,7 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
     <div className="cleaner-browser">
       <div className="cleaner-browser-filters">
         <label className="cleaner-browser-field">
-          <span>City</span>
+          <span>{t("cityLabel")}</span>
           <select
             value={cityValue}
             onChange={(e) => {
@@ -163,7 +165,7 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
               setDistrictZoneId("");
             }}
           >
-            <option value="">All cities</option>
+            <option value="">{t("allCities")}</option>
             {cities.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -173,14 +175,14 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
         </label>
 
         <label className="cleaner-browser-field">
-          <span>District</span>
+          <span>{t("districtLabel")}</span>
           <select
             value={districtZoneId}
             onChange={(e) => setDistrictZoneId(e.target.value)}
             disabled={!selectedCity || loadingDistricts}
           >
             <option value="">
-              {selectedCity ? "All districts" : "Pick a city first"}
+              {selectedCity ? t("allDistricts") : t("pickCityFirst")}
             </option>
             {districtZones.map((zone) => (
               <option key={zone.zone_id} value={zone.zone_id}>
@@ -199,15 +201,16 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
               setDistrictZoneId("");
             }}
           >
-            Clear
+            {t("clearBtn")}
           </button>
         )}
 
         {!loading && !error && (
           <span className="cleaner-browser-count">
             <MapPin size={14} aria-hidden="true" />
-            {filtered.length} cleaner{filtered.length !== 1 ? "s" : ""}
-            {selectedCity ? ` in ${selectedCity.label}` : ""}
+            {selectedCity
+              ? t("cleanerCountInCity", { count: filtered.length, city: selectedCity.label })
+              : t("cleanerCount", { count: filtered.length })}
           </span>
         )}
       </div>
@@ -222,9 +225,7 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
         <div className="host-empty-state">{error}</div>
       ) : filtered.length === 0 ? (
         <div className="host-empty-state">
-          {cleaners.length === 0
-            ? "No cleaners have joined yet -- check back soon."
-            : "No cleaners match these filters yet."}
+          {cleaners.length === 0 ? t("emptyNone") : t("emptyFiltered")}
         </div>
       ) : (
         <div className="cleaners-grid">
@@ -255,7 +256,7 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
                   }
                 }}
               >
-                Offer a job
+                {t("offerJobBtn")}
               </button>
             ) : undefined
           }

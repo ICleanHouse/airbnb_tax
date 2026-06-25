@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Trash2, X } from "lucide-react";
 import { apiFetch } from "../lib/api";
 
@@ -17,6 +18,7 @@ function errorMessage(data: unknown, fallback: string) {
 }
 
 export default function AccountDeletionPanel({ email }: AccountDeletionPanelProps) {
+  const t = useTranslations("components.accountDeletionPanel");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -28,12 +30,12 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
       const response = await apiFetch("/api/accounts/me/", { method: "DELETE" });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        setError(errorMessage(data, "Could not delete your account."));
+        setError(errorMessage(data, t("errors.deleteFailed")));
         return;
       }
       window.location.href = "/";
     } catch {
-      setError("Could not delete your account.");
+      setError(t("errors.deleteFailed"));
     } finally {
       setDeleting(false);
     }
@@ -42,10 +44,8 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
   return (
     <section className="account-danger-zone" aria-labelledby="delete-account-title">
       <div>
-        <h2 id="delete-account-title">Delete account</h2>
-        <p>
-          Permanently delete your account and related profile data. This action cannot be undone.
-        </p>
+        <h2 id="delete-account-title">{t("heading")}</h2>
+        <p>{t("description")}</p>
       </div>
       <button
         type="button"
@@ -56,7 +56,7 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
         }}
       >
         <Trash2 size={16} aria-hidden />
-        Delete account
+        {t("deleteBtn")}
       </button>
       {error ? <p className="form-error account-delete-error">{error}</p> : null}
 
@@ -71,26 +71,21 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
           <div className="host-modal account-delete-modal" onClick={(event) => event.stopPropagation()}>
             <div className="host-modal-header">
               <div>
-                <h2 id="delete-account-confirm-title">Delete account permanently?</h2>
-                <p className="host-modal-subtitle">
-                  This will delete {email} and sign you out immediately.
-                </p>
+                <h2 id="delete-account-confirm-title">{t("confirmHeading")}</h2>
+                <p className="host-modal-subtitle">{t("confirmSubtitle", { email })}</p>
               </div>
               <button
                 type="button"
                 className="host-modal-close"
                 onClick={() => setConfirmOpen(false)}
-                aria-label="Close"
+                aria-label={t("closeAriaLabel")}
                 disabled={deleting}
               >
                 <X size={18} aria-hidden />
               </button>
             </div>
             <div className="account-delete-modal-body">
-              <p>
-                All account access will be removed. Any profile, property, application, and marketplace
-                records tied to this account will be permanently removed where the database owns them.
-              </p>
+              <p>{t("confirmBody")}</p>
               {error ? <p className="form-error">{error}</p> : null}
               <div className="host-form-actions">
                 <button
@@ -99,7 +94,7 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
                   onClick={() => setConfirmOpen(false)}
                   disabled={deleting}
                 >
-                  Cancel
+                  {t("cancelBtn")}
                 </button>
                 <button
                   className="account-delete-button account-delete-button--confirm"
@@ -108,7 +103,7 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
                   disabled={deleting}
                 >
                   <Trash2 size={16} aria-hidden />
-                  {deleting ? "Deleting..." : "Delete permanently"}
+                  {deleting ? t("deleting") : t("confirmBtn")}
                 </button>
               </div>
             </div>

@@ -1,0 +1,1112 @@
+{
+  "meta": {
+    "title": "Host Cleaners Bulgaria",
+    "description": "Verified turnover cleaners for Bulgarian short-term rental hosts.",
+    "applicationName": "Host Cleaner Marketplace"
+  },
+  "nav": {
+    "brandAriaLabel": "Host Cleaners home",
+    "brandName": "Host Cleaners",
+    "adminPanel": "Admin panel",
+    "dashboard": "Dashboard",
+    "accountMenuAriaLabel": "Account menu",
+    "adminRole": "Admin",
+    "profile": "Profile",
+    "language": "Language",
+    "logOut": "Log out",
+    "logIn": "Log in",
+    "signUp": "Sign up"
+  },
+  "landing": {
+    "welcomeBack": "Welcome back",
+    "welcomeBackNamed": "Welcome back, {name}",
+    "loggedInCleanerHeading": "Cleaning jobs near you",
+    "loggedInHostHeading": "Find a verified cleaner",
+    "eyebrow": "Short-term rental turnover cleaning · Bulgaria",
+    "heroHostHeading": "Find a verified cleaner near you",
+    "heroCleanerHeading": "Find cleaning work near you",
+    "heroHostCopy": "Browse trusted cleaners across Bulgaria. Filter by city and district, then open a profile to see ratings and reviews.",
+    "heroCleanerCopy": "See how many hosts are hiring in your area and join the verified cleaner network — free.",
+    "chipVerified": "Verified cleaners",
+    "chipRated": "Rated & reviewed",
+    "chipBulgaria": "Across Bulgaria"
+  },
+  "audienceToggle": {
+    "ariaLabel": "What are you looking for?",
+    "findCleaner": "Find a cleaner",
+    "findWork": "Find cleaning work"
+  },
+  "login": {
+    "heading": "Log in",
+    "subtitle": "Use the email and password from your signup request.",
+    "emailLabel": "Email",
+    "passwordLabel": "Password",
+    "errorCredentials": "Check your email and password and try again.",
+    "signingIn": "Signing in",
+    "signIn": "Sign in",
+    "or": "OR",
+    "createAccount": "Create an account"
+  },
+  "signup": {
+    "brandName": "Host Cleaners",
+    "account": {
+      "heading": "Create account",
+      "firstNameLabel": "First name",
+      "lastNameLabel": "Last name",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "At least 8 characters",
+      "confirmPasswordLabel": "Confirm password",
+      "sendingCode": "Sending confirmation code...",
+      "sendingCodeBtn": "Sending code",
+      "createAccount": "Create account",
+      "alreadyRegistered": "Already registered?",
+      "logIn": "Log in",
+      "passwordCheck": {
+        "length": "At least 8 characters",
+        "letter": "At least one letter (any alphabet)",
+        "number": "At least one number",
+        "special": "At least one special character"
+      },
+      "error": {
+        "firstNameRequired": "First name is required.",
+        "lastNameRequired": "Last name is required.",
+        "emailRequired": "Email is required.",
+        "emailInvalid": "Enter a valid email address.",
+        "emailDomain": "Email domain must include a valid ending (for example .com or .bg).",
+        "emailDomainHyphen": "Email domain labels cannot start or end with a hyphen.",
+        "emailDomainChars": "Email domain labels can only use letters, numbers, and hyphens.",
+        "emailEnding": "Email ending is not valid.",
+        "passwordWeak": "Password must be at least 8 characters long and contain at least one letter, one number, and one special character.",
+        "passwordMatch": "Passwords do not match.",
+        "codeNotSent": "Could not send the confirmation code. Try again.",
+        "codeNotSentNetwork": "Could not send the confirmation code. Check your connection and try again.",
+        "createFallback": "Could not create the account. Check your details and try again.",
+        "createNetwork": "Could not create the account. Check your connection and try again."
+      }
+    },
+    "confirmEmail": {
+      "heading": "Confirm your email",
+      "subtitle": "Enter the 6-digit code sent to {email}.",
+      "codeLabel": "Confirmation code",
+      "resending": "Sending",
+      "resend": "Resend code",
+      "checking": "Checking code",
+      "confirm": "Confirm email",
+      "error": {
+        "codeShort": "Enter the 6-digit code.",
+        "codeIncorrect": "The confirmation code is incorrect.",
+        "verifyFailed": "Could not verify this email. Request a new code and try again.",
+        "verifyNetwork": "Could not verify the code. Check your connection and try again.",
+        "resendFailed": "Could not send a new code. Try again.",
+        "resendNetwork": "Could not send a new code. Check your connection and try again."
+      },
+      "notice": {
+        "verificationDisabled": "Email verification is disabled. You can continue.",
+        "codeSent": "A new confirmation code was sent."
+      }
+    },
+    "role": {
+      "heading": "Choose account type",
+      "ariaLabel": "Account type",
+      "host": { "label": "Host", "description": "Post cleaning jobs for your properties." },
+      "cleaner": { "label": "Cleaner", "description": "Join the network and find cleaning jobs." },
+      "agency": { "label": "Agency", "description": "Manage teams and assign cleaning jobs." }
+    },
+    "location": {
+      "heading": "Select your city and area",
+      "companyNameLabel": "Company name",
+      "optional": "(optional)",
+      "companyNamePlaceholder": "e.g. Sunny Stays Property Management",
+      "cityLabel": "City",
+      "cityPlaceholder": "Choose city",
+      "areaSelection": "Area selection",
+      "selectAll": "Select all",
+      "clearAll": "Clear all",
+      "listOfDistricts": "List of Districts:",
+      "searchDistrict": "Search district",
+      "addNeighborhood": "Add neighborhood",
+      "removeNeighborhood": "Remove neighborhood",
+      "selectedDistricts": "Selected Districts:",
+      "creatingAccount": "Creating account",
+      "createAccount": "Create account"
+    },
+    "personalInfo": {
+      "heading": "Personal information",
+      "sexLegend": "Sex",
+      "male": "Male",
+      "female": "Female",
+      "preferNotToSay": "Prefer not to say",
+      "birthDateLabel": "Date of birth",
+      "calendarAriaLabel": "Choose birth date from calendar",
+      "monthAriaLabel": "Birth month",
+      "yearAriaLabel": "Birth year",
+      "prevMonthAriaLabel": "Previous month",
+      "nextMonthAriaLabel": "Next month",
+      "error": {
+        "birthDateRequired": "Birth date is required.",
+        "birthDateInvalid": "Enter a valid birth date.",
+        "birthDateAge": "You must be at least 18 years old to sign up as a cleaner.",
+        "sexRequired": "Sex is required."
+      }
+    },
+    "language": {
+      "heading": "Native language",
+      "ariaLabel": "Native language",
+      "other": "Other",
+      "otherDropdownAriaLabel": "Other languages",
+      "error": {
+        "chooseLanguage": "Choose your native language.",
+        "chooseFromDropdown": "Choose a language from the dropdown."
+      }
+    },
+    "experience": {
+      "heading": "Do you have experience?",
+      "ariaLabel": "Cleaning experience",
+      "none": "I don't have experience",
+      "1year": "1 year",
+      "2years": "2 years",
+      "3years": "3 years",
+      "4years": "4 years",
+      "5years": "5 years",
+      "moreThan5": "More than 5 years of experience",
+      "error": {
+        "choose": "Choose your experience level."
+      }
+    },
+    "introduction": {
+      "heading": "Introduce yourself",
+      "label": "Your introduction",
+      "placeholder": "Hosts read descriptions to find the best match.\nShare your experience, work style, and what makes you reliable.\nMake your profile feel clear and trustworthy.",
+      "error": {
+        "tooLong": "Keep your introduction under {max} characters."
+      }
+    },
+    "profilePhoto": {
+      "heading": "Add a profile photo",
+      "subtitle": "A clear profile photo helps hosts trust your profile faster. You can skip this and add it later.",
+      "editAriaLabel": "Edit profile photo",
+      "uploadAriaLabel": "Upload profile photo",
+      "previewAriaLabel": "Profile photo preview",
+      "editHint": "Edit photo",
+      "uploadHint": "Upload photo",
+      "creatingAccount": "Creating account",
+      "createAccount": "Create account",
+      "error": {
+        "invalidFile": "Please choose a valid image file.",
+        "tooLarge": "Please choose an image up to 5 MB.",
+        "openFailed": "Could not open this image. Please choose another file.",
+        "readFailed": "Could not read this image. Try another file."
+      }
+    },
+    "cropModal": {
+      "title": "Adjust your profile photo",
+      "hint": "Drag to center your photo. Use zoom to crop tighter or wider.",
+      "zoomLabel": "Zoom",
+      "recenter": "Recenter",
+      "resetZoom": "Reset zoom",
+      "cancel": "Cancel",
+      "applying": "Applying...",
+      "useImage": "Use this image",
+      "closeAriaLabel": "Close",
+      "error": {
+        "loadPreview": "Could not load image preview.",
+        "prepareCrop": "Could not prepare cropped image.",
+        "applyCrop": "Could not apply crop. Please try again."
+      }
+    },
+    "emptyBioPrompt": {
+      "heading": "Improve your matching by 53%!",
+      "body": "A short bio helps hosts understand a cleaner's experience, reliability, and work style before they choose who to work with. You can add one now, or create the account and update it later.",
+      "addBio": "Add Bio",
+      "loading": "Loading",
+      "continueWithout": "Continue without bio"
+    },
+    "emptyPhotoPrompt": {
+      "heading": "Users with profile pictures are 78% more likely to find a job.",
+      "body": "Hosts want reliable people in their homes. A clear photo makes your profile feel trustworthy and helps you get picked faster.",
+      "upload": "Upload Photo",
+      "creatingAccount": "Creating account",
+      "createWithout": "Create account without photo"
+    }
+  },
+  "host": {
+    "gates": {
+      "loading": "Loading…",
+      "notLoggedIn": { "eyebrow": "Protected area", "heading": "Log in to continue", "link": "Go to login" },
+      "wrongRole": { "eyebrow": "Hosts only", "heading": "Wrong dashboard", "body": "This dashboard is for property owners.", "link": "Go to your workspace" }
+    },
+    "topbar": {
+      "jobsTab": "Jobs & Calendar",
+      "applicationsTab": "Applications",
+      "findCleaners": "Find cleaners",
+      "accountMenuAriaLabel": "Account menu",
+      "role": "Host",
+      "profile": "Profile",
+      "language": "Language",
+      "logOut": "Log out"
+    },
+    "rail": {
+      "ariaLabel": "Your properties",
+      "collapseAriaLabel": "Collapse properties panel",
+      "expandAriaLabel": "Expand properties panel",
+      "allProperties": "All properties",
+      "addProperty": "Add property",
+      "filterAriaLabel": "Filter by property",
+      "addShort": "Add"
+    },
+    "pendingBanner": "Your account is {status}. You can browse, but cannot create properties or jobs until a marketplace admin approves your account.",
+    "errors": {
+      "loadProperties": "Could not load properties.",
+      "network": "Network error. Check that the backend is running.",
+      "saveProp": "Could not save property.",
+      "saveJob": "Could not save job.",
+      "saveAccount": "Could not save your account details.",
+      "saveHostProfile": "Could not save your host profile."
+    },
+    "apps": {
+      "eyebrow": "Cleaner requests",
+      "title": "Applications",
+      "editCards": "Edit cards",
+      "doneEditing": "Done",
+      "myCleaners": "My cleaners",
+      "view": "View",
+      "offer": "Offer",
+      "loading": "Loading…",
+      "openSub": "awaiting cleaners",
+      "moneyLabel": "Spent",
+      "pending": {
+        "title": "Awaiting your review",
+        "empty": "No pending applications.",
+        "emptyHint": "Cleaners will appear here once they apply to your open jobs.",
+        "viewProfile": "View profile",
+        "save": "Save",
+        "saved": "Saved",
+        "offerJob": "Offer job",
+        "offerSent": "Offer sent · awaiting cleaner",
+        "accept": "Accept",
+        "withdraw": "Withdraw",
+        "decline": "Decline",
+        "listed": "listed"
+      },
+      "active": {
+        "title": "Active assignments",
+        "empty": "No active assignments yet.",
+        "emptyHint": "Accept a cleaner application to create an assignment.",
+        "badge": "Assigned"
+      },
+      "completed": {
+        "title": "Completed",
+        "empty": "No completed cleanings yet.",
+        "badge": "✓ Done",
+        "viewReview": "View review",
+        "leaveReview": "Leave a review"
+      },
+      "reviews": {
+        "title": "Reviews received",
+        "empty": "No reviews yet — ratings appear after a completed job."
+      },
+      "openJobs": {
+        "title": "Open jobs",
+        "empty": "No open jobs.",
+        "emptyHint": "Publish a draft job to start receiving applications.",
+        "badge": "Open",
+        "appsCount": "{count, plural, one {# application} other {# applications}}"
+      }
+    },
+    "jobs": {
+      "eyebrow": "Turnover schedule",
+      "title": "Jobs & Calendar",
+      "importIcs": "Import ICS",
+      "postJob": "Post a job",
+      "notApproved": "Jobs are available after your account is approved.",
+      "firstProp": {
+        "heading": "Add your first property",
+        "body": "Set it up once, then post a turnover cleaning in under a minute — verified cleaners in your area can apply right away.",
+        "cta": "Add your first property"
+      },
+      "loading": "Loading…",
+      "cal": {
+        "prevMonth": "Previous month",
+        "nextMonth": "Next month",
+        "showAll": "Show all",
+        "noJobsDay": "No jobs on this day.",
+        "noJobsMonth": "No jobs this month.",
+        "postOne": "Post one",
+        "waitingCleaner": "waiting for cleaner",
+        "cleanerConfirmed": "cleaner confirmed",
+        "assigned": "assigned"
+      },
+      "publish": "Publish",
+      "delete": "Delete",
+      "editAriaLabel": "Edit job",
+      "deleteAriaLabel": "Delete job",
+      "status": {
+        "draft": "Draft",
+        "open": "Open",
+        "assigned": "Assigned",
+        "completed": "Done",
+        "cancelled": "Cancelled",
+        "disputed": "Disputed"
+      }
+    },
+    "account": {
+      "eyebrow": "Your account",
+      "title": "Host profile",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "phone": "Phone number",
+      "email": "Email",
+      "company": "Company name",
+      "companyPlaceholder": "Optional",
+      "city": "City",
+      "cityPlaceholder": "Sofia",
+      "notes": "Notes",
+      "notesPlaceholder": "Anything cleaners should know about working with you…",
+      "saveChanges": "Save changes",
+      "saved": "Profile saved."
+    },
+    "propForm": {
+      "addTitle": "Add property",
+      "editTitle": "Edit property",
+      "name": "Property name *",
+      "namePlaceholder": "Sea View Apartment",
+      "city": "City *",
+      "addressLocked": "Address cannot be changed while this property has active jobs (draft, open, or assigned).",
+      "mapLabel": "Pin location on map",
+      "mapHint": "(click to set)",
+      "address": "Street address",
+      "addressPlaceholder": "Auto-filled from map, or enter manually",
+      "neighborhood": "Neighborhood / District",
+      "neighborhoodPlaceholder": "Set automatically from the map pin",
+      "neighborhoodTitle": "The district is taken from the map pin",
+      "bedrooms": "Bedrooms",
+      "bedroomsPlaceholder": "e.g. 2",
+      "sqm": "Size (m²)",
+      "sqmPlaceholder": "e.g. 65",
+      "sqmErrorZero": "Enter a size greater than 0.",
+      "sqmErrorHalf": "Size must be a whole or half number (e.g. 52 or 52.5).",
+      "duration": "Default clean duration (min)",
+      "price": "Default price (EUR)",
+      "pricePlaceholder": "e.g. 45",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe the property for cleaners — layout, special features, parking…",
+      "photos": "Photos",
+      "removePhoto": "Remove photo",
+      "newBadge": "New",
+      "addPhotos": "Add photos",
+      "photosHint": "JPG, PNG, WebP — multiple files allowed."
+    },
+    "icsModal": {
+      "ariaLabel": "Import Airbnb calendar",
+      "title": "Import from Airbnb",
+      "step1Subtitle": "Upload your Airbnb .ics file to create cleaning jobs automatically.",
+      "step2Subtitle": "Found {count} {count, plural, one {reservation} other {reservations}}. Select the ones to import.",
+      "closeAriaLabel": "Close",
+      "propertyLabel": "Property *",
+      "propertyPlaceholder": "Select a property…",
+      "uploadFile": "Upload file",
+      "pasteLink": "Paste link",
+      "fileLabel": "Airbnb calendar file (.ics) *",
+      "dropZone": "Click to choose file or drop here",
+      "fileHint": "Airbnb → Calendar → Export calendar → download the .ics file and upload it here.",
+      "urlLabel": "Airbnb calendar link *",
+      "urlPlaceholder": "https://www.airbnb.com/calendar/ical/…",
+      "urlHint": "Airbnb → Listing → Calendar → Connect other calendars → Export calendar → copy the link and paste it above.",
+      "errorNoUrl": "Please paste an Airbnb calendar URL.",
+      "errorNoFile": "Please select an .ics file.",
+      "errorNoProp": "Please select a property.",
+      "errorNoEvents": "Select at least one event to import.",
+      "errorNoReservations": "No reservations found. Blocked dates are excluded automatically.",
+      "errorParseFailed": "Failed to parse calendar.",
+      "cancel": "Cancel",
+      "reading": "Reading…",
+      "continue": "Continue",
+      "startTimeLabel": "Cleaning start time on checkout day",
+      "deselectAll": "Deselect all",
+      "selectAll": "Select all",
+      "selectedCount": "{selected} of {total} selected",
+      "checkin": "Check-in",
+      "checkout": "Checkout",
+      "nights": "{nights, plural, one {# night} other {# nights}}",
+      "doneCreated": "{count, plural, one {✅ # job created as draft} other {✅ # jobs created as draft}}",
+      "doneSkipped": "· {count} skipped",
+      "doneHint": "Publish each job to make it visible to cleaners.",
+      "done": "Done",
+      "back": "Back",
+      "creatingJobs": "Creating jobs…",
+      "createJobs": "{count, plural, one {Create # job} other {Create # jobs}}"
+    },
+    "jobForm": {
+      "postTitle": "Post a cleaning job",
+      "editTitle": "Edit job",
+      "titleLabel": "Job title *",
+      "titlePlaceholder": "Guest checkout cleaning",
+      "date": "Cleaning date *",
+      "startTime": "Start time *",
+      "endTime": "End time *",
+      "price": "Proposed price (EUR)",
+      "notes": "Notes / special instructions",
+      "notesPlaceholder": "Any access notes, key location, special requirements…",
+      "draftHint": "Jobs are saved as <strong>Draft</strong> first. Publish to make them visible to cleaners.",
+      "saveAsDraft": "Save as draft"
+    }
+  },
+  "cleaner": {
+    "gates": {
+      "loading": "Loading...",
+      "notLoggedIn": { "eyebrow": "Protected area", "heading": "Log in to continue", "link": "Go to login" },
+      "wrongRole": { "eyebrow": "Cleaners only", "heading": "Wrong dashboard", "body": "This dashboard is for individual cleaner accounts.", "link": "Go to your workspace" }
+    },
+    "topbar": {
+      "calendarTab": "Jobs & Calendar",
+      "applicationsTab": "Applications",
+      "offersTab": "Offers",
+      "accountMenuAriaLabel": "Account menu",
+      "role": "Cleaner",
+      "profile": "Profile",
+      "language": "Language",
+      "logOut": "Log out"
+    },
+    "rail": {
+      "ariaLabel": "Properties under my care",
+      "collapseAriaLabel": "Collapse properties panel",
+      "expandAriaLabel": "Expand properties panel",
+      "allProperties": "All properties",
+      "filterAriaLabel": "Filter by property"
+    },
+    "pendingBanner": "Your account is {status}. You can complete your profile while marketplace access waits for admin approval.",
+    "verificationBanner": "Your cleaner profile is {status}. Job applications unlock after admin verification.",
+    "errors": {
+      "loadProfile": "Could not load cleaner profile.",
+      "loadJobs": "Could not load jobs.",
+      "network": "Network error. Check that the backend is running.",
+      "submitApplication": "Could not submit application.",
+      "loadImage": "Could not load image preview.",
+      "invalidImage": "Please choose a valid image file.",
+      "openImage": "Could not open this image. Please choose another file.",
+      "saveProfile": "Could not save profile."
+    },
+    "calendar": {
+      "eyebrow": "Cleaner schedule",
+      "title": "Jobs & Calendar",
+      "refresh": "Refresh",
+      "loading": "Loading...",
+      "notApproved": "Calendar opens after your account is approved.",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "showAll": "Show all",
+      "noItems": "No calendar items {scope}.",
+      "noItemsDay": "No calendar items on this day.",
+      "noItemsMonth": "No calendar items this month.",
+      "apply": "Apply",
+      "markDone": "Mark done",
+      "saving": "Saving...",
+      "calItemTooltip": "{count} calendar item(s)",
+      "noItemsTooltip": "No items",
+      "completed": "Completed",
+      "statusLabel": {
+        "draft": "Draft",
+        "open": "Open",
+        "assigned": "Assigned",
+        "completed": "Done",
+        "cancelled": "Cancelled",
+        "disputed": "Disputed"
+      },
+      "applicationLabel": {
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+        "withdrawn": "Withdrawn"
+      },
+      "calendarLabel": {
+        "open_job": "Open",
+        "application": "Applied",
+        "assignment": "Assigned",
+        "offer": "Offer"
+      }
+    },
+    "apps": {
+      "eyebrow": "Your work",
+      "title": "Applications",
+      "editCards": "Edit cards",
+      "doneEditing": "Done",
+      "loading": "Loading...",
+      "refresh": "Refresh",
+      "openSub": "to apply",
+      "moneyLabel": "Income",
+      "pending": {
+        "title": "Pending applications",
+        "empty": "No pending applications.",
+        "emptyHint": "Apply to open jobs and they appear here until the host responds.",
+        "awaitingHost": "Awaiting host",
+        "withdraw": "Withdraw"
+      },
+      "active": {
+        "title": "Active assignments",
+        "empty": "No active assignments yet.",
+        "emptyHint": "Accepted jobs appear here.",
+        "badge": "Assigned",
+        "waitingHost": "Waiting for host",
+        "hostConfirmed": "Host confirmed",
+        "markDone": "Mark done"
+      },
+      "completed": {
+        "title": "Completed",
+        "empty": "No completed cleanings yet.",
+        "badge": "Done",
+        "viewReview": "View review",
+        "leaveReview": "Leave host feedback"
+      },
+      "openJobs": {
+        "title": "Open jobs",
+        "filterLabel": "Filter by city:",
+        "filterAll": "All",
+        "emptyFiltered": "No open jobs in {city} right now.",
+        "empty": "No open jobs are visible right now.",
+        "approvalRequired": "Account approval required",
+        "verificationRequired": "Profile verification required",
+        "apply": "Apply"
+      },
+      "rating": {
+        "title": "My rating",
+        "empty": "No reviews yet.",
+        "emptyHint": "Hosts can review you after a completed cleaning."
+      }
+    },
+    "offers": {
+      "eyebrow": "{count} pending",
+      "title": "Direct offers",
+      "loading": "Loading offers...",
+      "empty": "When a host offers you a job directly, it appears here.",
+      "badge": "Offer",
+      "accept": "Accept",
+      "working": "Working...",
+      "decline": "Decline"
+    },
+    "profile": {
+      "title": "Cleaner Profile",
+      "notFound": "Cleaner profile was not found for this account.",
+      "accountSection": "Account & personal information",
+      "profileImageLabel": "Profile image",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "sex": "Sex",
+      "sexOptions": {
+        "male": "Male",
+        "female": "Female",
+        "prefer_not_to_say": "Prefer not to say"
+      },
+      "dateOfBirth": "Date of birth",
+      "chooseBirthDate": "Choose birth date from calendar",
+      "birthMonth": "Birth month",
+      "birthYear": "Birth year"
+    },
+    "profileForm": {
+      "optionNotSet": "Not set",
+      "dateNotSet": "Date not set",
+      "jobDetails": "Job details",
+      "fallbackHostName": "Host",
+      "fallbackDisplayName": "Cleaner",
+      "location": "Location",
+      "city": "City",
+      "chooseCity": "Choose city",
+      "serviceAreas": "Service areas",
+      "addDistricts": "Add districts",
+      "noServiceAreas": "No service areas selected.",
+      "locationHint": "Select a City and then use Add districts to manage service areas.",
+      "experience": "Experience",
+      "nativeLanguage": "My Native language",
+      "education": "Education",
+      "cleaningExperience": "Cleaning experience",
+      "drivingLicense": "Driving license",
+      "select": "Select",
+      "drivingYes": "I have a driving license",
+      "drivingNo": "I don't have a driving license",
+      "personalCar": "Personal car",
+      "carYes": "I have a personal car",
+      "carNo": "I don't have a personal car",
+      "otherLanguages": "Other languages",
+      "selectLanguages": "Select languages",
+      "noOtherLanguages": "No additional languages selected.",
+      "extraServices": "Extra services offered",
+      "introduction": "Introduction",
+      "introductionLabel": "Your introduction",
+      "bioPlaceholder": "Experience, property types, languages, and work style...",
+      "profileSaved": "Profile saved.",
+      "saving": "Saving...",
+      "saveChanges": "Save changes",
+      "educationOptions": {
+        "none": "No education",
+        "primary": "Primary education",
+        "high_school": "High school",
+        "higher": "Higher education"
+      },
+      "experienceOptions": {
+        "none": "I don't have experience",
+        "less_than_1_year": "Less than 1 year",
+        "1_to_3_years": "1–3 years",
+        "3_to_5_years": "3–5 years",
+        "more_than_5_years": "More than 5 years of experience"
+      },
+      "personalPreferenceOptions": {
+        "provide_cleaning_supplies": "Provide cleaning supplies",
+        "wash_and_dry_linen_towels": "Wash and dry linen and towels",
+        "iron_and_fold_linen_towels": "Iron and fold linen and towels",
+        "pet_friendly_homes": "Accept homes with pets"
+      },
+      "errors": {
+        "firstNameRequired": "First name is required.",
+        "lastNameRequired": "Last name is required.",
+        "birthDateRequired": "Birth date is required.",
+        "birthDateInvalid": "Enter a valid birth date.",
+        "birthDateAge": "You must be at least 18 years old to work as a cleaner.",
+        "districtCityRequired": "Choose a city before saving location details.",
+        "serviceAreasRequired": "Add at least one district from the selected city.",
+        "saveName": "Could not save name details.",
+        "cancelApplication": "Could not cancel application.",
+        "acceptOffer": "Could not accept the offer.",
+        "declineOffer": "Could not decline the offer.",
+        "cropPrepare": "Could not prepare cropped image.",
+        "cropApply": "Could not apply crop. Please try again.",
+        "saveProfile": "Could not save profile changes.",
+        "chooseCityFirst": "Choose a city first."
+      },
+      "districtsModal": {
+        "title": "Add districts",
+        "subtitle": "Select districts in {city} and add them to your service areas.",
+        "chooseCity": "Choose a city to select districts.",
+        "cancel": "Cancel",
+        "addDistricts": "Add districts",
+        "ariaLabel": "Add districts",
+        "zonesAriaLabel": "{city} districts"
+      },
+      "languagesModal": {
+        "title": "Select other languages",
+        "subtitle": "Choose additional languages you speak besides your native language.",
+        "available": "Available languages:",
+        "selected": "Selected languages:",
+        "search": "Search language",
+        "hint": "Click an available language to add it. Click a selected language to remove it.",
+        "done": "Done",
+        "ariaLabel": "Select other languages",
+        "availableAriaLabel": "Available languages",
+        "selectedAriaLabel": "Selected languages"
+      },
+      "cropModal": {
+        "title": "Adjust profile image",
+        "hint": "Drag to center your photo. Use zoom to crop tighter or wider.",
+        "zoom": "Zoom",
+        "center": "Center image",
+        "reset": "Reset",
+        "cancel": "Cancel",
+        "applying": "Applying...",
+        "useImage": "Use this image",
+        "ariaLabel": "Crop profile image"
+      }
+    },
+    "applyModal": {
+      "title": "Apply for job",
+      "price": "Your price (EUR)",
+      "message": "Message to host",
+      "messagePlaceholder": "Confirm availability, timing, and anything the host should know.",
+      "cancel": "Cancel",
+      "sending": "Sending...",
+      "submit": "Submit application",
+      "ariaLabel": "Apply for job"
+    }
+  },
+  "admin": {
+    "gates": {
+      "loading": "Checking session…",
+      "notLoggedIn": { "eyebrow": "Protected area", "heading": "Log in to continue", "link": "Go to login" },
+      "wrongRole": { "eyebrow": "Admin only", "heading": "Access restricted", "body": "This panel is reserved for marketplace administrators.", "link": "Go to your dashboard" }
+    },
+    "topbar": {
+      "panelLabel": "Admin panel",
+      "role": "Admin",
+      "logOut": "Log out"
+    },
+    "sidebar": {
+      "accountsLabel": "Accounts",
+      "filterLabels": {
+        "pending": "Pending approval",
+        "approved": "Approved",
+        "all": "All accounts"
+      }
+    },
+    "section": {
+      "accountCount": "{count, plural, one {# account} other {# accounts}}",
+      "refreshAriaLabel": "Refresh list",
+      "loading": "Loading…",
+      "refresh": "Refresh",
+      "loadingAccounts": "Loading accounts…",
+      "emptyPending": "No accounts waiting for review.",
+      "emptyOther": "No accounts found.",
+      "suspenseFallback": "Loading..."
+    },
+    "userRow": {
+      "adminChip": "Admin",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "busy": "…"
+    },
+    "errors": {
+      "loadFailed": "Failed to load accounts.",
+      "networkError": "Network error — check the backend is running.",
+      "approveFailed": "Approval failed — please try again.",
+      "rejectFailed": "Rejection failed — please try again."
+    }
+  },
+  "common": {
+    "back": "Back",
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "uploading": "Uploading…",
+    "close": "Close",
+    "months": ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"],
+    "monthsFull": ["January","February","March","April","May","June","July","August","September","October","November","December"],
+    "weekdays": ["M","T","W","T","F","S","S"],
+    "calDays": ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+  },
+  "errors": {
+    "heading": "Something went wrong",
+    "body": "Refresh the page or try the action again.",
+    "tryAgain": "Try again"
+  },
+  "cleaners": {
+    "gates": {
+      "loading": "Loading...",
+      "hostsOnly": "Hosts only",
+      "hostsOnlyBody": "The cleaner directory is available to hosts.",
+      "goToLogin": "Go to login"
+    },
+    "topbar": {
+      "backLabel": "Find a cleaner",
+      "dashboardLink": "Dashboard"
+    },
+    "head": {
+      "eyebrow": "Verified supply",
+      "title": "Browse cleaners"
+    }
+  },
+  "app": {
+    "loading": {
+      "eyebrow": "Loading",
+      "heading": "Checking account"
+    },
+    "notLoggedIn": {
+      "eyebrow": "Protected area",
+      "heading": "Log in to continue",
+      "loginBtn": "Log in",
+      "signupBtn": "Sign up"
+    },
+    "header": {
+      "brandName": "Host Cleaners",
+      "adminPanelBtn": "Admin panel",
+      "logOutBtn": "Log out"
+    },
+    "statusCopy": {
+      "approved": {
+        "title": "{role} workspace",
+        "body": "Your account is approved. Marketplace tools can now be opened for your role."
+      },
+      "rejected": {
+        "title": "Account request rejected",
+        "body": "Your signup request was not approved. Contact support if this looks incorrect."
+      },
+      "suspended": {
+        "title": "Account suspended",
+        "body": "Marketplace access is paused while an admin reviews the account."
+      },
+      "pending": {
+        "title": "Waiting for admin approval",
+        "body": "You can complete onboarding details while the marketplace team reviews your account."
+      }
+    },
+    "roleLabels": {
+      "host": "Property owner",
+      "cleaner": "Cleaner",
+      "agency": "Agency",
+      "admin": "Admin"
+    },
+    "accountCard": {
+      "label": "Account",
+      "statusLine": "Status: {status}"
+    },
+    "nextStepCard": {
+      "label": "Next step",
+      "openTools": "Open role tools",
+      "completeProfile": "Complete profile details",
+      "agencyBody": "Agency profiles can invite cleaners and assign accepted agency work after approval.",
+      "defaultBody": "Profile details stay available while marketplace permissions are gated."
+    }
+  },
+  "components": {
+    "cookieBanner": {
+      "ariaLabel": "Cookie consent",
+      "heading": "Cookie choices",
+      "body": "Essential cookies keep login and security working. Analytics and marketing cookies stay off unless you allow them.",
+      "essentialOnly": "Essential only",
+      "acceptOptional": "Accept optional"
+    },
+    "cleanerBrowser": {
+      "loadError": "Could not load cleaners right now.",
+      "cityLabel": "City",
+      "allCities": "All cities",
+      "districtLabel": "District",
+      "allDistricts": "All districts",
+      "pickCityFirst": "Pick a city first",
+      "clearBtn": "Clear",
+      "cleanerCount": "{count, plural, one {# cleaner} other {# cleaners}}",
+      "cleanerCountInCity": "{count, plural, one {# cleaner} other {# cleaners}} in {city}",
+      "emptyNone": "No cleaners have joined yet — check back soon.",
+      "emptyFiltered": "No cleaners match these filters yet.",
+      "offerJobBtn": "Offer a job"
+    },
+    "cleanerCard": {
+      "defaultName": "Cleaner",
+      "agencyChip": "Agency",
+      "experienceDisplay": {
+        "none": "",
+        "1_year": "1 year",
+        "2_years": "2 years",
+        "3_years": "3 years",
+        "4_years": "4 years",
+        "5_years": "5 years",
+        "more_than_5_years": "5+ years"
+      }
+    },
+    "cleanerProfileModal": {
+      "heading": "Cleaner profile",
+      "closeAriaLabel": "Close",
+      "loadingProfile": "Loading profile…",
+      "loadError": "Could not load this profile.",
+      "agencyChip": "Agency",
+      "showLess": "Show less",
+      "showAll": "Show all {count}",
+      "dtExperience": "Experience",
+      "dtLanguages": "Languages",
+      "dtTransport": "Transport",
+      "ddOwnCar": "Has own car",
+      "reviewsHeading": "Reviews",
+      "noReviews": "No reviews yet."
+    },
+    "appdashGrid": {
+      "pending": "Pending",
+      "pendingSub": "applications",
+      "active": "Active",
+      "activeSub": "assignments",
+      "completed": "Completed",
+      "completedSub": "cleanings",
+      "openJobs": "Open jobs",
+      "myRating": "My rating",
+      "ratingReceived": "{count, plural, one {# review received} other {# reviews received}}",
+      "noRatingYet": "no reviews yet",
+      "fromCleanings": "from {count, plural, one {# cleaning} other {# cleanings}}",
+      "noCompletedJobs": "no completed jobs yet",
+      "editHint": "Drag to reorder · tap the eye to hide a card.",
+      "hideCard": "Hide {label}",
+      "hiddenCards": "Hidden cards"
+    },
+    "ratingStars": {
+      "ariaLabel": "Rated {value} out of 5",
+      "newRating": "New",
+      "jobCount": "{count, plural, one {· # job} other {· # jobs}}"
+    },
+    "reviewModal": {
+      "ariaLabel": "Review",
+      "heading": "Review",
+      "closeAriaLabel": "Close",
+      "yourReviewOf": "Your review of {name}",
+      "submitted": "Submitted",
+      "ratingAriaLabel": "Rating",
+      "starAriaLabel": "{count, plural, one {# star} other {# stars}}",
+      "commentPlaceholder": "Share how it went with {name}…",
+      "submitting": "Submitting…",
+      "submitBtn": "Submit review",
+      "theirReviewOf": "{name}'s review of you",
+      "blindAfterSubmit": "Hidden until {name} also reviews — or the 14-day window closes.",
+      "blindBeforeSubmit": "Leave your review to unlock theirs.",
+      "errors": {
+        "noRating": "Please pick a star rating.",
+        "submitFailed": "Could not submit your review."
+      }
+    },
+    "notificationBell": {
+      "ariaLabel": "Notifications",
+      "ariaLabelUnread": "Notifications, {count} unread",
+      "heading": "Notifications",
+      "markAllRead": "Mark all read",
+      "loading": "Loading…",
+      "empty": "You're all caught up.",
+      "timeAgo": {
+        "justNow": "just now",
+        "minutesAgo": "{count}m ago",
+        "hoursAgo": "{count}h ago",
+        "daysAgo": "{count}d ago"
+      }
+    },
+    "connectButton": {
+      "connected": "Connected",
+      "pending": "Pending",
+      "connect": "Connect"
+    },
+    "jobOfferModal": {
+      "heading": "Offer a job to {name}",
+      "closeAriaLabel": "Close",
+      "propertyLabel": "Property",
+      "noProperties": "No properties yet",
+      "titleLabel": "Job title",
+      "defaultTitle": "Turnover cleaning",
+      "dateLabel": "Date",
+      "startLabel": "Start",
+      "endLabel": "End",
+      "priceLabel": "Offered price (EUR)",
+      "pricePlaceholder": "e.g. 50",
+      "messageLabel": "Message (optional)",
+      "messagePlaceholder": "Add a note for the cleaner…",
+      "cancelBtn": "Cancel",
+      "sending": "Sending…",
+      "sendBtn": "Send offer",
+      "errors": {
+        "noProperty": "Please pick a property first.",
+        "noDate": "Please choose a cleaning date.",
+        "invalidTime": "End time must be after the start time.",
+        "sendFailed": "Could not send the offer."
+      }
+    },
+    "connections": {
+      "tabAriaLabel": "Connections",
+      "tabAriaLabelNew": "Connections, {count} new",
+      "tabLabel": "Connections",
+      "drawerAriaLabel": "Connections",
+      "backAriaLabel": "Back to connections",
+      "sharedBtn": "Shared",
+      "closeAriaLabel": "Close",
+      "sharedLoading": "Loading…",
+      "sharedEmpty": "No shared cleanings yet.",
+      "sharedProperties": "Properties",
+      "sharedCleanings": "Cleanings ({count})",
+      "removeConnection": "Remove connection",
+      "chatEmpty": "Say hello 👋",
+      "messagePlaceholder": "Message {firstName}…",
+      "messageAriaLabel": "Message",
+      "sendAriaLabel": "Send",
+      "heading": "Connections",
+      "listLoading": "Loading…",
+      "requestsTitle": "Requests",
+      "wantsToConnect": "wants to connect",
+      "acceptAriaLabel": "Accept",
+      "declineAriaLabel": "Decline",
+      "connectedTitle": "Connected",
+      "connectedTitleCount": "Connected · {count}",
+      "emptyConnected": "No connections yet. Connect with people you work with to chat and track shared cleanings.",
+      "pendingTitle": "Pending",
+      "requestSent": "request sent",
+      "cancelBtn": "Cancel",
+      "today": "Today"
+    },
+    "accountDeletionPanel": {
+      "heading": "Delete account",
+      "description": "Permanently delete your account and related profile data. This action cannot be undone.",
+      "deleteBtn": "Delete account",
+      "confirmHeading": "Delete account permanently?",
+      "confirmSubtitle": "This will delete {email} and sign you out immediately.",
+      "closeAriaLabel": "Close",
+      "confirmBody": "All account access will be removed. Any profile, property, application, and marketplace records tied to this account will be permanently removed where the database owns them.",
+      "cancelBtn": "Cancel",
+      "deleting": "Deleting...",
+      "confirmBtn": "Delete permanently",
+      "errors": {
+        "deleteFailed": "Could not delete your account."
+      }
+    },
+    "areaDemandPanel": {
+      "allBulgaria": "All of Bulgaria",
+      "cityAriaLabel": "City",
+      "demandCaption": "Live cleaning demand in {city}",
+      "hostsHiring": "Hosts hiring",
+      "openJobs": "Open jobs",
+      "postedThisWeek": "Posted this week",
+      "ctaText": "{count} verified cleaners already work here. Add your profile and start getting jobs.",
+      "joinAsCleaner": "Join as a cleaner",
+      "defaultCity": "Bulgaria"
+    },
+    "openJobMap": {
+      "sectionAriaLabel": "Open cleaning work map for {city}",
+      "heading": "Open host addresses in {city}",
+      "loading": "Loading",
+      "pinCount": "{count, plural, one {# pin} other {# pins}}",
+      "loadingPins": "Loading map pins...",
+      "propertyFallback": "Property",
+      "propertyDialogAriaLabel": "Property open jobs",
+      "closeAriaLabel": "Close",
+      "addressNotProvided": "Address not provided",
+      "hostWithName": "Host: {name}",
+      "hostFallback": "Host",
+      "openJobsHeading": "Open jobs",
+      "cleaningJobFallback": "Cleaning job",
+      "applyBtn": "Apply",
+      "applyDialogHeading": "Apply for job",
+      "applyDialogAriaLabel": "Apply for job",
+      "hostLoading": "Host: loading...",
+      "yourPrice": "Your price ({currency})",
+      "messageToHost": "Message to host",
+      "messagePlaceholder": "Confirm availability, timing, and anything the host should know.",
+      "cancelBtn": "Cancel",
+      "sending": "Sending...",
+      "submitBtn": "Submit application",
+      "defaultCity": "Bulgaria",
+      "errors": {
+        "submitFailed": "Could not submit application.",
+        "loadLocationsFailed": "Could not load job locations.",
+        "loadMapFailed": "Could not load the work map right now."
+      }
+    },
+    "districtMapSelector": {
+      "districtsFallback": "Districts",
+      "selectedCount": "{count} selected",
+      "selectAll": "Select all",
+      "clearAll": "Clear all",
+      "loadingMap": "Loading district map...",
+      "mapNotAvailable": "District map boundaries are not available yet.",
+      "legendAvailable": "Available",
+      "legendSelected": "Selected",
+      "legendPark": "Park",
+      "searchPlaceholder": "Search district",
+      "noMatch": "No districts match this search.",
+      "selectOption": "Select",
+      "selectedOption": "Selected",
+      "statusNotLoaded": "Map boundaries are not loaded for this city yet. Use the checklist below.",
+      "statusLoadFailed": "Could not load districts right now.",
+      "statusRenderFailed": "District map failed to render. Use the checklist below.",
+      "statusLoadFailed2": "District map failed to load. Use the checklist below."
+    },
+    "propertyLocationPicker": {
+      "mapAriaLabel": "Property location map",
+      "gettingAddress": "Getting address…",
+      "suggestionsAriaLabel": "Address suggestions",
+      "searchAriaLabel": "Address search",
+      "searchPlaceholder": "Search address in Bulgaria…",
+      "searchBtn": "Search",
+      "typeMore": "{count, plural, one {Type # more character…} other {Type # more characters…}}",
+      "hint": "Click the map to pin the exact location, or search for an address below."
+    },
+    "districtChecklist": {
+      "ariaLabel": "District checklist",
+      "searchPlaceholder": "Search district",
+      "noMatch": "No districts match this search."
+    },
+    "districtSelectedTags": {
+      "empty": "No districts selected.",
+      "ariaLabel": "Selected districts",
+      "removeAriaLabel": "Remove {name}"
+    }
+  }
+}

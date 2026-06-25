@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { X, Send } from "lucide-react";
 import { apiFetch } from "../lib/api";
 
@@ -45,8 +46,9 @@ export default function JobOfferModal({
   onClose,
   onOffered,
 }: JobOfferModalProps) {
+  const t = useTranslations("components.jobOfferModal");
   const [propId, setPropId] = useState<string>(properties[0] ? String(properties[0].id) : "");
-  const [title, setTitle] = useState("Turnover cleaning");
+  const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("11:00");
   const [endTime, setEndTime] = useState("14:00");
@@ -58,17 +60,17 @@ export default function JobOfferModal({
   async function submit() {
     setError("");
     if (!propId) {
-      setError("Please pick a property first.");
+      setError(t("errors.noProperty"));
       return;
     }
     if (!date) {
-      setError("Please choose a cleaning date.");
+      setError(t("errors.noDate"));
       return;
     }
     const startIso = new Date(`${date}T${startTime}`).toISOString();
     const endIso = new Date(`${date}T${endTime}`).toISOString();
     if (endIso <= startIso) {
-      setError("End time must be after the start time.");
+      setError(t("errors.invalidTime"));
       return;
     }
 
@@ -94,7 +96,7 @@ export default function JobOfferModal({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(extractError(data) ?? "Could not send the offer.");
+        setError(extractError(data) ?? t("errors.sendFailed"));
         return;
       }
       onOffered?.();
@@ -108,8 +110,8 @@ export default function JobOfferModal({
     <div className="host-modal-backdrop" onClick={onClose}>
       <div className="host-modal" onClick={(e) => e.stopPropagation()}>
         <div className="host-modal-header">
-          <h3>Offer a job to {cleanerName}</h3>
-          <button type="button" className="host-modal-close" onClick={onClose} aria-label="Close">
+          <h3>{t("heading", { name: cleanerName })}</h3>
+          <button type="button" className="host-modal-close" onClick={onClose} aria-label={t("closeAriaLabel")}>
             <X size={18} aria-hidden />
           </button>
         </div>
@@ -118,9 +120,9 @@ export default function JobOfferModal({
           {error && <p className="form-error">{error}</p>}
 
           <label className="host-offer-field">
-            <span>Property</span>
+            <span>{t("propertyLabel")}</span>
             <select value={propId} onChange={(e) => setPropId(e.target.value)}>
-              {properties.length === 0 && <option value="">No properties yet</option>}
+              {properties.length === 0 && <option value="">{t("noProperties")}</option>}
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} · {p.city}
@@ -130,54 +132,54 @@ export default function JobOfferModal({
           </label>
 
           <label className="host-offer-field">
-            <span>Job title</span>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Turnover cleaning" />
+            <span>{t("titleLabel")}</span>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("defaultTitle")} />
           </label>
 
           <div className="host-offer-row">
             <label className="host-offer-field">
-              <span>Date</span>
+              <span>{t("dateLabel")}</span>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </label>
             <label className="host-offer-field">
-              <span>Start</span>
+              <span>{t("startLabel")}</span>
               <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
             </label>
             <label className="host-offer-field">
-              <span>End</span>
+              <span>{t("endLabel")}</span>
               <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
             </label>
           </div>
 
           <label className="host-offer-field">
-            <span>Offered price (EUR)</span>
+            <span>{t("priceLabel")}</span>
             <input
               type="number"
               min="0"
               step="0.01"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              placeholder="e.g. 50"
+              placeholder={t("pricePlaceholder")}
             />
           </label>
 
           <label className="host-offer-field">
-            <span>Message (optional)</span>
+            <span>{t("messageLabel")}</span>
             <textarea
               className="host-review-textarea"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Add a note for the cleaner…"
+              placeholder={t("messagePlaceholder")}
               rows={3}
             />
           </label>
 
           <div className="host-form-actions">
             <button type="button" className="secondary-link" onClick={onClose} disabled={submitting}>
-              Cancel
+              {t("cancelBtn")}
             </button>
             <button type="button" className="primary-link" onClick={() => void submit()} disabled={submitting}>
-              <Send size={15} aria-hidden /> {submitting ? "Sending…" : "Send offer"}
+              <Send size={15} aria-hidden /> {submitting ? t("sending") : t("sendBtn")}
             </button>
           </div>
         </div>

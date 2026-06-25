@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 
 export default function Error({
   error,
@@ -10,6 +11,8 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("errors");
+
   useEffect(() => {
     Sentry.captureException(error, {
       tags: { event: "frontend.route_crashed" },
@@ -21,11 +24,11 @@ export default function Error({
     <main className="app-page">
       <section className="app-shell">
         <div className="auth-heading">
-          <h1>Something went wrong</h1>
-          <p>Refresh the page or try the action again.</p>
+          <h1>{t("heading")}</h1>
+          <p>{t("body")}</p>
         </div>
         <button className="primary-link" type="button" onClick={reset}>
-          Try again
+          {t("tryAgain")}
         </button>
       </section>
     </main>

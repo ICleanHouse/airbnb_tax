@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { Map as MapLibreMap, MapLayerMouseEvent } from "maplibre-gl";
 import type { FeatureCollection, Geometry, GeoJsonProperties } from "geojson";
 import DistrictChecklist from "./DistrictChecklist";
@@ -70,6 +71,7 @@ export default function DistrictMapSelector({
   showListFallback = true,
   onZonesLoaded,
 }: DistrictMapSelectorProps) {
+  const t = useTranslations("components.districtMapSelector");
   const mapRef = useRef<MapLibreMap | null>(null);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const selectedRef = useRef(selectedZoneIds);
@@ -140,10 +142,10 @@ export default function DistrictMapSelector({
         setGeojson(nextGeojson);
         setParksGeojson(nextParksGeojson);
         onZonesLoadedRef.current?.(zoneResult.zones);
-        setStatus(nextGeojson?.features.length ? "" : "Map boundaries are not loaded for this city yet. Use the checklist below.");
+        setStatus(nextGeojson?.features.length ? "" : t("statusNotLoaded"));
       })
       .catch(() => {
-        if (active) setStatus("Could not load districts right now.");
+        if (active) setStatus(t("statusLoadFailed"));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -152,7 +154,7 @@ export default function DistrictMapSelector({
     return () => {
       active = false;
     };
-  }, [citySlug]);
+  }, [citySlug, t]);
 
   useEffect(() => {
     if (!mapContainerRef.current || !hasMapFeatures) return;
@@ -199,7 +201,7 @@ export default function DistrictMapSelector({
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
         map.on("error", () => {
-          if (!cancelled) setStatus("District map failed to render. Use the checklist below.");
+          if (!cancelled) setStatus(t("statusRenderFailed"));
         });
 
         map.on("load", () => {
@@ -312,7 +314,7 @@ export default function DistrictMapSelector({
           });
         });
       } catch {
-        if (!cancelled) setStatus("District map failed to load. Use the checklist below.");
+        if (!cancelled) setStatus(t("statusLoadFailed2"));
       }
     }
 
@@ -322,7 +324,7 @@ export default function DistrictMapSelector({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [citySlug, geojson, hasMapFeatures, mode, parksGeojson, selectedCity, zones]);
+  }, [citySlug, geojson, hasMapFeatures, mode, parksGeojson, selectedCity, zones, t]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -391,15 +393,15 @@ export default function DistrictMapSelector({
     <div className="district-selector">
       <div className="district-selector__toolbar">
         <div>
-          <strong>{selectedCity ? cityLabel(selectedCity, language) : "Districts"}</strong>
-          <span>{selectedZoneIds.length} selected</span>
+          <strong>{selectedCity ? cityLabel(selectedCity, language) : t("districtsFallback")}</strong>
+          <span>{t("selectedCount", { count: selectedZoneIds.length })}</span>
         </div>
         <div className="district-selector__actions">
           <button type="button" onClick={selectAll} disabled={visibleZoneIds.length === 0}>
-            Select all
+            {t("selectAll")}
           </button>
           <button type="button" onClick={clearAll} disabled={selected.size === 0}>
-            Clear all
+            {t("clearAll")}
           </button>
         </div>
       </div>
@@ -410,14 +412,14 @@ export default function DistrictMapSelector({
         {hasMapFeatures ? <div className="district-selector__map" ref={mapContainerRef} /> : null}
         {!hasMapFeatures ? (
           <div className="district-selector__map district-selector__map--empty">
-            <p>{loading ? "Loading district map..." : status || "District map boundaries are not available yet."}</p>
+            <p>{loading ? t("loadingMap") : status || t("mapNotAvailable")}</p>
           </div>
         ) : null}
         {hoveredZone ? <div className="district-selector__tooltip">{zoneLabel(hoveredZone, language)}</div> : null}
         <div className="district-selector__legend" aria-hidden="true">
-          <span><i className="district-selector__swatch" /> Available</span>
-          <span><i className="district-selector__swatch district-selector__swatch--selected" /> Selected</span>
-          {parksGeojson?.features.length ? <span><i className="district-selector__swatch district-selector__swatch--park" /> Park</span> : null}
+          <span><i className="district-selector__swatch" /> {t("legendAvailable")}</span>
+          <span><i className="district-selector__swatch district-selector__swatch--selected" /> {t("legendSelected")}</span>
+          {parksGeojson?.features.length ? <span><i className="district-selector__swatch district-selector__swatch--park" /> {t("legendPark")}</span> : null}
         </div>
       </div>
       <p className="map-data-credit">
@@ -431,7 +433,7 @@ export default function DistrictMapSelector({
         <label className="district-selector__search">
           <input
             type="search"
-            placeholder="Search district"
+            placeholder={t("searchPlaceholder")}
             value={districtQuery}
             onChange={(event) => setDistrictQuery(event.target.value)}
           />
@@ -441,10 +443,10 @@ export default function DistrictMapSelector({
             {matchedZones.map((zone) => (
               <button type="button" key={zone.zone_id} onClick={() => selectSearchedZone(zone.zone_id)}>
                 <span>{zoneLabel(zone, language)}</span>
-                <small>{selected.has(zone.zone_id) ? "Selected" : "Select"}</small>
+                <small>{selected.has(zone.zone_id) ? t("selectedOption") : t("selectOption")}</small>
               </button>
             ))}
-            {matchedZones.length === 0 ? <p className="district-selector__empty">No districts match this search.</p> : null}
+            {matchedZones.length === 0 ? <p className="district-selector__empty">{t("noMatch")}</p> : null}
           </div>
         ) : null}
       </div>

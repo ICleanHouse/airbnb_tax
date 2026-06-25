@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Lock, X } from "lucide-react";
 import { apiFetch } from "../lib/api";
 
@@ -52,6 +53,7 @@ export default function ReviewModal({
   const myReview = reviews.find((r) => r.job === jobId && r.reviewer === meId) ?? null;
   const theirReview = reviews.find((r) => r.job === jobId && r.reviewee === meId) ?? null;
 
+  const t = useTranslations("components.reviewModal");
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState("");
@@ -60,7 +62,7 @@ export default function ReviewModal({
 
   async function submit() {
     if (rating < 1) {
-      setError("Please pick a star rating.");
+      setError(t("errors.noRating"));
       return;
     }
     setSubmitting(true);
@@ -79,7 +81,7 @@ export default function ReviewModal({
         onSubmitted();
       } else {
         const d = await res.json().catch(() => ({}));
-        setError(d.detail || "Could not submit your review.");
+        setError(d.detail || t("errors.submitFailed"));
       }
     } finally {
       setSubmitting(false);
@@ -93,14 +95,14 @@ export default function ReviewModal({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="Review"
+        aria-label={t("ariaLabel")}
       >
         <div className="host-modal-header">
           <div>
-            <h2>Review</h2>
+            <h2>{t("heading")}</h2>
             <p className="host-modal-subtitle">{jobTitle}</p>
           </div>
-          <button type="button" className="host-modal-close" onClick={onClose} aria-label="Close">
+          <button type="button" className="host-modal-close" onClick={onClose} aria-label={t("closeAriaLabel")}>
             <X size={18} aria-hidden />
           </button>
         </div>
@@ -108,16 +110,16 @@ export default function ReviewModal({
         <div className="review-modal-body">
           {/* Your review */}
           <section className="review-block">
-            <h3 className="review-block-title">Your review of {revieweeName}</h3>
+            <h3 className="review-block-title">{t("yourReviewOf", { name: revieweeName })}</h3>
             {myReview ? (
               <div className="review-given">
                 <Stars value={myReview.rating} />
                 {myReview.comment && <p className="review-given-comment">{myReview.comment}</p>}
-                <span className="review-given-note">Submitted</span>
+                <span className="review-given-note">{t("submitted")}</span>
               </div>
             ) : (
               <div className="review-form">
-                <div className="host-stars" role="radiogroup" aria-label="Rating">
+                <div className="host-stars" role="radiogroup" aria-label={t("ratingAriaLabel")}>
                   {[1, 2, 3, 4, 5].map((s) => (
                     <button
                       key={s}
@@ -126,7 +128,7 @@ export default function ReviewModal({
                       onMouseEnter={() => setHover(s)}
                       onMouseLeave={() => setHover(0)}
                       onClick={() => setRating(s)}
-                      aria-label={`${s} star${s !== 1 ? "s" : ""}`}
+                      aria-label={t("starAriaLabel", { count: s })}
                     >
                       ★
                     </button>
@@ -134,14 +136,14 @@ export default function ReviewModal({
                 </div>
                 <textarea
                   className="review-textarea"
-                  placeholder={`Share how it went with ${revieweeName}…`}
+                  placeholder={t("commentPlaceholder", { name: revieweeName })}
                   rows={3}
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                 />
                 {error && <p className="form-error">{error}</p>}
                 <button type="button" className="primary-link" disabled={submitting} onClick={() => void submit()}>
-                  {submitting ? "Submitting…" : "Submit review"}
+                  {submitting ? t("submitting") : t("submitBtn")}
                 </button>
               </div>
             )}
@@ -149,7 +151,7 @@ export default function ReviewModal({
 
           {/* Their review — only visible once revealed (double-blind) */}
           <section className="review-block">
-            <h3 className="review-block-title">{revieweeName}&apos;s review of you</h3>
+            <h3 className="review-block-title">{t("theirReviewOf", { name: revieweeName })}</h3>
             {theirReview ? (
               <div className="review-given">
                 <Stars value={theirReview.rating} />
@@ -160,8 +162,8 @@ export default function ReviewModal({
                 <Lock size={16} aria-hidden />
                 <p>
                   {myReview
-                    ? `Hidden until ${revieweeName} also reviews — or the 14-day window closes.`
-                    : "Leave your review to unlock theirs."}
+                    ? t("blindAfterSubmit", { name: revieweeName })
+                    : t("blindBeforeSubmit")}
                 </p>
               </div>
             )}

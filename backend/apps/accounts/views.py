@@ -341,8 +341,11 @@ class CleanerProfileViewSet(viewsets.ModelViewSet):
         return queryset.filter(user=user)
 
     def perform_update(self, serializer):
-        if not self.request.user.is_platform_admin and "verification_status" in self.request.data:
-            raise PermissionDenied("Only admins can change cleaner verification status.")
+        if not self.request.user.is_platform_admin:
+            if serializer.instance.user_id != self.request.user.id:
+                raise PermissionDenied("You can update only your own cleaner profile.")
+            if "verification_status" in self.request.data:
+                raise PermissionDenied("Only admins can change cleaner verification status.")
         serializer.save()
 
 

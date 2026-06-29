@@ -542,6 +542,8 @@ def accept_offer(
     if not cleaner.is_platform_admin and not cleaner.is_approved:
         raise MarketplaceError("Account must be approved before accepting offers.")
 
+    _ensure_cleaner_workable(application.cleaner)
+
     if application.origin != CleanerApplication.Origin.HOST_OFFERED:
         raise MarketplaceError("Only host offers can be accepted this way.")
 
@@ -647,6 +649,9 @@ def assign_member_to_assignment(
 
     if not member.is_cleaner:
         raise MarketplaceError("Assigned member must be a cleaner account.")
+
+    if not member.is_active:
+        raise MarketplaceError("Assigned cleaner account must be active.")
 
     if not member.is_approved:
         raise MarketplaceError("Assigned cleaner must have an approved account.")

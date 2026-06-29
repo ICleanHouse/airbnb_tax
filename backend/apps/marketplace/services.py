@@ -116,6 +116,9 @@ def accept_application(
     if not accepted_by.is_platform_admin and not accepted_by.is_approved:
         raise MarketplaceError("Account must be approved before accepting applications.")
 
+    if application.status != CleanerApplication.Status.PENDING:
+        raise MarketplaceError("Only pending applications can be accepted.")
+
     if job.status != CleaningJob.Status.OPEN:
         raise MarketplaceError("Applications can be accepted only for open jobs.")
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { LocationResult } from "../../components/PropertyLocationPicker";
 
@@ -35,6 +35,7 @@ import { useTranslations } from "next-intl";
 import { apiFetch, CurrentUser, type FavouriteCleaner } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
+import { useRefocusClickGuard } from "../../lib/useRefocusClickGuard";
 import CleanerProfileModal from "../../components/CleanerProfileModal";
 import NotificationBell from "../../components/NotificationBell";
 import Connections from "../../components/Connections";
@@ -212,6 +213,8 @@ export default function HostDashboard() {
   const t = useTranslations("host");
   const tC = useTranslations("common");
   const tNav = useTranslations("nav");
+  const router = useRouter();
+  const pathname = usePathname();
   const MONTHS = tC.raw("monthsFull") as string[];
   const DAYS = tC.raw("calDays") as string[];
   const STATUS_LABEL: Record<JobStatus, string> = {
@@ -249,8 +252,10 @@ export default function HostDashboard() {
   const [reviewTarget, setReviewTarget] = useState<
     { jobId: number; jobTitle: string; revieweeId: number; revieweeName: string } | null
   >(null);
+  const autoOpenedReviewJobIdRef = useRef<number | null>(null);
   const [appFilter, setAppFilter] = useState<"pending" | "active" | "completed" | "open" | "rating" | null>(null);
   const appdash = useAppdashPrefs(me);
+  const shouldSuppressModalOpen = useRefocusClickGuard();
 
   const [section, setSection] = useState<"jobs" | "applications" | "account">("jobs");
 
@@ -367,6 +372,12 @@ export default function HostDashboard() {
   const requestedAppFilter = searchParams.get("appFilter");
   const reviewJobParam = searchParams.get("reviewJob");
   const requestedReviewJobId = reviewJobParam ? Number(reviewJobParam) : null;
+
+  useEffect(() => {
+    if (!requestedReviewJobId || Number.isNaN(requestedReviewJobId)) {
+      autoOpenedReviewJobIdRef.current = null;
+    }
+  }, [requestedReviewJobId]);
 
   // ── Auth check ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -544,6 +555,7 @@ export default function HostDashboard() {
   }
 
   function openCreateProp() {
+    if (shouldSuppressModalOpen()) return;
     setEditingPropId(null);
     setPropName(""); setPropCity("Sofia"); setPropAddress(""); setPropNeighborhood("");
     setPropLat(null); setPropLng(null);
@@ -556,6 +568,7 @@ export default function HostDashboard() {
   }
 
   function openEditProp(p: Property) {
+    if (shouldSuppressModalOpen()) return;
     setEditingPropId(p.id);
     setPropName(p.name);
     setPropCity(p.city);
@@ -705,6 +718,7 @@ export default function HostDashboard() {
 
   // ── Create job ─────────────────────────────────────────────────────────────
   function openJobForm(day?: number, jobToEdit?: CleaningJob, presetPropId?: number) {
+    if (shouldSuppressModalOpen()) return;
     setEditingJobId(jobToEdit?.id ?? null);
     if (jobToEdit) {
       setJobPropId(String(jobToEdit.property));
@@ -848,6 +862,7 @@ export default function HostDashboard() {
   // The cleaner marks a job done (no host completion step); the host then
   // reviews the cleaner through the review window (ReviewModal).
   function openReview(asgn: HostAssignment) {
+    if (shouldSuppressModalOpen()) return;
     setReviewTarget({
       jobId: asgn.job,
       jobTitle: asgn.job_title,
@@ -856,8 +871,18 @@ export default function HostDashboard() {
     });
   }
 
+  function closeReviewModal() {
+    setReviewTarget(null);
+    if (!reviewJobParam) return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("reviewJob");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }
+
   // ── ICS import handlers ────────────────────────────────────────────────────
   function openIcsModal() {
+    if (shouldSuppressModalOpen()) return;
     setIcsStep(1);
     setIcsInputMode("file");
     setIcsPropId(properties.length === 1 ? String(properties[0].id) : "");
@@ -1172,8 +1197,10 @@ export default function HostDashboard() {
   // A review notification (?reviewJob=) opens the review window for that job.
   useEffect(() => {
     if (!requestedReviewJobId || Number.isNaN(requestedReviewJobId)) return;
+    if (autoOpenedReviewJobIdRef.current === requestedReviewJobId) return;
     const asgn = allAssignments.find((a) => a.job === requestedReviewJobId && a.completed_at);
     if (!asgn) return;
+    autoOpenedReviewJobIdRef.current = requestedReviewJobId;
     setSection("applications");
     setReviewTarget({
       jobId: asgn.job,
@@ -1512,7 +1539,10 @@ export default function HostDashboard() {
                           <button
                             type="button"
                             className="host-app-view-profile"
-                            onClick={() => setViewProfileId(fav.cleaner_profile_id)}
+                            onClick={() => {
+                              if (shouldSuppressModalOpen()) return;
+                              setViewProfileId(fav.cleaner_profile_id);
+                            }}
                           >
                             {t("apps.view")}
                           </button>
@@ -1520,7 +1550,10 @@ export default function HostDashboard() {
                         <button
                           type="button"
                           className="host-offer-trigger"
-                          onClick={() => setOfferTarget({ userId: fav.cleaner, name: fav.cleaner_name })}
+                          onClick={() => {
+                            if (shouldSuppressModalOpen()) return;
+                            setOfferTarget({ userId: fav.cleaner, name: fav.cleaner_name });
+                          }}
                         >
                           <Send size={12} aria-hidden /> {t("apps.offer")}
                         </button>
@@ -1595,7 +1628,10 @@ export default function HostDashboard() {
                                   <button
                                     type="button"
                                     className="host-app-view-profile"
-                                    onClick={() => setViewProfileId(app.cleaner_profile_id)}
+                                    onClick={() => {
+                                      if (shouldSuppressModalOpen()) return;
+                                      setViewProfileId(app.cleaner_profile_id);
+                                    }}
                                   >
                                     {t("apps.pending.viewProfile")}
                                   </button>
@@ -1613,7 +1649,10 @@ export default function HostDashboard() {
                                 <button
                                   type="button"
                                   className="host-offer-trigger"
-                                  onClick={() => setOfferTarget({ userId: app.cleaner, name: app.cleaner_name })}
+                                  onClick={() => {
+                                    if (shouldSuppressModalOpen()) return;
+                                    setOfferTarget({ userId: app.cleaner, name: app.cleaner_name });
+                                  }}
                                 >
                                   <Send size={13} aria-hidden /> {t("apps.pending.offerJob")}
                                 </button>
@@ -2790,7 +2829,7 @@ export default function HostDashboard() {
           revieweeName={reviewTarget.revieweeName}
           meId={me.id}
           reviews={reviews}
-          onClose={() => setReviewTarget(null)}
+          onClose={closeReviewModal}
           onSubmitted={() => void loadAll()}
         />
       )}

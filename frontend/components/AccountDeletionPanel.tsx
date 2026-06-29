@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Trash2, X } from "lucide-react";
 import { apiFetch } from "../lib/api";
+import { useRefocusClickGuard } from "../lib/useRefocusClickGuard";
 
 type AccountDeletionPanelProps = {
   email: string;
@@ -19,6 +20,7 @@ function errorMessage(data: unknown, fallback: string) {
 
 export default function AccountDeletionPanel({ email }: AccountDeletionPanelProps) {
   const t = useTranslations("components.accountDeletionPanel");
+  const shouldSuppressModalOpen = useRefocusClickGuard();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -51,6 +53,7 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
         type="button"
         className="account-delete-button"
         onClick={() => {
+          if (shouldSuppressModalOpen()) return;
           setError("");
           setConfirmOpen(true);
         }}

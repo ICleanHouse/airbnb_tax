@@ -644,9 +644,11 @@
       },
       "experienceOptions": {
         "none": "Нямам опит",
-        "less_than_1_year": "По-малко от 1 година",
-        "1_to_3_years": "1–3 години",
-        "3_to_5_years": "3–5 години",
+        "1_year": "1 година",
+        "2_years": "2 години",
+        "3_years": "3 години",
+        "4_years": "4 години",
+        "5_years": "5 години",
         "more_than_5_years": "Повече от 5 години опит"
       },
       "personalPreferenceOptions": {

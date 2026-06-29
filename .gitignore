@@ -229,7 +229,3 @@ __marimo__/
 #images
 *.jpg
 *.jpeg
-
-# Local Codex/ECC skill library
-.codex/skills/daily/
-.codex/skills/library/

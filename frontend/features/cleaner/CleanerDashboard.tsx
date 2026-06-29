@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChangeEvent, FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Briefcase,
@@ -29,6 +29,7 @@ import { useTranslations } from "next-intl";
 import { apiFetch, CurrentUser } from "../../lib/api";
 import { money, formatMoney } from "../../lib/money";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
+import { useRefocusClickGuard } from "../../lib/useRefocusClickGuard";
 import DistrictMapSelector from "../../components/DistrictMapSelector";
 import NotificationBell from "../../components/NotificationBell";
 import Connections from "../../components/Connections";
@@ -536,6 +537,9 @@ export default function CleanerDashboard() {
     label: tPF(`personalPreferenceOptions.${v}` as Parameters<typeof tPF>[0]),
   }));
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const shouldSuppressModalOpen = useRefocusClickGuard();
   const cutoffDate = useMemo(() => adultCutoffDate(), []);
   const cutoffYear = cutoffDate.getFullYear();
   const cutoffMonth = cutoffDate.getMonth();
@@ -613,6 +617,7 @@ export default function CleanerDashboard() {
   const [reviewTarget, setReviewTarget] = useState<
     { jobId: number; jobTitle: string; revieweeId: number; revieweeName: string } | null
   >(null);
+  const autoOpenedReviewJobIdRef = useRef<number | null>(null);
   const [cancelingApplicationId, setCancelingApplicationId] = useState<number | null>(null);
   const [offerActionId, setOfferActionId] = useState<number | null>(null);
   const [applicationActionError, setApplicationActionError] = useState("");
@@ -622,6 +627,12 @@ export default function CleanerDashboard() {
   const requestedSection = searchParams.get("section");
   const reviewJobParam = searchParams.get("reviewJob");
   const requestedReviewJobId = reviewJobParam ? Number(reviewJobParam) : null;
+
+  useEffect(() => {
+    if (!requestedReviewJobId || Number.isNaN(requestedReviewJobId)) {
+      autoOpenedReviewJobIdRef.current = null;
+    }
+  }, [requestedReviewJobId]);
 
   useEffect(() => {
     apiFetch("/api/accounts/me/")
@@ -921,6 +932,7 @@ export default function CleanerDashboard() {
   }
 
   function openApply(job: CleaningJob) {
+    if (shouldSuppressModalOpen()) return;
     setApplyJob(job);
     setApplyPrice(job.proposed_price ?? "");
     setApplyMessage("");
@@ -971,6 +983,7 @@ export default function CleanerDashboard() {
 
   // Open the review window for this completed job (cleaner reviews the host).
   function openReview(assignment: AssignmentSummary, hostId: number) {
+    if (shouldSuppressModalOpen()) return;
     const job = jobById.get(assignment.job);
     setReviewTarget({
       jobId: assignment.job,
@@ -978,6 +991,15 @@ export default function CleanerDashboard() {
       revieweeId: hostId,
       revieweeName: job?.host_name || "the host",
     });
+  }
+
+  function closeReviewModal() {
+    setReviewTarget(null);
+    if (!reviewJobParam) return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("reviewJob");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
   }
 
   async function cancelApplication(applicationId: number) {
@@ -1473,6 +1495,7 @@ export default function CleanerDashboard() {
   // A review notification (?reviewJob=) opens the review window for that job.
   useEffect(() => {
     if (!requestedReviewJobId || Number.isNaN(requestedReviewJobId)) return;
+    if (autoOpenedReviewJobIdRef.current === requestedReviewJobId) return;
     const targetAssignment = assignments.find((a) => a.job === requestedReviewJobId);
     const targetJob = jobs.find((job) => job.id === requestedReviewJobId);
     if (!targetAssignment || !targetJob?.host) return;
@@ -1481,6 +1504,7 @@ export default function CleanerDashboard() {
       (targetJob.status || targetAssignment.job_status) === "completed";
     if (!isComplete) return;
 
+    autoOpenedReviewJobIdRef.current = requestedReviewJobId;
     setSection("applications");
     setReviewTarget({
       jobId: requestedReviewJobId,
@@ -3098,7 +3122,7 @@ export default function CleanerDashboard() {
           revieweeName={reviewTarget.revieweeName}
           meId={me.id}
           reviews={reviews}
-          onClose={() => setReviewTarget(null)}
+          onClose={closeReviewModal}
           onSubmitted={() => void loadAll()}
         />
       )}

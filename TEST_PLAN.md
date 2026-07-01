@@ -139,6 +139,15 @@ Phase 4 resolved gaps:
 - Favourite creation limited to public marketplace-eligible cleaners, including account status, active flag, cleaner profile, verification status, and role rejection: `backend/apps/marketplace/tests/test_favourite_eligibility.py`.
 - Favourite duplicate idempotence, owner-scoped list/delete, malformed/nonexistent IDs, safe serializer fields, text/data-string profile images, and historical unavailable favourite visibility: `backend/apps/marketplace/tests/test_favourite_eligibility.py` and `backend/apps/marketplace/tests/test_marketplace_serializers.py`.
 
+Phase 5 resolved gaps:
+- Duplicate review protection, including API retry behavior, controlled 400 responses, original-review immutability, no duplicate notifications, and agreement with the database uniqueness constraint: `backend/apps/feedback/tests/test_review_invariants.py`.
+- Self-review and non-involved user rejection, including unrelated hosts/cleaners, other-property hosts, rejected/withdrawn applicants, connection/favourite-only relationships, anonymous access, queryset detail hiding, unchanged rating/review/notification/audit state, and safe error bodies: `backend/apps/feedback/tests/test_review_invariants.py`.
+- Agency review participant contract: for delegated agency assignments, the review participants are the host and the actual assigned cleaner member; the agency account, non-assigned members, and former/revoked members are denied. If an agency assignment has no assigned member, the existing agency account remains the assignment cleaner until delegation occurs. Covered in `backend/apps/feedback/tests/test_review_invariants.py`.
+- Completion and review-window enforcement: reviews require `completed` status plus `assignment.completed_at`; draft/open/assigned/cancelled/disputed jobs are rejected; request payload dates cannot bypass service checks; review submission is allowed immediately before and exactly at the 14-day deadline and rejected immediately after, using timezone-aware datetimes from `assignment.completed_at`: `backend/apps/feedback/tests/test_review_invariants.py` and `backend/apps/feedback/tests/test_review_visibility.py`.
+- Double-blind visibility and ratings: single public reviews remain hidden until counterpart review or deadline; late counterpart submissions do not re-hide deadline-revealed reviews; cleaner ratings average only revealed public reviews, exclude hidden and private issue reports, and remain stable across duplicate rejection: `backend/apps/feedback/tests/test_review_visibility.py`.
+- Private issue policy: `is_private_issue=True` reports are admin/internal only, are excluded from public cleaner profiles and normal received/own review lists, do not expose `private_note` or moderation flags through normal serializers, and do not contribute to cleaner rating averages: `backend/apps/feedback/tests/test_review_visibility.py`.
+- Review notification contract: first public review prompts only the counterparty, second public review sends unlock notifications to both parties, invalid duplicate/self/late/non-involved attempts create no notifications, private issue reports create no public-review prompt, and notification metadata avoids private review content: `backend/apps/feedback/tests/test_review_notifications.py`.
+
 Duplicated or obsolete tests:
 - Completion tests in marketplace and feedback overlap on the cleaner-completion-to-review transition. Keep both layers but ensure one service test owns completion state, while feedback tests own review eligibility.
 - `CURRENT_PROGRESS.md` contains older two-step completion notes from 2026-06-02 that conflict with the newer single-step completion rule. Tests should follow `TGN.md` and the 2026-06-20 current-progress section.
@@ -639,15 +648,20 @@ Required fixtures or factories:
 
 Expected test files:
 - `backend/apps/feedback/tests/test_review_invariants.py`
+- `backend/apps/feedback/tests/test_review_visibility.py`
+- `backend/apps/feedback/tests/test_review_notifications.py`
 
 Commands to run:
-- From `backend/`: `python manage.py test apps.feedback.tests.test_review_invariants apps.feedback.tests.test_reviews`
+- From `backend/`: `python manage.py test apps.feedback.tests.test_review_invariants apps.feedback.tests.test_review_visibility apps.feedback.tests.test_review_notifications apps.feedback.tests.test_reviews`
 
 Dependencies:
 - None.
 
+Status:
+- ✅ Implemented. Production changes stayed inside `apps.feedback` service/queryset/serializer behavior; no migrations were required.
+
 Estimated production-code risk:
-- Low.
+- Low. The hardened behavior narrows review eligibility, private issue exposure, and duplicate race handling without changing marketplace completion state transitions.
 
 ### Batch 6: Properties, ICS, reservations, and calendar conflicts
 
@@ -1060,10 +1074,10 @@ Coverage anti-goals:
 
 ## 6. Implementation Order
 
-1. Add backend marketplace invariant tests for one assignment per job and concurrent/stale acceptance: `backend/apps/marketplace/services.py::accept_application`, `accept_offer`.
-2. Add account status and cleaner verification gate tests across accounts and marketplace: `UserViewSet.reject/suspend`, `CleanerProfileViewSet.perform_update`, `_ensure_cleaner_workable`.
+1. ✅ Add backend marketplace invariant tests for one assignment per job and concurrent/stale acceptance: `backend/apps/marketplace/services.py::accept_application`, `accept_offer`.
+2. ✅ Add account status and cleaner verification gate tests across accounts and marketplace: `UserViewSet.reject/suspend`, `CleanerProfileViewSet.perform_update`, `_ensure_cleaner_workable`.
 3. ✅ Add marketplace API negative-path tests for publish/update/delete/applications/offers/favourites/agency assignment. Phase 4 added explicit agency-delegation immutability and favourite-eligibility contracts.
-4. Add feedback invariant tests for duplicate/self/non-involved/private/window-closed reviews and notification unlock behavior.
+4. ✅ Add feedback invariant tests for duplicate/self/non-involved/private/window-closed reviews and notification unlock behavior.
 5. Add completion timing and Europe/Sofia boundary tests in backend, then frontend visibility tests for cleaner completion controls.
 6. Add properties/calendar/ICS tests for parser, upload/fetch, ownership, reservations, and conflicts.
 7. Add notification task tests for Resend-backed signup/application/completion emails and retry/fallback behavior.

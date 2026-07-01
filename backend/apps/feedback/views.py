@@ -23,7 +23,9 @@ class ReviewViewSet(viewsets.ModelViewSet):
         # Always your own reviews; received reviews only once revealed
         # (counterpart submitted, or the review window has closed).
         visible_received = Subquery(revealed_received_reviews(user).values("id"))
-        return queryset.filter(Q(reviewer=user) | Q(id__in=visible_received)).distinct()
+        return queryset.filter(
+            Q(reviewer=user, is_private_issue=False) | Q(id__in=visible_received)
+        ).distinct()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from django.db.models import Avg, Q, Subquery
 from django.utils import timezone
 
@@ -35,11 +36,20 @@ def revealed_received_reviews(user: User):
     counterpart review for the same job exists (i.e. ``user`` also reviewed), or
     the review window has closed. Private-issue reports are never included.
     """
-    reviewed_job_ids = Review.objects.filter(reviewer=user).values("job")
+    reviewed_job_ids = Review.objects.filter(reviewer=user, is_private_issue=False).values("job")
     return Review.objects.filter(reviewee=user, is_private_issue=False).filter(
         Q(job__in=Subquery(reviewed_job_ids))
         | Q(job__assignment__completed_at__lte=review_window_cutoff())
     )
+
+
+def _review_participant_ids(job: CleaningJob, assignment) -> set[int]:
+    actual_cleaner_id = assignment.assigned_member_id or assignment.cleaner_id
+    return {job.host_id, actual_cleaner_id}
+
+
+def _is_delegated_agency_assignment(assignment) -> bool:
+    return bool(assignment.assigned_member_id and assignment.cleaner.is_agency)
 
 
 def submit_review(
@@ -60,15 +70,20 @@ def submit_review(
         raise FeedbackError("Reviewed job must have an assignment.")
 
     assignment = job.assignment
+    if assignment.completed_at is None:
+        raise FeedbackError("Reviewed job must have a completion timestamp.")
+
     if assignment.completed_at and timezone.now() > assignment.completed_at + timedelta(
         days=REVIEW_WINDOW_DAYS
     ):
         raise FeedbackError("The review window for this job has closed.")
 
-    involved_user_ids = {job.host_id, assignment.cleaner_id}
-    if assignment.assigned_member_id:
-        involved_user_ids.add(assignment.assigned_member_id)
+    involved_user_ids = _review_participant_ids(job, assignment)
     if reviewer.id not in involved_user_ids or reviewee.id not in involved_user_ids:
+        if _is_delegated_agency_assignment(assignment):
+            raise FeedbackError(
+                "Only the host and assigned cleaner can review each other for this job."
+            )
         raise FeedbackError("Only users involved in the job can review each other.")
 
     if reviewer.id == reviewee.id:
@@ -77,24 +92,35 @@ def submit_review(
     if Review.objects.filter(job=job, reviewer=reviewer, reviewee=reviewee).exists():
         raise FeedbackError("You have already reviewed this job.")
 
-    review = Review.objects.create(
-        job=job,
-        reviewer=reviewer,
-        reviewee=reviewee,
-        rating=rating,
-        comment=comment,
-        private_note=private_note,
-        is_private_issue=is_private_issue,
-    )
+    try:
+        with transaction.atomic():
+            review = Review.objects.create(
+                job=job,
+                reviewer=reviewer,
+                reviewee=reviewee,
+                rating=rating,
+                comment=comment,
+                private_note=private_note,
+                is_private_issue=is_private_issue,
+            )
+    except IntegrityError as exc:
+        raise FeedbackError("You have already reviewed this job.") from exc
 
-    counterpart = Review.objects.filter(job=job, reviewer=reviewee, reviewee=reviewer).first()
+    counterpart = Review.objects.filter(
+        job=job,
+        reviewer=reviewee,
+        reviewee=reviewer,
+        is_private_issue=False,
+    ).first()
 
     # Ratings reflect only revealed reviews, so recompute both directions in case
     # this submission completed a pair (only cleaners carry a rating).
     refresh_cleaner_rating(reviewee)
     refresh_cleaner_rating(reviewer)
 
-    if counterpart is not None:
+    if is_private_issue:
+        pass
+    elif counterpart is not None:
         # Both reviews now exist — they become visible to each other.
         for recipient in (reviewer, reviewee):
             create_notification(

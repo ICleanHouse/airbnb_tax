@@ -46,3 +46,12 @@ class ReviewSerializer(serializers.ModelSerializer):
         full = f"{u.first_name} {u.last_name}".strip()
         return full or u.username
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not getattr(user, "is_platform_admin", False):
+            data.pop("private_note", None)
+            data.pop("is_private_issue", None)
+        return data
+

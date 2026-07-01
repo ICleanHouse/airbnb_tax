@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-06-25
+**Last updated:** 2026-07-01
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -190,7 +190,7 @@ AuditLog ──[references]────────► (any entity — polymorph
 - Only one job per property can exist for the exact same `scheduled_start` and `scheduled_end` (serializer validation plus database constraint).
 - Competing applications are rejected when one is accepted.
 - **Completion is a single step by the assigned cleaner (or an admin)** — there is no separate host confirmation. Marking done sets `completed_at` and flips the job to `completed` immediately; `cleaner_completed_at`/`host_completed_at` are both stamped at that moment. Cleaner completion is time-gated to after `scheduled_start`.
-- Reviews only allowed after `completed`, and are **double-blind**: a review about a user is revealed only once both sides have reviewed that job, or after a 14-day window (`feedback.services.REVIEW_WINDOW_DAYS`). On completion both host and cleaner receive a `review.requested` prompt.
+- Reviews only allowed after `completed` with `assignment.completed_at` set, and are **double-blind**: a review about a user is revealed only once both sides have reviewed that job, or after a 14-day window (`feedback.services.REVIEW_WINDOW_DAYS`). On completion both host and cleaner receive a `review.requested` prompt. For delegated agency assignments, the review parties are the host and the actual assigned cleaner member; the agency account is not a review participant after delegation.
 - `disputed` requires admin inspection (not yet built).
 
 ### 2d. Cleaner Application Lifecycle
@@ -523,6 +523,8 @@ EVENT: review.submitted                            ✅ implemented
   ├──► SIDE EFFECT: CleanerProfile.rating recalculated from REVEALED reviews only
   ├──► IF counterpart review exists → both reviews revealed; review.submitted ("Reviews are now visible") to both
   └──► ELSE → review.requested prompt sent to the counterpart so they unlock each other's
+      NOTE: private issue reports are admin/internal only; they do not create public-review prompts,
+            reveal counterpart reviews, or contribute to public ratings.
 
 EVENT: connection.request / connection.accepted    ✅ implemented (apps.connections)
   └──► SIDE EFFECT: create_notification to the other user; Connections badge polls unread-count
@@ -663,7 +665,8 @@ rating (1–5), comment,
 private_note, is_private_issue, created_at
 ```
 Visibility (double-blind):
-- A review about a user is revealed only when the counterpart review for the same job exists, OR `assignment.completed_at` is older than `REVIEW_WINDOW_DAYS` (14). `is_private_issue=True` reports are never shown publicly.
+- A review about a user is revealed only when the counterpart public review for the same job exists, OR `assignment.completed_at` is older than `REVIEW_WINDOW_DAYS` (14). The submission window is inclusive at the exact 14-day deadline and closes immediately after it.
+- `is_private_issue=True` reports are admin/internal only: they are hidden from normal review lists and public cleaner profiles, normal serializers do not expose `private_note` or `is_private_issue`, and they do not create public-review prompt/unlock notifications.
 - `CleanerProfile.average_rating` / `completed_jobs_count` are recomputed from revealed reviews only.
 
 ### Notification

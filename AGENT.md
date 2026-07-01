@@ -113,6 +113,8 @@ This is a Windows dev machine. Commands and paths must match it.
 - Cleaners must be verified before applying for marketplace jobs.
 - Users must be approved before full marketplace rights are enabled.
 - Agencies must assign accepted agency jobs only to active member cleaners.
+- Agency member delegation is immutable through the normal agency API after the first member assignment; reassignment requires a separate explicit admin/support workflow.
+- Hosts can create favourites only for active, approved, verified cleaner accounts that are eligible for the public cleaner directory. Historical favourites are retained and serialized safely if eligibility later changes.
 - Hosts can post one cleaning or a monthly batch, or bulk-import from an Airbnb `.ics` file.
 - Cleaners apply; hosts accept or reject.
 - Price can be proposed or agreed in the app, but payment is handled outside the platform in v1.
@@ -163,7 +165,8 @@ This is a Windows dev machine. Commands and paths must match it.
 - Monthly batch CRUD.
 - Cleaner applications.
 - Application acceptance (creates assignment, rejects competing applications).
-- Agency member delegation for accepted agency jobs.
+- Agency member delegation for accepted agency jobs; normal agency assignment is immutable after the first delegated cleaner member.
+- Host favourites for public marketplace-eligible cleaners, with historical favourites retained if a saved cleaner later becomes unavailable.
 - Single-step job completion by the assigned cleaner (or admin) after `scheduled_start`; on completion both host and cleaner get a `review.requested` notification.
 
 **Notifications (`apps/notifications`)**

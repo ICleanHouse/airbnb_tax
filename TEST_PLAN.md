@@ -129,10 +129,15 @@ Obvious missing coverage:
 - `CleaningJobSerializer.validate` scheduled end before start and duplicate exclusion on update.
 - `CleanerApplicationSerializer` PII exposure: `cleaner_email` is included for application payloads and should be tested against allowed recipients.
 - `offer_job_to_cleaner` find-or-create exact slot behavior and scheduled_end <= scheduled_start validation.
-- `FavouriteCleanerSerializer.get_profile_image` calls `profile.profile_image.url` although `profile_image` is a `TextField`; `CURRENT_PROGRESS.md` flags this as a follow-up. Add a serializer regression test before any fix.
-- `assign_member_to_assignment` negative paths: inactive membership, non-member cleaner, unverified member, unapproved member, non-agency owner.
+- Concurrent `assign_member_to_assignment` replacement attempts on PostgreSQL. Deterministic stale/sequential immutability is covered; avoid unreliable thread-based SQLite tests.
 - `MarketplaceCalendarView` coverage for host/admin/agency perspectives, date bounds, property images, pending offers, and denied pending users.
 - Notifications and email task side effects for accept/reject/withdraw are only partially covered.
+
+Phase 4 resolved gaps:
+- Agency delegation immutability and replacement denial: `backend/apps/marketplace/tests/test_agency_delegation_contract.py`.
+- Agency delegation repeat idempotence with no duplicate notification/audit side effects: `backend/apps/marketplace/tests/test_agency_delegation_contract.py`.
+- Favourite creation limited to public marketplace-eligible cleaners, including account status, active flag, cleaner profile, verification status, and role rejection: `backend/apps/marketplace/tests/test_favourite_eligibility.py`.
+- Favourite duplicate idempotence, owner-scoped list/delete, malformed/nonexistent IDs, safe serializer fields, text/data-string profile images, and historical unavailable favourite visibility: `backend/apps/marketplace/tests/test_favourite_eligibility.py` and `backend/apps/marketplace/tests/test_marketplace_serializers.py`.
 
 Duplicated or obsolete tests:
 - Completion tests in marketplace and feedback overlap on the cleaner-completion-to-review transition. Keep both layers but ensure one service test owns completion state, while feedback tests own review eligibility.
@@ -1057,7 +1062,7 @@ Coverage anti-goals:
 
 1. Add backend marketplace invariant tests for one assignment per job and concurrent/stale acceptance: `backend/apps/marketplace/services.py::accept_application`, `accept_offer`.
 2. Add account status and cleaner verification gate tests across accounts and marketplace: `UserViewSet.reject/suspend`, `CleanerProfileViewSet.perform_update`, `_ensure_cleaner_workable`.
-3. Add marketplace API negative-path tests for publish/update/delete/applications/offers/favourites/agency assignment.
+3. ✅ Add marketplace API negative-path tests for publish/update/delete/applications/offers/favourites/agency assignment. Phase 4 added explicit agency-delegation immutability and favourite-eligibility contracts.
 4. Add feedback invariant tests for duplicate/self/non-involved/private/window-closed reviews and notification unlock behavior.
 5. Add completion timing and Europe/Sofia boundary tests in backend, then frontend visibility tests for cleaner completion controls.
 6. Add properties/calendar/ICS tests for parser, upload/fetch, ownership, reservations, and conflicts.

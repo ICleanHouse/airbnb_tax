@@ -149,6 +149,7 @@ Rules:
 - Agencies must be approved before applying for jobs or assigning work.
 - Agencies can assign work only to active cleaner members.
 - Member cleaners must still have approved accounts and verified cleaner profiles before receiving agency work.
+- Once an accepted agency assignment is delegated to a member cleaner, the normal agency API cannot replace that member. The delegated cleaner owns calendar and operational responsibility, so reassignment needs a separate explicit admin/support workflow with reason and notification semantics.
 
 ### Marketplace Jobs
 
@@ -160,7 +161,7 @@ Responsibilities:
 - Job search and filtering.
 - Job lifecycle state transitions.
 - Assignment rules.
-- Agency assignment delegation to an active member cleaner.
+- Agency assignment delegation to an active member cleaner; normal delegation is immutable after the first assigned member.
 - Cancellation and dispute flags.
 
 Recommended job lifecycle:
@@ -177,6 +178,20 @@ Rules:
 
 - A property cannot have two jobs with the exact same `scheduled_start` and `scheduled_end`.
 - Assigned jobs use two-sided completion: cleaners can mark done once `scheduled_start` is in the past, while hosts and admins can complete only once `scheduled_end` is in the past.
+
+### Favourite Cleaners
+
+Responsibilities:
+
+- Host-owned saved cleaner list.
+- Idempotent save behavior for duplicate `(host, cleaner)` requests.
+- Safe serialization for authenticated host views.
+
+Rules:
+
+- New favourites can target only public marketplace-eligible cleaners: role `cleaner`, active user, approved account, existing cleaner profile, and verified cleaner status.
+- Hosts cannot favourite pending, rejected, suspended, inactive, unverified, missing-profile, host, agency, or admin targets.
+- Historical favourites are retained if the cleaner later becomes unavailable. They remain visible to the owning host through the existing safe favourite fields and are not automatically deleted.
 
 ### Applications
 
@@ -321,7 +336,8 @@ REST APIs through Django REST Framework.
 | `GET/POST /api/marketplace/applications/` | Cleaner applications |
 | `POST /api/marketplace/applications/{id}/accept/` | Host: accept application → creates assignment |
 | `GET/POST /api/marketplace/assignments/` | Assignments |
-| `POST /api/marketplace/assignments/{id}/assign-member/` | Agency: delegate to member cleaner |
+| `POST /api/marketplace/assignments/{id}/assign-member/` | Agency: delegate to member cleaner; immutable after first delegation |
+| `GET/POST/DELETE /api/marketplace/favourites/` | Host saved cleaners; create targets public marketplace-eligible cleaners only |
 | `GET/POST /api/feedback/reviews/` | Two-way reviews (post-completion only) |
 | `GET /api/notifications/notifications/` | In-app notifications |
 | `GET /api/calendars/conflicts/` | Calendar conflict check |

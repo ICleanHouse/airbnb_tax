@@ -36,6 +36,7 @@ from apps.marketplace.services import (
     accept_offer,
     assign_member_to_assignment,
     complete_job,
+    create_favourite_cleaner,
     decline_offer,
     offer_job,
     offer_job_to_cleaner,
@@ -759,14 +760,22 @@ class FavouriteCleanerViewSet(viewsets.ModelViewSet):
             return queryset
         return queryset.filter(host=user)
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         user = self.request.user
-        if not (user.is_platform_admin or user.is_host):
+        if not user.is_host:
             raise PermissionDenied("Only hosts can save favourite cleaners.")
-        if not user.is_platform_admin and not user.is_approved:
+        if not user.is_approved:
             raise PermissionDenied("Account must be approved before saving favourites.")
+
         cleaner = serializer.validated_data["cleaner"]
-        if not (cleaner.is_cleaner or cleaner.is_agency):
-            raise PermissionDenied("Only cleaner or agency accounts can be favourited.")
-        favourite, _ = FavouriteCleaner.objects.get_or_create(host=user, cleaner=cleaner)
+        try:
+            favourite, _ = create_favourite_cleaner(host=user, cleaner=cleaner)
+        except MarketplaceError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
         serializer.instance = favourite
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)

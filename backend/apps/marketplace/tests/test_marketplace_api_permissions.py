@@ -816,7 +816,7 @@ class AssignmentApiNegativeTests(MarketplaceApiNegativeBase):
 
 
 class FavouriteCleanerApiNegativeTests(MarketplaceApiNegativeBase):
-    def test_only_hosts_can_create_favourites_and_targets_must_be_cleaners_or_agencies(self):
+    def test_only_hosts_can_create_favourites_and_targets_must_be_public_eligible_cleaners(self):
         self.client.force_authenticate(self.cleaner)
         cleaner_response = self.client.post(
             "/api/marketplace/favourites/",
@@ -832,7 +832,7 @@ class FavouriteCleanerApiNegativeTests(MarketplaceApiNegativeBase):
         )
 
         self.assertEqual(cleaner_response.status_code, 403)
-        self.assertEqual(invalid_role_response.status_code, 403)
+        self.assertEqual(invalid_role_response.status_code, 400)
         self.assertFalse(FavouriteCleaner.objects.exists())
 
     def test_favourite_creation_is_idempotent_and_delete_is_owner_scoped(self):

@@ -97,6 +97,17 @@ class User(AbstractUser):
     def is_approved(self) -> bool:
         return self.is_platform_admin or self.account_status == self.AccountStatus.APPROVED
 
+    @property
+    def is_public_marketplace_eligible_cleaner(self) -> bool:
+        if (
+            not self.is_cleaner
+            or not self.is_active
+            or self.account_status != self.AccountStatus.APPROVED
+        ):
+            return False
+        profile = getattr(self, "cleaner_profile", None)
+        return bool(profile and profile.is_verified)
+
     def approve(self, approved_by=None) -> None:
         self.account_status = self.AccountStatus.APPROVED
         self.approved_at = timezone.now()
@@ -207,6 +218,14 @@ class CleanerProfile(TimeStampedModel):
     @property
     def is_verified(self) -> bool:
         return self.verification_status == self.VerificationStatus.VERIFIED
+
+    @classmethod
+    def public_marketplace_eligible_filter(cls) -> dict:
+        return {
+            "verification_status": cls.VerificationStatus.VERIFIED,
+            "user__account_status": User.AccountStatus.APPROVED,
+            "user__is_active": True,
+        }
 
     def __str__(self) -> str:
         return self.display_name or self.user.get_username()

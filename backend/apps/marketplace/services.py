@@ -7,13 +7,27 @@ from django.utils import timezone
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, User
 from apps.core.services import write_audit_log
-from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob, FavouriteCleaner
 from apps.notifications.services import create_notification
 from apps.notifications.tasks import send_application_submitted_email, send_job_completed_email
 
 
 class MarketplaceError(ValueError):
     pass
+
+
+FAVOURITE_TARGET_INELIGIBLE = "Only approved, active, verified cleaner accounts can be favourited."
+
+
+def ensure_favourite_target_eligible(cleaner: User) -> None:
+    if not cleaner.is_public_marketplace_eligible_cleaner:
+        raise MarketplaceError(FAVOURITE_TARGET_INELIGIBLE)
+
+
+@transaction.atomic
+def create_favourite_cleaner(*, host: User, cleaner: User) -> tuple[FavouriteCleaner, bool]:
+    ensure_favourite_target_eligible(cleaner)
+    return FavouriteCleaner.objects.get_or_create(host=host, cleaner=cleaner)
 
 
 def publish_job(job: CleaningJob, *, actor: User | None = None, request=None) -> CleaningJob:
@@ -647,6 +661,23 @@ def assign_member_to_assignment(
         id=assignment.id
     )
 
+    if not assignment.cleaner.is_agency:
+        raise MarketplaceError("Only agency assignments can be delegated to a member cleaner.")
+
+    if agency_user.is_platform_admin:
+        agency_profile = assignment.cleaner.agency_profile
+    else:
+        if agency_user.id != assignment.cleaner_id or not agency_user.is_agency:
+            raise MarketplaceError("Only the assigned agency can delegate this cleaning.")
+        if not agency_user.is_approved:
+            raise MarketplaceError("Agency account must be approved before assigning work.")
+        agency_profile = agency_user.agency_profile
+
+    if assignment.assigned_member_id:
+        if assignment.assigned_member_id == member.id:
+            return assignment
+        raise MarketplaceError("Assignment has already been delegated to a cleaner member.")
+
     if not member.is_cleaner:
         raise MarketplaceError("Assigned member must be a cleaner account.")
 
@@ -663,18 +694,6 @@ def assign_member_to_assignment(
 
     if not cleaner_profile.is_verified:
         raise MarketplaceError("Assigned cleaner must be verified.")
-
-    if not assignment.cleaner.is_agency:
-        raise MarketplaceError("Only agency assignments can be delegated to a member cleaner.")
-
-    if agency_user.is_platform_admin:
-        agency_profile = assignment.cleaner.agency_profile
-    else:
-        if agency_user.id != assignment.cleaner_id or not agency_user.is_agency:
-            raise MarketplaceError("Only the assigned agency can delegate this cleaning.")
-        if not agency_user.is_approved:
-            raise MarketplaceError("Agency account must be approved before assigning work.")
-        agency_profile = agency_user.agency_profile
 
     if not AgencyMembership.objects.filter(
         agency=agency_profile,

@@ -370,11 +370,7 @@ class PublicCleanerViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         queryset = (
             CleanerProfile.objects.select_related("user")
-            .filter(
-                verification_status=CleanerProfile.VerificationStatus.VERIFIED,
-                user__account_status=User.AccountStatus.APPROVED,
-                user__is_active=True,
-            )
+            .filter(**CleanerProfile.public_marketplace_eligible_filter())
             .order_by("-average_rating", "-completed_jobs_count", "id")
         )
 

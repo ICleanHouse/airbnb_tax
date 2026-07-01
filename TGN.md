@@ -97,7 +97,7 @@ AuditLog ──[references]────────► (any entity — polymorph
 | `Review` | User (both directions) | After job completion only |
 | `Notification` | System | Triggered by domain events |
 | `CookieConsent` | User / visitor | Consent banner interaction |
-| `FavouriteCleaner` | User[host] | Host saves a cleaner (one-way) |
+| `FavouriteCleaner` | User[host] | Host saves a public marketplace-eligible cleaner (one-way) |
 | `Connection` | User (requester) | Host/cleaner sends a connect request |
 | `Message` | User (sender) | Sent within an accepted connection |
 | `City` | System/admin | Location catalog creation/import |
@@ -226,6 +226,15 @@ Agency Membership:
 **Rules:**
 - Agency can assign work only to `active` members.
 - Member cleaner must also be `approved` + `verified` to receive agency work.
+- Once an accepted agency assignment is delegated to a member cleaner, the normal agency API treats that delegation as immutable. Repeating the same member assignment is idempotent; assigning a different member is rejected. Any future reassignment requires a separate admin/support workflow.
+
+### 2f. Favourite Cleaners
+
+**Rules:**
+- Hosts can create favourites only for public marketplace-eligible cleaners: role `cleaner`, active user, approved account, existing cleaner profile, and `verification_status="verified"`.
+- Favourite creation rejects pending, rejected, suspended, inactive, unverified, missing-profile, host, agency, and admin targets.
+- Duplicate favourite creation is idempotent and keeps one row per `(host, cleaner)`.
+- Historical favourites are not deleted when a cleaner later becomes unavailable. The authenticated host's favourite list keeps showing the historical row through the existing safe favourite serializer fields; new favourites for that unavailable cleaner are rejected.
 
 ---
 
@@ -424,7 +433,8 @@ Full API surface with implementation state.
 | POST | `/api/marketplace/applications/{id}/reject/` | Host | ✅ |
 | POST | `/api/marketplace/applications/{id}/withdraw/` | Cleaner/Agency | ✅ |
 | GET/READ | `/api/marketplace/assignments/` | Required | ✅ |
-| POST | `/api/marketplace/assignments/{id}/assign-member/` | Agency | ✅ |
+| POST | `/api/marketplace/assignments/{id}/assign-member/` | Agency | ✅ — immutable after first member delegation |
+| GET/POST/DELETE | `/api/marketplace/favourites/` | Host | ✅ — create targets public-eligible cleaners only; historical rows remain visible to owner |
 
 ### Connections (apps.connections — LinkedIn-style relationship + polled in-app chat)
 
@@ -783,7 +793,7 @@ Rules that must never be broken regardless of task scope.
 | R1 | A job has at most one accepted `Assignment` | Service layer — `marketplace/services.py` |
 | R2 | Reviews only after job `completed`; two-way and double-blind (received reviews revealed only when both submit or the 14-day window closes; ratings count revealed reviews only) | `feedback/services.py` + `ReviewViewSet.get_queryset` |
 | R3 | Cleaners must be `verified` + `approved` before applying | Permission class in marketplace views |
-| R4 | Agencies assign only to `active` members | Service layer — agency delegation |
+| R4 | Agencies assign only to `active` members, and normal agency delegation is immutable after the first member assignment | Service layer — agency delegation |
 | R5 | No payment processing in v1 | Architecture constraint |
 | R6 | Internal calendar is source of truth | Calendar module owns conflict detection |
 | R7 | Never set `Content-Type` for FormData | `frontend/lib/api.ts` — typeof body check |
@@ -798,5 +808,6 @@ Rules that must never be broken regardless of task scope.
 | R16 | Signup field changes must update database models, migrations, serializers, frontend payloads, and tests together | Accounts signup/profile workflow |
 | R17 | A property cannot have two jobs for the exact same start/end time | `CleaningJob` unique constraint + serializer validation |
 | R18 | Job completion is a single step by the assigned cleaner (or admin) after `scheduled_start` — there is no host confirmation step | `marketplace/services.py` + dashboard guards |
-| R19 | All new user-facing strings must ship with both `en.json` and `bg.json` values; keys are English camelCase; values only differ between files | `frontend/messages/` — next-intl v4 |
-| R20 | Never use hardcoded UI strings in components — always use `useTranslations` from next-intl | Frontend convention; module-level functions with strings must move inside the component |
+| R19 | Favourites can be created only for public marketplace-eligible cleaners; historical unavailable favourites remain visible to the owning host through safe serializer fields | `accounts.models` eligibility helper + `marketplace/services.py` |
+| R20 | All new user-facing strings must ship with both `en.json` and `bg.json` values; keys are English camelCase; values only differ between files | `frontend/messages/` — next-intl v4 |
+| R21 | Never use hardcoded UI strings in components — always use `useTranslations` from next-intl | Frontend convention; module-level functions with strings must move inside the component |

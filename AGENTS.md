@@ -36,6 +36,8 @@ Instruction priority:
 
 - Cleaners must be verified and users approved before full marketplace actions.
 - A cleaning job can have only one accepted cleaner assignment.
+- Agency member delegation is immutable through the normal agency API after the first member assignment; do not replace the member without an explicit admin/support workflow.
+- Host favourites may be created only for active, approved, verified cleaner accounts that are eligible for the public cleaner directory; do not delete historical favourites automatically when eligibility later changes.
 - Reviews are two-way, post-completion only, and double-blind until both submit or the review window closes.
 - Payments happen outside the platform in v1; do not add payment processing, payouts, wallets, invoices, or platform fees unless explicitly requested.
 - Internal app calendar is the source of truth.

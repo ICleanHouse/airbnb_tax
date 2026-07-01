@@ -441,6 +441,12 @@ class CleaningBatchViewSet(viewsets.ModelViewSet):
             metadata={"status": job.status},
         )
 
+    def perform_update(self, serializer):
+        property = serializer.validated_data.get("property", serializer.instance.property)
+        if not self.request.user.is_platform_admin and property.host_id != self.request.user.id:
+            raise PermissionDenied("Hosts can update batches only for their own properties.")
+        serializer.save(host=property.host)
+
 
 class CleaningJobViewSet(MarketplaceQuerysetMixin, viewsets.ModelViewSet):
     serializer_class = CleaningJobSerializer
@@ -466,6 +472,15 @@ class CleaningJobViewSet(MarketplaceQuerysetMixin, viewsets.ModelViewSet):
             raise PermissionDenied("Account must be approved before creating cleaning jobs.")
         if not self.request.user.is_platform_admin and property.host_id != self.request.user.id:
             raise PermissionDenied("Hosts can create jobs only for their own properties.")
+        serializer.save(host=property.host)
+
+    def perform_update(self, serializer):
+        property = serializer.validated_data.get("property", serializer.instance.property)
+        batch = serializer.validated_data.get("batch", serializer.instance.batch)
+        if not self.request.user.is_platform_admin and property.host_id != self.request.user.id:
+            raise PermissionDenied("Hosts can update jobs only for their own properties.")
+        if batch is not None and batch.host_id != property.host_id:
+            raise PermissionDenied("Job batch must belong to the same host as the job property.")
         serializer.save(host=property.host)
 
     def update(self, request, *args, **kwargs):

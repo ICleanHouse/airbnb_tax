@@ -385,8 +385,11 @@ class FavouriteCleanerSerializer(serializers.ModelSerializer):
         profile = self._profile(obj)
         if profile and profile.profile_image:
             request = self.context.get("request")
-            url = profile.profile_image.url
-            return request.build_absolute_uri(url) if request else url
+            image = profile.profile_image
+            url = getattr(image, "url", None) or str(image)
+            if request and not url.startswith(("http://", "https://", "data:")):
+                return request.build_absolute_uri(url)
+            return url
         return None
 
     def get_service_areas(self, obj):

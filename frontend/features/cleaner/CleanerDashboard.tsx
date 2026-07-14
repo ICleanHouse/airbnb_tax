@@ -72,15 +72,12 @@ interface CleanerProfile {
 interface AssignmentSummary {
   id: number;
   job: number;
-  job_title?: string;
-  job_scheduled_start?: string;
-  job_scheduled_end?: string;
-  job_status?: JobStatus;
-  job_property_name?: string;
-  job_property_city?: string;
-  job_property_neighborhood?: string;
+  cleaner: number;
+  assigned_member: number | null;
+  application: number | null;
   agreed_price: string | null;
   assigned_at: string;
+  cancelled_at: string | null;
   host_completed_at: string | null;
   cleaner_completed_at: string | null;
   completed_at: string | null;
@@ -88,22 +85,28 @@ interface AssignmentSummary {
 
 interface CleaningJob {
   id: number;
-  property: number;
+  access_tier?: "evaluator" | "assigned" | "history" | "owner" | "admin";
+  city_slug?: string;
+  city_name_bg?: string;
+  city_name_en?: string;
+  zone_id?: string | null;
+  zone_name_bg?: string;
+  zone_name_en?: string;
+  bedrooms?: number | null;
+  square_metres?: string | null;
+  can_apply?: boolean;
   property_name?: string;
-  property_city?: string;
-  property_neighborhood?: string;
   property_address?: string;
-  host: number;
+  property_image?: string | null;
+  host?: number;
   host_name?: string;
-  title: string;
-  description: string;
   scheduled_start: string;
   scheduled_end: string;
   currency: string;
   proposed_price: string | null;
-  agreed_price: string | null;
+  agreed_price?: string | null;
   status: JobStatus;
-  cleaning_instructions: string;
+  cleaning_instructions?: string;
   assignment?: AssignmentSummary | null;
 }
 
@@ -112,18 +115,10 @@ type ApplicationOrigin = "cleaner_applied" | "host_offered";
 interface CleanerApplication {
   id: number;
   job: number;
-  job_title?: string;
-  job_scheduled_start?: string;
-  job_scheduled_end?: string;
-  job_status?: JobStatus;
-  job_property_name?: string;
-  job_property_city?: string;
-  job_property_neighborhood?: string;
-  job_proposed_price?: string | null;
+  job_summary?: CleaningJob;
   status: ApplicationStatus;
   origin: ApplicationOrigin;
   proposed_price: string | null;
-  message: string;
   created_at: string;
 }
 
@@ -132,19 +127,30 @@ interface CalendarItem {
   id: string;
   item_type: CalendarItemType;
   job: number;
-  application: number | null;
-  assignment: number | null;
-  title: string;
-  starts_at: string;
-  ends_at: string;
+  application?: number | null;
+  assignment?: number | null;
+  access_tier: "evaluator" | "assigned" | "history" | "owner" | "admin";
+  scheduled_start: string;
+  scheduled_end: string;
   currency: string;
-  price: string | null;
-  property_name: string;
+  proposed_price: string | null;
+  city_slug?: string;
+  city_name_bg?: string;
+  city_name_en?: string;
+  zone_id?: string | null;
+  zone_name_bg?: string;
+  zone_name_en?: string;
+  bedrooms?: number | null;
+  square_metres?: string | null;
+  property_name?: string;
+  property_address?: string;
   property_image?: string | null;
-  property_city: string;
-  host_name: string;
-  job_status: JobStatus;
-  application_status: ApplicationStatus | "";
+  host?: number;
+  host_name?: string;
+  agreed_price?: string | null;
+  cleaning_instructions?: string;
+  status: JobStatus;
+  application_status?: ApplicationStatus | "";
   application_origin?: ApplicationOrigin | "";
   host_completed_at: string | null;
   cleaner_completed_at: string | null;
@@ -319,7 +325,7 @@ function calendarItemColor(item: CalendarItem) {
     return "var(--gold)";
   }
   if (item.item_type === "assignment") {
-    return item.completed_at || item.job_status === "completed" ? "#22c55e" : "var(--gold)";
+    return item.completed_at || item.status === "completed" ? "#22c55e" : "var(--gold)";
   }
   if (item.item_type === "application") {
     if (item.application_status === "accepted") return "var(--teal)";
@@ -485,10 +491,25 @@ function isPastDateTime(iso?: string | null, now = new Date()) {
   return new Date(iso).getTime() <= now.getTime();
 }
 
-function jobPlace(job?: Pick<CleaningJob, "property_name" | "property_city" | "property"> | null) {
+function jobPlace(job?: Pick<CleaningJob, "property_name" | "zone_name_bg" | "zone_name_en" | "city_name_bg" | "city_name_en"> | null) {
   if (!job) return "Job details";
-  const name = job.property_name || `Property #${job.property}`;
-  return job.property_city ? `${name} - ${job.property_city}` : name;
+  if (job.property_name) {
+    const city = job.city_name_bg || job.city_name_en || "";
+    return city ? `${job.property_name} - ${city}` : job.property_name;
+  }
+  const zone = job.zone_name_bg || job.zone_name_en || "";
+  const city = job.city_name_bg || job.city_name_en || "";
+  return [zone, city].filter(Boolean).join(" · ") || "Job details";
+}
+
+function calendarPlace(item: CalendarItem) {
+  if (item.property_name) {
+    const city = item.city_name_bg || item.city_name_en || "";
+    return city ? `${item.property_name} - ${city}` : item.property_name;
+  }
+  const zone = item.zone_name_bg || item.zone_name_en || "";
+  const city = item.city_name_bg || item.city_name_en || "";
+  return [zone, city].filter(Boolean).join(" · ");
 }
 
 export default function CleanerDashboard() {
@@ -562,7 +583,7 @@ export default function CleanerDashboard() {
   const [appFilter, setAppFilter] = useState<CleanerAppFilter>(null);
   const appdash = useAppdashPrefs(me);
   const [jobCityFilter, setJobCityFilter] = useState<string>("");
-  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
+  const [selectedPropertyKey, setSelectedPropertyKey] = useState<string | null>(null);
   const [railExpanded, setRailExpanded] = useState(false);
 
   const now = useMemo(() => new Date(), []);
@@ -987,7 +1008,7 @@ export default function CleanerDashboard() {
     const job = jobById.get(assignment.job);
     setReviewTarget({
       jobId: assignment.job,
-      jobTitle: assignment.job_title || job?.title || `Job #${assignment.job}`,
+      jobTitle: t("apps.openJobs.jobFallback"),
       revieweeId: hostId,
       revieweeName: job?.host_name || "the host",
     });
@@ -1442,29 +1463,38 @@ export default function CleanerDashboard() {
   }, [jobs]);
 
   const myProperties = useMemo(() => {
-    const map = new Map<number, { id: number; name: string; city: string; hostName: string }>();
+    const map = new Map<string, { id: string; name: string; city: string; hostName: string; jobIds: Set<number> }>();
     for (const assignment of assignments) {
       const job = jobById.get(assignment.job);
-      if (!job || map.has(job.property)) continue;
-      map.set(job.property, {
-        id: job.property,
-        name: job.property_name || `Property #${job.property}`,
-        city: job.property_city || "",
+      if (!job?.property_name) continue;
+      const identity = `${job.property_name}\u0000${job.property_address || ""}`;
+      const existing = map.get(identity);
+      if (existing) {
+        existing.jobIds.add(job.id);
+        continue;
+      }
+      map.set(identity, {
+        id: `property-${map.size + 1}`,
+        name: job.property_name,
+        city: job.city_name_bg || job.city_name_en || "",
         hostName: job.host_name || t("profileForm.fallbackHostName"),
+        jobIds: new Set([job.id]),
       });
     }
     return Array.from(map.values());
-  }, [assignments, jobById]);
+  }, [assignments, jobById, t]);
 
   const scopedJobIds = useMemo(() => {
-    if (!selectedPropertyId) return null;
-    return new Set(jobs.filter((j) => j.property === selectedPropertyId).map((j) => j.id));
-  }, [jobs, selectedPropertyId]);
+    if (!selectedPropertyKey) return null;
+    return myProperties.find((property) => property.id === selectedPropertyKey)?.jobIds ?? null;
+  }, [myProperties, selectedPropertyKey]);
 
   const openJobs = useMemo(() => {
     let result = jobs.filter((job) => job.status === "open");
     if (jobCityFilter) {
-      result = result.filter((job) => (job.property_city ?? "").toLowerCase() === jobCityFilter.toLowerCase());
+      result = result.filter((job) => (
+        job.city_name_bg || job.city_name_en || ""
+      ).toLowerCase() === jobCityFilter.toLowerCase());
     }
     return result.sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start));
   }, [jobs, jobCityFilter]);
@@ -1472,7 +1502,8 @@ export default function CleanerDashboard() {
   const availableJobCities = useMemo(() => {
     const cities = new Set<string>();
     jobs.filter((job) => job.status === "open").forEach((job) => {
-      if (job.property_city) cities.add(job.property_city);
+      const city = job.city_name_bg || job.city_name_en;
+      if (city) cities.add(city);
     });
     return Array.from(cities).sort();
   }, [jobs]);
@@ -1501,14 +1532,14 @@ export default function CleanerDashboard() {
     if (!targetAssignment || !targetJob?.host) return;
     const isComplete =
       Boolean(targetAssignment.completed_at) ||
-      (targetJob.status || targetAssignment.job_status) === "completed";
+      targetJob.status === "completed";
     if (!isComplete) return;
 
     autoOpenedReviewJobIdRef.current = requestedReviewJobId;
     setSection("applications");
     setReviewTarget({
       jobId: requestedReviewJobId,
-      jobTitle: targetAssignment.job_title || targetJob.title || `Job #${requestedReviewJobId}`,
+      jobTitle: t("apps.openJobs.jobFallback"),
       revieweeId: targetJob.host,
       revieweeName: targetJob.host_name || "the host",
     });
@@ -1526,7 +1557,7 @@ export default function CleanerDashboard() {
   const calendarItemsByDay = useMemo(() => {
     const map = new Map<number, CalendarItem[]>();
     for (const item of scopedCalendarItems) {
-      const ds = dateOnly(item.starts_at);
+      const ds = dateOnly(item.scheduled_start);
       if (ds.startsWith(monthPrefix)) {
         const day = parseInt(ds.slice(8), 10);
         if (!map.has(day)) map.set(day, []);
@@ -1534,7 +1565,7 @@ export default function CleanerDashboard() {
       }
     }
     for (const dayItems of map.values()) {
-      dayItems.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+      dayItems.sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start));
     }
     return map;
   }, [scopedCalendarItems, monthPrefix]);
@@ -1542,12 +1573,12 @@ export default function CleanerDashboard() {
   const visibleCalendarItems = useMemo(() => {
     if (selectedDay !== null) {
       const target = `${monthPrefix}${pad(selectedDay)}`;
-      return scopedCalendarItems.filter((item) => dateOnly(item.starts_at) === target);
+      return scopedCalendarItems.filter((item) => dateOnly(item.scheduled_start) === target);
     }
-    return [...scopedCalendarItems].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+    return [...scopedCalendarItems].sort((a, b) => a.scheduled_start.localeCompare(b.scheduled_start));
   }, [scopedCalendarItems, monthPrefix, selectedDay]);
   const incompleteCalendarItemCount = scopedCalendarItems.filter(
-    (item) => !item.completed_at && item.job_status !== "completed",
+    (item) => !item.completed_at && item.status !== "completed",
   ).length;
 
   function prevMonth() {
@@ -1579,7 +1610,9 @@ export default function CleanerDashboard() {
   );
   const pendingSelfApplications = selfApplications
     .filter((application) => application.status === "pending")
-    .sort((a, b) => (a.job_scheduled_start ?? "").localeCompare(b.job_scheduled_start ?? ""));
+    .sort((a, b) => (
+      a.job_summary?.scheduled_start ?? ""
+    ).localeCompare(b.job_summary?.scheduled_start ?? ""));
   const pendingApplications = pendingSelfApplications.length;
   const myReceivedReviews = reviews.filter((review) => review.reviewee === (me?.id ?? -1));
   const myRatingAvg = myReceivedReviews.length > 0
@@ -1777,8 +1810,8 @@ export default function CleanerDashboard() {
 
             <button
               type="button"
-              className={`host-rail-card host-rail-card--btn${selectedPropertyId == null ? " host-rail-card--active" : ""}`}
-              onClick={() => setSelectedPropertyId(null)}
+              className={`host-rail-card host-rail-card--btn${selectedPropertyKey == null ? " host-rail-card--active" : ""}`}
+              onClick={() => setSelectedPropertyKey(null)}
               title={t("rail.allProperties")}
               aria-label={t("rail.allProperties")}
             >
@@ -1792,11 +1825,11 @@ export default function CleanerDashboard() {
 
             <div className="host-rail-list">
               {myProperties.map((p) => (
-                <div key={p.id} className={`host-rail-card${selectedPropertyId === p.id ? " host-rail-card--active" : ""}`}>
+                <div key={p.id} className={`host-rail-card${selectedPropertyKey === p.id ? " host-rail-card--active" : ""}`}>
                   <button
                     type="button"
                     className="host-rail-card-main"
-                    onClick={() => setSelectedPropertyId(p.id)}
+                    onClick={() => setSelectedPropertyKey(p.id)}
                     title={p.name}
                     aria-label={p.name}
                   >
@@ -1822,8 +1855,8 @@ export default function CleanerDashboard() {
           <div className="host-rail-mobile">
             <select
               className="host-rail-mobile-select"
-              value={selectedPropertyId ?? ""}
-              onChange={(e) => setSelectedPropertyId(e.target.value ? Number(e.target.value) : null)}
+              value={selectedPropertyKey ?? ""}
+              onChange={(e) => setSelectedPropertyKey(e.target.value || null)}
               aria-label={t("rail.filterAriaLabel")}
             >
               <option value="">{t("rail.allProperties")}</option>
@@ -1965,12 +1998,12 @@ export default function CleanerDashboard() {
                               style={{ background: calendarItemColor(item) }}
                             />
                             <div className="host-job-info">
-                              <strong>{item.title}</strong>
+                              <strong>{t("apps.openJobs.jobFallback")}</strong>
                               <span className="host-job-property">
-                                {item.property_name}{item.property_city ? ` - ${item.property_city}` : ""}
+                                {calendarPlace(item)}
                               </span>
                               <span className="host-job-time">
-                                {fmtDateTime(item.starts_at)} - {fmtTime(item.ends_at)}
+                                {fmtDateTime(item.scheduled_start)} - {fmtTime(item.scheduled_end)}
                               </span>
                             </div>
                             <div className="host-job-right">
@@ -1979,11 +2012,15 @@ export default function CleanerDashboard() {
                               >
                                 {item.item_type === "application" && item.application_status
                                   ? APPLICATION_LABEL[item.application_status]
-                                  : item.item_type === "assignment" && (item.completed_at || item.job_status === "completed")
+                                  : item.item_type === "assignment" && (item.completed_at || item.status === "completed")
                                     ? t("calendar.completed")
                                     : CALENDAR_LABEL[item.item_type]}
                               </span>
-                              {item.price && <span className="host-job-price">{money(item.price, item.currency)}</span>}
+                              {(item.agreed_price || item.proposed_price) && (
+                                <span className="host-job-price">
+                                  {money(item.agreed_price || item.proposed_price, item.currency)}
+                                </span>
+                              )}
                               {itemCanApply && linkedJob && (
                                 <button
                                   className="host-publish-btn"
@@ -1993,7 +2030,7 @@ export default function CleanerDashboard() {
                                   {t("calendar.apply")}
                                 </button>
                               )}
-                              {item.can_complete && isPastDateTime(item.starts_at, now) && (
+                              {item.can_complete && isPastDateTime(item.scheduled_start, now) && (
                                 <button
                                   className="host-publish-btn cleaner-calendar-done"
                                   type="button"
@@ -2086,25 +2123,22 @@ export default function CleanerDashboard() {
                       </div>
                     ) : (
                       <ul className="host-apps-list">
-                        {pendingSelfApplications.map((application) => (
-                          <li key={application.id} className="host-app-card">
+                        {pendingSelfApplications.map((application) => {
+                          const summary = application.job_summary;
+                          return <li key={application.id} className="host-app-card">
                             <div className="host-app-card-left">
                               <div className="host-app-job-info">
-                                <strong className="host-app-job-title">{application.job_title || `Job #${application.job}`}</strong>
-                                <span className="host-app-job-meta">
-                                  {application.job_property_name}
-                                  {application.job_property_city ? ` · ${application.job_property_city}` : ""}
-                                </span>
+                                <strong className="host-app-job-title">{t("apps.openJobs.jobFallback")}</strong>
+                                <span className="host-app-job-meta">{jobPlace(summary)}</span>
                                 <span className="host-app-job-time">
-                                  {fmtDateTime(application.job_scheduled_start)}
-                                  {application.job_scheduled_end ? ` – ${fmtTime(application.job_scheduled_end)}` : ""}
+                                  {fmtDateTime(summary?.scheduled_start)}
+                                  {summary?.scheduled_end ? ` – ${fmtTime(summary.scheduled_end)}` : ""}
                                 </span>
                               </div>
-                              {application.message && <p className="host-app-message">&quot;{application.message}&quot;</p>}
                             </div>
                             <div className="host-app-card-right">
-                              {(application.proposed_price || application.job_proposed_price) && (
-                                <span className="host-app-price">{money(application.proposed_price || application.job_proposed_price, "EUR")}</span>
+                              {(application.proposed_price || summary?.proposed_price) && (
+                                <span className="host-app-price">{money(application.proposed_price || summary?.proposed_price, summary?.currency || "EUR")}</span>
                               )}
                               <div className="host-app-actions">
                                 <span className="host-app-badge host-app-badge--assigned">{t("apps.pending.awaitingHost")}</span>
@@ -2119,8 +2153,8 @@ export default function CleanerDashboard() {
                                 </button>
                               </div>
                             </div>
-                          </li>
-                        ))}
+                          </li>;
+                        })}
                       </ul>
                     )}
                   </div>
@@ -2140,10 +2174,10 @@ export default function CleanerDashboard() {
                       <ul className="host-apps-list">
                         {activeAssignments.map((assignment) => {
                           const job = jobById.get(assignment.job);
-                          const jobStatus = job?.status || assignment.job_status || "assigned";
+                          const jobStatus = job?.status || "assigned";
                           const cleanerDone = Boolean(assignment.cleaner_completed_at);
                           const hostDone = Boolean(assignment.host_completed_at);
-                          const canMarkComplete = !cleanerDone && isPastDateTime(assignment.job_scheduled_start || job?.scheduled_start, now);
+                          const canMarkComplete = !cleanerDone && isPastDateTime(job?.scheduled_start, now);
                           const statusText = cleanerDone && !hostDone
                             ? t("apps.active.waitingHost")
                             : hostDone && !cleanerDone
@@ -2153,10 +2187,10 @@ export default function CleanerDashboard() {
                             <li id={`assignment-${assignment.job}`} key={assignment.id} className="host-app-card host-app-card--assigned">
                               <div className="host-app-card-left">
                                 <div className="host-app-job-info">
-                                  <strong className="host-app-job-title">{assignment.job_title || job?.title || `Job #${assignment.job}`}</strong>
-                                  <span className="host-app-job-meta">{assignment.job_property_name || jobPlace(job)}</span>
+                                  <strong className="host-app-job-title">{t("apps.openJobs.jobFallback")}</strong>
+                                  <span className="host-app-job-meta">{jobPlace(job)}</span>
                                   <span className="host-app-job-time">
-                                    {fmtDateTime(assignment.job_scheduled_start || job?.scheduled_start)} – {fmtTime(assignment.job_scheduled_end || job?.scheduled_end)}
+                                    {fmtDateTime(job?.scheduled_start)} – {fmtTime(job?.scheduled_end)}
                                   </span>
                                 </div>
                               </div>
@@ -2205,10 +2239,10 @@ export default function CleanerDashboard() {
                             <li id={`assignment-${assignment.job}`} key={assignment.id} className="host-app-card host-app-card--done">
                               <div className="host-app-card-left">
                                 <div className="host-app-job-info">
-                                  <strong className="host-app-job-title">{assignment.job_title || job?.title || `Job #${assignment.job}`}</strong>
-                                  <span className="host-app-job-meta">{assignment.job_property_name || jobPlace(job)}</span>
+                                  <strong className="host-app-job-title">{t("apps.openJobs.jobFallback")}</strong>
+                                  <span className="host-app-job-meta">{jobPlace(job)}</span>
                                   <span className="host-app-job-time">
-                                    {fmtDateTime(assignment.job_scheduled_start || job?.scheduled_start)} – {fmtTime(assignment.job_scheduled_end || job?.scheduled_end)}
+                                    {fmtDateTime(job?.scheduled_start)} – {fmtTime(job?.scheduled_end)}
                                   </span>
                                 </div>
                               </div>
@@ -2288,19 +2322,20 @@ export default function CleanerDashboard() {
                             <li key={job.id} className="host-app-card">
                               <div className="host-app-card-left">
                                 <div className="host-app-job-info">
-                                  <strong className="host-app-job-title">{job.title}</strong>
-                                  <span className="host-app-job-meta">
-                                    {job.property_city ?? ""}
-                                    {job.property_neighborhood ? ` · ${job.property_neighborhood}` : ""}
-                                    {job.property_name ? ` · ${job.property_name}` : ""}
-                                  </span>
+                                  <strong className="host-app-job-title">{t("apps.openJobs.jobFallback")}</strong>
+                                  <span className="host-app-job-meta">{jobPlace(job)}</span>
                                   <span className="host-app-job-time">
                                     {fmtDateTime(job.scheduled_start)} – {fmtTime(job.scheduled_end)}
                                   </span>
+                                  {(job.bedrooms != null || job.square_metres) ? (
+                                    <span className="host-app-job-meta">
+                                      {[
+                                        job.bedrooms != null ? t("apps.openJobs.bedrooms", { count: job.bedrooms }) : "",
+                                        job.square_metres ? t("apps.openJobs.squareMetres", { value: job.square_metres }) : "",
+                                      ].filter(Boolean).join(" · ")}
+                                    </span>
+                                  ) : null}
                                 </div>
-                                {(job.description || job.cleaning_instructions) && (
-                                  <p className="host-app-message">{job.description || job.cleaning_instructions}</p>
-                                )}
                               </div>
                               <div className="host-app-card-right">
                                 {job.proposed_price && <span className="host-app-price">{money(job.proposed_price, job.currency)}</span>}
@@ -2313,7 +2348,7 @@ export default function CleanerDashboard() {
                                     <button
                                       className="host-app-accept-btn"
                                       type="button"
-                                      disabled={!canApply}
+                                      disabled={!canApply || job.can_apply === false}
                                       title={disabledReason}
                                       onClick={() => openApply(job)}
                                     >
@@ -2387,20 +2422,19 @@ export default function CleanerDashboard() {
                 {applicationActionError ? <p className="form-error">{applicationActionError}</p> : null}
                 <ul className="cleaner-job-list">
                   {pendingOffers.map((offer) => {
-                    const job = jobById.get(offer.job);
+                    const summary = offer.job_summary;
                     return (
                       <li key={offer.id} className="cleaner-job-card cleaner-offer-card">
                         <div className="cleaner-job-main">
                           <div>
                             <span className="cleaner-offer-badge"><Gift size={12} aria-hidden /> {t("offers.badge")}</span>
-                            <strong>{offer.job_title || job?.title || `Job #${offer.job}`}</strong>
-                            <span>{offer.job_property_name || jobPlace(job)}</span>
+                            <strong>{t("apps.openJobs.jobFallback")}</strong>
+                            <span>{jobPlace(summary)}</span>
                           </div>
                           <div className="cleaner-job-meta">
-                            <span><CalendarDays size={14} aria-hidden />{fmtDateTime(offer.job_scheduled_start || job?.scheduled_start)}</span>
-                            <span>{money(offer.proposed_price || offer.job_proposed_price, job?.currency)}</span>
+                            <span><CalendarDays size={14} aria-hidden />{fmtDateTime(summary?.scheduled_start)}</span>
+                            <span>{money(offer.proposed_price || summary?.proposed_price, summary?.currency)}</span>
                           </div>
-                          {offer.message && <p>{offer.message}</p>}
                         </div>
                         <div className="cleaner-job-actions">
                           <button
@@ -3076,7 +3110,7 @@ export default function CleanerDashboard() {
             </div>
             <form className="host-form" onSubmit={(event) => void submitApplication(event)}>
               <div className="cleaner-apply-summary">
-                <strong>{applyJob.title}</strong>
+                <strong>{t("apps.openJobs.jobFallback")}</strong>
                 <span>{jobPlace(applyJob)}</span>
                 <span>{fmtDateTime(applyJob.scheduled_start)} - {fmtTime(applyJob.scheduled_end)}</span>
               </div>

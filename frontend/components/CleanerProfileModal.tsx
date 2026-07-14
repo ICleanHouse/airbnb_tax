@@ -205,7 +205,7 @@ export default function CleanerProfileModal({
                     {detail.reviews.map((review) => (
                       <li className="review-item" key={review.id}>
                         <div className="review-item-head">
-                          <strong>{review.reviewer_name}</strong>
+                          <strong>{t("verifiedHostReviewer")}</strong>
                           <RatingStars rating={review.rating} size={13} showValue={false} />
                         </div>
                         {review.comment && <p>{review.comment}</p>}

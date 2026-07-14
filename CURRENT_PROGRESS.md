@@ -1,5 +1,52 @@
 # Current Progress Handoff
 
+Updated: 2026-07-14, release-blocking marketplace privacy remediation.
+
+## Latest Work — Public Demand, Property Media, and Signup Secrets (2026-07-14)
+
+- Anonymous discovery now uses canonical
+  `GET /api/marketplace/public-demand/?city=sofia`, returning only canonical
+  city/Sofia-zone names and aggregate counts. The old
+  `/open-job-locations/` route is an identical safe compatibility alias with
+  deprecation headers and a 15 October 2026 sunset. The historical per-job map
+  sections below are superseded and must not be restored.
+- S1-D04 evaluator disclosure is an explicit server allowlist for approved,
+  verified cleaners and eligible approved agencies. Only a current active
+  assignment receives the approved operational extension. Completed or other
+  retained worker records use the `history` tier, which removes property name,
+  address, image, and instructions while retaining evaluator, non-contact host display,
+  agreed-price, and workflow history. Exact coordinates remain private in every
+  worker tier.
+- Sofia properties use stored canonical `sofia:osm-1..144` service-zone IDs.
+  Operational `PropertyImage` content is object-authorized and streamed through
+  `/api/properties/images/{id}/content/`; every raw `/media/*` path is denied.
+  Approved public cleaner profile media remains the public `profile_image`
+  API/data value and is not `PropertyImage` raw storage.
+- Accepted connections expose shared work only when the requesting participant
+  is active/approved and, when the requester is the worker, is a verified
+  eligible evaluator. The current non-cancelled-assignment response is no-store
+  and contains only property name/city/count and cleaning job ID, property name,
+  schedule, status, agreed price, and currency; no address, image, instructions,
+  host identity, coordinates, or free text is included.
+- Signup refresh recovery persists only `version`, `savedAt`, `role`,
+  `citySlug`, `selectedZoneIds`, and `experienceLevel` for 24 hours. Passwords,
+  confirmation, codes, tokens, identity/profile data, errors, and responses are
+  memory-only and empty after refresh. Legacy sensitive records are immediately
+  removed/sanitized.
+- API requests/responses use no-store controls; the release sends
+  `Clear-Site-Data: "cache"` on affected responses. Frontend/backend telemetry
+  is rebuilt from controlled allowlists and omits bodies, queries, raw errors,
+  addresses, credentials, tokens, and private IDs. Remove the cache-purge header
+  no later than 2026-10-15 (the compatibility-alias sunset); never extend it to
+  storage or cookies. Request IDs are accepted only as `req_` plus 32 lowercase
+  hexadecimal characters, with invalid inbound values replaced.
+- `Security Audit Plan.txt` is absent from the checked-out repository. The
+  supplied audit-plan requirements and Sofia pilot plan were used as external
+  planning inputs.
+
+Final full-suite verification for this change is recorded in the release
+handoff rather than the historical command results below.
+
 Updated: 2026-06-25, after the full frontend i18n localisation with next-intl v4.
 
 ## Latest Work — Full Frontend i18n Localisation (2026-06-25)
@@ -63,21 +110,29 @@ The job-completion + review flow was reworked end to end:
 - **Notification routing** (`frontend/components/NotificationBell.tsx`): `review.requested` now routes to the correct dashboard based on the current path — `/host?section=applications&appFilter=completed&reviewJob=…` for hosts, `/cleaner?section=assignments&reviewJob=…` for cleaners (previously hard-coded to `/cleaner`).
 - **Verification**: `apps.feedback` + `apps.marketplace` backend suites pass (36 tests); frontend `npm.cmd run typecheck` + `npm.cmd run lint` clean.
 
-## Latest Work — Map Property Pin → All Open Jobs + Connect Host (2026-06-20)
+## Historical — Map Property Pin → All Open Jobs + Connect Host (superseded 2026-07-14)
 
-- **Property-grouped map pins**: `OpenJobMap.tsx` now renders one marker per property (grouping the per-job markers via a new public `property_id` field on `OpenJobLocationSerializer`). Clicking a pin opens a Property modal listing **all** of that property's open jobs (each with an Apply action).
-- **Connect with host from the map**: for authenticated cleaners, the Property modal shows the host name + a reusable `ConnectButton` (host identity is fetched from the authenticated `GET /api/marketplace/jobs/{id}/`, never from the public marker endpoint). The marker endpoint stays host-identity-free for guests.
-- **Verification**: `test_open_job_locations` updated for `property_id`; typecheck + lint clean.
+- This historical per-property marker/host-connect design was removed in full on
+  2026-07-14. Neither public response now contains a property/job/host ID, and
+  the public component cannot fetch job detail or start an application.
 
-## Latest Work — Landing Work Map + Cleaner Work Discovery (2026-06-16)
+## Historical — Landing Work Map + Cleaner Work Discovery (superseded 2026-07-14)
 
 - **Landing audience toggle**: `/` now supports the public host path (`Find a cleaner`) and cleaner path (`Find cleaning work`). The hero content is centered with tighter 40px vertical padding.
-- **Cleaner work map**: the `Find cleaning work` tab shows an interactive Leaflet/OpenStreetMap work map under a centered city dropdown and demand caption. The map displays open-job pins, taller viewport sizing, property photo popups, job/address/price metadata, and equalized Leaflet popup padding.
-- **Public open-job marker API**: `GET /api/marketplace/open-job-locations/?city=Sofia` returns public, host-identity-free markers for open jobs with pinned property coordinates, address fields, proposed price, schedule, and the main property photo. The endpoint is available to guests, hosts, and cleaners.
-- **Cleaner action from map**: authenticated cleaner users see an `Offer cleaning` popup button that opens an `Apply for job` overlay. The overlay shows the property photo, address, property name, host name when available, editable price offer, and message field, then submits through `POST /api/marketplace/applications/`. Guests and hosts do not see the action.
-- **Map-driven city filtering**: manual map drag/zoom auto-selects the nearest supported city (Sofia, Plovdiv, Varna) within 35km based on viewport center, updating the dropdown, demand cards, and pins. User-controlled viewport state suppresses automatic `fitBounds`/`setView` so zooming or panning no longer pulls the map back to the selected city; explicit dropdown selection still recenters.
+- **Removed for privacy**: the historical per-job Leaflet map, property pins,
+  photo/address/price/schedule popups, and map application overlay were removed
+  on 2026-07-14. Public UI now renders canonical district aggregates only.
+- **Compatibility route redefined**: `/api/marketplace/open-job-locations/`
+  now returns the identical safe `/public-demand/` aggregate body and carries
+  deprecation/sunset headers. It must never regain the historical marker shape.
+- **Applications moved behind evaluator authorization**: approved verified
+  cleaners and eligible approved agencies evaluate/apply from authenticated
+  dashboard projections only.
+- **Canonical city filtering**: the city dropdown sends only canonical slugs;
+  public job-derived coordinates are not used for viewport or city inference.
 - **Authenticated CTA cleanup**: the bottom cleaner signup CTA in the work panel is guest-only; authenticated users no longer see it.
-- **Verification**: frontend `npm run lint` and `npm run typecheck` passed; focused backend tests for `open-job-locations` passed after adding marker/photo/access coverage.
+- **Historical verification superseded**: current privacy regressions assert the
+  aggregate schema and recursive absence of private fields.
 
 ## Latest Work — Sofia Districts · Cleaner UX · Shared Account Menus (2026-06-15/16)
 
@@ -95,8 +150,8 @@ The job-completion + review flow was reworked end to end:
 
 ClickUp: "Property rail · Income/Expenditure · Connections & in-app chat (3 phases)" (`869dky9yp`, complete). Verified: Django `check` clean; `apps.connections` + `apps.marketplace` = 34 tests OK; frontend `typecheck` + `lint` clean.
 
-- **Cleaner dashboard rebuilt to mirror host (earlier in session)**: tabs are now **Jobs & Calendar · Applications · Offers** (Profile in the account menu). Calendar reuses the host design with **property thumbnails** in day cells (needs `property_image` on calendar items — see below); Applications is a host-style 5/6-card `host-appdash-grid` (Pending/Active/Completed/Open/Rating + Income). `features/cleaner/CleanerDashboard.tsx`.
-- **Calendar `property_image`**: `job_calendar_payload` + `MarketplaceCalendarItemSerializer` expose a first-photo `property_image` (relative `/media/...`); calendar querysets `prefetch_related` property images. `AssignmentSerializer` exposes `cleaner_profile_image`. No payment fields.
+- **Cleaner dashboard rebuilt to mirror host (earlier in session)**: tabs are now **Jobs & Calendar · Applications · Offers** (Profile in the account menu). Calendar reuses the host design with property thumbnails only for current operational assignments; Applications is a host-style 5/6-card `host-appdash-grid` (Pending/Active/Completed/Open/Rating + Income). `features/cleaner/CleanerDashboard.tsx`.
+- **Calendar privacy projection (supersedes the old raw-media contract)**: a current `assigned` item may expose a first-photo `property_image` only as `/api/properties/images/{id}/content/`. A completed/non-operational worker item is `history` and omits property name, address, image, and instructions. `AssignmentSerializer.cleaner_profile_image` is the separately approved cleaner-profile API/data value, not a raw `PropertyImage` path. No payment fields.
 - **Phase 1 — Property navigation rail (host)**: replaced the Properties topbar tab + card grid with a slim left **rail** (`.host-rail`): All → property thumbnails → footer pencil(edit)+plus(add). Selecting a property filters Jobs & Calendar + Applications **in place** via `selectedPropertyId` (state renamed to `all*` with derived scoped `jobs/applications/assignments` memos). "Post a job" pre-scopes to the selection. Mobile ≤860px → dropdown selector. Topbar tabs now Jobs & Calendar + Applications. `features/host/HostDashboard.tsx`, `globals.css` (`.host-rail*`, `.host-workspace*`). NOTE: the earlier `/host/properties/[id]` route was **removed**.
 - **Phase 2 — Income/Expenditure card**: 6th appdash card next to "My rating" — host **Spent** / cleaner **Income** = Σ `agreed_price` of completed assignments (+ "from N cleanings"). Shared `frontend/lib/money.ts` (`money`, `formatMoney`); `.host-appdash-card--money/--static`.
 - **Phase 3 — Connections + in-app chat (LinkedIn-style)**: new `backend/apps/connections/` app — `Connection` (requester/addressee, status pending/accepted/declined/removed, unique pair) + `Message` (body, read_at). Services (host↔cleaner-only pairing, no self-connect, reverse-request auto-accepts, messaging only on accepted) + audit + notifications. Endpoints `/api/connections/`: list · create(request) · `accept`/`decline` · DELETE(remove) · `messages` (GET marks read / POST send) · `read` · `unread-count` · `shared` (collaborated properties+cleanings). Migration `0001_initial`; registered in settings + root urls. Frontend: **"Connections" button next to Applications** in both navs (`components/Connections.tsx`, polled badge) → right drawer (Requests / Connected / Pending) → polled chat thread + Shared panel; reusable `components/ConnectButton.tsx` wired into the cleaner profile modal. Chat is **polled** (no websockets). Types `frontend/types/connection.ts`; CSS `.connections-*`/`.chat-bubble*`/`.connect-btn*`.
@@ -127,7 +182,7 @@ ClickUp task: "Host calendar redesign — compact thumbnail-driven day grid" (`8
 
 - **Cleaner city filtering**: cleaner profiles now persist and expose `city`. The public `CleanerBrowser` filters by saved city first and keeps service-area district inference only as a fallback for older blank-city cleaner profiles.
 - **Seed data guarantees**: `a1_populate_tables_test.py` now asserts unique host/cleaner names and emails, creates one or more properties per host at different addresses, and gives every cleaner at least one service district.
-- **Seeded property photos**: property seed photos are generated as visible JPEGs and old `property_*.*` seed media is cleaned before re-seeding. Property image API responses use relative `/media/...` URLs so the frontend proxy can load them reliably.
+- **Seeded property photos**: property seed photos are generated as visible JPEGs and old `property_*.*` seed media is cleaned before re-seeding. Property serializers now expose only object-authorized `/api/properties/images/{id}/content/` values; raw `/media/*` URLs are denied and are not proxied by Next.js or Caddy.
 - **Completion timing**: after acceptance, nobody can mark a job done before its scheduled start. Cleaners can mark done once start time is in the past, even if the end time is still ahead; hosts/admins can confirm completion only after the scheduled end time.
 - **Duplicate jobs**: a host cannot create the same job twice for the same property and exact start/end time; this is enforced by serializer validation and a database unique constraint.
 
@@ -213,7 +268,8 @@ Current work is focused on completing the cleaner signup flow. The production-ho
   - Continue and Back update React state instead of navigating with full page loads.
   - Motion (`motion/react`) animates form panels between steps.
   - Progress tracking starts at `Choose account type`.
-  - Draft signup state is persisted in `sessionStorage` for refresh recovery.
+  - Historical behavior persisted broad draft signup state in `sessionStorage`;
+    this was replaced on 2026-07-14 by the explicit non-sensitive allowlist.
 - Current signup flow:
   - Credentials and password validation.
   - 6-digit email code confirmation.
@@ -263,7 +319,9 @@ python -m celery -A config worker --loglevel=info --pool=solo
 ```
 
 - Restart both Django and Celery after changes to notification tasks, templates, or `.env`.
-- For debugging, search technical logs by `request_id`; view business history at `/admin/core/auditlog/`.
+- For debugging, search technical logs by the normalized `request_id` (`req_`
+  plus 32 lowercase hexadecimal characters) and sanitized endpoint template;
+  view actor/business history separately at `/admin/core/auditlog/`.
 
 ## Verified
 

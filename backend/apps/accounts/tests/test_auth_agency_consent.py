@@ -426,20 +426,28 @@ class AccountAuthTests(TestCase):
         self.assertFalse(Assignment.objects.filter(id=assigned.id).exists())
         self.assertFalse(Connection.objects.filter(id=connection.id).exists())
         self.assertFalse(Message.objects.filter(connection_id=connection.id).exists())
-        self.assertTrue(
-            Notification.objects.filter(
-                user=assigned_cleaner,
-                notification_type="account.host_deleted",
-                metadata__assignment_id=assigned.id,
-            ).exists()
+        assigned_notification = Notification.objects.get(
+            user=assigned_cleaner,
+            notification_type="account.host_deleted",
+            metadata__assignment_id=assigned.id,
         )
-        self.assertTrue(
-            Notification.objects.filter(
-                user=pending_cleaner,
-                notification_type="account.host_deleted",
-                metadata__application_id=pending_application.id,
-            ).exists()
+        pending_notification = Notification.objects.get(
+            user=pending_cleaner,
+            notification_type="account.host_deleted",
+            metadata__application_id=pending_application.id,
         )
+        self.assertEqual(
+            assigned_notification.metadata,
+            {"job_id": assigned_job.id, "assignment_id": assigned.id},
+        )
+        self.assertEqual(
+            pending_notification.metadata,
+            {"job_id": pending_job.id, "application_id": pending_application.id},
+        )
+        for notification in (assigned_notification, pending_notification):
+            self.assertNotIn(host.email, notification.body)
+            self.assertNotIn("deleted_user_id", notification.metadata)
+            self.assertNotIn("property_id", notification.metadata)
 
     def test_cleaner_account_deletion_removes_taken_jobs_connections_and_notifies_host(self):
         host = User.objects.create_user(

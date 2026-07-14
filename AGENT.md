@@ -203,16 +203,24 @@ This is a Windows dev machine. Commands and paths must match it.
 - Sets `Content-Type: application/json` only when `body` is a `string` — not for `FormData`.
 - Reads `csrftoken` cookie and adds `X-CSRFToken` header on POST/PUT/PATCH/DELETE.
 - Returns raw `Response` — callers check `.ok` and call `.json()`.
+- Forces `cache: "no-store"`, attaches a safe request ID, and reports failures
+  with only method, request ID, status, controlled error code, and a sanitized
+  endpoint template. Never send bodies, queries, raw errors, addresses, or IDs
+  to telemetry.
 - `CurrentUser` interface includes: `id`, `username`, `email`, `first_name`, `last_name`, `phone_number`, `preferred_language`, `role`, `account_status`, `is_approved`, `is_platform_admin`.
 
 **`frontend/next.config.mjs`** — critical config:
 
 - `trailingSlash: true` — required so Next.js does not strip slashes before Django sees them.
 - Two rewrite rules matching `/api/:path*/` and `/api/:path*` — required to preserve trailing slashes through to Django's `APPEND_SLASH`.
+- There is no general `/media/` proxy: every raw `/media/*` request is denied.
+  Property images use the protected API content endpoint. Approved public
+  cleaner profile media remains an API/data value and is not raw
+  `PropertyImage` storage.
 
 **`frontend/app/page.tsx`** — public landing page (host/cleaner audience entry point):
 
-- Stripped-down public entry point — no marketing sections. A centered hero with audience toggle renders `CleanerBrowser` for hosts and `AreaDemandPanel`/`OpenJobMap` for cleaners. `CleanerBrowser` lists public cleaner profiles filterable by city/district. `OpenJobMap` shows public open-job pins, property photo popups, and a cleaner-only `Offer cleaning` action that opens an `Apply for job` overlay.
+- Stripped-down public entry point — no marketing sections. A centered hero with audience toggle renders `CleanerBrowser` for hosts and `AreaDemandPanel`/`OpenJobMap` for cleaners. `CleanerBrowser` lists public cleaner profiles filterable by city/district. The compatibility-named `OpenJobMap` consumes `/api/marketplace/public-demand/` and renders only canonical district counts; it never receives per-job markers, coordinates, addresses, media, schedules, or prices.
 - Auth-aware header (pinned top-right): logged-out shows Log in / Sign up plus the standalone language selector; logged-in shows a role-correct Dashboard/Admin link, notification bell, and profile icon. Profile, persistent BG/EN segmented language slider, and Log out live inside the profile menu.
 
 **`frontend/app/components/CleanerBrowser.tsx`** — shared public cleaner directory:
@@ -223,7 +231,7 @@ This is a Windows dev machine. Commands and paths must match it.
 
 **`frontend/app/login/page.tsx`** — session login. On success it calls `/api/accounts/me/` and forwards to the role's dashboard via `dashboardPath` (admin → `/admin`, host → `/host`, cleaner → `/cleaner`, agency → `/agency`, else `/app`).
 
-**`frontend/app/signup/*`** — signup is centered on `frontend/app/signup/page.tsx`, a single client-side React wizard at `/signup`. It uses custom field errors, email validation, Resend 6-digit email-code confirmation, live password checklist, role selection, cleaner personal details, location/service areas, native language, experience, introduction, profile photo, and final account creation. Continue and Back update React state and animate with Motion instead of loading new pages. Old step route files redirect to `/signup`. Google and Apple buttons are UI-only placeholders.
+**`frontend/app/signup/*`** — signup is centered on `frontend/app/signup/page.tsx`, a single client-side React wizard at `/signup`. It uses custom field errors, email validation, Resend 6-digit email-code confirmation, live password checklist, role selection, cleaner personal details, location/service areas, native language, experience, introduction, profile photo, and final account creation. Continue and Back update React state and animate with Motion instead of loading new pages. Refresh recovery is a 24-hour `sessionStorage` allowlist containing only `version`, `savedAt`, `role`, `citySlug`, `selectedZoneIds`, and `experienceLevel`; passwords, confirmation, codes, tokens, email, names, and profile data are memory-only and refresh empty. Old step route files redirect to `/signup`. Google and Apple buttons are UI-only placeholders.
 
 **`frontend/app/app/page.tsx`** — generic workspace:
 
@@ -260,7 +268,11 @@ This is a Windows dev machine. Commands and paths must match it.
 
 - Birth date uses a compact dropdown-style calendar and must prove the cleaner is at least 18.
 - Required fields: birth date, sex, native language, and experience level.
-- The frontend stores draft wizard state in `sessionStorage` only for refresh recovery.
+- Signup recovery stores only `version`, `savedAt`, `role`, `citySlug`,
+  `selectedZoneIds`, and `experienceLevel` in `sessionStorage` for 24 hours.
+  Credentials, verification secrets, identity fields, profile media, errors, and
+  responses must never be persisted. Sensitive progress is intentionally lost
+  on refresh; encrypted browser persistence is not an alternative.
 
 ### What is NOT built yet (next priorities)
 

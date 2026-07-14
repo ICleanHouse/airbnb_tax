@@ -120,6 +120,16 @@ vi.mock("../../components/JobOfferModal", () => ({
   default: () => <div data-testid="job-offer-modal" />,
 }));
 
+vi.mock("../../components/DistrictMapSelector", () => ({
+  default: ({ onChange }: { onChange: (zoneIds: string[]) => void }) => (
+    <div data-testid="property-service-zone-selector">
+      <button type="button" onClick={() => onChange(["sofia:osm-66"])}>
+        Select canonical Sofia zone
+      </button>
+    </div>
+  ),
+}));
+
 const hostUser = {
   id: 7,
   email: "host@example.com",
@@ -162,11 +172,31 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 function mockApiFetch() {
-  apiFetchMock.mockImplementation(async (url: string) => {
+  apiFetchMock.mockImplementation(async (url: string, options?: RequestInit) => {
     switch (url) {
       case "/api/accounts/me/":
         return jsonResponse(hostUser);
       case "/api/properties/properties/":
+        if (options?.method === "POST") {
+          return jsonResponse({
+            id: 42,
+            name: "Sofia Flat",
+            city: "Sofia",
+            neighborhood: "",
+            address: "",
+            latitude: null,
+            longitude: null,
+            description: "",
+            bedrooms: null,
+            square_meters: null,
+            default_cleaning_duration_minutes: 120,
+            default_price_eur: null,
+            service_zone_id: "sofia:osm-66",
+            service_zone_name_bg: "ж.к. Лозенец",
+            service_zone_name_en: "ж.к. Лозенец",
+            images: [],
+          }, 201);
+        }
         return jsonResponse([]);
       case "/api/marketplace/jobs/":
         return jsonResponse([]);
@@ -320,5 +350,30 @@ describe("HostDashboard review modal", () => {
       expect(screen.queryByRole("dialog", { name: "components.reviewModal.ariaLabel" })).not.toBeInTheDocument();
     });
     expect(navigationState.search).toBe("");
+  });
+
+  it("requires and submits a canonical Sofia service-zone id for a new property", async () => {
+    const user = userEvent.setup();
+    render(<HostDashboard />);
+
+    const addPropertyButtons = await screen.findAllByRole("button", { name: "host.rail.addProperty" });
+    await user.click(addPropertyButtons[0]);
+
+    const dialog = await screen.findByRole("dialog", { name: "host.propForm.addTitle" });
+    expect(within(dialog).getByTestId("property-service-zone-selector")).toBeInTheDocument();
+
+    await user.type(within(dialog).getByLabelText("host.propForm.name"), "Sofia Flat");
+    await user.click(within(dialog).getByRole("button", { name: "Select canonical Sofia zone" }));
+    await user.click(within(dialog).getByRole("button", { name: "host.propForm.addTitle" }));
+
+    await waitFor(() => {
+      const createCall = apiFetchMock.mock.calls.find(([, options]) => (
+        options?.method === "POST"
+      ));
+      expect(createCall).toBeDefined();
+      const body = JSON.parse(String(createCall?.[1]?.body));
+      expect(body.service_zone_id).toBe("sofia:osm-66");
+      expect(body.neighborhood).toBe("");
+    });
   });
 });

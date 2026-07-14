@@ -58,12 +58,12 @@ Future extraction into microservices should be possible without rewriting core b
 
 ### Frontend — `frontend/`
 
-- `frontend/lib/api.ts`: shared HTTP client. All pages use `apiFetch` — it injects JSON `Content-Type` only when safe, sets CSRF headers, adds `X-Request-ID`, and reports failed API responses to Sentry when configured. Never call `fetch` directly.
+- `frontend/lib/api.ts`: shared HTTP client. All pages use `apiFetch` — it injects JSON `Content-Type` only when safe, sets CSRF headers, adds a normalized `X-Request-ID` (`req_` plus 32 lowercase hexadecimal characters), forces no-store, and reports failed API responses through a controlled telemetry allowlist when configured. Never call `fetch` directly.
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
-- `frontend/app/page.tsx`: public landing page. Auth-aware header shows the role-correct dashboard link and, for authenticated users, the shared notification bell plus profile-icon menu containing Profile, persistent BG/EN language slider, and Log out. The first screen has a centered hero and audience toggle: `Find a cleaner` renders the shared `CleanerBrowser` (`/api/accounts/public-cleaners/`, city/district filters), while `Find cleaning work` renders `AreaDemandPanel` with public demand stats plus a Leaflet/OpenStreetMap `OpenJobMap`.
-- `frontend/components/OpenJobMap.tsx`: public cleaner work map for the landing page. It loads `GET /api/marketplace/open-job-locations/`, shows open-job pins with property photo popups, gives authenticated cleaners an `Offer cleaning` action that opens an `Apply for job` overlay and submits via `POST /api/marketplace/applications/`, and auto-selects Sofia/Plovdiv/Varna when the user pans or zooms the viewport center within 35km of a known city.
+- `frontend/app/page.tsx`: public landing page. Auth-aware header shows the role-correct dashboard link and, for authenticated users, the shared notification bell plus profile-icon menu containing Profile, persistent BG/EN language slider, and Log out. The first screen has a centered hero and audience toggle: `Find a cleaner` renders the shared `CleanerBrowser` (`/api/accounts/public-cleaners/`, city/district filters), while `Find cleaning work` renders aggregate supply/demand counts and canonical district demand.
+- `frontend/components/OpenJobMap.tsx`: compatibility-named aggregate demand component for the landing page. It loads canonical `GET /api/marketplace/public-demand/?city=sofia` and renders canonical Sofia zone/count rows. It has no job/property marker, coordinate, media, address, schedule, price, host, or application contract. `/open-job-locations/` is a deprecated response-compatible alias only.
 - `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
-- `frontend/app/signup/page.tsx`: single-route signup wizard. It handles credentials, Resend 6-digit email-code verification, role selection, cleaner personal details, location/service-area selection, native language, experience, introduction, profile photo, and final account creation without full page reloads between steps. It uses Motion (`motion/react`) for reusable panel transitions and keeps `sessionStorage` only for refresh recovery.
+- `frontend/app/signup/page.tsx`: single-route signup wizard. It handles credentials, Resend 6-digit email-code verification, role selection, cleaner personal details, location/service-area selection, native language, experience, introduction, profile photo, and final account creation without full page reloads between steps. It uses Motion (`motion/react`) for reusable panel transitions. Refresh recovery is 24-hour `sessionStorage` state built from the explicit `version`, `savedAt`, `role`, `citySlug`, `selectedZoneIds`, and `experienceLevel` allowlist; credentials, codes, tokens, identity/profile data, errors, and responses remain memory-only and refresh empty.
 - `frontend/app/signup/confirm-email/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`, `frontend/app/signup/personal-info/page.tsx`, `frontend/app/signup/native-language/page.tsx`, `frontend/app/signup/experience/page.tsx`: lightweight compatibility redirects to `/signup`.
 - `frontend/app/app/page.tsx`: generic authenticated workspace. Automatically redirects hosts to `/host` and admins to `/admin`. For cleaners and agencies shows account status.
 - `frontend/app/admin/page.tsx`: admin account approval panel. Lists all accounts, filters by pending / approved / all. Supports `?filter=pending` URL param to pre-select a tab (used in approval email links). Approve and reject actions call `POST /api/accounts/users/{id}/approve/` and `/reject/`. Accessible to `admin` role only.
@@ -317,7 +317,7 @@ REST APIs through Django REST Framework.
 | `GET/POST /api/accounts/hosts/` | Host profiles |
 | `GET/POST /api/accounts/cleaners/` | Cleaner profiles |
 | `GET /api/accounts/public-cleaners/` | Public verified-cleaner directory. Safe fields only; supports `city`, `service_area`, `min_rating`, and `q` filters. |
-| `GET /api/accounts/public-cleaners/{id}/` | Public cleaner detail with received reviews. |
+| `GET /api/accounts/public-cleaners/{id}/` | Public cleaner detail with dedicated public reviews; no job/reviewer/reviewee IDs or private issues. |
 | `GET/POST /api/accounts/agencies/` | Agency profiles |
 | `POST /api/accounts/agencies/{id}/invite-cleaner/` | Agency: invite a cleaner |
 | `GET /api/accounts/agency-invitations/` | List invitations |
@@ -329,8 +329,10 @@ REST APIs through Django REST Framework.
 | `POST /api/properties/parse-ics/` | Parse uploaded Airbnb `.ics` file → returns `[{uid, summary, checkin, checkout, nights}]`. Filters blocked dates automatically. |
 | `GET/POST /api/marketplace/batches/` | Monthly cleaning batches |
 | `GET/POST /api/marketplace/jobs/` | Cleaning jobs CRUD |
-| `GET /api/marketplace/area-stats/` | Public aggregate cleaner/host/open-job counts for the landing work panel; optional `?city=` filter. |
-| `GET /api/marketplace/open-job-locations/` | Public open-job map markers with property address, coordinates, schedule, proposed price, and main photo; no host identity fields; optional `?city=` filter. |
+| `GET /api/marketplace/area-stats/` | Public aggregate cleaner/host/open-job counts for a canonical city. |
+| `GET /api/marketplace/public-demand/` | Canonical public city/zone open-job counts only; no per-job or property fields. |
+| `GET /api/marketplace/open-job-locations/` | Deprecated compatibility alias returning the identical safe aggregate body; sunset 2026-10-15. |
+| `GET/HEAD /api/properties/images/{id}/content/` | Object-authorized property-image stream with private/no-store and nosniff headers; no raw storage redirect/path. |
 | `POST /api/marketplace/jobs/{id}/publish/` | Transition Draft → Open |
 | `POST /api/marketplace/jobs/{id}/complete/` | Mark assigned work complete. Cleaner side allowed after start time; host/admin side allowed after end time. |
 | `GET/POST /api/marketplace/applications/` | Cleaner applications |
@@ -338,6 +340,7 @@ REST APIs through Django REST Framework.
 | `GET/POST /api/marketplace/assignments/` | Assignments |
 | `POST /api/marketplace/assignments/{id}/assign-member/` | Agency: delegate to member cleaner; immutable after first delegation |
 | `GET/POST/DELETE /api/marketplace/favourites/` | Host saved cleaners; create targets public marketplace-eligible cleaners only |
+| `GET /api/connections/{id}/shared/` | Accepted connection; active/approved requester and worker-requester eligibility; no-store current-assignment safe projection |
 | `GET/POST /api/feedback/reviews/` | Two-way reviews (post-completion only) |
 | `GET /api/notifications/notifications/` | In-app notifications |
 | `GET /api/calendars/conflicts/` | Calendar conflict check |
@@ -395,7 +398,10 @@ Target EU managed cloud infrastructure:
 - Managed PostgreSQL with automated backups.
 - Managed Redis.
 - Managed object storage (planned for uploaded photos/documents).
-- JSON app logs with request IDs; centralized log storage is still future work.
+- HTTP request logs accept only `req_` plus 32 lowercase hexadecimal characters
+  as request IDs and record resolver endpoint templates instead of raw paths,
+  queries, or actor IDs. Celery propagates normalized IDs originating in that
+  request context; centralized log storage is still future work.
 - Sentry error tracking when DSNs are configured.
 - Basic metrics and uptime monitoring.
 

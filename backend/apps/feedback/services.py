@@ -127,7 +127,7 @@ def submit_review(
                 user=recipient,
                 notification_type="review.submitted",
                 title="Reviews are now visible",
-                body=f"You and the other party have both reviewed {job.title}.",
+                body="You and the other party have both submitted reviews. They are now visible.",
                 metadata={"job_id": job.id, "review_id": review.id},
             )
     else:
@@ -136,7 +136,7 @@ def submit_review(
             user=reviewee,
             notification_type="review.requested",
             title="Leave a review",
-            body=f"You were reviewed for {job.title} — leave your review to see theirs.",
+            body="You received a review. Leave your review to reveal both reviews.",
             metadata={"job_id": job.id, "reviewee_id": reviewer.id},
         )
 

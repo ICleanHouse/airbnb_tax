@@ -4,6 +4,34 @@ Date: 2026-06-29
 
 Scope: read-only audit of existing Django, React/Vitest, and end-to-end coverage. No source code or tests were modified during the audit.
 
+## 2026-07-14 Release Privacy Regression Addendum
+
+The implementation following this historical audit adds focused coverage for:
+
+- canonical 144-zone Sofia seed/schema/backfill behavior, exact-only legacy
+  matching, required canonical Sofia property selection, and address-lock rules;
+- anonymous `/public-demand/` and compatibility-alias exact schemas, recursive
+  private-field absence, canonical IDs/names, deprecation/cache headers, and
+  cardinality-stable query budgets;
+- exact evaluator/assigned/history job, application, assignment, and calendar
+  allowlists plus authentication/eligibility/object-hiding/business-state
+  status matrices; history regressions prove operational property fields are
+  removed after completion;
+- object-authorized primary property-image streaming, MIME verification, safe
+  headers, catch-all `/media/*` denial, and owner/participant query budgets;
+- accepted-connection shared-work authorization and its exact no-store,
+  current-assignment-only property/cleaning projection;
+- dedicated public cleaner-review serialization without job/user IDs and
+  without weakening double-blind/private-issue visibility;
+- signup recovery's exact six-field allowlist, 24-hour expiry, legacy cleanup,
+  empty refreshed credentials, in-memory final submission, and clear paths;
+- API no-store behavior, strict `req_` plus 32-lowercase-hex request IDs, and
+  frontend/backend Sentry/request-log sanitization.
+
+The full release verification commands are the backend/frontend commands in
+the implementation handoff. A production build remains intentionally excluded
+while a development server owns `.next`.
+
 Primary sources inspected:
 - `AGENTS.md` critical invariants and repo rules.
 - Targeted `TGN.md` sections for account state, cleaner verification, job/application/offer/review lifecycles, API routes, event side effects, Celery registry, Sofia district rules, and critical rules R1-R20.
@@ -75,7 +103,9 @@ Existing test files:
 - No `backend/apps/calendars/tests/` files found.
 
 Behavior currently covered:
-- `PropertyImageSerializer` returns media-path image URL: `PropertyImageSerializerTests.test_image_url_uses_media_path`
+- `PropertyImageSerializer` exposes only protected `content_url`; image input is
+  write-only. `PropertyImagePrivacyTests` covers authorization, primary-only
+  assigned access, MIME verification, headers, raw-path denial, and query budgets.
 
 Obvious missing coverage:
 - Property CRUD ownership and role gates in `PropertyViewSet.get_queryset` and `perform_create`.
@@ -117,7 +147,9 @@ Behavior currently covered:
 - Cleaner calendar shows open applications and assignment states: `test_cleaner_calendar_tracks_open_application_and_assignment_states`
 - Direct offer creation, unverified cleaner rejection, non-owner host rejection, offer acceptance creates single assignment and rejects siblings, only offered cleaner can accept, decline notifies host, API accept/decline, same-property same-day conflict guards, and calendar visibility: `OfferServiceTests`
 - Favourite CRUD, idempotence, cleaner cannot create favourites: `FavouriteCleanerApiTests`
-- Public map location endpoint exposes only open pinned jobs, filters by city, and is guest/host/cleaner available: `OpenJobLocationsViewTests`
+- Canonical public demand and the deprecated location alias expose only
+  canonical city/zone aggregates: `MarketplacePrivacyTests` and the rewritten
+  `OpenJobLocationsViewTests`.
 - Area stats are public aggregate-only and city-filtered: `AreaStatsViewTests`
 
 Obvious missing coverage:
@@ -340,20 +372,25 @@ Duplicated or obsolete tests:
 ### Frontend: signup, login, app entry, admin
 
 Domain files inspected:
-- `frontend/features/signup/SignupPage.tsx`: signup wizard, email-code flow, sessionStorage recovery, role/location/personal/native-language/experience/introduction/profile-photo steps
+- `frontend/features/signup/SignupPage.tsx`: signup wizard, email-code flow, explicit non-sensitive sessionStorage recovery, role/location/personal/native-language/experience/introduction/profile-photo steps
 - `frontend/app/[locale]/login/page.tsx`: login, CSRF prefetch, role redirect
 - `frontend/app/[locale]/app/page.tsx`: role-aware workspace redirect/status
 - `frontend/app/[locale]/admin/page.tsx`: pending/approved/all filters, approve/reject actions
 - Old signup step routes under `frontend/app/[locale]/signup/*/page.tsx`
 
 Existing test files:
-- None.
+- `frontend/features/signup/signupRecovery.test.ts`
+- `frontend/features/signup/SignupPage.test.tsx`
 
 Behavior currently covered:
-- None directly.
+- Exact storage allowlist/expiry/legacy sanitation; passwords, confirmation,
+  codes, and tokens never persist; refresh empties credentials; current
+  in-memory credentials submit; success/cancel/reset clear recovery.
 
 Obvious missing coverage:
-- Full signup wizard state machine: role-specific path, required cleaner fields, email-code send/verify/resend errors, sessionStorage restore/cleanup, old route redirects.
+- Full signup wizard state machine: role-specific path, required cleaner fields,
+  email-code send/verify/resend errors, explicit allowlist recovery/cleanup with
+  empty refreshed credentials, and old route redirects.
 - Login success redirects by role to `/admin`, `/host`, `/cleaner`, `/agency`, or `/app`; errors and CSRF prefetch.
 - `/app` pending/approved/suspended dashboard messaging.
 - Admin list filtering and approve/reject/suspend UI. Suspend API exists in backend but admin page currently uses approve/reject only.
@@ -428,7 +465,7 @@ Domain files inspected:
 - `frontend/app/[locale]/cleaners/page.tsx`: public cleaner directory
 - `frontend/components/CleanerBrowser.tsx`: public cleaner fetch/filter and authenticated offer support
 - `frontend/components/CleanerProfileCard.tsx`, `CleanerProfileModal.tsx`, `RatingStars.tsx`
-- `frontend/components/OpenJobMap.tsx`: public job markers, authenticated cleaner apply from map
+- `frontend/components/OpenJobMap.tsx`: canonical district-demand aggregates only
 - `frontend/components/AreaDemandPanel.tsx`
 - `frontend/components/ConnectButton.tsx`
 - `frontend/components/Connections.tsx`
@@ -438,10 +475,12 @@ Domain files inspected:
 - `frontend/components/PropertyLocationPicker.tsx`
 
 Existing test files:
-- None outside dashboard tests.
+- `frontend/components/OpenJobMap.test.tsx`
+- dashboard evaluator/assigned projection regressions
 
 Behavior currently covered:
-- None directly.
+- Aggregate demand renders from the safe schema and never requests/renders job
+  detail or raw media; approved evaluator data renders only in authenticated UI.
 
 Obvious missing coverage:
 - CleanerBrowser city/district/min-rating filtering, safe field rendering, property-dependent offer modal.
@@ -474,7 +513,7 @@ Obvious missing coverage:
 - Cleaner applies, host accepts, cleaner completes, both parties review.
 - Direct offer accept/decline.
 - Connections request/chat.
-- Public landing cleaner browsing and open-job map privacy smoke.
+- Public landing cleaner browsing and canonical district-demand privacy smoke.
 
 Duplicated or obsolete tests:
 - Not applicable.
@@ -501,7 +540,7 @@ Duplicated or obsolete tests:
 | Host dashboard | High | Review modal only | Property/job/ICS/application/direct-offer/filter flows | `frontend/features/host/HostDashboard.tsx` |
 | Cleaner dashboard | High | One review modal test | Apply/withdraw/offer/complete/profile/district flows | `frontend/features/cleaner/CleanerDashboard.tsx` |
 | API error handling | High | Backend validation partial; frontend none | Consistent 400/403/404 response tests and user-visible error states | `frontend/api/client.ts::reportApiFailure`; serializers/views across apps |
-| Public cleaner browser/open-job map | Medium | Backend public endpoints covered | Frontend filters, privacy, map apply flow | `frontend/components/CleanerBrowser.tsx`; `frontend/components/OpenJobMap.tsx` |
+| Public cleaner browser/district demand | Medium | Backend public endpoints covered | Frontend filters and recursive private-field absence | `frontend/components/CleanerBrowser.tsx`; `frontend/components/OpenJobMap.tsx` |
 | Admin panel frontend | Medium | Backend approve tested | UI filter, approve/reject error handling, suspend absence documented | `frontend/app/[locale]/admin/page.tsx` |
 | Observability/logging | Medium | Request ID, audit login, celery header covered | CSRF failure, sanitizer, client IP edge cases | `backend/apps/core/*`; `frontend/lib/sentry-sanitize.ts` |
 | Money and dashboard prefs | Medium | Backend prefs; no frontend hook tests | `useAppdashPrefs`, `money`, income/spent cards | `frontend/lib/useAppdashPrefs.ts`; `frontend/lib/money.ts` |
@@ -915,7 +954,8 @@ Estimated production-code risk:
 ### Batch 14: Public marketplace components
 
 Objective:
-- Cover public cleaner browsing, cleaner profile safe display, open-job map privacy, connect button, cookie consent, and account deletion.
+- Cover public cleaner browsing, cleaner profile/review safe display, aggregate
+  district-demand privacy, cookie consent, and account deletion.
 
 Files/modules involved:
 - `frontend/components/CleanerBrowser.tsx`
@@ -1007,7 +1047,8 @@ Use for:
 - Admin approval/reject/suspend and cleaner verification field mutation.
 - Property/image/calendar/reservation CRUD.
 - Marketplace route gates: publish, complete, accept/reject/withdraw, offer, offer-to-cleaner, favourites.
-- Public safe endpoints: cleaner directory, open-job locations, area stats, location city/zones.
+- Public safe endpoints: cleaner directory, canonical public demand, deprecated
+  aggregate alias, area stats, and catalog location city/zones.
 - Notification and connection endpoints.
 
 Prefer a compact role/status matrix over one-off copies of the same assertion.
@@ -1043,7 +1084,7 @@ Use Playwright only for high-value cross-page flows:
 - Host create property/post job, cleaner apply, host accept, cleaner complete, both review.
 - Direct offer accept/decline.
 - Connections drawer and chat smoke.
-- Public landing cleaner browsing/open-job map privacy.
+- Public landing cleaner browsing and district-demand privacy.
 
 Avoid duplicating every service edge case in E2E. Backend service/API tests should own business invariants.
 
@@ -1087,7 +1128,8 @@ Coverage anti-goals:
 11. Add frontend signup/login/admin component tests with mocked API and navigation.
 12. Expand host dashboard component coverage for property, job, ICS, application, direct-offer, favourites, notifications, and connections behavior.
 13. Expand cleaner dashboard component coverage for apply/withdraw/offer/complete/profile/district/income behavior.
-14. Add public marketplace component tests for cleaner browsing, open-job map privacy, connect, consent, and account deletion.
+14. Maintain public marketplace component tests for cleaner/review allowlists,
+    district-demand privacy, consent, and account deletion.
 15. Add Playwright E2E smoke harness and a small set of broad role/workflow specs after backend and component tests stabilize.
 
 ## Proposed Verification Commands

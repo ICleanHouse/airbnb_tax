@@ -130,13 +130,14 @@ class ConnectionApiTests(TestCase):
         self.assertEqual(unread2.data["unread"], 0)
 
     def test_shared_endpoint_lists_collaborations(self):
-        # Build a completed assignment between host and cleaner.
+        # Build an active assignment between host and cleaner.
         prop = Property.objects.create(host=self.host, name="Flat", city="Sofia")
         job = CleaningJob.objects.create(
             property=prop, host=self.host, title="Turnover",
             scheduled_start=timezone.now() + timedelta(days=1),
             scheduled_end=timezone.now() + timedelta(days=1, hours=2),
             proposed_price=Decimal("50.00"),
+            status=CleaningJob.Status.ASSIGNED,
         )
         application = CleanerApplication.objects.create(job=job, cleaner=self.cleaner)
         Assignment.objects.create(
@@ -152,6 +153,79 @@ class ConnectionApiTests(TestCase):
         self.assertEqual(res.data["cleanings_count"], 1)
         self.assertEqual(len(res.data["properties"]), 1)
         self.assertEqual(res.data["properties"][0]["name"], "Flat")
+        self.assertEqual(
+            set(res.data["properties"][0]),
+            {"name", "city", "cleanings"},
+        )
+        self.assertEqual(
+            set(res.data["cleanings"][0]),
+            {
+                "job_id",
+                "property_name",
+                "scheduled_start",
+                "status",
+                "agreed_price",
+                "currency",
+            },
+        )
+        self.assertNotIn("Turnover", str(res.data))
+        self.assertNotIn("property_id", str(res.data))
+        self.assertEqual(res["Cache-Control"], "private, no-store")
+        self.assertEqual(res["Clear-Site-Data"], '"cache"')
+
+    def test_shared_endpoint_rejects_pending_connection(self):
+        conn = services.request_connection(requester=self.host, addressee=self.cleaner)
+        self.client.force_authenticate(self.cleaner)
+
+        res = self.client.get(f"/api/connections/{conn.id}/shared/")
+
+        self.assertEqual(res.status_code, 403)
+
+    def test_shared_endpoint_excludes_cancelled_and_completed_assignments(self):
+        prop = Property.objects.create(host=self.host, name="Private Flat", city="Sofia")
+        now = timezone.now()
+        jobs = []
+        for index, status in enumerate((CleaningJob.Status.CANCELLED, CleaningJob.Status.COMPLETED)):
+            job = CleaningJob.objects.create(
+                property=prop,
+                host=self.host,
+                title=f"PRIVATE_JOB_TITLE_{index}",
+                scheduled_start=now + timedelta(days=index + 1),
+                scheduled_end=now + timedelta(days=index + 1, hours=2),
+                status=status,
+            )
+            application = CleanerApplication.objects.create(job=job, cleaner=self.cleaner)
+            Assignment.objects.create(
+                job=job,
+                cleaner=self.cleaner,
+                application=application,
+                cancelled_at=now if status == CleaningJob.Status.CANCELLED else None,
+                completed_at=now if status == CleaningJob.Status.COMPLETED else None,
+            )
+            jobs.append(job)
+        conn = services.request_connection(requester=self.host, addressee=self.cleaner)
+        services.accept_connection(connection=conn, user=self.cleaner)
+        self.client.force_authenticate(self.cleaner)
+
+        res = self.client.get(f"/api/connections/{conn.id}/shared/")
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data, {"properties": [], "cleanings": [], "cleanings_count": 0})
+        for job in jobs:
+            self.assertNotIn(job.title, str(res.data))
+
+    def test_shared_endpoint_hides_operational_data_from_ineligible_worker(self):
+        conn = services.request_connection(requester=self.host, addressee=self.cleaner)
+        services.accept_connection(connection=conn, user=self.cleaner)
+        CleanerProfile.objects.filter(user=self.cleaner).update(
+            verification_status=CleanerProfile.VerificationStatus.PENDING,
+        )
+        self.cleaner.refresh_from_db()
+        self.client.force_authenticate(self.cleaner)
+
+        res = self.client.get(f"/api/connections/{conn.id}/shared/")
+
+        self.assertEqual(res.status_code, 404)
 
     def test_cannot_message_others_connection(self):
         conn = services.request_connection(requester=self.host, addressee=self.cleaner)

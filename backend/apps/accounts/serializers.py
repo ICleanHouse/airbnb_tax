@@ -397,7 +397,7 @@ class PublicCleanerDetailSerializer(PublicCleanerSerializer):
         read_only_fields = fields
 
     def get_reviews(self, obj):
-        from apps.feedback.serializers import ReviewSerializer
+        from apps.feedback.serializers import PublicReviewSerializer
         from apps.feedback.services import revealed_received_reviews
 
         # Only reviews revealed under the double-blind rule (counterpart submitted,
@@ -407,7 +407,7 @@ class PublicCleanerDetailSerializer(PublicCleanerSerializer):
             .select_related("reviewer", "job")
             .order_by("-created_at")
         )
-        return ReviewSerializer(reviews, many=True, context=self.context).data
+        return PublicReviewSerializer(reviews, many=True).data
 
 
 class AgencyProfileSerializer(serializers.ModelSerializer):

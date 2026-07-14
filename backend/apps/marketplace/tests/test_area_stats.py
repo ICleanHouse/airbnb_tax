@@ -90,12 +90,26 @@ class AreaStatsViewTests(TestCase):
         self.assertEqual(data["verified_cleaners"], 1)  # pending cleaner excluded
         self.assertEqual(data["active_hosts"], 1)
         self.assertEqual(data["open_jobs"], 1)  # draft excluded
+        self.assertEqual(res["Cache-Control"], "no-store")
+        self.assertEqual(res["Clear-Site-Data"], '"cache"')
 
-    def test_city_filter_narrows_counts(self):
-        res = self.api_client.get("/api/marketplace/area-stats/?city=Plovdiv")
+    def test_canonical_city_slug_filter_narrows_counts_without_echoing_input(self):
+        res = self.api_client.get("/api/marketplace/area-stats/?city=sofia")
         self.assertEqual(res.status_code, 200)
         data = res.json()
-        self.assertEqual(data["city"], "Plovdiv")
-        self.assertEqual(data["verified_cleaners"], 0)
-        self.assertEqual(data["active_hosts"], 0)
-        self.assertEqual(data["open_jobs"], 0)
+        self.assertEqual(data["city"], "sofia")
+        self.assertEqual(data["verified_cleaners"], 1)
+        self.assertEqual(data["active_hosts"], 1)
+        self.assertEqual(data["open_jobs"], 1)
+
+    def test_malformed_city_is_400_and_unknown_canonical_slug_is_404(self):
+        malformed = self.api_client.get("/api/marketplace/area-stats/", {"city": "Sofia"})
+        unknown = self.api_client.get("/api/marketplace/area-stats/", {"city": "plovdiv"})
+
+        self.assertEqual(malformed.status_code, 400)
+        self.assertEqual(malformed.json()["code"], "invalid_city_filter")
+        self.assertEqual(unknown.status_code, 404)
+        self.assertEqual(unknown.json()["code"], "city_not_found")
+        for response in (malformed, unknown):
+            self.assertEqual(response["Cache-Control"], "no-store")
+            self.assertEqual(response["Clear-Site-Data"], '"cache"')

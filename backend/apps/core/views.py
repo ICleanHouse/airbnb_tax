@@ -2,6 +2,8 @@ import logging
 
 from django.http import JsonResponse
 
+from apps.core.middleware import get_endpoint_template
+
 
 logger = logging.getLogger("apps.security")
 
@@ -16,9 +18,8 @@ def csrf_failure(request, reason=""):
         extra={
             "event": "csrf.failed",
             "method": request.method,
-            "path": request.path,
+            "endpoint_template": get_endpoint_template(request),
             "status_code": 403,
-            "metadata": {"reason": reason},
         },
     )
     return JsonResponse({"detail": "CSRF verification failed."}, status=403)

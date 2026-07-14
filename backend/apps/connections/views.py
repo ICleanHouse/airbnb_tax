@@ -1,11 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.http import Http404
+from django.utils.cache import patch_vary_headers
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from apps.marketplace.models import Assignment
+from apps.marketplace.models import Assignment, CleaningJob
+from apps.marketplace.selectors import user_is_eligible_evaluator
 
 from apps.connections import services
 from apps.connections.models import Connection, Message
@@ -20,7 +23,18 @@ from apps.connections.serializers import (
 User = get_user_model()
 
 
-class ConnectionViewSet(viewsets.ModelViewSet):
+class PrivateNoStoreResponseMixin:
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response["Cache-Control"] = "private, no-store"
+        response["Pragma"] = "no-cache"
+        response["Clear-Site-Data"] = '"cache"'
+        response["X-Content-Type-Options"] = "nosniff"
+        patch_vary_headers(response, ["Cookie"])
+        return response
+
+
+class ConnectionViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = ConnectionSerializer
     http_method_names = ["get", "post", "delete"]
@@ -133,13 +147,28 @@ class ConnectionViewSet(viewsets.ModelViewSet):
         connection = self.get_object()
         if not connection.involves(request.user):
             raise PermissionDenied("You are not part of this connection.")
+        if connection.status != Connection.Status.ACCEPTED:
+            raise PermissionDenied("Shared work is available only for accepted connections.")
 
         a, b = connection.requester, connection.addressee
         host = a if a.is_host else b
         worker = b if a.is_host else a
+        if not host.is_host or not (worker.is_cleaner or worker.is_agency):
+            raise Http404
+        if not request.user.is_active or not request.user.is_approved:
+            raise Http404
+        if request.user.id == worker.id and not user_is_eligible_evaluator(request.user):
+            raise Http404
 
         assignments = (
-            Assignment.objects.filter(job__host=host)
+            Assignment.objects.filter(
+                job__host=host,
+                job__host__is_active=True,
+                job__host__account_status=User.AccountStatus.APPROVED,
+                job__status=CleaningJob.Status.ASSIGNED,
+                cancelled_at__isnull=True,
+                completed_at__isnull=True,
+            )
             .filter(Q(cleaner=worker) | Q(assigned_member=worker))
             .select_related("job", "job__property")
             .order_by("-job__scheduled_start")
@@ -153,18 +182,15 @@ class ConnectionViewSet(viewsets.ModelViewSet):
             cleanings.append(
                 {
                     "job_id": job.id,
-                    "title": job.title,
-                    "property_id": prop.id,
                     "property_name": prop.name,
                     "scheduled_start": job.scheduled_start,
                     "status": job.status,
                     "agreed_price": asgn.agreed_price,
                     "currency": job.currency,
-                    "completed_at": asgn.completed_at,
                 }
             )
             entry = properties.setdefault(
-                prop.id, {"id": prop.id, "name": prop.name, "city": prop.city, "cleanings": 0}
+                prop.id, {"name": prop.name, "city": prop.city, "cleanings": 0}
             )
             entry["cleanings"] += 1
 

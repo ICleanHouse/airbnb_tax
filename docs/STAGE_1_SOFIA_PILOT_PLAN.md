@@ -367,7 +367,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-D01 | Must-have | Stage 1 owner | None | Not started |  |  |
 | S1-D02 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
 | S1-D03 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
-| S1-D04 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
+| S1-D04 | Must-have | Stage 1 owner | S1-D01 | Done | 2026-07-14 | [Recorded disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
 | S1-D05 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
 | S1-E01 | Must-have | Engineering owner | S1-D04 | Not started |  |  |
 | S1-E02 | Must-have | Engineering owner | S1-D02 | Not started |  |  |
@@ -520,24 +520,34 @@ without product decisions being made inside views or components.
 
 ### S1-D04 — Define privacy and disclosure tiers
 
-Use this recommended default:
+**Decision recorded 2026-07-14:** Stage 1 uses canonical city/district
+aggregation for anonymous demand and the audience-specific allowlists below.
+Exact schedule, proposed price, bedrooms, and square metres are approved only
+for active, approved, verified marketplace evaluators. They are not public
+fields.
 
 | Audience | Allowed job/location detail |
 |---|---|
-| Anonymous | City/district aggregate and approximate demand only |
+| Anonymous | Canonical city/district names and aggregate open-job counts only; no per-job marker, coordinate, centroid, date, price, scope, property, host, or media field |
 | Pending, rejected, suspended, or unverified user | No private open-job detail |
-| Approved and verified eligible cleaner | District, schedule, scope, and price needed to evaluate; no access code or unnecessary host data |
-| Assigned cleaner | Exact operational details required to perform the job |
+| Approved and verified eligible cleaner or eligible agency | Job ID required to apply; canonical city/district; exact start/end; currency and proposed price; bedrooms and square metres; status and `can_apply`. No property ID/name/address/raw neighborhood/coordinates/media, host identity/contact, free text, instructions, agreed price, assignment, or batch data |
+| Active non-cancelled assigned cleaner, agency, or immutable assigned member | Evaluator fields plus the minimum property name/address, instructions, agreed price, workflow IDs, non-contact host display information, and one object-authorized primary property image required to perform the job. A blank display name falls back to `Host`, never the login username/email. Latitude and longitude remain excluded |
+| Completed or otherwise retained worker history | Evaluator fields plus the same non-contact host display, agreed price, and assignment history. Property name/address, image, instructions, coordinates, and other operational property details are removed |
 | Owning host and platform admin | Full authorized operational record |
 
-- [ ] Decide whether public demand uses aggregate counts, a district centroid,
-      minimum-count suppression, or no map.
-- [ ] Define the minimum fields required before a verified cleaner applies.
-- [ ] Separate public cleaner media from private property and verification media.
+- [x] Public demand uses canonical district-level counts without job-derived
+      coordinates or centroids. Jobs without a canonical district contribute
+      only to a canonical city total.
+- [x] The minimum evaluator fields are the explicit allowlist above.
+- [x] Approved public cleaner profile media remains a public API/data value and
+      is not raw `PropertyImage` storage. Operational property media and
+      verification media are private and require object-level authorization;
+      every raw `/media/*` route is denied.
 - [ ] Define the informed cleaner choice and exact field allowlist for public
       profile publication, and the public display/redaction rules for reviewer
       identity, job references, and free-text comments.
-- [ ] Define when exact address and access instructions become visible.
+- [x] Exact address and operational instructions become visible only after an
+      active, non-cancelled assignment to the authorized participant.
 - [ ] Approve the map/geocoding provider or proxy, processor/privacy terms,
       retention/logging, attribution/usage limits, and fallback when consent or
       service is unavailable. If none is approved, disable exact third-party

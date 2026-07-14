@@ -6115,6 +6115,13 @@ img {
   font-size: 22px;
   line-height: 1.2;
 }
+.open-job-map-head p {
+  max-width: 660px;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
 .open-job-map-count {
   display: inline-flex;
   align-items: center;
@@ -6166,6 +6173,87 @@ img {
   font-size: 13px;
   font-weight: 700;
   text-align: center;
+}
+.public-demand-shell {
+  min-height: 220px;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface-inset);
+}
+.public-demand-shell--with-map {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  align-items: start;
+  gap: 12px;
+}
+.public-demand-map-frame {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: #f3f8f7;
+}
+.public-demand-map {
+  width: 100%;
+  min-height: 390px;
+}
+.public-demand-map-attribution {
+  padding: 5px 8px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}
+.public-demand-map-attribution a {
+  color: inherit;
+}
+.public-demand-shell .open-job-map-state {
+  position: static;
+  max-width: none;
+  margin: 72px auto;
+  transform: none;
+}
+.public-demand-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.public-demand-zone {
+  display: grid;
+  grid-template-columns: 20px minmax(150px, 1fr) minmax(90px, 2fr) 36px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.public-demand-zone > svg {
+  color: var(--teal);
+}
+.public-demand-zone-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.public-demand-zone-bar {
+  width: var(--demand-width);
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--teal), var(--brand));
+}
+.public-demand-zone strong {
+  color: var(--ink);
+  text-align: right;
 }
 .open-job-pin {
   border: 0;
@@ -6485,6 +6573,18 @@ img {
   }
   .open-job-map-count {
     justify-self: start;
+  }
+  .public-demand-zone {
+    grid-template-columns: 20px minmax(0, 1fr) 32px;
+  }
+  .public-demand-zone-bar {
+    display: none;
+  }
+  .public-demand-shell--with-map {
+    grid-template-columns: 1fr;
+  }
+  .public-demand-map {
+    min-height: 300px;
   }
   .open-job-map-shell {
     min-height: 420px;

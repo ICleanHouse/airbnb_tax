@@ -43,6 +43,13 @@ Instruction priority:
 - Internal app calendar is the source of truth.
 - Public `/` is the marketing/lead-generation route, not an authenticated dashboard.
 - Store/display time consistently for `Europe/Sofia`.
+- Anonymous work discovery is canonical city/Sofia-zone aggregation only. Never
+  expose per-job/property/host IDs, exact location, media, schedule, or price.
+- Signup browser recovery is an explicit non-sensitive allowlist. Passwords,
+  confirmation, codes, and tokens are React-memory-only and empty after refresh.
+- Operational property images use object-authorized API streaming and every raw
+  `/media/*` request is denied. Approved public cleaner profile media remains a
+  public API/data value, not `PropertyImage` raw storage.
 
 ## Frontend Rules
 

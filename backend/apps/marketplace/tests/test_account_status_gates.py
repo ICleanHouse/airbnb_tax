@@ -12,7 +12,6 @@ from apps.marketplace.services import (
     accept_application,
     accept_offer,
     assign_member_to_assignment,
-    publish_job,
     reject_application,
     submit_application,
 )
@@ -162,7 +161,7 @@ class MarketplaceAccountStatusGateTests(TestCase):
                 host = self.create_host(f"blocked-review-host-{status}", status=status)
                 property = Property.objects.create(host=host, name=f"{status} Application Flat", city="Sofia")
                 job = self.create_job(host=host, property=property, status=CleaningJob.Status.OPEN)
-                application = submit_application(job=job, cleaner=self.cleaner)
+                application = CleanerApplication.objects.create(job=job, cleaner=self.cleaner)
                 self.client.force_authenticate(host)
 
                 accept_response = self.client.post(
@@ -214,7 +213,11 @@ class MarketplaceAccountStatusGateTests(TestCase):
 
         property_response = self.client.post(
             "/api/properties/properties/",
-            {"name": "Allowed Flat", "city": "Sofia"},
+            {
+                "name": "Allowed Flat",
+                "city": "Sofia",
+                "service_zone_id": "sofia:osm-66",
+            },
             format="json",
         )
         publish_response = self.client.post(f"/api/marketplace/jobs/{draft_job.id}/publish/")
@@ -244,7 +247,7 @@ class MarketplaceAccountStatusGateTests(TestCase):
                     self.application_payload(job),
                     format="json",
                 )
-                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.status_code, 404)
 
         self.client.force_authenticate(self.cleaner)
         response = self.client.post(
@@ -306,7 +309,7 @@ class MarketplaceAccountStatusGateTests(TestCase):
         host = self.create_host("service-suspended-host", status=User.AccountStatus.SUSPENDED)
         property = Property.objects.create(host=host, name="Service Gate Flat", city="Sofia")
         job = self.create_job(host=host, property=property, status=CleaningJob.Status.OPEN)
-        application = submit_application(job=job, cleaner=self.cleaner)
+        application = CleanerApplication.objects.create(job=job, cleaner=self.cleaner)
 
         with self.assertRaisesMessage(MarketplaceError, "approved"):
             accept_application(application=application, accepted_by=host)

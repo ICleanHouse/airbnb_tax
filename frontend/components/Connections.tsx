@@ -35,8 +35,8 @@ function localDateKey(iso: string): string {
 /**
  * Connections launcher — a nav button (with unread badge) that opens a right-hand
  * drawer listing connection requests + accepted connections, an in-app chat
- * thread (polled), and a "Shared" panel of the properties/cleanings the two
- * users have collaborated on. Used in both the host and cleaner topbars.
+ * thread (polled), and a "Shared" panel of currently authorized assigned work.
+ * Used in both the host and cleaner topbars.
  */
 export default function Connections({
   meId,
@@ -291,7 +291,7 @@ export default function Connections({
                         </h4>
                         <ul className="connections-shared-list">
                           {shared.properties.map((p) => (
-                            <li key={p.id}>
+                            <li key={`${p.name}:${p.city}`}>
                               <span>{p.name}{p.city ? ` · ${p.city}` : ""}</span>
                               <span className="connections-shared-count">{p.cleanings}</span>
                             </li>
@@ -304,7 +304,7 @@ export default function Connections({
                           {shared.cleanings.slice(0, 20).map((c) => (
                             <li key={c.job_id}>
                               <span>
-                                {c.title}
+                                {c.property_name}
                                 <small>{new Date(c.scheduled_start).toLocaleDateString("en-GB")}</small>
                               </span>
                               <span className="connections-shared-count">

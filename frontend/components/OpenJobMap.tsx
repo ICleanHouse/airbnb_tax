@@ -1,30 +1,34 @@
 "use client";
 
-import "leaflet/dist/leaflet.css";
-import Image from "next/image";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { useTranslations } from "next-intl";
-import { Briefcase, X } from "lucide-react";
+import { Briefcase, MapPinned } from "lucide-react";
+import type { FeatureCollection, GeoJsonProperties, Geometry } from "geojson";
+import type { Map as MapLibreMap } from "maplibre-gl";
 import { apiFetch } from "../lib/api";
 import type { CurrentUser } from "../lib/api";
-import ConnectButton from "./ConnectButton";
+import { cities } from "../lib/cityDistricts";
+import { loadZoneGeoJSON } from "../lib/locations";
+import type { ZoneFeatureCollection } from "../types/locations";
 
-interface OpenJobLocation {
-  id: number;
-  title: string;
-  scheduled_start: string;
-  scheduled_end: string;
-  currency: string;
-  proposed_price: string | null;
-  property_id: number;
-  property_name: string;
-  property_city: string;
-  property_neighborhood: string;
-  property_address: string;
-  property_image: string | null;
-  host_name?: string;
-  latitude: number;
-  longitude: number;
+interface PublicDemandZone {
+  zone_id: string;
+  zone_name_bg: string;
+  zone_name_en: string;
+  open_job_count: number;
+}
+
+interface PublicDemandCity {
+  city_slug: string;
+  city_name_bg: string;
+  city_name_en: string;
+  open_job_count: number;
+  zones: PublicDemandZone[];
+}
+
+interface PublicDemandResponse {
+  cities: PublicDemandCity[];
 }
 
 interface Props {
@@ -34,200 +38,72 @@ interface Props {
   onCityChange: (cityLabel: string) => void;
 }
 
-const CITY_CENTERS: Record<string, [number, number]> = {
-  Sofia: [42.6977, 23.3219],
-  Plovdiv: [42.1354, 24.7453],
-  Varna: [43.2141, 27.9147],
-};
-const BULGARIA_CENTER: [number, number] = [42.7339, 25.4858];
-const CITY_DETECTION_RADIUS_KM = 35;
-
-const JOB_PIN_HTML = `
-  <span class="open-job-pin-inner">
-    <span class="open-job-pin-dot"></span>
-  </span>
-`;
-
-function formatJobDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+function citySlugFromLabel(label: string): string {
+  return cities.find((city) => city.label === label)?.value ?? "";
 }
 
-function messageFromResponse(data: unknown, fallback: string) {
-  if (data && typeof data === "object" && "detail" in data) {
-    const detail = (data as { detail?: unknown }).detail;
-    if (typeof detail === "string" && detail.trim()) return detail;
+function isPublicDemandResponse(value: unknown): value is PublicDemandResponse {
+  if (!value || typeof value !== "object") return false;
+  return Array.isArray((value as { cities?: unknown }).cities);
+}
+
+function flattenCoordinates(value: unknown, output: [number, number][] = []): [number, number][] {
+  if (!Array.isArray(value)) return output;
+  if (typeof value[0] === "number" && typeof value[1] === "number") {
+    output.push([value[0], value[1]]);
+    return output;
   }
-  return fallback;
+  for (const child of value) flattenCoordinates(child, output);
+  return output;
 }
 
-function readList<T>(data: T[] | { results?: T[] } | null): T[] {
-  if (Array.isArray(data)) return data;
-  return data?.results ?? [];
+function boundsFromGeoJSON(geojson: ZoneFeatureCollection): [[number, number], [number, number]] | null {
+  const points = geojson.features.flatMap((feature) => flattenCoordinates(feature.geometry.coordinates));
+  if (points.length === 0) return null;
+  const lngs = points.map(([lng]) => lng);
+  const lats = points.map(([, lat]) => lat);
+  return [
+    [Math.min(...lngs), Math.min(...lats)],
+    [Math.max(...lngs), Math.max(...lats)],
+  ];
 }
 
-function distanceKm(a: { lat: number; lng: number }, b: [number, number]) {
-  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const dLat = toRadians(b[0] - a.lat);
-  const dLng = toRadians(b[1] - a.lng);
-  const lat1 = toRadians(a.lat);
-  const lat2 = toRadians(b[0]);
-  const h =
-    Math.sin(dLat / 2) ** 2
-    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-}
-
-function cityFromMapCenter(center: { lat: number; lng: number }) {
-  let nearest = "";
-  let nearestDistance = Number.POSITIVE_INFINITY;
-
-  for (const [city, cityCenter] of Object.entries(CITY_CENTERS)) {
-    const distance = distanceKm(center, cityCenter);
-    if (distance < nearestDistance) {
-      nearest = city;
-      nearestDistance = distance;
-    }
-  }
-
-  return nearestDistance <= CITY_DETECTION_RADIUS_KM ? nearest : "";
-}
-
-export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, onCityChange }: Props) {
+/**
+ * Compatibility-named public demand component. It intentionally renders only
+ * canonical city/district aggregates; job and property markers do not belong
+ * on the anonymous landing surface.
+ */
+export default function OpenJobMap({ cityLabel }: Props) {
   const t = useTranslations("components.openJobMap");
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markerLayerRef = useRef<any>(null);
-  const leafletRef = useRef<any>(null);
-  const iconRef = useRef<any>(null);
-  const userMovedMapRef = useRef(false);
-  const programmaticMoveRef = useRef(false);
-  const userAdjustedViewportRef = useRef(false);
-  const cityLabelRef = useRef(cityLabel);
-  const viewportFitCityLabelRef = useRef(cityLabel);
-  const [jobs, setJobs] = useState<OpenJobLocation[]>([]);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const [demand, setDemand] = useState<PublicDemandCity[]>([]);
+  const [zoneGeometry, setZoneGeometry] = useState<ZoneFeatureCollection | null>(null);
+  const [mapFailed, setMapFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [applyJob, setApplyJob] = useState<OpenJobLocation | null>(null);
-  const [applyPrice, setApplyPrice] = useState("");
-  const [applyMessage, setApplyMessage] = useState("");
-  const [applyError, setApplyError] = useState("");
-  const [applying, setApplying] = useState(false);
-  const [propertyJobs, setPropertyJobs] = useState<OpenJobLocation[] | null>(null);
-  const [hostId, setHostId] = useState<number | null>(null);
-  const [hostName, setHostName] = useState("");
 
+  const citySlug = citySlugFromLabel(cityLabel);
   const where = cityLabel || t("defaultCity");
-  const canOfferWork = currentUser?.role === "cleaner";
-  const center = useMemo<[number, number]>(
-    () => CITY_CENTERS[cityLabel] ?? BULGARIA_CENTER,
-    [cityLabel],
-  );
-
-  // One marker per property — group the per-job markers that share an address.
-  const propertyGroups = useMemo(() => {
-    const groups = new Map<number, OpenJobLocation[]>();
-    for (const job of jobs) {
-      const existing = groups.get(job.property_id);
-      if (existing) existing.push(job);
-      else groups.set(job.property_id, [job]);
-    }
-    return Array.from(groups.values());
-  }, [jobs]);
-
-  useEffect(() => {
-    cityLabelRef.current = cityLabel;
-  }, [cityLabel]);
-
-  const openPropertyOverlay = useCallback((group: OpenJobLocation[]) => {
-    setPropertyJobs(group);
-    setHostId(null);
-    setHostName("");
-
-    // Host identity is never exposed on the public map endpoint — fetch it from
-    // the authenticated job detail only when a cleaner can act on it.
-    if (!canOfferWork || group.length === 0) return;
-    apiFetch(`/api/marketplace/jobs/${group[0].id}/`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { host?: number; host_name?: string } | null) => {
-        if (!data) return;
-        if (typeof data.host === "number") setHostId(data.host);
-        if (data.host_name) setHostName(data.host_name);
-      })
-      .catch(() => null);
-  }, [canOfferWork]);
-
-  const openApplicationOverlay = useCallback((job: OpenJobLocation) => {
-    setApplyJob(job);
-    setApplyPrice(job.proposed_price ?? "");
-    setApplyMessage("");
-    setApplyError("");
-
-    apiFetch(`/api/marketplace/jobs/${job.id}/`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { host_name?: string } | null) => {
-        if (!data?.host_name) return;
-        setApplyJob((current) => (
-          current?.id === job.id ? { ...current, host_name: data.host_name } : current
-        ));
-      })
-      .catch(() => null);
-  }, []);
-
-  async function submitApplication(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!applyJob) return;
-    setApplying(true);
-    setApplyError("");
-
-    try {
-      const response = await apiFetch("/api/marketplace/applications/", {
-        method: "POST",
-        body: JSON.stringify({
-          job_id: applyJob.id,
-          proposed_price: applyPrice || null,
-          message: applyMessage,
-        }),
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        setApplyError(messageFromResponse(data, t("errors.submitFailed")));
-        return;
-      }
-
-      setApplyJob(null);
-    } catch {
-      setApplyError(t("errors.submitFailed"));
-    } finally {
-      setApplying(false);
-    }
-  }
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError("");
-    const query = cityLabel ? `?city=${encodeURIComponent(cityLabel)}` : "";
+    const query = citySlug ? `?city=${encodeURIComponent(citySlug)}` : "";
 
-    apiFetch(`/api/marketplace/open-job-locations/${query}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(t("errors.loadLocationsFailed"));
-        return res.json();
+    apiFetch(`/api/marketplace/public-demand/${query}`)
+      .then((response) => {
+        if (!response.ok) throw new Error("public_demand_unavailable");
+        return response.json();
       })
-      .then((data) => {
-        if (!cancelled) setJobs(readList<OpenJobLocation>(data));
+      .then((data: unknown) => {
+        if (!cancelled) setDemand(isPublicDemandResponse(data) ? data.cities : []);
       })
       .catch(() => {
         if (!cancelled) {
-          setJobs([]);
-          setError(t("errors.loadMapFailed"));
+          setDemand([]);
+          setError(t("errors.loadDemandFailed"));
         }
       })
       .finally(() => {
@@ -237,292 +113,209 @@ export default function OpenJobMap({ cityLabel, cityChangeSource, currentUser, o
     return () => {
       cancelled = true;
     };
-  }, [cityLabel, t]);
+  }, [citySlug, t]);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    const container = containerRef.current;
     let cancelled = false;
+    setZoneGeometry(null);
+    setMapFailed(false);
 
-    void import("leaflet").then((L) => {
-      if (cancelled || mapRef.current || containerRef.current !== container) return;
+    // Only Sofia has an approved canonical geometry snapshot for this surface.
+    // Other cities intentionally retain the aggregate list without a map.
+    if (citySlug !== "sofia") return () => {
+      cancelled = true;
+    };
 
-      leafletRef.current = L;
-      iconRef.current = L.divIcon({
-        html: JOB_PIN_HTML,
-        iconSize: [28, 34],
-        iconAnchor: [14, 34],
-        popupAnchor: [0, -30],
-        className: "open-job-pin",
+    loadZoneGeoJSON("sofia")
+      .then((geojson) => {
+        if (!cancelled && geojson?.features.length) setZoneGeometry(geojson);
+      })
+      .catch(() => {
+        if (!cancelled) setZoneGeometry(null);
       });
-
-      const map = L.map(container, { center, zoom: cityLabel ? 12 : 7 });
-      mapRef.current = map;
-      markerLayerRef.current = L.layerGroup().addTo(map);
-
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
-        maxZoom: 19,
-      }).addTo(map);
-
-      const markUserMove = () => {
-        userMovedMapRef.current = true;
-        userAdjustedViewportRef.current = true;
-      };
-
-      map.on("dragstart", markUserMove);
-      map.on("zoomstart", markUserMove);
-      map.on("moveend", () => {
-        if (programmaticMoveRef.current) {
-          programmaticMoveRef.current = false;
-          userMovedMapRef.current = false;
-          return;
-        }
-        if (!userMovedMapRef.current) return;
-        userMovedMapRef.current = false;
-
-        const nextCity = cityFromMapCenter(map.getCenter());
-        if (nextCity !== cityLabelRef.current) onCityChange(nextCity);
-      });
-    });
 
     return () => {
       cancelled = true;
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        markerLayerRef.current = null;
-      }
     };
-    // Map lifecycle is owned by Leaflet after mount; city/jobs updates are handled below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [citySlug]);
+
+  const visibleCities = useMemo(() => (
+    citySlug ? demand.filter((city) => city.city_slug === citySlug) : demand
+  ), [citySlug, demand]);
+  const totalJobs = visibleCities.reduce((total, city) => total + city.open_job_count, 0);
+  const zones = useMemo(() => (
+    visibleCities
+      .flatMap((city) => city.zones)
+      .sort((left, right) => (
+        right.open_job_count - left.open_job_count
+        || left.zone_id.localeCompare(right.zone_id, undefined, { numeric: true })
+      ))
+  ), [visibleCities]);
+  const largestCount = Math.max(...zones.map((zone) => zone.open_job_count), 1);
+  const demandGeometry = useMemo<FeatureCollection<Geometry, GeoJsonProperties> | null>(() => {
+    if (!zoneGeometry) return null;
+    const counts = new Map<string, number>();
+    for (const zone of zones) {
+      counts.set(zone.zone_id, (counts.get(zone.zone_id) ?? 0) + zone.open_job_count);
+    }
+    return {
+      type: "FeatureCollection",
+      features: zoneGeometry.features.map((feature) => ({
+        ...feature,
+        geometry: feature.geometry as unknown as Geometry,
+        properties: {
+          ...feature.properties,
+          open_job_count: counts.get(feature.properties.zone_id) ?? 0,
+        },
+      })),
+    };
+  }, [zoneGeometry, zones]);
+  const showMap = Boolean(
+    citySlug === "sofia"
+    && !loading
+    && !error
+    && zones.length > 0
+    && demandGeometry?.features.length
+    && !mapFailed
+  );
 
   useEffect(() => {
-    const L = leafletRef.current;
-    const map = mapRef.current;
-    const markerLayer = markerLayerRef.current;
-    const icon = iconRef.current;
-    if (!L || !map || !markerLayer || !icon) return;
+    if (!showMap || !mapContainerRef.current || !demandGeometry || !zoneGeometry) return;
+    let cancelled = false;
+    const mapData = demandGeometry;
+    const boundaryGeometry = zoneGeometry;
 
-    markerLayer.clearLayers();
+    async function renderDemandMap() {
+      try {
+        const maplibregl = await import("maplibre-gl");
+        if (cancelled || !mapContainerRef.current) return;
 
-    const markers = propertyGroups
-      .filter((group) => Number.isFinite(group[0].latitude) && Number.isFinite(group[0].longitude))
-      .map((group) => {
-        const lead = group[0];
-        const marker = L.marker([lead.latitude, lead.longitude], { icon });
-        marker.on("click", () => openPropertyOverlay(group));
-        marker.addTo(markerLayer);
-        return marker;
-      });
+        mapRef.current?.remove();
+        const map = new maplibregl.Map({
+          container: mapContainerRef.current,
+          style: {
+            version: 8,
+            sources: {},
+            layers: [{
+              id: "public-demand-background",
+              type: "background",
+              paint: { "background-color": "#f3f8f7" },
+            }],
+          },
+          center: [23.3219, 42.6977],
+          zoom: 10,
+          interactive: false,
+          attributionControl: false,
+        });
+        mapRef.current = map;
 
-    window.setTimeout(() => map.invalidateSize(), 0);
-    const markProgrammaticMove = () => {
-      programmaticMoveRef.current = true;
-      window.setTimeout(() => {
-        programmaticMoveRef.current = false;
-      }, 200);
+        map.on("error", () => {
+          if (!cancelled) setMapFailed(true);
+        });
+        map.on("load", () => {
+          if (cancelled) return;
+          map.addSource("public-demand-zones", {
+            type: "geojson",
+            data: mapData,
+          });
+          map.addLayer({
+            id: "public-demand-zone-fills",
+            type: "fill",
+            source: "public-demand-zones",
+            paint: {
+              "fill-color": [
+                "interpolate",
+                ["linear"],
+                ["coalesce", ["get", "open_job_count"], 0],
+                0,
+                "#e7f0ef",
+                1,
+                "#82c7c4",
+                Math.max(2, largestCount),
+                "#007f83",
+              ],
+              "fill-opacity": 0.82,
+            },
+          });
+          map.addLayer({
+            id: "public-demand-zone-lines",
+            type: "line",
+            source: "public-demand-zones",
+            paint: {
+              "line-color": "#3d7775",
+              "line-opacity": 0.72,
+              "line-width": 0.9,
+            },
+          });
+          const bounds = boundsFromGeoJSON(boundaryGeometry);
+          if (bounds) map.fitBounds(bounds, { padding: 18, duration: 0 });
+        });
+      } catch {
+        if (!cancelled) setMapFailed(true);
+      }
+    }
+
+    void renderDemandMap();
+    return () => {
+      cancelled = true;
+      mapRef.current?.remove();
+      mapRef.current = null;
     };
-
-    const cityLabelChangedForViewport = viewportFitCityLabelRef.current !== cityLabel;
-    viewportFitCityLabelRef.current = cityLabel;
-
-    if (cityChangeSource === "select" && cityLabelChangedForViewport) {
-      userAdjustedViewportRef.current = false;
-    }
-
-    const shouldKeepCurrentViewport = cityChangeSource === "map" || userAdjustedViewportRef.current;
-
-    if (shouldKeepCurrentViewport) {
-      return;
-    }
-
-    if (markers.length > 0) {
-      const bounds = L.latLngBounds(markers.map((marker: any) => marker.getLatLng()));
-      markProgrammaticMove();
-      map.fitBounds(bounds, { padding: [34, 34], maxZoom: 14, animate: false });
-    } else {
-      markProgrammaticMove();
-      map.setView(center, cityLabel ? 12 : 7, { animate: false });
-    }
-  }, [center, cityChangeSource, cityLabel, propertyGroups, openPropertyOverlay]);
+  }, [demandGeometry, largestCount, showMap, zoneGeometry]);
 
   return (
-    <>
-      <section className="open-job-map-card" aria-label={t("sectionAriaLabel", { city: where })}>
-        <div className="open-job-map-head">
-          <div>
-            <h2>{t("heading", { city: where })}</h2>
-          </div>
-          <span className="open-job-map-count">
-            <Briefcase size={14} aria-hidden />
-            {loading ? t("loading") : t("pinCount", { count: propertyGroups.length })}
-          </span>
+    <section className="open-job-map-card" aria-label={t("sectionAriaLabel", { city: where })}>
+      <div className="open-job-map-head">
+        <div>
+          <h2>{t("heading", { city: where })}</h2>
+          <p>{t("approximateNotice")}</p>
         </div>
+        <span className="open-job-map-count">
+          <Briefcase size={14} aria-hidden />
+          {loading ? t("loading") : t("jobCount", { count: totalJobs })}
+        </span>
+      </div>
 
-        <div className="open-job-map-shell">
-          <div ref={containerRef} className="open-job-map" />
-          {loading ? <div className="open-job-map-state">{t("loadingPins")}</div> : null}
-          {!loading && error ? <div className="open-job-map-state">{error}</div> : null}
-        </div>
-        <p className="map-data-credit">
-          Map data:{" "}
-          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
-            © OpenStreetMap contributors
-          </a>
-        </p>
-      </section>
-
-      {propertyJobs && propertyJobs.length > 0 ? (
-        <div
-          className="host-modal-backdrop open-job-property-backdrop"
-          onClick={() => setPropertyJobs(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label={t("propertyDialogAriaLabel")}
-        >
-          <div className="host-modal open-job-property-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="host-modal-header">
-              <h2>{propertyJobs[0].property_name || t("propertyFallback")}</h2>
-              <button type="button" className="host-modal-close" onClick={() => setPropertyJobs(null)} aria-label={t("closeAriaLabel")}>
-                <X size={18} aria-hidden />
-              </button>
-            </div>
-
-            <div className="open-job-property-body">
-            <div className="open-job-property-summary">
-              {propertyJobs[0].property_image ? (
-                <Image
-                  src={propertyJobs[0].property_image}
-                  alt=""
-                  width={300}
-                  height={236}
-                  unoptimized
-                />
-              ) : null}
-              <div className="open-job-property-summary-body">
-                <span className="open-job-property-address">
-                  {[
-                    propertyJobs[0].property_address,
-                    propertyJobs[0].property_neighborhood,
-                    propertyJobs[0].property_city,
-                  ]
-                    .filter(Boolean)
-                    .join(", ") || t("addressNotProvided")}
+      <div className={`public-demand-shell${showMap ? " public-demand-shell--with-map" : ""}`}>
+        {loading ? <p className="open-job-map-state">{t("loadingDemand")}</p> : null}
+        {!loading && error ? <p className="open-job-map-state">{error}</p> : null}
+        {!loading && !error && zones.length === 0 ? (
+          <p className="open-job-map-state">{t("noDemand")}</p>
+        ) : null}
+        {showMap ? (
+          <figure className="public-demand-map-frame">
+            <div
+              ref={mapContainerRef}
+              className="public-demand-map"
+              role="img"
+              aria-label={t("sectionAriaLabel", { city: where })}
+            />
+            <figcaption className="public-demand-map-attribution">
+              <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+                © OpenStreetMap contributors
+              </a>
+            </figcaption>
+          </figure>
+        ) : null}
+        {!loading && !error && zones.length > 0 ? (
+          <ul className="public-demand-list">
+            {zones.map((zone) => (
+              <li key={zone.zone_id} className="public-demand-zone">
+                <MapPinned size={18} aria-hidden />
+                <span className="public-demand-zone-name">
+                  {zone.zone_name_bg || zone.zone_name_en}
                 </span>
-                {canOfferWork ? (
-                  <div className="open-job-property-host">
-                    <span>{hostName ? t("hostWithName", { name: hostName }) : t("hostFallback")}</span>
-                    {hostId ? <ConnectButton targetUserId={hostId} /> : null}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <h3 className="open-job-property-subtitle">
-              {t("openJobsHeading")}
-              <span className="open-job-property-count">{propertyJobs.length}</span>
-            </h3>
-            <ul className="open-job-property-list">
-              {propertyJobs.map((job) => (
-                <li key={job.id} className="open-job-property-job">
-                  <div className="open-job-property-job-info">
-                    <strong>{job.title || t("cleaningJobFallback")}</strong>
-                    <span>{formatJobDate(job.scheduled_start)}</span>
-                  </div>
-                  <div className="open-job-property-job-right">
-                    {job.proposed_price ? (
-                      <span className="open-job-property-job-price">
-                        {job.proposed_price} {job.currency}
-                      </span>
-                    ) : null}
-                    {canOfferWork ? (
-                      <button
-                        type="button"
-                        className="open-job-popup-action"
-                        onClick={() => openApplicationOverlay(job)}
-                      >
-                        {t("applyBtn")}
-                      </button>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {applyJob ? (
-        <div
-          className="host-modal-backdrop open-job-apply-backdrop"
-          onClick={() => setApplyJob(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label={t("applyDialogAriaLabel")}
-        >
-          <div className="host-modal open-job-apply-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="host-modal-header">
-              <h2>{t("applyDialogHeading")}</h2>
-              <button type="button" className="host-modal-close" onClick={() => setApplyJob(null)} aria-label={t("closeAriaLabel")}>
-                <X size={18} aria-hidden />
-              </button>
-            </div>
-            <form className="host-form" onSubmit={(event) => void submitApplication(event)}>
-              <div className="open-job-apply-summary">
-                {applyJob.property_image ? (
-                  <Image
-                    src={applyJob.property_image}
-                    alt=""
-                    width={300}
-                    height={236}
-                    unoptimized
-                  />
-                ) : null}
-                <div className="open-job-apply-summary-body">
-                  <strong>{applyJob.property_name || applyJob.title || t("propertyFallback")}</strong>
-                  <span>{applyJob.property_address || t("addressNotProvided")}</span>
-                  <span>{applyJob.host_name ? t("hostWithName", { name: applyJob.host_name }) : t("hostLoading")}</span>
-                  <span>{formatJobDate(applyJob.scheduled_start)}</span>
-                </div>
-              </div>
-
-              <label>
-                <span>{t("yourPrice", { currency: applyJob.currency || "EUR" })}</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={applyPrice}
-                  onChange={(event) => setApplyPrice(event.target.value)}
-                  placeholder="45.00"
+                <span
+                  className="public-demand-zone-bar"
+                  aria-hidden="true"
+                  style={{ "--demand-width": `${Math.max(12, (zone.open_job_count / largestCount) * 100)}%` } as CSSProperties}
                 />
-              </label>
-              <label>
-                <span>{t("messageToHost")}</span>
-                <textarea
-                  rows={4}
-                  value={applyMessage}
-                  onChange={(event) => setApplyMessage(event.target.value)}
-                  placeholder={t("messagePlaceholder")}
-                />
-              </label>
-
-              {applyError ? <p className="form-error">{applyError}</p> : null}
-              <div className="host-form-actions">
-                <button className="secondary-link" type="button" onClick={() => setApplyJob(null)}>
-                  {t("cancelBtn")}
-                </button>
-                <button className="primary-link auth-submit" type="submit" disabled={applying}>
-                  {applying ? t("sending") : t("submitBtn")}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
-    </>
+                <strong>{zone.open_job_count}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </section>
   );
 }

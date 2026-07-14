@@ -1,5 +1,9 @@
 # Development Guide
 
+> `Security Audit Plan.txt` is absent from the checked-out repository.
+> The supplied audit-plan requirements and `docs/STAGE_1_SOFIA_PILOT_PLAN.md`
+> are external planning inputs for the release privacy work.
+
 ## Restart Handoff
 
 See `CURRENT_PROGRESS.md` for the current deployment progress, local-development notes, and signup-flow status.
@@ -151,7 +155,14 @@ FRONTEND_URL=http://localhost:3000
 
 Use a verified Resend sender/domain for `EMAIL_RESEND_FROM_EMAIL`. Restart both the backend and Celery after changing `.env`.
 
-If `EMAIL_VER_USER_SIGNUP=False`, the backend auto-verifies the signup email request and returns `email_verification_token` immediately so the frontend skips the email-code step.
+If `EMAIL_VER_USER_SIGNUP=False`, the backend auto-verifies the signup email request and returns `email_verification_token` immediately so the frontend skips the email-code step. That token remains in React memory only; it is never part of browser recovery state.
+
+Signup refresh recovery uses only `sessionStorage` key `signup_wizard_state`
+with a 24-hour explicit allowlist: `version`, `savedAt`, `role`, `citySlug`,
+`selectedZoneIds`, and `experienceLevel`. Passwords, confirmation, email,
+verification codes/tokens, names, identity/profile fields, errors, and response
+data are intentionally lost on refresh. Do not replace this with localStorage,
+IndexedDB, cookies, URL parameters, or encrypted browser persistence.
 
 The signup code email body is rendered from:
 
@@ -211,7 +222,10 @@ Signup email delivery requires Redis and the Celery worker when Celery is instal
 
 ## Logging And Observability
 
-- Backend and Celery logs are JSON on stdout. Each request gets `X-Request-ID`; pass/search that value when debugging.
+- Backend and Celery logs are JSON on stdout. Each request gets `X-Request-ID`
+  in the exact form `req_` plus 32 lowercase hexadecimal characters; invalid
+  inbound IDs are replaced. Request telemetry uses resolver route templates,
+  never raw paths, queries, request/response bodies, user text, or actor IDs.
 - Startup emits `django.started` for server/worker commands only.
 - Important account/marketplace actions create read-only `AuditLog` rows in Django admin at `/admin/core/auditlog/`.
 - Use normal `logging.getLogger("apps.<area>")` for technical logs; use `write_audit_log(...)` only for important business history.
@@ -366,8 +380,56 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 
 - Compact centered public hero plus an audience toggle.
 - `Find a cleaner` renders the shared `CleanerBrowser`, which fetches `/api/accounts/public-cleaners/` and filters verified cleaners by selected city and dependent district.
-- `Find cleaning work` renders `AreaDemandPanel` and `OpenJobMap`: aggregate demand counts come from `/api/marketplace/area-stats/`; public open-job pins come from `/api/marketplace/open-job-locations/`.
-- The work map is Leaflet/OpenStreetMap. It shows property photo popups, gives authenticated cleaners an `Offer cleaning` action that opens an `Apply for job` overlay (photo, address, property name, host name, editable price, message) and submits through `POST /api/marketplace/applications/`, and auto-selects Sofia/Plovdiv/Varna when a user-driven pan/zoom leaves the viewport center within 35km of a supported city. User map movement must not be overridden by marker-refresh `fitBounds`; explicit dropdown selection may still recenter.
+- `Find cleaning work` renders `AreaDemandPanel` and the compatibility-named `OpenJobMap`. Canonical `/api/marketplace/public-demand/?city=sofia` returns city/zone aggregate counts only. `/api/marketplace/open-job-locations/` is a temporary identical-body alias with deprecation headers and a 15 October 2026 sunset.
+- Public discovery renders canonical district counts using catalog geometry/names only. It must never request or render per-job/property IDs, job-derived coordinates, address fragments, photos, exact schedules/prices, host identity, or free text. Applications remain in the authenticated approved/verified cleaner dashboard.
+
+The anonymous response contract is:
+
+```json
+{
+  "cities": [
+    {
+      "city_slug": "sofia",
+      "city_name_bg": "София",
+      "city_name_en": "Sofia",
+      "open_job_count": 4,
+      "zones": [
+        {
+          "zone_id": "sofia:osm-66",
+          "zone_name_bg": "ж.к. Лозенец",
+          "zone_name_en": "ж.к. Лозенец",
+          "open_job_count": 2
+        }
+      ]
+    }
+  ]
+}
+```
+
+Only exact canonical `sofia:osm-1` through `sofia:osm-144` IDs/names may
+appear. Unmatched legacy jobs contribute only to a canonical city total. The
+alias adds `Deprecation: true`, a successor `Link`, and
+`Sunset: Thu, 15 Oct 2026 00:00:00 GMT`.
+
+Approved verified cleaners and eligible approved agencies receive only the
+S1-D04 evaluator job projection. A current active assigned participant may
+receive the minimum operational property/address/instructions/agreed-price and
+one protected primary image. Completed or otherwise retained worker records use
+the `history` projection: evaluator fields plus host display, agreed price, and
+assignment history, with no property name/address/image/instructions.
+Owners/admins retain legitimate full views.
+Operational property images stream from
+`/api/properties/images/{id}/content/`; every raw `/media/*` request is denied.
+Approved public cleaner profile media is the `profile_image` API/data value, not
+a `PropertyImage` storage path.
+
+`GET /api/connections/{id}/shared/` is no-store and is available only for an
+accepted connection when the requester is active/approved and, for a worker
+requester, is an eligible verified evaluator. It includes current,
+non-cancelled assignments only. Property rows contain `name`, `city`, and
+`cleanings`; cleaning rows contain `job_id`, `property_name`, `scheduled_start`,
+`status`, `agreed_price`, and `currency`. It excludes addresses, images,
+instructions, coordinates, host identity, and free text.
 - City matching for `CleanerBrowser` uses the cleaner profile `city` field first and falls back to district inference from `service_areas` for older blank-city profiles.
 - Auth-aware header: when logged in, shows the correct dashboard link plus the same notification bell and profile-icon menu used by dashboards. Profile, logout, and the persistent BG/EN segmented language control live inside the profile menu. Logged-out visitors retain the standalone language selector.
 

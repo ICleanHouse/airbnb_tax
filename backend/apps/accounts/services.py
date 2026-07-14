@@ -42,7 +42,6 @@ def _notify_counterparties(user: User) -> None:
 
 
 def _notify_cleaners_for_deleted_host(host: User) -> None:
-    host_name = display_name(host)
     notified_assignment_cleaners: set[int] = set()
 
     assignments = (
@@ -62,13 +61,10 @@ def _notify_cleaners_for_deleted_host(host: User) -> None:
                 user=cleaner,
                 notification_type="account.host_deleted",
                 title="Assigned job removed",
-                body=f"{host_name} deleted their account, so an assigned cleaning job was removed.",
+                body="A host account was deleted, so an assigned cleaning job was removed.",
                 metadata={
-                    "deleted_user_id": host.id,
-                    "deleted_user_role": host.role,
                     "job_id": assignment.job_id,
                     "assignment_id": assignment.id,
-                    "property_id": assignment.job.property_id,
                 },
             )
 
@@ -82,13 +78,10 @@ def _notify_cleaners_for_deleted_host(host: User) -> None:
             user=application.cleaner,
             notification_type="account.host_deleted",
             title="Cleaning job removed",
-            body=f"{host_name} deleted their account, so a published job or offer is no longer available.",
+            body="A published cleaning job or offer is no longer available.",
             metadata={
-                "deleted_user_id": host.id,
-                "deleted_user_role": host.role,
                 "job_id": application.job_id,
                 "application_id": application.id,
-                "property_id": application.job.property_id,
             },
         )
 

@@ -164,6 +164,41 @@ class MarketplaceApiNegativeBase(TestCase):
 
 
 class CleaningJobApiNegativeTests(MarketplaceApiNegativeBase):
+    def test_non_host_create_role_gate_precedes_private_id_validation(self):
+        self.client.force_authenticate(self.cleaner)
+
+        valid_property = self.client.post(
+            "/api/marketplace/jobs/",
+            self.job_payload(self.property),
+            format="json",
+        )
+        unknown_property = self.client.post(
+            "/api/marketplace/jobs/",
+            self.job_payload(self.property, property_id=999999999),
+            format="json",
+        )
+        batch = self.client.post(
+            "/api/marketplace/batches/",
+            {
+                "property_id": self.property.id,
+                "title": "Must not validate",
+                "month": timezone.localdate().replace(day=1).isoformat(),
+            },
+            format="json",
+        )
+        offer = self.client.post(
+            "/api/marketplace/jobs/offer-to-cleaner/",
+            {
+                **self.job_payload(self.property),
+                "cleaner_id": self.other_cleaner.id,
+            },
+            format="json",
+        )
+
+        for response in (valid_property, unknown_property, batch, offer):
+            self.assertEqual(response.status_code, 403)
+            self.assert_response_safe(response)
+
     def test_host_cannot_access_or_mutate_another_hosts_private_job(self):
         job = self.create_job(status=CleaningJob.Status.DRAFT)
         original = {
@@ -468,7 +503,7 @@ class CleanerApplicationApiNegativeTests(MarketplaceApiNegativeBase):
                     format="json",
                 )
 
-                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.status_code, 404)
                 self.assertFalse(CleanerApplication.objects.filter(job=job, cleaner=self.cleaner).exists())
 
     def test_application_create_ignores_applicant_and_lifecycle_field_injection(self):
@@ -503,7 +538,7 @@ class CleanerApplicationApiNegativeTests(MarketplaceApiNegativeBase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 403)
         self.assertFalse(CleanerApplication.objects.filter(job=job).exists())
 
     def test_application_withdrawal_is_applicant_only_and_pending_only(self):
@@ -520,7 +555,7 @@ class CleanerApplicationApiNegativeTests(MarketplaceApiNegativeBase):
         own_response = self.client.post(f"/api/marketplace/applications/{pending.id}/withdraw/")
 
         self.assertEqual(other_cleaner_response.status_code, 404)
-        self.assertEqual(host_response.status_code, 400)
+        self.assertEqual(host_response.status_code, 403)
         self.assertEqual(own_response.status_code, 200)
         pending.refresh_from_db()
         self.assertEqual(pending.status, CleanerApplication.Status.WITHDRAWN)
@@ -598,7 +633,7 @@ class DirectOfferApiNegativeTests(MarketplaceApiNegativeBase):
         )
 
         self.assertEqual(foreign_host_response.status_code, 404)
-        self.assertEqual(cleaner_response.status_code, 400)
+        self.assertEqual(cleaner_response.status_code, 403)
         self.assertFalse(CleanerApplication.objects.filter(job=job).exists())
 
     def test_direct_offer_rejects_invalid_or_unworkable_target(self):
@@ -637,7 +672,7 @@ class DirectOfferApiNegativeTests(MarketplaceApiNegativeBase):
         own_decline = self.client.post(f"/api/marketplace/applications/{offer.id}/decline-offer/")
         repeat_decline = self.client.post(f"/api/marketplace/applications/{offer.id}/decline-offer/")
 
-        self.assertEqual(host_accept.status_code, 400)
+        self.assertEqual(host_accept.status_code, 403)
         self.assertEqual(other_accept.status_code, 404)
         self.assertEqual(other_decline.status_code, 404)
         self.assertEqual(own_decline.status_code, 200)
@@ -810,7 +845,7 @@ class AssignmentApiNegativeTests(MarketplaceApiNegativeBase):
             {"assigned_member_id": active_member.id},
             format="json",
         )
-        self.assertEqual(host_response.status_code, 400)
+        self.assertEqual(host_response.status_code, 403)
         assignment.refresh_from_db()
         self.assertIsNone(assignment.assigned_member)
 

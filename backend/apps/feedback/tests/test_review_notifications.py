@@ -36,6 +36,7 @@ class ReviewNotificationTests(ReviewScenarioMixin, TestCase):
         self.assertEqual(notification.metadata, {"job_id": self.job.id, "reviewee_id": self.host.id})
         self.assertNotIn(str(review.rating), str(notification.metadata))
         self.assertNotIn(review.comment, notification.body)
+        self.assertNotIn(self.job.title, notification.body)
 
     def test_second_valid_review_sends_unlock_notifications_to_both_parties(self):
         submit_review(job=self.job, reviewer=self.host, reviewee=self.cleaner, rating=5)
@@ -53,6 +54,7 @@ class ReviewNotificationTests(ReviewScenarioMixin, TestCase):
         for notification in unlocks:
             self.assertEqual(notification.metadata, {"job_id": self.job.id, "review_id": second.id})
             self.assertNotIn("Clean and punctual", notification.body)
+            self.assertNotIn(self.job.title, notification.body)
 
     def test_invalid_duplicate_self_late_and_non_involved_attempts_create_no_notifications(self):
         submit_review(job=self.job, reviewer=self.host, reviewee=self.cleaner, rating=5)

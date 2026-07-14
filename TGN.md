@@ -287,6 +287,8 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
   auth: optional
   reads: GET /api/accounts/me/   (to set header link)
          GET /api/accounts/public-cleaners/   (verified cleaner directory)
+         GET /api/marketplace/public-demand/?city=sofia
+         GET /api/marketplace/area-stats/?city=sofia
   writes: PATCH /api/accounts/users/{id}/   (authenticated preferred-language slider)
   behavior: compact hero + CleanerBrowser city/district filters;
             authenticated header uses notification bell + profile-icon menu
@@ -300,12 +302,16 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
 
 /signup
   auth: no
-  reads: sessionStorage signup_wizard_state for refresh recovery
+  reads: sessionStorage signup_wizard_state for non-sensitive refresh recovery
   writes: POST /api/accounts/signup/email-code/
           POST /api/accounts/signup/verify-email-code/
           POST /api/accounts/signup/
-  behavior: single React wizard with Motion transitions; Continue/Back mutate local state
-  progress starts: role step
+  behavior: single React wizard with Motion transitions; Continue/Back mutate local state;
+            recovery persists only version, savedAt, role, citySlug,
+            selectedZoneIds, and experienceLevel for 24 hours
+  secrets: passwords, confirmation, email/code/token, identity/profile fields,
+           errors, and responses remain in React memory only and are empty after refresh
+  progress starts: account step
   cleaner path: account → confirm email → role → personal info → location → native language → experience → introduction → profile photo → /app
   host/agency path: account → confirm email → role → location → /app
   old step URLs: /signup/confirm-email, /signup/role, /signup/location,
@@ -414,6 +420,7 @@ Full API surface with implementation state.
 | Method | Route | Auth | Status |
 |---|---|---|---|
 | GET/POST | `/api/properties/properties/` | Host | ✅ |
+| GET/HEAD | `/api/properties/images/{id}/content/` | Object-authorized owner/admin/assigned participant | ✅ — private, no-store |
 | GET/POST | `/api/properties/calendar-connections/` | Host | ✅ |
 | GET/POST | `/api/properties/reservations/` | Host | ✅ |
 | POST | `/api/properties/parse-ics/` | Host | ✅ |
@@ -424,6 +431,8 @@ Full API surface with implementation state.
 |---|---|---|---|
 | GET/POST | `/api/marketplace/batches/` | Host | ✅ |
 | GET/POST | `/api/marketplace/jobs/` | Host/Cleaner | ✅ |
+| GET | `/api/marketplace/public-demand/` | None | ✅ — canonical city/zone aggregate only |
+| GET | `/api/marketplace/open-job-locations/` | None | Deprecated alias — identical aggregate body; sunset 2026-10-15 |
 | POST | `/api/marketplace/jobs/{id}/publish/` | Host | ✅ |
 | DELETE | `/api/marketplace/jobs/{id}/` | Host | ✅ — draft/open only |
 | POST | `/api/marketplace/jobs/{id}/complete/` | Cleaner/Admin | ✅ — single-step completion; host no longer confirms |
@@ -435,6 +444,17 @@ Full API surface with implementation state.
 | GET/READ | `/api/marketplace/assignments/` | Required | ✅ |
 | POST | `/api/marketplace/assignments/{id}/assign-member/` | Agency | ✅ — immutable after first member delegation |
 | GET/POST/DELETE | `/api/marketplace/favourites/` | Host | ✅ — create targets public-eligible cleaners only; historical rows remain visible to owner |
+
+Marketplace disclosure tiers are server-enforced. Anonymous demand contains
+only canonical city/zone IDs and names plus aggregate counts. Approved verified
+cleaners and eligible approved agencies receive only the S1-D04 evaluator
+allowlist (job ID, canonical location, exact schedule, proposed price/currency,
+bedrooms, square metres, status, and `can_apply`). Active assigned participants
+add only the minimum operational property/address/instructions/agreed-price,
+workflow/display fields, and protected primary image. Completed or otherwise
+retained worker records use the `history` tier: evaluator fields plus host
+display, agreed price, and assignment history, but no property name/address,
+image, or instructions. Coordinates remain private in every worker tier.
 
 ### Connections (apps.connections — LinkedIn-style relationship + polled in-app chat)
 
@@ -448,7 +468,13 @@ Full API surface with implementation state.
 | GET/POST | `/api/connections/{id}/messages/` | Participant | ✅ — GET marks read; POST sends (accepted only) |
 | POST | `/api/connections/{id}/read/` | Participant | ✅ |
 | GET | `/api/connections/unread-count/` | Required | ✅ — `{ unread, pending_requests }` |
-| GET | `/api/connections/{id}/shared/` | Participant | ✅ — shared properties + cleanings |
+| GET | `/api/connections/{id}/shared/` | Accepted connection; active/approved requester; worker requester also evaluator-eligible | ✅ — no-store current-assignment allowlist only |
+
+The shared-work response contains property `name`, `city`, and `cleanings`
+count plus cleaning `job_id`, `property_name`, `scheduled_start`, `status`,
+`agreed_price`, and `currency`. It excludes address, image, instructions,
+coordinates, host identity, and free text, and never includes cancelled or
+completed assignments.
 
 ### Other
 
@@ -623,10 +649,18 @@ member_count (computed), bio
 ### Property
 ```
 host (FK→HostProfile), name, address, city, country,
+service_zone (nullable FK→ServiceZone; required for new/relocated Sofia properties),
 timezone (default: Europe/Sofia),
 default_cleaning_duration_minutes, default_price_eur,
 cleaning_instructions, access_notes
 ```
+
+Operational `PropertyImage` files are private. API serializers expose a protected
+`/api/properties/images/{id}/content/` URL, never a raw storage path. Owners and
+admins may read owned images; active approved/verified assigned participants may
+read only the primary image for a current non-cancelled assignment. Every raw
+`/media/*` route returns 404. Approved public cleaner profile media remains the
+public `profile_image` API/data value and is not `PropertyImage` raw storage.
 
 ### CleaningJob
 ```

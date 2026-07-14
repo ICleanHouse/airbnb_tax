@@ -262,6 +262,10 @@ def main() -> None:
                     "attribution": "© OpenStreetMap contributors",
                 },
             )
+        sofia_zones_by_name = {
+            zone.name_bg: zone
+            for zone in ServiceZone.objects.filter(city=sofia_city, slug__in=current_sofia_slugs)
+        }
 
         # Clean only data created by this script if re-run.
         remove_old_seed_property_images(media_root)
@@ -387,6 +391,7 @@ def main() -> None:
                     address=address,
                     city="Sofia",
                     neighborhood=neighborhood,
+                    service_zone=sofia_zones_by_name[neighborhood],
                     latitude=latitude,
                     longitude=longitude,
                     country="Bulgaria",

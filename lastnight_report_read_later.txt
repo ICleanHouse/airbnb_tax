@@ -1,0 +1,88 @@
+Implemented both release blockers. Server-side privacy allowlists are enforced, signup credentials remain memory-only, and the final security re-review found no remaining blocker in the diff.
+Vulnerabilities fixed
+Anonymous discovery reused operational job/property data, exposing precise locations, schedules, prices, media, and identity-bearing fields.
+Signup recovery serialized broad wizard state, including plaintext password and confirmation.
+Raw property media bypassed object-level authorization.
+Telemetry, cache policy, notifications, connections, and completed-job projections lacked centralized privacy boundaries.
+Final API contracts
+Anonymous GET /api/marketplace/public-demand/?city=sofia returns only:
+{
+  "cities": [{
+    "city_slug": "sofia",
+    "city_name_bg": "София",
+    "city_name_en": "Sofia",
+    "open_job_count": 4,
+    "zones": [{
+      "zone_id": "sofia:osm-66",
+      "zone_name_bg": "ж.к. Лозенец",
+      "zone_name_en": "ж.к. Лозенец",
+      "open_job_count": 2
+    }]
+  }]
+}
+Only canonical sofia:osm-1 through sofia:osm-144 zones are returned. There are no job/property/host IDs, addresses, coordinates, centroids, raw neighborhoods, media, dates, prices, property characteristics, or free text. Unmatched legacy properties contribute only to the city total.
+/open-job-locations/ returns the identical safe body and now includes deprecation, successor, and 15 October 2026 sunset headers.
+Approved evaluator fields are exactly:
+id, access_tier,
+city_slug, city_name_bg, city_name_en,
+zone_id, zone_name_bg, zone_name_en,
+scheduled_start, scheduled_end,
+currency, proposed_price,
+bedrooms, square_metres,
+status, can_apply
+Current assigned workers may additionally receive:
+property_name, property_address, property_image,
+host, host_name, agreed_price,
+cleaning_instructions, assignment
+The image is a protected URL, coordinates remain excluded, and host_name can never fall back to email or username. Completed/history projections remove operational property address, name, image, and instructions.
+Authorization now consistently uses 403 for authentication requirements, 404 for unrelated/private objects, 403 for visible-but-forbidden actions, and controlled 400 responses for invalid business state.
+Signup storage contract
+The only persisted keys are:
+version
+savedAt
+role
+citySlug
+selectedZoneIds
+experienceLevel
+Recovery expires after 24 hours. Passwords, confirmations, names, email, verification codes/tokens, step, personal details, errors, and API responses are never persisted. Legacy records are immediately removed and reconstructed only from recognized allowlisted values. Refresh returns to account entry with credentials empty; success, cancel, reset, and expiry clear recovery state.
+No localStorage, IndexedDB, cookie, URL, analytics, logging, Sentry, or encrypted-browser-storage replacement was introduced.
+Other security boundaries
+Property images now require object-level authorization through authenticated GET/HEAD content endpoints.
+Responses stream without storage redirects or filenames and use private, no-store, nosniff, same-origin resource policy, and Vary: Cookie.
+Raw /media/* property access is denied in Django and Caddy; the Next.js media rewrite was removed.
+Approved public cleaner-profile media remains unaffected.
+API calls use cache: "no-store" and affected responses temporarily ship Clear-Site-Data: "cache".
+Telemetry retains only controlled method, request ID, status, error code, and route template fields.
+S1-D04 and the compatibility-alias sunset are documented.
+Documentation states exactly: “Security Audit Plan.txt is absent from the checked-out repository.”
+Files and tests
+The [exact 88-file changed inventory (line 62)](/C:/Users/35987/Desktop/airbnb_tax/docs/testing/release_blocking_privacy_fix.tdd.md:62) and [RED → GREEN evidence (line 32)](/C:/Users/35987/Desktop/airbnb_tax/docs/testing/release_blocking_privacy_fix.tdd.md:32) are recorded in the repository.
+Primary implementation areas include:
+[marketplace selectors](/C:/Users/35987/Desktop/airbnb_tax/backend/apps/marketplace/selectors.py)
+[marketplace serializers](/C:/Users/35987/Desktop/airbnb_tax/backend/apps/marketplace/serializers.py)
+[marketplace views](/C:/Users/35987/Desktop/airbnb_tax/backend/apps/marketplace/views.py)
+[protected property media](/C:/Users/35987/Desktop/airbnb_tax/backend/apps/properties/views.py)
+[signup recovery allowlist](/C:/Users/35987/Desktop/airbnb_tax/frontend/features/signup/signupRecovery.ts)
+[signup wizard](/C:/Users/35987/Desktop/airbnb_tax/frontend/features/signup/SignupPage.tsx)
+[telemetry sanitizer](/C:/Users/35987/Desktop/airbnb_tax/frontend/lib/sentry-sanitize.ts)
+[S1-D04 pilot decision](/C:/Users/35987/Desktop/airbnb_tax/docs/STAGE_1_SOFIA_PILOT_PLAN.md)
+Regression coverage includes aggregate schema and query counts, recursive leak sentinels, all 144 zones, migrations, authorization/status matrices, evaluator/assigned/history tiers, applications, calendars, conflicts, media authorization, public cleaner/review boundaries, signup persistence, legacy recovery, telemetry sanitization, frontend aggregate demand, and cache behavior.
+Verification
+python manage.py check — passed
+python manage.py makemigrations --check — passed
+Marketplace tests — 136/136 passed
+Accounts tests — 37/37 passed
+Locations/properties/calendars/feedback — 85/85 passed
+Full backend suite — 299/299 passed
+Focused frontend suite — 35/35 passed
+Full frontend suite — 35/35 passed
+TypeScript typecheck — passed
+ESLint — passed with zero errors; five pre-existing hook warnings
+Ruff over changed Python — passed
+git diff --check — passed; CRLF notices only
+In-process HTTP smoke checks — passed for demand, alias headers, unknown city, protected media, and raw-media denial
+Final security re-review — passed
+No production build was run.
+Remaining deployment considerations
+The in-app browser was unavailable, so production browser/proxy verification remains a deployment gate: confirm historical cache eviction, back/offline behavior, and media reauthorization after logout. Static inspection found no service worker, CacheStorage, or Workbox registration.
+Other documented residuals are exported copies outside application control, unmatched legacy properties contributing only to city totals, non-Sofia zone catalogs, future pagination, public review free-text self-disclosure policy, legacy cleaner-profile /media/* values requiring inventory, and deferred server-side onboarding drafts. Remove Clear-Site-Data and retire the alias no later than 15 October 2026.

@@ -25,6 +25,8 @@ class AgencyDelegationContractTests(TestCase):
         self.other_host = self.create_host("other-host")
         self.property = Property.objects.create(host=self.host, name="Central Flat", city="Sofia")
         self.agency_user, self.agency = self.create_agency("agency")
+        self.agency.company_name = "PRIVATE_AGENCY_NAME_SENTINEL"
+        self.agency.save(update_fields=["company_name"])
         self.other_agency_user, self.other_agency = self.create_agency("other-agency")
         self.member = self.create_cleaner("member-one")
         self.replacement = self.create_cleaner("member-two")
@@ -148,6 +150,12 @@ class AgencyDelegationContractTests(TestCase):
             member=self.member,
         )
         self.assertEqual(assigned.assigned_member_id, self.member.id)
+        notification = Notification.objects.get(
+            user=self.member,
+            notification_type="agency.assignment.created",
+        )
+        self.assertNotIn(self.agency.company_name, notification.body)
+        self.assertNotIn(self.assignment.job.title, notification.body)
         first_counts = self.assignment_effect_counts()
 
         repeated = assign_member_to_assignment(
@@ -296,8 +304,8 @@ class AgencyDelegationContractTests(TestCase):
         first_counts = self.assignment_effect_counts()
         actors = [
             ("different-agency", self.other_agency_user, 404),
-            ("host", self.host, 400),
-            ("assigned-member", self.member, 400),
+            ("host", self.host, 403),
+            ("assigned-member", self.member, 403),
             ("unrelated-cleaner", self.unrelated_cleaner, 404),
         ]
 

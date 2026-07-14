@@ -49,6 +49,10 @@
   },
   "signup": {
     "brandName": "Host Cleaners",
+    "recovery": {
+      "restoredNotice": "For your security, account details, passwords, and email verification are not saved. Re-enter them to continue; your account type and service-area choices will be restored later.",
+      "startOver": "Start over"
+    },
     "account": {
       "heading": "Create account",
       "firstNameLabel": "First name",
@@ -64,7 +68,7 @@
       "logIn": "Log in",
       "passwordCheck": {
         "length": "At least 8 characters",
-        "letter": "At least one letter (any alphabet)",
+        "letter": "At least one letter",
         "number": "At least one number",
         "special": "At least one special character"
       },
@@ -308,6 +312,9 @@
       },
       "openJobs": {
         "title": "Open jobs",
+        "jobFallback": "Cleaning opportunity",
+        "bedrooms": "{count, plural, one {# bedroom} other {# bedrooms}}",
+        "squareMetres": "{value} m²",
         "empty": "No open jobs.",
         "emptyHint": "Publish a draft job to start receiving applications.",
         "badge": "Open",
@@ -373,13 +380,16 @@
       "namePlaceholder": "Sea View Apartment",
       "city": "City *",
       "addressLocked": "Address cannot be changed while this property has active jobs (draft, open, or assigned).",
+      "serviceZone": "Canonical service district *",
+      "serviceZoneHint": "Select the official Sofia district; map results do not choose it automatically.",
+      "serviceZoneRequired": "Select an official Sofia service district.",
       "mapLabel": "Pin location on map",
       "mapHint": "(click to set)",
       "address": "Street address",
       "addressPlaceholder": "Auto-filled from map, or enter manually",
-      "neighborhood": "Neighborhood / District",
-      "neighborhoodPlaceholder": "Set automatically from the map pin",
-      "neighborhoodTitle": "The district is taken from the map pin",
+      "neighborhood": "Map neighborhood (private)",
+      "neighborhoodPlaceholder": "Optional map result",
+      "neighborhoodTitle": "This private map label is not used as the canonical service district",
       "bedrooms": "Bedrooms",
       "bedroomsPlaceholder": "e.g. 2",
       "sqm": "Size (m²)",
@@ -897,6 +907,7 @@
       "dtTransport": "Transport",
       "ddOwnCar": "Has own car",
       "reviewsHeading": "Reviews",
+      "verifiedHostReviewer": "Verified host",
       "noReviews": "No reviews yet."
     },
     "appdashGrid": {
@@ -1041,34 +1052,16 @@
       "defaultCity": "Bulgaria"
     },
     "openJobMap": {
-      "sectionAriaLabel": "Open cleaning work map for {city}",
-      "heading": "Open host addresses in {city}",
+      "sectionAriaLabel": "Approximate cleaning demand for {city}",
+      "heading": "Cleaning demand by district in {city}",
+      "approximateNotice": "District totals are approximate and never reveal a property's address or exact location.",
       "loading": "Loading",
-      "pinCount": "{count, plural, one {# pin} other {# pins}}",
-      "loadingPins": "Loading map pins...",
-      "propertyFallback": "Property",
-      "propertyDialogAriaLabel": "Property open jobs",
-      "closeAriaLabel": "Close",
-      "addressNotProvided": "Address not provided",
-      "hostWithName": "Host: {name}",
-      "hostFallback": "Host",
-      "openJobsHeading": "Open jobs",
-      "cleaningJobFallback": "Cleaning job",
-      "applyBtn": "Apply",
-      "applyDialogHeading": "Apply for job",
-      "applyDialogAriaLabel": "Apply for job",
-      "hostLoading": "Host: loading...",
-      "yourPrice": "Your price ({currency})",
-      "messageToHost": "Message to host",
-      "messagePlaceholder": "Confirm availability, timing, and anything the host should know.",
-      "cancelBtn": "Cancel",
-      "sending": "Sending...",
-      "submitBtn": "Submit application",
+      "jobCount": "{count, plural, one {# open job} other {# open jobs}}",
+      "loadingDemand": "Loading district demand...",
+      "noDemand": "No district-level demand is available for this area yet.",
       "defaultCity": "Bulgaria",
       "errors": {
-        "submitFailed": "Could not submit application.",
-        "loadLocationsFailed": "Could not load job locations.",
-        "loadMapFailed": "Could not load the work map right now."
+        "loadDemandFailed": "Could not load district demand right now."
       }
     },
     "districtMapSelector": {

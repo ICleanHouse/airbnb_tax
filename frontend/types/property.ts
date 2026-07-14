@@ -1,6 +1,6 @@
 export interface PropertyImage {
   id: number;
-  image: string;
+  content_url: string;
   caption: string;
   order: number;
 }

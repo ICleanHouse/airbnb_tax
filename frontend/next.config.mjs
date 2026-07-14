@@ -9,9 +9,6 @@ const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/ap
   "",
 );
 
-// Django base URL (without /api suffix) — used for media file proxying.
-const backendBaseUrl = apiBaseUrl.replace(/\/api$/, "");
-
 const nextConfig = {
   reactStrictMode: true,
   trailingSlash: true,
@@ -30,11 +27,6 @@ const nextConfig = {
       {
         source: "/api/:path*",
         destination: `${apiBaseUrl}/:path*`,
-      },
-      // Rule 3: proxy Django media uploads so images load from the frontend origin.
-      {
-        source: "/media/:path*",
-        destination: `${backendBaseUrl}/media/:path*`,
       },
     ];
   },

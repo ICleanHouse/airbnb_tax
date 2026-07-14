@@ -109,9 +109,25 @@ The public reverse proxy exposes:
 - Frontend: `http://localhost/`
 - Backend health check: `http://localhost/api/health/`
 - Django admin: `http://localhost/admin/`
-- Uploaded media: `http://localhost/media/...`
+- Operational property images: authenticated
+  `/api/properties/images/{id}/content/` only
 
-Production media uploads are stored in the Docker volume `django_media` and served read-only by Caddy. This is acceptable for the first VPS deployment. For a larger SaaS deployment, move uploads to S3-compatible object storage and change Django's default storage backend instead of serving media from the VPS filesystem.
+Production uploads are stored in the Docker volume `django_media`, but neither
+Caddy, Django development routing, nor Next.js serves raw storage URLs. Every
+`/media/*` request returns 404 with private/no-store, cache-purge, same-origin,
+and nosniff headers. Django streams authorized `PropertyImage` content from
+`/api/properties/images/{id}/content/` without redirects, raw storage paths, or
+original filenames. Approved public cleaner profile media remains the
+`profile_image` API/data value; it is not a `PropertyImage` file or an exception
+to the raw-media denial. For a larger SaaS deployment, move property uploads to
+private S3-compatible object storage and preserve the same object-authorization
+boundary.
+
+The privacy release temporarily sends `Clear-Site-Data: "cache"` on affected
+API and denied-media responses to purge previously exposed payloads. Remove
+that header no later than 2026-10-15, when the compatibility
+`/api/marketplace/open-job-locations/` alias also sunsets. Do not include
+`storage` or `cookies` in this purge.
 
 Apply database migrations whenever signup/profile fields change:
 
@@ -164,7 +180,13 @@ docker compose -f docker-compose.prod.yml logs -f frontend
 docker compose -f docker-compose.prod.yml ps
 ```
 
-Backend/Celery logs are JSON and include `request_id`. Business audit events are visible in Django admin at `/admin/core/auditlog/`. Sentry receives crashes only when DSNs are configured.
+Backend/Celery logs are JSON. HTTP requests receive a normalized `request_id` in
+the exact form `req_` plus 32 lowercase hexadecimal characters; invalid inbound
+values are replaced, and Celery propagates IDs from normalized request context.
+Request telemetry records resolver route templates rather than raw paths,
+queries, or actor IDs. Business audit events remain separate and are visible in
+Django admin at `/admin/core/auditlog/`. Sentry receives crashes only when DSNs
+are configured.
 
 ## 7. Release quality gates
 

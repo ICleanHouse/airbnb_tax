@@ -22,6 +22,8 @@ import {
 import { useTranslations } from "next-intl";
 import { apiFetch, UserRole } from "../../lib/api";
 import { cities } from "../../lib/cityDistricts";
+import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
+import { clearSignupRecovery, restoreSignupRecovery, saveSignupRecovery } from "./signupRecovery";
 
 type SignupRole = Extract<UserRole, "host" | "cleaner" | "agency">;
 type SignupStep = "account" | "confirm_email" | "role" | "location" | "personal_info" | "native_language" | "experience" | "introduction" | "profile_photo";
@@ -29,17 +31,6 @@ type SignupField = "first_name" | "last_name" | "email" | "password" | "password
 type SignupFieldErrors = Partial<Record<SignupField, string>>;
 type PersonalInfoErrors = Partial<Record<"birth_date" | "sex", string>>;
 type Direction = 1 | -1;
-const signupSteps: readonly SignupStep[] = [
-  "account",
-  "confirm_email",
-  "role",
-  "location",
-  "personal_info",
-  "native_language",
-  "experience",
-  "introduction",
-  "profile_photo",
-];
 type CropSource = {
   src: string;
   width: number;
@@ -187,21 +178,6 @@ function daysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
 
-function asSet(value: string | null): Set<string> {
-  if (!value) return new Set();
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter((item): item is string => typeof item === "string"));
-  } catch {
-    return new Set();
-  }
-}
-
-function isSignupStep(value: unknown): value is SignupStep {
-  return typeof value === "string" && signupSteps.includes(value as SignupStep);
-}
-
 function stepIndex(step: SignupStep, role: SignupRole | null) {
   const steps = role === "cleaner"
     ? ["role", "personal_info", "location", "native_language", "experience", "introduction", "profile_photo"]
@@ -257,6 +233,7 @@ export default function SignupPage() {
   const [step, setStep] = useState<SignupStep>("account");
   const [direction, setDirection] = useState<Direction>(1);
   const [restored, setRestored] = useState(false);
+  const [recoveryNotice, setRecoveryNotice] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -316,84 +293,20 @@ export default function SignupPage() {
   const introductionInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem("signup_wizard_state");
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as Partial<{
-          step: unknown;
-          firstName: string;
-          lastName: string;
-          email: string;
-          password: string;
-          confirmPassword: string;
-          emailVerificationToken: string;
-          role: SignupRole;
-          city: string;
-          selectedZones: string[];
-          birthDate: string;
-          sex: string;
-          nativeLanguage: string;
-          experience: string;
-          introduction: string;
-        }>;
-        setStep(isSignupStep(parsed.step) ? parsed.step : "account");
-        setFirstName(parsed.firstName ?? "");
-        setLastName(parsed.lastName ?? "");
-        setEmail(parsed.email ?? "");
-        setPassword(parsed.password ?? "");
-        setConfirmPassword(parsed.confirmPassword ?? "");
-        setEmailVerificationToken(parsed.emailVerificationToken ?? "");
-        if (parsed.role === "host" || parsed.role === "cleaner" || parsed.role === "agency") setRole(parsed.role);
-        setCity(parsed.city ?? "");
-        setSelectedZones(new Set(parsed.selectedZones ?? []));
-        setBirthDate(parsed.birthDate ?? "");
-        setSex(parsed.sex ?? "");
-        if (parsed.nativeLanguage) {
-          const primary = primaryLanguageOptions.find((option) => option.value === parsed.nativeLanguage);
-          if (primary) setLanguageChoice(primary.value);
-          else {
-            setLanguageChoice("other");
-            setOtherLanguage(parsed.nativeLanguage);
-          }
-        }
-        setExperience(parsed.experience ?? "");
-        setIntroduction(parsed.introduction ?? "");
-      } catch {
-        setStep("account");
-      }
-    } else {
-      const rawDraft = sessionStorage.getItem("signup_draft");
-      if (rawDraft) {
-        try {
-          const draft = JSON.parse(rawDraft) as Partial<SignupDraft>;
-          setFirstName(draft.first_name ?? "");
-          setLastName(draft.last_name ?? "");
-          setEmail(draft.email ?? "");
-          setPassword(draft.password ?? "");
-          setConfirmPassword(draft.password_confirm ?? "");
-        } catch {
-          // Ignore legacy malformed drafts.
-        }
-      }
-      setEmailVerificationToken(sessionStorage.getItem("signup_email_verification_token") ?? "");
-      const storedRole = sessionStorage.getItem("signup_role");
-      if (storedRole === "host" || storedRole === "cleaner" || storedRole === "agency") setRole(storedRole);
-      setCity(sessionStorage.getItem("signup_city") ?? "");
-      setSelectedZones(asSet(sessionStorage.getItem("signup_zones")));
-      setBirthDate(sessionStorage.getItem("signup_birth_date") ?? "");
-      setSex(sessionStorage.getItem("signup_sex") ?? "");
-      const nativeLanguage = sessionStorage.getItem("signup_native_language") ?? "";
-      if (nativeLanguage) {
-        const primary = primaryLanguageOptions.find((option) => option.value === nativeLanguage);
-        if (primary) setLanguageChoice(primary.value);
-        else {
-          setLanguageChoice("other");
-          setOtherLanguage(nativeLanguage);
-        }
-      }
-      setExperience(sessionStorage.getItem("signup_experience_level") ?? "");
-      setIntroduction(sessionStorage.getItem("signup_introduction") ?? "");
+    const recovery = restoreSignupRecovery(sessionStorage);
+    if (recovery) {
+      setRole(recovery.role);
+      setCity(recovery.citySlug);
+      setSelectedZones(new Set(zoneIdsToServiceAreaNames(
+        recovery.selectedZoneIds,
+        fallbackServiceZones(recovery.citySlug),
+      )));
+      setExperience(recovery.experienceLevel);
+      setRecoveryNotice(true);
     }
+    // Credentials, codes, tokens, and sensitive profile fields intentionally
+    // start empty after refresh. Recovery always resumes at the account step.
+    setStep("account");
     setRestored(true);
   }, []);
 
@@ -407,53 +320,16 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!restored) return;
-    const nativeLanguage = languageChoice === "other" ? otherLanguage : languageChoice;
-    sessionStorage.setItem(
-      "signup_wizard_state",
-      JSON.stringify({
-        step,
-        firstName,
-        lastName,
-        email,
-        password,
-        confirmPassword,
-        emailVerificationToken,
-        role,
-        city,
-        selectedZones: Array.from(selectedZones),
-        birthDate,
-        sex,
-        nativeLanguage,
-        experience,
-        introduction,
-      }),
-    );
-    if (firstName || lastName || email || password || confirmPassword) {
-      sessionStorage.setItem(
-        "signup_draft",
-        JSON.stringify({
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          email: email.trim(),
-          password,
-          password_confirm: confirmPassword,
-        }),
-      );
-    }
-    if (emailVerificationToken) sessionStorage.setItem("signup_email_verification_token", emailVerificationToken);
-    if (role) sessionStorage.setItem("signup_role", role);
-    if (city) {
-      const selectedCity = cities.find((item) => item.value === city);
-      sessionStorage.setItem("signup_city", city);
-      sessionStorage.setItem("signup_city_label", selectedCity?.label ?? city);
-    }
-    sessionStorage.setItem("signup_zones", JSON.stringify(Array.from(selectedZones)));
-    if (birthDate) sessionStorage.setItem("signup_birth_date", birthDate);
-    if (sex) sessionStorage.setItem("signup_sex", sex);
-    if (nativeLanguage) sessionStorage.setItem("signup_native_language", nativeLanguage);
-    if (experience) sessionStorage.setItem("signup_experience_level", experience);
-    sessionStorage.setItem("signup_introduction", introduction);
-  }, [birthDate, city, confirmPassword, email, emailVerificationToken, experience, firstName, introduction, languageChoice, lastName, otherLanguage, password, restored, role, selectedZones, sex, step]);
+    saveSignupRecovery(sessionStorage, {
+      role,
+      citySlug: city,
+      selectedZoneIds: serviceAreaNamesToZoneIds(
+        Array.from(selectedZones),
+        fallbackServiceZones(city),
+      ),
+      experienceLevel: experience,
+    });
+  }, [city, experience, restored, role, selectedZones]);
 
   useEffect(() => {
     const input = introductionInputRef.current;
@@ -540,21 +416,55 @@ export default function SignupPage() {
     setStep(nextStep);
   }
 
-  function clearSignupStorage() {
-    [
-      "signup_wizard_state",
-      "signup_draft",
-      "signup_email_verification_token",
-      "signup_role",
-      "signup_city",
-      "signup_city_label",
-      "signup_zones",
-      "signup_birth_date",
-      "signup_sex",
-      "signup_native_language",
-      "signup_experience_level",
-      "signup_introduction",
-    ].forEach((key) => sessionStorage.removeItem(key));
+  function clearSensitiveSignupState() {
+    setPassword("");
+    setConfirmPassword("");
+    setCode("");
+    setEmailVerificationToken("");
+    setProfileImage("");
+    setCropSource(null);
+    setCropImageElement(null);
+  }
+
+  function cancelSignup() {
+    clearSignupRecovery(sessionStorage);
+    clearSensitiveSignupState();
+  }
+
+  function resetSignup() {
+    clearSignupRecovery(sessionStorage);
+    clearSensitiveSignupState();
+    setStep("account");
+    setDirection(-1);
+    setRecoveryNotice(false);
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setRole(null);
+    setCompanyName("");
+    setCity("");
+    setSelectedZones(new Set());
+    setBirthDate("");
+    setSex("");
+    setLanguageChoice("");
+    setOtherLanguage("");
+    setExperience("");
+    setIntroduction("");
+    setFieldErrors({});
+    setPersonalErrors({});
+    setCodeError("");
+    setCodeNotice("");
+    setLanguageError("");
+    setExperienceError("");
+    setIntroductionError("");
+    setSubmitError("");
+    setProfileImageError("");
+    setShowEmptyBioPrompt(false);
+    setShowEmptyPhotoPrompt(false);
+    setCalendarOpen(false);
+    setAvailableChoice("");
+    setSelectedChoice("");
+    setDistrictSearch("");
   }
 
   async function createAccount(payload: Record<string, unknown>) {
@@ -571,7 +481,8 @@ export default function SignupPage() {
         setSubmitting(false);
         return;
       }
-      clearSignupStorage();
+      clearSignupRecovery(sessionStorage);
+      clearSensitiveSignupState();
       window.location.href = "/app";
     } catch {
       setSubmitError(tS("account.error.createNetwork"));
@@ -594,6 +505,8 @@ export default function SignupPage() {
       return;
     }
     setFieldErrors({});
+    setCode("");
+    setEmailVerificationToken("");
     setSubmitting(true);
     try {
       const payload = draft();
@@ -617,12 +530,15 @@ export default function SignupPage() {
         return;
       }
       const data = await response.json().catch(() => ({}));
+      setCode("");
       if (typeof data.email_verification_token === "string") {
         setEmailVerificationToken(data.email_verification_token);
+        setRecoveryNotice(false);
         setSubmitting(false);
         goTo("role", 1);
         return;
       }
+      setRecoveryNotice(false);
       setSubmitting(false);
       goTo("confirm_email", 1);
     } catch {
@@ -659,6 +575,7 @@ export default function SignupPage() {
         setSubmitting(false);
         return;
       }
+      setCode("");
       setEmailVerificationToken(data.email_verification_token);
       setSubmitting(false);
       goTo("role", 1);
@@ -670,6 +587,7 @@ export default function SignupPage() {
 
   async function resendCode() {
     if (resending) return;
+    setEmailVerificationToken("");
     setResending(true);
     setCodeError("");
     setCodeNotice("");
@@ -689,6 +607,7 @@ export default function SignupPage() {
         return;
       }
       const data = await response.json().catch(() => ({}));
+      setCode("");
       if (typeof data.email_verification_token === "string") {
         setEmailVerificationToken(data.email_verification_token);
         setCodeNotice(tS("confirmEmail.notice.verificationDisabled"));
@@ -1069,6 +988,7 @@ export default function SignupPage() {
         <>
           <div className="auth-heading">
             <h1>{tS("account.heading")}</h1>
+            {recoveryNotice ? <p role="status">{tS("recovery.restoredNotice")}</p> : null}
           </div>
           {/* Social sign-up (Google/Apple) is not wired up yet — hidden until
               real OAuth is implemented to avoid dead, trust-eroding buttons. */}
@@ -1122,7 +1042,7 @@ export default function SignupPage() {
               {submitting ? tS("account.sendingCodeBtn") : tS("account.createAccount")}
             </button>
           </form>
-          <p className="auth-switch">{tS("account.alreadyRegistered")} <Link href="/login">{tS("account.logIn")}</Link></p>
+          <p className="auth-switch">{tS("account.alreadyRegistered")} <Link href="/login" onClick={cancelSignup}>{tS("account.logIn")}</Link></p>
         </>
       );
     }
@@ -1510,7 +1430,7 @@ export default function SignupPage() {
   return (
     <main className="auth-page">
       <section className="auth-panel wide-auth-panel signup-auth-panel signup-wizard-panel">
-        <Link className="site-brand auth-brand" href="/">
+        <Link className="site-brand auth-brand" href="/" onClick={cancelSignup}>
           <span className="brand-symbol">
             <UserPlus size={18} aria-hidden />
           </span>
@@ -1523,6 +1443,11 @@ export default function SignupPage() {
             </div>
           </div>
         ) : <div className="signup-progress-placeholder" aria-hidden />}
+        {hasProgress(step) || recoveryNotice ? (
+          <button type="button" className="secondary-link" onClick={resetSignup}>
+            {tS("recovery.startOver")}
+          </button>
+        ) : null}
         <div className={step === "personal_info" && calendarOpen ? "signup-wizard-frame signup-wizard-frame--overlay-open" : "signup-wizard-frame"}>
           <AnimatePresence mode="wait" custom={direction}>
             <motion.div

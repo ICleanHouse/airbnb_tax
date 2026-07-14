@@ -8,6 +8,11 @@ from apps.marketplace.models import (
     CleaningJob,
     FavouriteCleaner,
 )
+from apps.marketplace.selectors import (
+    canonical_location_values,
+    safe_host_display_name,
+    user_has_operational_job_access,
+)
 from apps.properties.models import Property
 
 
@@ -98,17 +103,31 @@ class MarketplaceCalendarItemSerializer(serializers.Serializer):
     job = serializers.IntegerField()
     application = serializers.IntegerField(required=False, allow_null=True)
     assignment = serializers.IntegerField(required=False, allow_null=True)
-    title = serializers.CharField()
-    starts_at = serializers.DateTimeField()
-    ends_at = serializers.DateTimeField()
+    access_tier = serializers.ChoiceField(
+        choices=["evaluator", "assigned", "history", "owner", "admin"]
+    )
+    city_slug = serializers.CharField(allow_blank=True)
+    city_name_bg = serializers.CharField(allow_blank=True)
+    city_name_en = serializers.CharField(allow_blank=True)
+    zone_id = serializers.CharField(required=False, allow_null=True)
+    zone_name_bg = serializers.CharField(required=False, allow_null=True)
+    zone_name_en = serializers.CharField(required=False, allow_null=True)
+    scheduled_start = serializers.DateTimeField()
+    scheduled_end = serializers.DateTimeField()
     currency = serializers.CharField()
-    price = serializers.DecimalField(max_digits=8, decimal_places=2, required=False, allow_null=True)
-    property_name = serializers.CharField()
+    proposed_price = serializers.DecimalField(max_digits=8, decimal_places=2, required=False, allow_null=True)
+    bedrooms = serializers.IntegerField(required=False, allow_null=True)
+    square_metres = serializers.DecimalField(max_digits=7, decimal_places=2, required=False, allow_null=True)
+    status = serializers.CharField()
+    title = serializers.CharField(required=False, allow_blank=True)
+    description = serializers.CharField(required=False, allow_blank=True)
+    property_name = serializers.CharField(required=False, allow_blank=True)
+    property_address = serializers.CharField(required=False, allow_blank=True)
     property_image = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    property_city = serializers.CharField(allow_blank=True)
-    property_neighborhood = serializers.CharField(allow_blank=True)
-    host_name = serializers.CharField()
-    job_status = serializers.CharField()
+    host = serializers.IntegerField(required=False)
+    host_name = serializers.CharField(required=False, allow_blank=True)
+    agreed_price = serializers.DecimalField(max_digits=8, decimal_places=2, required=False, allow_null=True)
+    cleaning_instructions = serializers.CharField(required=False, allow_blank=True)
     application_status = serializers.CharField(required=False, allow_blank=True)
     application_origin = serializers.CharField(required=False, allow_blank=True)
     host_completed_at = serializers.DateTimeField(required=False, allow_null=True)
@@ -116,6 +135,10 @@ class MarketplaceCalendarItemSerializer(serializers.Serializer):
     completed_at = serializers.DateTimeField(required=False, allow_null=True)
     can_apply = serializers.BooleanField()
     can_complete = serializers.BooleanField()
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        return {key: value for key, value in representation.items() if key in instance}
 
 
 class CleaningJobSerializer(serializers.ModelSerializer):
@@ -180,7 +203,7 @@ class CleaningJobSerializer(serializers.ModelSerializer):
         validators = []
 
     def get_host_name(self, obj):
-        return obj.host.get_full_name() or obj.host.get_username()
+        return safe_host_display_name(obj.host)
 
     def validate(self, attrs):
         property_obj = attrs.get("property", getattr(self.instance, "property", None))
@@ -203,43 +226,241 @@ class CleaningJobSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class OpenJobLocationSerializer(serializers.ModelSerializer):
-    property_id = serializers.IntegerField(source="property.id", read_only=True)
-    property_name = serializers.CharField(source="property.name", read_only=True)
-    property_city = serializers.CharField(source="property.city", read_only=True)
-    property_neighborhood = serializers.CharField(source="property.neighborhood", read_only=True)
-    property_address = serializers.CharField(source="property.address", read_only=True)
-    property_image = serializers.SerializerMethodField()
-    latitude = serializers.FloatField(source="property.latitude", read_only=True)
-    longitude = serializers.FloatField(source="property.longitude", read_only=True)
+class PublicDemandDistrictSerializer(serializers.Serializer):
+    zone_id = serializers.CharField()
+    zone_name_bg = serializers.CharField()
+    zone_name_en = serializers.CharField(allow_blank=True)
+    open_job_count = serializers.IntegerField(min_value=0)
+
+
+class PublicDemandCitySerializer(serializers.Serializer):
+    city_slug = serializers.CharField()
+    city_name_bg = serializers.CharField()
+    city_name_en = serializers.CharField()
+    open_job_count = serializers.IntegerField(min_value=0)
+    zones = PublicDemandDistrictSerializer(many=True)
+
+
+class PublicDemandSerializer(serializers.Serializer):
+    cities = PublicDemandCitySerializer(many=True)
+
+
+class EvaluatorCleaningJobSerializer(serializers.ModelSerializer):
+    access_tier = serializers.SerializerMethodField()
+    city_slug = serializers.SerializerMethodField()
+    city_name_bg = serializers.SerializerMethodField()
+    city_name_en = serializers.SerializerMethodField()
+    zone_id = serializers.SerializerMethodField()
+    zone_name_bg = serializers.SerializerMethodField()
+    zone_name_en = serializers.SerializerMethodField()
+    bedrooms = serializers.IntegerField(source="property.bedrooms", allow_null=True, read_only=True)
+    square_metres = serializers.DecimalField(
+        source="property.square_meters",
+        max_digits=7,
+        decimal_places=2,
+        allow_null=True,
+        read_only=True,
+    )
+    can_apply = serializers.SerializerMethodField()
 
     class Meta:
         model = CleaningJob
         fields = [
             "id",
-            "title",
+            "access_tier",
+            "city_slug",
+            "city_name_bg",
+            "city_name_en",
+            "zone_id",
+            "zone_name_bg",
+            "zone_name_en",
             "scheduled_start",
             "scheduled_end",
             "currency",
             "proposed_price",
-            "property_id",
-            "property_name",
-            "property_city",
-            "property_neighborhood",
-            "property_address",
-            "property_image",
-            "latitude",
-            "longitude",
+            "bedrooms",
+            "square_metres",
+            "status",
+            "can_apply",
         ]
         read_only_fields = fields
 
+    def get_access_tier(self, obj):
+        return "evaluator"
+
+    def _location(self, obj):
+        return canonical_location_values(obj)
+
+    def get_city_slug(self, obj):
+        return self._location(obj)["city_slug"]
+
+    def get_city_name_bg(self, obj):
+        return self._location(obj)["city_name_bg"]
+
+    def get_city_name_en(self, obj):
+        return self._location(obj)["city_name_en"]
+
+    def get_zone_id(self, obj):
+        return self._location(obj)["zone_id"]
+
+    def get_zone_name_bg(self, obj):
+        return self._location(obj)["zone_name_bg"]
+
+    def get_zone_name_en(self, obj):
+        return self._location(obj)["zone_name_en"]
+
+    def get_can_apply(self, obj):
+        if self.context.get("force_can_apply") is not None:
+            return bool(self.context["force_can_apply"])
+        return not bool(getattr(obj, "has_user_application", True))
+
+
+class AssignedWorkerAssignmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Assignment
+        fields = [
+            "id",
+            "job",
+            "cleaner",
+            "assigned_member",
+            "application",
+            "agreed_price",
+            "assigned_at",
+            "cancelled_at",
+            "host_completed_at",
+            "cleaner_completed_at",
+            "completed_at",
+        ]
+        read_only_fields = fields
+
+
+class AssignedWorkerCleaningJobSerializer(serializers.ModelSerializer):
+    access_tier = serializers.SerializerMethodField()
+    property_name = serializers.CharField(source="property.name", read_only=True)
+    property_address = serializers.CharField(source="property.address", read_only=True)
+    property_image = serializers.SerializerMethodField()
+    host = serializers.PrimaryKeyRelatedField(read_only=True)
+    host_name = serializers.SerializerMethodField()
+    city_slug = serializers.SerializerMethodField()
+    city_name_bg = serializers.SerializerMethodField()
+    city_name_en = serializers.SerializerMethodField()
+    zone_id = serializers.SerializerMethodField()
+    zone_name_bg = serializers.SerializerMethodField()
+    zone_name_en = serializers.SerializerMethodField()
+    bedrooms = serializers.IntegerField(source="property.bedrooms", allow_null=True, read_only=True)
+    square_metres = serializers.DecimalField(
+        source="property.square_meters",
+        max_digits=7,
+        decimal_places=2,
+        allow_null=True,
+        read_only=True,
+    )
+    assignment = AssignedWorkerAssignmentSerializer(read_only=True)
+    can_apply = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CleaningJob
+        fields = [
+            "id",
+            "access_tier",
+            "property_name",
+            "property_address",
+            "property_image",
+            "host",
+            "host_name",
+            "city_slug",
+            "city_name_bg",
+            "city_name_en",
+            "zone_id",
+            "zone_name_bg",
+            "zone_name_en",
+            "scheduled_start",
+            "scheduled_end",
+            "currency",
+            "proposed_price",
+            "agreed_price",
+            "bedrooms",
+            "square_metres",
+            "status",
+            "cleaning_instructions",
+            "assignment",
+            "can_apply",
+        ]
+        read_only_fields = fields
+
+    def get_access_tier(self, obj):
+        if obj.status == CleaningJob.Status.ASSIGNED:
+            return "assigned"
+        return "history"
+
+    def get_host_name(self, obj):
+        return safe_host_display_name(obj.host)
+
     def get_property_image(self, obj):
+        if obj.status != CleaningJob.Status.ASSIGNED:
+            return None
         first_image = min(
             obj.property.images.all(),
-            key=lambda img: (img.order, img.id),
+            key=lambda image: (image.order, image.id),
             default=None,
         )
-        return first_image.image.url if first_image else None
+        if first_image is None:
+            return None
+        return f"/api/properties/images/{first_image.id}/content/"
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.status == CleaningJob.Status.ASSIGNED:
+            return representation
+        history_fields = set(EvaluatorCleaningJobSerializer.Meta.fields) | {
+            "host",
+            "host_name",
+            "agreed_price",
+            "assignment",
+        }
+        return {
+            key: value
+            for key, value in representation.items()
+            if key in history_fields
+        }
+
+    def _location(self, obj):
+        return canonical_location_values(obj)
+
+    def get_city_slug(self, obj):
+        return self._location(obj)["city_slug"]
+
+    def get_city_name_bg(self, obj):
+        return self._location(obj)["city_name_bg"]
+
+    def get_city_name_en(self, obj):
+        return self._location(obj)["city_name_en"]
+
+    def get_zone_id(self, obj):
+        return self._location(obj)["zone_id"]
+
+    def get_zone_name_bg(self, obj):
+        return self._location(obj)["zone_name_bg"]
+
+    def get_zone_name_en(self, obj):
+        return self._location(obj)["zone_name_en"]
+
+    def get_can_apply(self, obj):
+        return False
+
+
+class WorkerCleaningJobSerializer(serializers.BaseSerializer):
+    """Dispatch per object without inheriting the broad host/admin serializer."""
+
+    def to_representation(self, instance):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        serializer_class = (
+            AssignedWorkerCleaningJobSerializer
+            if user is not None and user_has_operational_job_access(user, instance)
+            else EvaluatorCleaningJobSerializer
+        )
+        return serializer_class(instance, context=self.context).data
 
 
 class CleanerApplicationSerializer(serializers.ModelSerializer):
@@ -306,6 +527,35 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
     def get_cleaner_profile_id(self, obj):
         profile = getattr(obj.cleaner, "cleaner_profile", None)
         return profile.id if profile else None
+
+
+class CleanerApplicationCreateSerializer(serializers.Serializer):
+    job_id = serializers.IntegerField(min_value=1)
+    proposed_price = serializers.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+    )
+    message = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class WorkerCleanerApplicationSerializer(serializers.ModelSerializer):
+    job_summary = EvaluatorCleaningJobSerializer(source="job", read_only=True)
+
+    class Meta:
+        model = CleanerApplication
+        fields = [
+            "id",
+            "job",
+            "job_summary",
+            "status",
+            "origin",
+            "proposed_price",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
 
 
 class OfferJobSerializer(serializers.Serializer):

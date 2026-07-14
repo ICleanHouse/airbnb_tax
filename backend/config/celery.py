@@ -5,6 +5,7 @@ from celery import Celery
 from celery.signals import before_task_publish, task_failure, task_postrun, task_prerun, task_retry
 
 from apps.core.logging import get_request_id, reset_log_context, set_log_context
+from apps.core.middleware import normalize_request_id
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
@@ -20,13 +21,13 @@ logger = logging.getLogger("celery")
 def add_request_id_to_task_headers(headers=None, **_kwargs):
     request_id = get_request_id()
     if request_id and headers is not None:
-        headers["request_id"] = request_id
+        headers["request_id"] = normalize_request_id(request_id)
 
 
 @task_prerun.connect
 def log_task_started(task=None, task_id=None, **_kwargs):
     headers = getattr(getattr(task, "request", None), "headers", None) or {}
-    request_id = headers.get("request_id", "")
+    request_id = normalize_request_id(headers.get("request_id"))
     tokens = set_log_context(request_id=request_id)
     if task is not None:
         task.request.log_context_tokens = tokens

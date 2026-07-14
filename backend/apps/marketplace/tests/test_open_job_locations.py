@@ -12,7 +12,7 @@ from apps.properties.models import Property, PropertyImage
 
 
 class OpenJobLocationsViewTests(TestCase):
-    """Public map markers for published cleaning work."""
+    """Deprecated route remains a privacy-safe aggregate compatibility alias."""
 
     def setUp(self):
         self.api_client = APIClient()
@@ -93,48 +93,38 @@ class OpenJobLocationsViewTests(TestCase):
             status=CleaningJob.Status.DRAFT,
         )
 
-    def test_locations_are_public_and_limited_to_open_pinned_jobs(self):
+    def test_alias_is_public_aggregate_and_contains_no_marker_fields(self):
         res = self.api_client.get("/api/marketplace/open-job-locations/")
         self.assertEqual(res.status_code, 200)
         data = res.json()
 
-        self.assertEqual([item["id"] for item in data], [self.sofia_job.id, self.plovdiv_job.id])
-        self.assertEqual(
-            set(data[0].keys()),
-            {
-                "id",
-                "title",
-                "scheduled_start",
-                "scheduled_end",
-                "currency",
-                "proposed_price",
-                "property_id",
-                "property_name",
-                "property_city",
-                "property_neighborhood",
-                "property_address",
-                "property_image",
-                "latitude",
-                "longitude",
-            },
-        )
-        self.assertNotIn("host", data[0])
-        self.assertEqual(data[0]["property_id"], self.sofia_property.id)
-        self.assertEqual(data[0]["property_address"], "1 Vitosha Boulevard")
-        self.assertTrue(data[0]["property_image"].startswith("/media/property_images/"))
-        self.assertEqual(data[0]["latitude"], 42.6977)
-        self.assertEqual(data[0]["longitude"], 23.3219)
+        self.assertEqual(set(data), {"cities"})
+        self.assertEqual(data["cities"][0]["city_slug"], "sofia")
+        self.assertEqual(data["cities"][0]["open_job_count"], 2)
+        serialized = str(data)
+        for private_value in [
+            self.sofia_property.address,
+            self.sofia_property.name,
+            self.sofia_job.title,
+            "property-main.jpg",
+            "42.6977",
+            "23.3219",
+            "45.00",
+        ]:
+            self.assertNotIn(private_value, serialized)
+        self.assertEqual(res["Deprecation"], "true")
+        self.assertEqual(res["Sunset"], "Thu, 15 Oct 2026 00:00:00 GMT")
+        self.assertEqual(res["Cache-Control"], "no-store")
 
-    def test_city_filter_narrows_locations(self):
-        res = self.api_client.get("/api/marketplace/open-job-locations/?city=Plovdiv")
+    def test_city_filter_uses_canonical_catalog(self):
+        res = self.api_client.get("/api/marketplace/open-job-locations/?city=sofia")
         self.assertEqual(res.status_code, 200)
         data = res.json()
 
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["id"], self.plovdiv_job.id)
-        self.assertEqual(data[0]["property_city"], "Plovdiv")
+        self.assertEqual(len(data["cities"]), 1)
+        self.assertEqual(data["cities"][0]["city_slug"], "sofia")
 
-    def test_locations_are_available_to_hosts_cleaners_and_guests(self):
+    def test_same_safe_aggregate_is_available_to_hosts_cleaners_and_guests(self):
         for user in (None, self.host, self.cleaner):
             with self.subTest(user=getattr(user, "username", "guest")):
                 self.api_client.force_authenticate(user=user)
@@ -142,6 +132,6 @@ class OpenJobLocationsViewTests(TestCase):
                 res = self.api_client.get("/api/marketplace/open-job-locations/")
 
                 self.assertEqual(res.status_code, 200)
-                self.assertEqual(len(res.json()), 2)
+                self.assertEqual(res.json()["cities"][0]["open_job_count"], 2)
 
         self.api_client.force_authenticate(user=None)

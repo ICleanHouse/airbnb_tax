@@ -14,6 +14,13 @@ class Property(TimeStampedModel):
     address = models.CharField(max_length=500, blank=True)
     city = models.CharField(max_length=120)
     neighborhood = models.CharField(max_length=255, blank=True)
+    service_zone = models.ForeignKey(
+        "locations.ServiceZone",
+        on_delete=models.SET_NULL,
+        related_name="properties",
+        null=True,
+        blank=True,
+    )
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     country = models.CharField(max_length=120, default="Bulgaria")

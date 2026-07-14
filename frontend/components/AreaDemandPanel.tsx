@@ -22,7 +22,7 @@ type CityChangeSource = "select" | "map";
 
 /**
  * "Find cleaning work" side of the landing audience toggle. Shows privacy-safe
- * aggregate demand for the selected city (no host identities) sourced from
+ * aggregate supply/demand for the selected canonical city sourced from
  * GET /api/marketplace/area-stats/, plus a "Join as a cleaner" CTA that
  * deep-links signup with the cleaner role preselected.
  */
@@ -46,7 +46,8 @@ export default function AreaDemandPanel({ currentUser }: { currentUser: CurrentU
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const query = cityLabel ? `?city=${encodeURIComponent(cityLabel)}` : "";
+    const citySlug = cities.find((candidate) => candidate.label === cityLabel)?.value ?? "";
+    const query = citySlug ? `?city=${encodeURIComponent(citySlug)}` : "";
     apiFetch(`/api/marketplace/area-stats/${query}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: AreaStats | null) => {

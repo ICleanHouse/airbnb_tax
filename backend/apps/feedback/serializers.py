@@ -55,3 +55,17 @@ class ReviewSerializer(serializers.ModelSerializer):
             data.pop("is_private_issue", None)
         return data
 
+
+class PublicReviewSerializer(serializers.ModelSerializer):
+    """Anonymous review projection for an eligible public cleaner profile."""
+
+    reviewer_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ["id", "reviewer_name", "rating", "comment", "created_at"]
+        read_only_fields = fields
+
+    def get_reviewer_name(self, obj) -> str:
+        return "verified_host"
+

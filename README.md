@@ -64,7 +64,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - Property management: CRUD, external calendar connections, reservations.
 - **Airbnb ICS parsing** — `POST /api/properties/parse-ics/` accepts a multipart-uploaded `.ics` file, filters blocked-date placeholders, returns parsed reservation list.
 - Marketplace service functions: publish jobs, submit applications, accept applications, complete jobs, direct offers, favourites, and two-way reviews. Duplicate jobs for the same property and exact time range are rejected.
-- Public work-discovery data: `GET /api/marketplace/area-stats/` exposes aggregate demand counts. `GET /api/marketplace/open-job-locations/` currently exposes property address, coordinates, schedule, price, and main photo; this is a Stage 1 privacy blocker and must not be described as safe for launch.
+- Public work discovery: canonical `GET /api/marketplace/public-demand/?city=sofia` exposes only canonical city/zone names and aggregate open-job counts. `GET /api/marketplace/open-job-locations/` is a temporary compatibility alias with the identical safe body and a 15 October 2026 sunset. Exact property/job details are server-gated to approved workflow roles; operational property images use object-authorized API streaming and every raw `/media/*` path is denied. Approved public cleaner profile media remains an API/data value rather than `PropertyImage` storage.
 - Notification records; signup email codes are sent through Resend only and require `EMAIL_RESEND_APIKEY` plus `EMAIL_RESEND_FROM_EMAIL`.
 - Canonical Sofia district catalog: 144 GeoJSON-backed districts with stable `sofia:osm-1` through `sofia:osm-144` IDs. Old Sofia zone aliases and the obsolete backend fixture were removed.
 - Observability: JSON backend/Celery logs with request IDs, Sentry crash reporting, and read-only `AuditLog` records for key account/marketplace actions.
@@ -74,7 +74,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 
 | Route | Status | Description |
 |---|---|---|
-| `/` | ✅ Done | Public landing page — auth-aware header, centered audience toggle, public cleaner browser for hosts, and cleaner work map with city-filtered open-job pins |
+| `/` | ✅ Done | Public landing page — auth-aware header, centered audience toggle, public cleaner browser for hosts, and canonical district-level demand counts without per-job pins |
 | `/login` | ✅ Done | Session login |
 | `/signup` | 🟨 In progress | Single React signup wizard with Motion transitions, Resend email code confirmation, role selection, cleaner personal details, location/service areas, native language, experience, introduction, profile photo, and final account creation. Old step URLs redirect back to `/signup`. |
 | `/app` | ✅ Done | Generic workspace — auto-redirects hosts → `/host`, admins → `/admin` |
@@ -135,6 +135,9 @@ See `DEV.md` for full environment variable reference.
 
 ## Logging
 
-- Technical logs go to stdout/Docker logs as JSON. Search by `request_id`, `user_id`, `event`, or route.
+- Technical logs go to stdout/Docker logs as JSON. Search by normalized
+  `request_id` (`req_` plus 32 lowercase hexadecimal characters), controlled
+  event, or sanitized endpoint template. Actor/business history stays in the
+  separate audit log.
 - Business history is stored in Django admin at `/admin/core/auditlog/`.
 - Sentry is enabled only when `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` are set.

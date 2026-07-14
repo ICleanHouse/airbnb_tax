@@ -14,8 +14,12 @@
 	}
 
 	handle /media/* {
-		root * /srv
-		file_server
+		header Cache-Control "private, no-store"
+		header Pragma "no-cache"
+		header Clear-Site-Data "\"cache\""
+		header Cross-Origin-Resource-Policy "same-origin"
+		header X-Content-Type-Options "nosniff"
+		respond 404
 	}
 
 	handle {

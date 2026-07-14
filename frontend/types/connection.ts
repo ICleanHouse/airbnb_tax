@@ -26,17 +26,14 @@ export interface ChatMessage {
 }
 
 export interface SharedContext {
-  properties: { id: number; name: string; city: string; cleanings: number }[];
+  properties: { name: string; city: string; cleanings: number }[];
   cleanings: {
     job_id: number;
-    title: string;
-    property_id: number;
     property_name: string;
     scheduled_start: string;
     status: string;
     agreed_price: string | null;
     currency: string;
-    completed_at: string | null;
   }[];
   cleanings_count: number;
 }

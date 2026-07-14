@@ -12,6 +12,7 @@ from apps.marketplace.services import (
     accept_offer,
     decline_offer,
     offer_job,
+    offer_job_to_cleaner,
 )
 from apps.notifications.models import Notification
 from apps.properties.models import Property
@@ -65,20 +66,29 @@ class OfferServiceTests(TestCase):
         )
 
     def test_offer_job_creates_host_offered_application(self):
+        private_offer_message = "PRIVATE_HOST_OFFER_MESSAGE_SENTINEL"
         application = offer_job(
             job=self.job,
             host=self.host,
             cleaner=self.cleaner,
             proposed_price=Decimal("55.00"),
-            message="Want to rehire you.",
+            message=private_offer_message,
         )
         self.assertEqual(application.origin, CleanerApplication.Origin.HOST_OFFERED)
         self.assertEqual(application.status, CleanerApplication.Status.PENDING)
         self.assertEqual(application.proposed_price, Decimal("55.00"))
-        self.assertEqual(
-            Notification.objects.filter(user=self.cleaner, notification_type="offer.received").count(),
-            1,
+        notification = Notification.objects.get(
+            user=self.cleaner,
+            notification_type="offer.received",
         )
+        for private_value in (self.host.get_username(), self.job.title, private_offer_message):
+            self.assertNotIn(private_value, notification.body)
+
+        self.api_client.force_authenticate(self.cleaner)
+        response = self.api_client.get("/api/notifications/notifications/")
+        self.assertEqual(response.status_code, 200)
+        for private_value in (self.host.get_username(), self.job.title, private_offer_message):
+            self.assertNotIn(private_value, str(response.data))
 
     def test_offer_job_rejects_unverified_cleaner(self):
         unverified = User.objects.create_user(
@@ -91,6 +101,34 @@ class OfferServiceTests(TestCase):
         with self.assertRaises(MarketplaceError):
             offer_job(job=self.job, host=self.host, cleaner=unverified)
 
+    def test_offer_job_rejects_inactive_verified_cleaner_in_service_and_api(self):
+        inactive = User.objects.create_user(
+            username="inactive-cleaner",
+            password="password123",
+            role=User.Role.CLEANER,
+            account_status=User.AccountStatus.APPROVED,
+            is_active=False,
+        )
+        CleanerProfile.objects.create(
+            user=inactive,
+            verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+        )
+
+        with self.assertRaises(MarketplaceError):
+            offer_job(job=self.job, host=self.host, cleaner=inactive)
+        self.assertFalse(CleanerApplication.objects.filter(cleaner=inactive).exists())
+        self.assertFalse(Notification.objects.filter(user=inactive).exists())
+
+        self.api_client.force_authenticate(self.host)
+        response = self.api_client.post(
+            f"/api/marketplace/jobs/{self.job.id}/offer/",
+            {"cleaner_id": inactive.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(CleanerApplication.objects.filter(cleaner=inactive).exists())
+        self.assertFalse(Notification.objects.filter(user=inactive).exists())
+
     def test_offer_job_rejects_non_owner_host(self):
         intruder = User.objects.create_user(
             username="intruder",
@@ -100,6 +138,62 @@ class OfferServiceTests(TestCase):
         )
         with self.assertRaises(MarketplaceError):
             offer_job(job=self.job, host=intruder, cleaner=self.cleaner)
+
+    def test_offer_job_refetches_current_host_and_cleaner_eligibility(self):
+        User.objects.filter(pk=self.host.pk).update(
+            account_status=User.AccountStatus.SUSPENDED
+        )
+        with self.assertRaisesMessage(MarketplaceError, "Account must be approved"):
+            offer_job(job=self.job, host=self.host, cleaner=self.cleaner)
+
+        User.objects.filter(pk=self.host.pk).update(
+            account_status=User.AccountStatus.APPROVED
+        )
+        CleanerProfile.objects.filter(user=self.cleaner).update(
+            verification_status=CleanerProfile.VerificationStatus.PENDING
+        )
+        with self.assertRaisesMessage(MarketplaceError, "Cleaner must be verified"):
+            offer_job(job=self.job, host=self.host, cleaner=self.cleaner)
+
+        self.assertFalse(CleanerApplication.objects.filter(job=self.job).exists())
+
+    def test_offer_job_rejects_job_whose_start_has_passed(self):
+        CleaningJob.objects.filter(pk=self.job.pk).update(
+            scheduled_start=timezone.now() - timedelta(hours=3),
+            scheduled_end=timezone.now() - timedelta(hours=1),
+        )
+
+        with self.assertRaisesMessage(
+            MarketplaceError,
+            "scheduled start must be in the future",
+        ):
+            offer_job(job=self.job, host=self.host, cleaner=self.cleaner)
+
+        self.assertFalse(CleanerApplication.objects.filter(job=self.job).exists())
+
+    def test_offer_job_to_cleaner_rejects_past_slot_without_creating_job(self):
+        scheduled_start = timezone.now() - timedelta(hours=3)
+        scheduled_end = timezone.now() - timedelta(hours=1)
+
+        with self.assertRaisesMessage(
+            MarketplaceError,
+            "scheduled start must be in the future",
+        ):
+            offer_job_to_cleaner(
+                host=self.host,
+                cleaner=self.cleaner,
+                property=self.property,
+                scheduled_start=scheduled_start,
+                scheduled_end=scheduled_end,
+            )
+
+        self.assertFalse(
+            CleaningJob.objects.filter(
+                property=self.property,
+                scheduled_start=scheduled_start,
+                scheduled_end=scheduled_end,
+            ).exists()
+        )
 
     def test_accept_offer_creates_single_assignment_and_rejects_siblings(self):
         offered = offer_job(job=self.job, host=self.host, cleaner=self.cleaner)
@@ -124,6 +218,40 @@ class OfferServiceTests(TestCase):
         offered = offer_job(job=self.job, host=self.host, cleaner=self.cleaner)
         with self.assertRaises(MarketplaceError):
             accept_offer(application=offered, cleaner=self.other_cleaner)
+
+    def test_accept_offer_refetches_current_cleaner_eligibility(self):
+        offered = offer_job(job=self.job, host=self.host, cleaner=self.cleaner)
+        User.objects.filter(pk=self.cleaner.pk).update(
+            account_status=User.AccountStatus.SUSPENDED
+        )
+
+        with self.assertRaisesMessage(MarketplaceError, "approved"):
+            accept_offer(application=offered, cleaner=self.cleaner)
+
+        offered.refresh_from_db()
+        self.job.refresh_from_db()
+        self.assertEqual(offered.status, CleanerApplication.Status.PENDING)
+        self.assertEqual(self.job.status, CleaningJob.Status.DRAFT)
+        self.assertFalse(Assignment.objects.filter(job=self.job).exists())
+
+    def test_accept_offer_rejects_job_whose_start_has_passed(self):
+        offered = offer_job(job=self.job, host=self.host, cleaner=self.cleaner)
+        CleaningJob.objects.filter(pk=self.job.pk).update(
+            scheduled_start=timezone.now() - timedelta(hours=3),
+            scheduled_end=timezone.now() - timedelta(hours=1),
+        )
+
+        with self.assertRaisesMessage(
+            MarketplaceError,
+            "scheduled start must be in the future",
+        ):
+            accept_offer(application=offered, cleaner=self.cleaner)
+
+        offered.refresh_from_db()
+        self.job.refresh_from_db()
+        self.assertEqual(offered.status, CleanerApplication.Status.PENDING)
+        self.assertEqual(self.job.status, CleaningJob.Status.DRAFT)
+        self.assertFalse(Assignment.objects.filter(job=self.job).exists())
 
     def test_decline_offer_sets_rejected_and_notifies_host(self):
         offered = offer_job(job=self.job, host=self.host, cleaner=self.cleaner)

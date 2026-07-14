@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, User
 from apps.core.services import write_audit_log
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob, FavouriteCleaner
+from apps.marketplace.selectors import valid_future_marketplace_jobs
 from apps.notifications.services import create_notification
 from apps.notifications.tasks import send_application_submitted_email, send_job_completed_email
 
@@ -17,6 +18,9 @@ class MarketplaceError(ValueError):
 
 
 FAVOURITE_TARGET_INELIGIBLE = "Only approved, active, verified cleaner accounts can be favourited."
+JOB_START_NOT_FUTURE = (
+    "This job is no longer available because its scheduled start must be in the future."
+)
 
 
 def ensure_favourite_target_eligible(cleaner: User) -> None:
@@ -30,22 +34,34 @@ def create_favourite_cleaner(*, host: User, cleaner: User) -> tuple[FavouriteCle
     return FavouriteCleaner.objects.get_or_create(host=host, cleaner=cleaner)
 
 
+@transaction.atomic
 def publish_job(job: CleaningJob, *, actor: User | None = None, request=None) -> CleaningJob:
+    job = CleaningJob.objects.select_for_update().select_related("host").get(pk=job.pk)
+    if actor is None:
+        actor = job.host
+    else:
+        actor = User.objects.get(pk=actor.pk)
+
+    if not actor.is_active:
+        raise MarketplaceError("This account cannot publish cleaning jobs.")
+    if not actor.is_platform_admin:
+        if not actor.is_approved or not actor.is_host or actor.id != job.host_id:
+            raise MarketplaceError("Only the approved job host or admin can publish this job.")
     if job.status != CleaningJob.Status.DRAFT:
         raise MarketplaceError("Only draft jobs can be published.")
     job.status = CleaningJob.Status.OPEN
     job.save(update_fields=["status", "updated_at"])
-    if actor is not None:
-        write_audit_log(
-            actor=actor,
-            action="job.published",
-            entity_type="CleaningJob",
-            entity_id=job.id,
-            request=request,
-        )
+    write_audit_log(
+        actor=actor,
+        action="job.published",
+        entity_type="CleaningJob",
+        entity_id=job.id,
+        request=request,
+    )
     return job
 
 
+@transaction.atomic
 def submit_application(
     *,
     job: CleaningJob,
@@ -54,7 +70,8 @@ def submit_application(
     message: str = "",
     request=None,
 ) -> CleanerApplication:
-    if not cleaner.is_approved:
+    cleaner = User.objects.select_for_update().get(pk=cleaner.pk)
+    if not cleaner.is_active or not cleaner.is_approved:
         raise MarketplaceError("Account must be approved before applying for cleaning jobs.")
 
     if cleaner.is_cleaner:
@@ -73,8 +90,12 @@ def submit_application(
     else:
         raise MarketplaceError("Only cleaners and agencies can apply for cleaning jobs.")
 
-    if job.status != CleaningJob.Status.OPEN:
-        raise MarketplaceError("Cleaner can apply only to open jobs.")
+    try:
+        job = valid_future_marketplace_jobs(
+            CleaningJob.objects.select_for_update().select_related("host", "property")
+        ).get(pk=job.pk)
+    except CleaningJob.DoesNotExist as exc:
+        raise MarketplaceError("This job is not available for applications.") from exc
 
     _ensure_no_assigned_job_same_property_day(cleaner, job)
     _ensure_no_pending_offer_same_property_day(cleaner, job)
@@ -99,7 +120,9 @@ def submit_application(
         body=f"{cleaner.get_username()} applied for {job.title}.",
         metadata={"job_id": job.id, "application_id": application.id},
     )
-    send_application_submitted_email.delay(application.id)
+    transaction.on_commit(
+        lambda application_id=application.id: send_application_submitted_email.delay(application_id)
+    )
     write_audit_log(
         actor=cleaner,
         action="application.submitted",
@@ -123,11 +146,15 @@ def accept_application(
         id=application.id
     )
     job = CleaningJob.objects.select_for_update().get(id=application.job_id)
+    accepted_by = User.objects.select_for_update().get(pk=accepted_by.pk)
+    applicant = User.objects.select_for_update().get(pk=application.cleaner_id)
 
     if not (accepted_by.is_platform_admin or job.host_id == accepted_by.id):
         raise MarketplaceError("Only the host or admin can accept applications.")
 
-    if not accepted_by.is_platform_admin and not accepted_by.is_approved:
+    if not accepted_by.is_platform_admin and (
+        not accepted_by.is_active or not accepted_by.is_approved
+    ):
         raise MarketplaceError("Account must be approved before accepting applications.")
 
     if application.status != CleanerApplication.Status.PENDING:
@@ -136,8 +163,12 @@ def accept_application(
     if job.status != CleaningJob.Status.OPEN:
         raise MarketplaceError("Applications can be accepted only for open jobs.")
 
+    _ensure_future_job_start(job)
+
     if hasattr(job, "assignment"):
         raise MarketplaceError("This job already has an assignment.")
+
+    _ensure_cleaner_workable(applicant)
 
     application.status = CleanerApplication.Status.ACCEPTED
     application.save(update_fields=["status", "updated_at"])
@@ -149,7 +180,7 @@ def accept_application(
 
     assignment = Assignment.objects.create(
         job=job,
-        cleaner=application.cleaner,
+        cleaner=applicant,
         application=application,
         agreed_price=agreed_price if agreed_price is not None else application.proposed_price,
     )
@@ -159,10 +190,10 @@ def accept_application(
     job.save(update_fields=["status", "agreed_price", "updated_at"])
 
     create_notification(
-        user=application.cleaner,
+        user=applicant,
         notification_type="assignment.accepted",
         title="Cleaning job assigned",
-        body=f"You were assigned to {job.title}.",
+        body="A cleaning job was assigned to you. Open your dashboard for details.",
         metadata={"job_id": job.id, "assignment_id": assignment.id},
     )
     write_audit_log(
@@ -203,7 +234,7 @@ def reject_application(
         user=application.cleaner,
         notification_type="application.rejected",
         title="Application declined",
-        body=f"Your application for {application.job.title} was not accepted.",
+        body="One of your cleaning applications was not accepted.",
         metadata={"job_id": application.job_id, "application_id": application.id},
     )
     write_audit_log(
@@ -322,10 +353,10 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
         user=assignment.cleaner,
         notification_type="review.requested",
         title="Leave a review",
-        body=f"{job.title} is complete — leave a review for the host.",
+        body="A cleaning job is complete — leave a review for the host.",
         metadata={"job_id": job.id, "reviewee_id": job.host_id},
     )
-    send_job_completed_email.delay(job.id)
+    transaction.on_commit(lambda job_id=job.id: send_job_completed_email.delay(job_id))
 
     write_audit_log(
         actor=completed_by,
@@ -394,22 +425,29 @@ def _ensure_no_pending_offer_same_property_day(cleaner: User, job: CleaningJob) 
 
 def _ensure_cleaner_workable(cleaner: User) -> None:
     """Validate that a user can receive/accept cleaning work (verified + approved)."""
+    if not cleaner.is_active:
+        raise MarketplaceError("Cleaner account must be active.")
     if not cleaner.is_approved:
         raise MarketplaceError("Cleaner account must be approved.")
     if cleaner.is_cleaner:
         try:
-            cleaner_profile = cleaner.cleaner_profile
+            cleaner_profile = CleanerProfile.objects.select_for_update().get(user_id=cleaner.pk)
         except CleanerProfile.DoesNotExist as exc:
             raise MarketplaceError("Cleaner profile is required.") from exc
         if not cleaner_profile.is_verified:
             raise MarketplaceError("Cleaner must be verified.")
     elif cleaner.is_agency:
         try:
-            cleaner.agency_profile
+            AgencyProfile.objects.select_for_update().get(user_id=cleaner.pk)
         except AgencyProfile.DoesNotExist as exc:
             raise MarketplaceError("Agency profile is required.") from exc
     else:
         raise MarketplaceError("Only cleaners and agencies can be offered cleaning jobs.")
+
+
+def _ensure_future_job_start(job: CleaningJob) -> None:
+    if job.scheduled_start <= timezone.now():
+        raise MarketplaceError(JOB_START_NOT_FUTURE)
 
 
 @transaction.atomic
@@ -424,15 +462,19 @@ def offer_job(
 ) -> CleanerApplication:
     """Host directly offers a job to a specific cleaner (reuses CleanerApplication)."""
     job = CleaningJob.objects.select_for_update().get(id=job.id)
+    host = User.objects.select_for_update().get(pk=host.pk)
+    cleaner = User.objects.select_for_update().get(pk=cleaner.pk)
 
     if not (host.is_platform_admin or job.host_id == host.id):
         raise MarketplaceError("Only the host or admin can offer this job.")
 
-    if not host.is_platform_admin and not host.is_approved:
+    if not host.is_platform_admin and (not host.is_active or not host.is_approved):
         raise MarketplaceError("Account must be approved before offering jobs.")
 
     if job.status not in (CleaningJob.Status.DRAFT, CleaningJob.Status.OPEN):
         raise MarketplaceError("Only draft or open jobs can be offered.")
+
+    _ensure_future_job_start(job)
 
     if hasattr(job, "assignment"):
         raise MarketplaceError("This job already has an assignment.")
@@ -466,7 +508,7 @@ def offer_job(
         user=cleaner,
         notification_type="offer.received",
         title="New job offer",
-        body=f"{host.get_username()} offered you {job.title}.",
+        body="You received a new cleaning job offer. Open your dashboard to review it.",
         metadata={"job_id": job.id, "application_id": application.id},
     )
     write_audit_log(
@@ -506,6 +548,9 @@ def offer_job_to_cleaner(
 
     if scheduled_end <= scheduled_start:
         raise MarketplaceError("scheduled_end must be after scheduled_start.")
+
+    if scheduled_start <= timezone.now():
+        raise MarketplaceError(JOB_START_NOT_FUTURE)
 
     job = (
         CleaningJob.objects.select_for_update()
@@ -549,14 +594,16 @@ def accept_offer(
         id=application.id
     )
     job = CleaningJob.objects.select_for_update().get(id=application.job_id)
+    cleaner = User.objects.select_for_update().get(pk=cleaner.pk)
+    applicant = User.objects.select_for_update().get(pk=application.cleaner_id)
 
     if not (cleaner.is_platform_admin or application.cleaner_id == cleaner.id):
         raise MarketplaceError("Only the offered cleaner can accept this offer.")
 
-    if not cleaner.is_platform_admin and not cleaner.is_approved:
+    if not cleaner.is_platform_admin and (not cleaner.is_active or not cleaner.is_approved):
         raise MarketplaceError("Account must be approved before accepting offers.")
 
-    _ensure_cleaner_workable(application.cleaner)
+    _ensure_cleaner_workable(applicant)
 
     if application.origin != CleanerApplication.Origin.HOST_OFFERED:
         raise MarketplaceError("Only host offers can be accepted this way.")
@@ -566,6 +613,8 @@ def accept_offer(
 
     if job.status not in (CleaningJob.Status.DRAFT, CleaningJob.Status.OPEN):
         raise MarketplaceError("This job is no longer available.")
+
+    _ensure_future_job_start(job)
 
     if hasattr(job, "assignment"):
         raise MarketplaceError("This job already has an assignment.")
@@ -580,7 +629,7 @@ def accept_offer(
 
     assignment = Assignment.objects.create(
         job=job,
-        cleaner=application.cleaner,
+        cleaner=applicant,
         application=application,
         agreed_price=application.proposed_price,
     )
@@ -593,7 +642,7 @@ def accept_offer(
         user=job.host,
         notification_type="offer.accepted",
         title="Offer accepted",
-        body=f"{application.cleaner.get_username()} accepted your offer for {job.title}.",
+        body=f"{applicant.get_username()} accepted your offer for {job.title}.",
         metadata={"job_id": job.id, "assignment_id": assignment.id},
     )
     write_audit_log(
@@ -708,7 +757,7 @@ def assign_member_to_assignment(
         user=member,
         notification_type="agency.assignment.created",
         title="Agency cleaning assigned",
-        body=f"{agency_profile.company_name} assigned you to {assignment.job.title}.",
+        body="Your agency assigned you to a cleaning job. Open your dashboard for details.",
         metadata={"job_id": assignment.job_id, "assignment_id": assignment.id},
     )
     write_audit_log(

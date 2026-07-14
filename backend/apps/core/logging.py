@@ -4,7 +4,7 @@ import contextvars
 import json
 import logging
 import os
-import traceback
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -38,6 +38,7 @@ SENSITIVE_SUBSTRINGS = {
     "session",
     "token",
 }
+SAFE_EVENT = re.compile(r"^[a-z0-9_.-]{1,100}$")
 
 
 def is_sensitive_key(key: str) -> bool:
@@ -91,15 +92,13 @@ class RequestContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         if not hasattr(record, "request_id"):
             record.request_id = request_id_var.get()
-        if not hasattr(record, "user_id"):
-            record.user_id = user_id_var.get()
-        if not hasattr(record, "role"):
-            record.role = role_var.get()
         return True
 
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
+        raw_event = getattr(record, "event", "")
+        event = raw_event if isinstance(raw_event, str) and SAFE_EVENT.fullmatch(raw_event) else ""
         payload: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).astimezone().isoformat(),
             "level": record.levelname,
@@ -107,36 +106,28 @@ class JsonFormatter(logging.Formatter):
             "environment": os.getenv("APP_ENV") or os.getenv("SENTRY_ENVIRONMENT") or "local",
             "logger": record.name,
             "request_id": getattr(record, "request_id", ""),
-            "user_id": getattr(record, "user_id", ""),
-            "role": getattr(record, "role", ""),
-            "event": getattr(record, "event", ""),
-            "message": record.getMessage(),
+            "event": event,
+            "message": event or "application.event",
         }
 
         optional_fields = (
-            "entity_type",
-            "entity_id",
             "method",
-            "path",
+            "endpoint_template",
             "status_code",
             "duration_ms",
-            "task_id",
             "task_name",
+            "error_code",
         )
         for field in optional_fields:
             value = getattr(record, field, None)
             if value not in (None, ""):
                 payload[field] = value
 
-        metadata = getattr(record, "metadata", None)
-        if metadata:
-            payload["metadata"] = sanitize_log_value(metadata)
-
         if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
+            payload["exception"] = "Application error"
         elif record.exc_text:
-            payload["exception"] = record.exc_text
+            payload["exception"] = "Application error"
         elif getattr(record, "stack_info", None):
-            payload["stack"] = traceback.format_stack()
+            payload["exception"] = "Application error"
 
         return json.dumps(sanitize_log_value(payload), ensure_ascii=False, default=str)

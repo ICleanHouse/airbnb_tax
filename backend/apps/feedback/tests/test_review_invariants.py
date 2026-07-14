@@ -5,13 +5,13 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from apps.accounts.models import AgencyMembership, CleanerProfile, User
+from apps.accounts.models import AgencyMembership
 from apps.connections.models import Connection
 from apps.core.models import AuditLog
 from apps.feedback.models import Review
-from apps.feedback.services import FeedbackError, refresh_cleaner_rating, submit_review
+from apps.feedback.services import FeedbackError, submit_review
 from apps.feedback.tests._review_test_utils import ReviewScenarioMixin
-from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.models import CleanerApplication, CleaningJob
 from apps.notifications.models import Notification
 
 
@@ -175,6 +175,20 @@ class ReviewInvariantTests(ReviewScenarioMixin, TestCase):
 
         self.assertEqual(response.status_code, 403)
         self.assertEqual(Review.objects.count(), 0)
+
+    def test_anonymous_users_cannot_list_or_retrieve_authenticated_reviews(self):
+        review = submit_review(
+            job=self.job,
+            reviewer=self.host,
+            reviewee=self.cleaner,
+            rating=5,
+        )
+        from rest_framework.test import APIClient
+
+        api = APIClient()
+
+        self.assertEqual(api.get("/api/feedback/reviews/").status_code, 403)
+        self.assertEqual(api.get(f"/api/feedback/reviews/{review.id}/").status_code, 403)
 
     def test_non_involved_users_cannot_retrieve_private_review_details(self):
         review = submit_review(job=self.job, reviewer=self.host, reviewee=self.cleaner, rating=5)

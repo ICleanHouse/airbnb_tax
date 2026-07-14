@@ -64,7 +64,9 @@ class PublicCleanerDirectoryTests(TestCase):
         self.assertEqual(ids, [approved.id])
 
     def test_public_payload_hides_pii(self):
-        make_cleaner(email="pii@example.com", display_name="No PII")
+        cleaner = make_cleaner(email="pii@example.com", display_name="No PII")
+        cleaner.profile_image = "/media/cleaner_profiles/approved-public.webp"
+        cleaner.save(update_fields=["profile_image", "updated_at"])
 
         response = self.client.get(self.list_url)
 
@@ -75,6 +77,43 @@ class PublicCleanerDirectoryTests(TestCase):
         self.assertIn("display_name", row)
         self.assertIn("city", row)
         self.assertIn("average_rating", row)
+        self.assertEqual(
+            set(row),
+            {
+                "id",
+                "user_id",
+                "kind",
+                "display_name",
+                "bio",
+                "city",
+                "service_areas",
+                "native_language",
+                "other_languages",
+                "personal_preferences",
+                "experience_level",
+                "has_driving_license",
+                "has_own_car",
+                "profile_image",
+                "average_rating",
+                "completed_jobs_count",
+                "is_verified",
+            },
+        )
+        self.assertEqual(row["profile_image"], "/media/cleaner_profiles/approved-public.webp")
+        for operational_field in (
+            "property",
+            "property_id",
+            "address",
+            "latitude",
+            "longitude",
+            "scheduled_start",
+            "scheduled_end",
+            "proposed_price",
+            "agreed_price",
+            "host",
+            "host_id",
+        ):
+            self.assertNotIn(operational_field, row)
 
     def test_filters_by_min_rating(self):
         low = make_cleaner(email="low@example.com", display_name="Low", average_rating="3.00")
@@ -176,4 +215,21 @@ class PublicCleanerDirectoryTests(TestCase):
         review = response.data["reviews"][0]
         self.assertEqual(review["rating"], 5)
         self.assertEqual(review["comment"], "Spotless work")
-        self.assertIn("reviewer_name", review)
+        self.assertEqual(review["reviewer_name"], "verified_host")
+        self.assertNotIn(host.email, str(review))
+        self.assertNotIn(host.get_full_name(), str(review))
+        self.assertEqual(
+            set(review),
+            {"id", "reviewer_name", "rating", "comment", "created_at"},
+        )
+        for forbidden in (
+            "job",
+            "job_id",
+            "reviewer",
+            "reviewee",
+            "reviewee_id",
+            "private_note",
+            "is_private_issue",
+            "updated_at",
+        ):
+            self.assertNotIn(forbidden, review)

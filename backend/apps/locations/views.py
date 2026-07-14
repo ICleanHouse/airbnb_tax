@@ -6,6 +6,14 @@ from rest_framework.views import APIView
 from apps.locations.models import City, ServiceZone
 from apps.locations.serializers import CitySerializer, ServiceZoneSerializer
 
+SOFIA_CANONICAL_ZONE_SLUGS = tuple(f"osm-{source_id}" for source_id in range(1, 145))
+
+
+def _public_zone_catalog(zones, *, city: City):
+    if city.slug == "sofia":
+        return zones.filter(slug__in=SOFIA_CANONICAL_ZONE_SLUGS)
+    return zones
+
 
 class CityListView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -20,7 +28,9 @@ class CityZoneListView(APIView):
 
     def get(self, request, city_slug: str):
         city = get_object_or_404(City, slug=city_slug, is_active=True)
-        zones = city.zones.filter(is_active=True).order_by("sort_order", "name_bg")
+        zones = _public_zone_catalog(city.zones.filter(is_active=True), city=city).order_by(
+            "sort_order", "name_bg"
+        )
         return Response(ServiceZoneSerializer(zones, many=True).data)
 
 
@@ -29,11 +39,11 @@ class CityZoneGeoJSONView(APIView):
 
     def get(self, request, city_slug: str):
         city = get_object_or_404(City, slug=city_slug, is_active=True)
-        zones = (
+        zones = _public_zone_catalog(
             ServiceZone.objects.filter(city=city, city__is_active=True, is_active=True, geometry__isnull=False)
-            .select_related("city", "geometry")
-            .order_by("sort_order", "name_bg")
-        )
+            .select_related("city", "geometry"),
+            city=city,
+        ).order_by("sort_order", "name_bg")
         features = []
         for zone in zones:
             geometry = zone.geometry.simplified_geometry or zone.geometry.geometry

@@ -9,6 +9,7 @@ from apps.marketplace.views import (
     FavouriteCleanerViewSet,
     MarketplaceCalendarView,
     OpenJobLocationsView,
+    PublicDemandView,
 )
 from django.urls import path
 
@@ -23,5 +24,6 @@ router.register("favourites", FavouriteCleanerViewSet, basename="favourite-clean
 urlpatterns = [
     path("calendar/", MarketplaceCalendarView.as_view(), name="marketplace-calendar"),
     path("area-stats/", AreaStatsView.as_view(), name="marketplace-area-stats"),
+    path("public-demand/", PublicDemandView.as_view(), name="marketplace-public-demand"),
     path("open-job-locations/", OpenJobLocationsView.as_view(), name="marketplace-open-job-locations"),
 ] + router.urls

@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.services import write_audit_log
+from apps.core.middleware import get_endpoint_template
 from apps.accounts.models import (
     AgencyInvitation,
     AgencyMembership,
@@ -115,7 +116,8 @@ class SignupEmailCodeVerifyView(APIView):
                 extra={
                     "event": "signup.invalid_code",
                     "method": request.method,
-                    "path": request.path,
+                    "endpoint_template": get_endpoint_template(request),
+                    "status_code": status.HTTP_400_BAD_REQUEST,
                 },
             )
             raise ValidationError(serializer.errors)
@@ -187,7 +189,8 @@ class LoginView(APIView):
                 extra={
                     "event": "login.failed",
                     "method": request.method,
-                    "path": request.path,
+                    "endpoint_template": get_endpoint_template(request),
+                    "status_code": status.HTTP_400_BAD_REQUEST,
                 },
             )
             raise ValidationError(serializer.errors)

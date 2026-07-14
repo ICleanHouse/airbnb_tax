@@ -45,6 +45,7 @@ import JobOfferModal from "../../components/JobOfferModal";
 import ReviewModal from "../../components/ReviewModal";
 import RatingStars from "../../components/RatingStars";
 import AccountDeletionPanel from "../../components/AccountDeletionPanel";
+import DistrictMapSelector from "../../components/DistrictMapSelector";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ interface IcsEvent {
 
 interface PropertyImage {
   id: number;
-  image: string;   // absolute URL from DRF
+  content_url: string;
   caption: string;
   order: number;
 }
@@ -79,6 +80,9 @@ interface Property {
   name: string;
   city: string;
   neighborhood: string;
+  service_zone_id: string | null;
+  service_zone_name_bg: string;
+  service_zone_name_en: string;
   address: string;
   latitude: string | null;
   longitude: string | null;
@@ -300,6 +304,8 @@ export default function HostDashboard() {
   const [propCity,          setPropCity]          = useState("Sofia");
   const [propAddress,       setPropAddress]       = useState("");
   const [propNeighborhood,  setPropNeighborhood]  = useState("");
+  const [propServiceZoneId, setPropServiceZoneId] = useState("");
+  const [propServiceZoneName, setPropServiceZoneName] = useState("");
   const [propLat,           setPropLat]           = useState<number | null>(null);
   const [propLng,           setPropLng]           = useState<number | null>(null);
   const [propDescription,   setPropDescription]   = useState("");
@@ -558,6 +564,7 @@ export default function HostDashboard() {
     if (shouldSuppressModalOpen()) return;
     setEditingPropId(null);
     setPropName(""); setPropCity("Sofia"); setPropAddress(""); setPropNeighborhood("");
+    setPropServiceZoneId(""); setPropServiceZoneName("");
     setPropLat(null); setPropLng(null);
     setPropDescription(""); setPropBedrooms(""); setPropSqm("");
     setPropDuration("120"); setPropPrice("");
@@ -574,6 +581,8 @@ export default function HostDashboard() {
     setPropCity(p.city);
     setPropAddress(p.address ?? "");
     setPropNeighborhood(p.neighborhood ?? "");
+    setPropServiceZoneId(p.service_zone_id ?? "");
+    setPropServiceZoneName(p.service_zone_name_bg || p.service_zone_name_en || "");
     setPropLat(p.latitude ? parseFloat(p.latitude) : null);
     setPropLng(p.longitude ? parseFloat(p.longitude) : null);
     setPropDescription(p.description ?? "");
@@ -654,6 +663,10 @@ export default function HostDashboard() {
   // ── Save property (create or update) ──────────────────────────────────────
   async function submitProperty(e: FormEvent) {
     e.preventDefault();
+    if (propCity === "Sofia" && !propServiceZoneId) {
+      setPropError(t("propForm.serviceZoneRequired"));
+      return;
+    }
     // Validate client-side before any request — size must be whole/half m².
     const sqmErrMsg = sqmErr(propSqm);
     if (sqmErrMsg) {
@@ -668,6 +681,7 @@ export default function HostDashboard() {
         city: propCity,
         address: propAddress,
         neighborhood: propNeighborhood,
+        service_zone_id: propCity === "Sofia" ? propServiceZoneId : null,
         latitude: propLat !== null ? parseFloat(propLat.toFixed(6)) : null,
         longitude: propLng !== null ? parseFloat(propLng.toFixed(6)) : null,
         description: propDescription,
@@ -1171,7 +1185,7 @@ export default function HostDashboard() {
 
   /** First photo of a property, or null when it has none (icon fallback). */
   function getPropThumb(id: number): string | null {
-    return properties.find((p) => p.id === id)?.images?.[0]?.image ?? null;
+    return properties.find((p) => p.id === id)?.images?.[0]?.content_url ?? null;
   }
 
   /** Reviews where this host is the reviewee (written by cleaners about the host). */
@@ -1377,7 +1391,7 @@ export default function HostDashboard() {
 
             <div className="host-rail-list">
               {properties.map((p) => {
-                const railThumb = p.images?.[0]?.image ?? null;
+                const railThumb = p.images?.[0]?.content_url ?? null;
                 const active = selectedPropertyId === p.id;
                 return (
                   <div
@@ -2285,7 +2299,12 @@ export default function HostDashboard() {
                     required
                     value={propCity}
                     disabled={editingPropHasActiveJobs}
-                    onChange={(e) => { setPropCity(e.target.value); if (editingPropId === null) { setPropLat(null); setPropLng(null); } }}
+                    onChange={(e) => {
+                      setPropCity(e.target.value);
+                      setPropServiceZoneId("");
+                      setPropServiceZoneName("");
+                      if (editingPropId === null) { setPropLat(null); setPropLng(null); }
+                    }}
                   >
                     <option value="Sofia">Sofia</option>
                     <option value="Plovdiv">Plovdiv</option>
@@ -2299,6 +2318,30 @@ export default function HostDashboard() {
                   {t("propForm.addressLocked")}
                 </p>
               )}
+
+              {propCity === "Sofia" ? (
+                <div className="prop-location-section">
+                  <p className="prop-location-label">
+                    {t("propForm.serviceZone")}{" "}
+                    <span className="prop-location-hint">{t("propForm.serviceZoneHint")}</span>
+                  </p>
+                  {editingPropHasActiveJobs ? (
+                    <p className="prop-address-locked-notice">
+                      {propServiceZoneName || propServiceZoneId}
+                    </p>
+                  ) : (
+                    <DistrictMapSelector
+                      citySlug="sofia"
+                      selectedZoneIds={propServiceZoneId ? [propServiceZoneId] : []}
+                      onChange={(zoneIds) => {
+                        setPropServiceZoneId(zoneIds[0] ?? "");
+                        setPropServiceZoneName("");
+                      }}
+                      mode="single"
+                    />
+                  )}
+                </div>
+              ) : null}
 
               {/* ── Location map ── */}
               <div
@@ -2411,7 +2454,7 @@ export default function HostDashboard() {
                     {existingImages.map((img) => (
                       <div key={img.id} className="prop-photo-thumb">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={img.image} alt={img.caption || "Property photo"} />
+                        <img src={img.content_url} alt={img.caption || "Property photo"} />
                         <button
                           type="button"
                           className="prop-photo-delete"

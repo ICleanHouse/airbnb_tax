@@ -247,6 +247,9 @@ LOGGING = {
             "formatter": "json",
             "filters": ["request_context"],
         },
+        "null": {
+            "class": "logging.NullHandler",
+        },
     },
     "root": {
         "handlers": ["console"],
@@ -264,7 +267,7 @@ LOGGING = {
             "propagate": False,
         },
         "apps.audit": {
-            "handlers": ["console"],
+            "handlers": ["null"],
             "level": LOG_LEVEL,
             "propagate": False,
         },
@@ -274,7 +277,7 @@ LOGGING = {
             "propagate": False,
         },
         "django.request": {
-            "handlers": ["console"],
+            "handlers": ["null"],
             "level": "WARNING",
             "propagate": False,
         },
@@ -284,7 +287,7 @@ LOGGING = {
             "propagate": False,
         },
         "gunicorn.access": {
-            "handlers": ["console"],
+            "handlers": ["null"],
             "level": LOG_LEVEL,
             "propagate": False,
         },
@@ -300,24 +303,15 @@ if SENTRY_DSN:
     from sentry_sdk.integrations.celery import CeleryIntegration
     from sentry_sdk.integrations.django import DjangoIntegration
     from sentry_sdk.integrations.logging import LoggingIntegration
-
-    def before_send(event, _hint):
-        request = event.get("request")
-        if request:
-            request.pop("data", None)
-            request.pop("cookies", None)
-            headers = request.get("headers") or {}
-            for key in list(headers):
-                if key.lower() in {"authorization", "cookie", "x-csrftoken", "x-csrf-token"}:
-                    headers[key] = "[redacted]"
-        return event
+    from apps.core.sentry import drop_sentry_transaction, sanitize_sentry_event
 
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         environment=SENTRY_ENVIRONMENT,
         traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
         send_default_pii=False,
-        before_send=before_send,
+        before_send=sanitize_sentry_event,
+        before_send_transaction=drop_sentry_transaction,
         integrations=[
             DjangoIntegration(),
             CeleryIntegration(),

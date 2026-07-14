@@ -10,6 +10,7 @@ The MVP focuses on job posting, monthly cleaning batches, Airbnb iCal imports, c
 
 ## Documentation
 
+- [Stage 1 Sofia Pilot Plan](docs/STAGE_1_SOFIA_PILOT_PLAN.md): canonical launch-safety, research, Sofia pilot, metrics, and Stage 1 exit plan.
 - `BUSINESS.md`: business strategy, target market, monetization hypotheses, risks, and open questions.
 - `architecture.md`: technical architecture and domain boundaries.
 - `DEV.md`: development setup and operating guide.
@@ -19,7 +20,7 @@ The MVP focuses on job posting, monthly cleaning batches, Airbnb iCal imports, c
 ## Stack
 
 - Backend: Django 6.0+, Django REST Framework 3.17+, PostgreSQL 16+, Redis 7+, Celery 5.4+.
-- Frontend: Next.js 15.5+ / React 19.2+ responsive web/PWA, TypeScript 5.9+, Motion for reusable React animations.
+- Frontend: Next.js 15.5+ / React 19.2+ responsive web, TypeScript 5.9+, Motion for reusable React animations. PWA installability is deferred until the mobile workflow and repeat use are validated.
 - Local infrastructure: Docker Compose with PostgreSQL, Redis, backend, worker, and frontend services.
 
 ## Quick Start
@@ -63,7 +64,7 @@ See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding
 - Property management: CRUD, external calendar connections, reservations.
 - **Airbnb ICS parsing** — `POST /api/properties/parse-ics/` accepts a multipart-uploaded `.ics` file, filters blocked-date placeholders, returns parsed reservation list.
 - Marketplace service functions: publish jobs, submit applications, accept applications, complete jobs, direct offers, favourites, and two-way reviews. Duplicate jobs for the same property and exact time range are rejected.
-- Public work-discovery data: `GET /api/marketplace/area-stats/` exposes aggregate demand counts, and `GET /api/marketplace/open-job-locations/` exposes safe open-job map markers with property address, coordinates, schedule, price, and main photo but no host identity fields.
+- Public work-discovery data: `GET /api/marketplace/area-stats/` exposes aggregate demand counts. `GET /api/marketplace/open-job-locations/` currently exposes property address, coordinates, schedule, price, and main photo; this is a Stage 1 privacy blocker and must not be described as safe for launch.
 - Notification records; signup email codes are sent through Resend only and require `EMAIL_RESEND_APIKEY` plus `EMAIL_RESEND_FROM_EMAIL`.
 - Canonical Sofia district catalog: 144 GeoJSON-backed districts with stable `sofia:osm-1` through `sofia:osm-144` IDs. Old Sofia zone aliases and the obsolete backend fixture were removed.
 - Observability: JSON backend/Celery logs with request IDs, Sentry crash reporting, and read-only `AuditLog` records for key account/marketplace actions.

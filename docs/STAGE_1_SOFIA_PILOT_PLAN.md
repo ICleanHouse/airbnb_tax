@@ -372,7 +372,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E01 | Must-have | Engineering owner | S1-D04 | Not started |  |  |
 | S1-E02 | Must-have | Engineering owner | S1-D02 | Not started |  |  |
 | S1-E03 | Must-have | Engineering owner | None | Not started |  |  |
-| S1-E04 | Must-have | Engineering owner | S1-D03 and scheduling ADR | Not started |  |  |
+| S1-E04 | Must-have | Engineering owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-E05 | Must-have | Engineering owner | S1-D03 and recovery ADR | Not started |  |  |
 | S1-E06 | Must-have; reminders may be operator-assisted | Engineering owner | S1-D03 | Not started |  |  |
 | S1-E07 | Must-have | Engineering owner | S1-D05 | Not started |  |  |
@@ -723,6 +723,9 @@ Acceptance criteria:
 
 Required work:
 
+Availability follow-up (kept separate from hard assignment-overlap
+enforcement):
+
 - [ ] Resolve the documented drift between required work preferences/preferred
       time slots and the migration that removed cleaner availability.
 - [ ] Use operator-confirmed current availability for the concierge cohort.
@@ -730,20 +733,31 @@ Required work:
       obtain owner approval to update the higher-priority domain documentation.
       A full recurring-availability calendar and blockout UI are not a Stage 1
       requirement.
-- [ ] Use half-open overlap logic: existing start < candidate end and existing
+
+Implemented hard-overlap contract:
+
+- [x] Use half-open overlap logic: existing start < candidate end and existing
       end > candidate start.
-- [ ] Re-check availability and overlap authoritatively when:
+- [x] Re-check overlap authoritatively when:
   - accepting a cleaner application;
   - accepting a direct offer;
-  - delegating an agency assignment;
-  - accepting a reschedule;
-  - accepting an emergency replacement.
-- [ ] Advisory checks may run earlier, but acceptance/delegation remains
-      authoritative because availability can change.
-- [ ] Serialize concurrent acceptances for the same cleaner in one transaction.
-- [ ] Return a structured, non-sensitive conflict response.
-- [ ] Add indexes needed for worker/time-range queries.
-- [ ] Test Europe/Sofia and UTC handling, including daylight-saving boundaries.
+  - delegating an agency assignment to a concrete member.
+- [x] Advisory checks may run earlier, but acceptance/delegation remains
+      authoritative because schedules can change.
+- [x] Serialize concurrent assignment attempts for the same concrete cleaner in
+      one transaction using a PostgreSQL row lock.
+- [x] Return a structured, non-sensitive `cleaner_schedule_conflict` response.
+- [x] Review indexes needed for worker/time-range queries. Existing foreign-key
+      indexes on `cleaner_id` and `assigned_member_id` are sufficient for the
+      current selective worker-first query; no migration is justified without
+      PostgreSQL query-plan evidence.
+- [x] Test Europe/Sofia and UTC handling, including a daylight-saving boundary.
+
+Assigned-job rescheduling and emergency-replacement acceptance services do not
+exist yet. When introduced under their own workflow work, they must lock the
+concrete cleaner and call the same authoritative overlap check in the
+transaction that changes the schedule or produces the replacement assignment.
+Their absence is not an unfinished S1-E04 implementation.
 
 Acceptance criteria:
 

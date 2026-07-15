@@ -50,6 +50,7 @@ from apps.marketplace.selectors import (
     worker_visible_jobs,
 )
 from apps.marketplace.services import (
+    CleanerScheduleConflictError,
     MarketplaceError,
     accept_application,
     accept_offer,
@@ -70,6 +71,15 @@ User = get_user_model()
 logger = logging.getLogger("apps.marketplace")
 PUBLIC_CITY_SLUG_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 PUBLIC_CITY_SLUG_MAX_LENGTH = 64
+
+
+def marketplace_error_response(exc: MarketplaceError) -> Response:
+    if isinstance(exc, CleanerScheduleConflictError):
+        return Response(
+            {"code": exc.code, "detail": str(exc)},
+            status=status.HTTP_409_CONFLICT,
+        )
+    return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 def public_city_slug_from_request(request):
@@ -857,7 +867,7 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
                 "Application accept blocked",
                 extra={"event": "application.accept_blocked", "metadata": {"reason": str(exc)}},
             )
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return marketplace_error_response(exc)
         return Response(AssignmentSerializer(assignment).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"])
@@ -914,7 +924,7 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
                 "Offer accept blocked",
                 extra={"event": "offer.accept_blocked", "metadata": {"reason": str(exc)}},
             )
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return marketplace_error_response(exc)
         return Response(
             AssignedWorkerAssignmentSerializer(assignment).data,
             status=status.HTTP_201_CREATED,
@@ -1000,7 +1010,7 @@ class AssignmentViewSet(PrivateNoStoreResponseMixin, viewsets.ReadOnlyModelViewS
                 "Assignment member selection blocked",
                 extra={"event": "assignment.member_assign_blocked", "metadata": {"reason": str(exc)}},
             )
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return marketplace_error_response(exc)
         return Response(self.get_serializer(assignment).data)
 
 

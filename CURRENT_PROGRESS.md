@@ -1,6 +1,38 @@
 # Current Progress Handoff
 
-Updated: 2026-07-14, release-blocking marketplace privacy remediation.
+Updated: 2026-07-15, S1-E04 authoritative cleaner schedule protection.
+
+## Latest Work — S1-E04 Cleaner Schedule Protection (2026-07-15)
+
+- Application acceptance and direct-offer acceptance now lock the current
+  concrete cleaner and reject any non-cancelled direct or delegated assignment
+  whose job overlaps the candidate half-open interval. Agency application
+  acceptance still creates the job's single agency assignment without treating
+  the agency account as a cleaner schedule; the check begins at member
+  delegation.
+- Agency delegation preserves immutable/idempotent behavior, reloads and locks
+  the proposed member, cleaner profile, and active membership, then checks both
+  `Assignment.cleaner` and `Assignment.assigned_member` occupancy before saving.
+- `cancelled_at` releases an interval. `completed_at` and completed job status do
+  not broadly remove a scheduled interval from overlap evaluation. Back-to-back
+  work remains valid through `existing_start < candidate_end` and
+  `existing_end > candidate_start`.
+- All three APIs return HTTP 409 with only
+  `{"code":"cleaner_schedule_conflict","detail":"The cleaner is unavailable for this time range."}`
+  for this typed conflict. Existing marketplace errors retain their prior 400
+  shape.
+- No migration was added. Existing worker foreign-key indexes are retained;
+  additional worker/range indexes require PostgreSQL query-plan evidence.
+- Verification: focused schedule suite 14/14 on SQLite with the one locking test
+  skipped; full marketplace suite 151/151 with the same skip; accounts 37/37;
+  PostgreSQL 16 concurrency test 1/1; Django check and migration-drift checks
+  pass. Changed marketplace files pass Ruff. Whole-app marketplace Ruff still
+  reports two pre-existing unused locals in `seed_demo_data.py`.
+- Assigned-job rescheduling and emergency-replacement acceptance are not
+  implemented. Their future services must acquire the same concrete-worker lock
+  and invoke the overlap check inside their mutation transaction. Availability
+  fields and the higher-priority availability-documentation mismatch were left
+  unchanged as a separate owner decision.
 
 ## Latest Work — Public Demand, Property Media, and Signup Secrets (2026-07-14)
 

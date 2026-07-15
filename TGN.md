@@ -227,6 +227,19 @@ Agency Membership:
 - Agency can assign work only to `active` members.
 - Member cleaner must also be `approved` + `verified` to receive agency work.
 - Once an accepted agency assignment is delegated to a member cleaner, the normal agency API treats that delegation as immutable. Repeating the same member assignment is idempotent; assigning a different member is rejected. Any future reassignment requires a separate admin/support workflow.
+- Cleaner application acceptance, direct-offer acceptance, and concrete agency
+  member delegation lock the worker and reject any non-cancelled assignment
+  satisfying `existing_start < candidate_end` and
+  `existing_end > candidate_start`. Direct assignments use
+  `Assignment.cleaner`; delegated agency work uses
+  `Assignment.assigned_member`. Completed assignments still participate by
+  their scheduled interval, while `Assignment.cancelled_at` releases it.
+- Agency application acceptance creates the one assignment for the job without
+  treating the agency account as an occupied cleaner. The schedule check begins
+  only when a concrete member is delegated.
+- Future assigned-job reschedule and emergency-replacement acceptance services
+  must acquire the same concrete-worker lock and invoke the same overlap check
+  inside their mutation transaction.
 
 ### 2f. Favourite Cleaners
 
@@ -438,11 +451,13 @@ Full API surface with implementation state.
 | POST | `/api/marketplace/jobs/{id}/complete/` | Cleaner/Admin | ✅ — single-step completion; host no longer confirms |
 | GET | `/api/marketplace/calendar/` | Required | ✅ |
 | GET/POST | `/api/marketplace/applications/` | Host/Cleaner/Agency | ✅ |
-| POST | `/api/marketplace/applications/{id}/accept/` | Host | ✅ |
+| POST | `/api/marketplace/applications/{id}/accept/` | Host | ✅ — overlapping cleaner returns private structured 409 |
 | POST | `/api/marketplace/applications/{id}/reject/` | Host | ✅ |
 | POST | `/api/marketplace/applications/{id}/withdraw/` | Cleaner/Agency | ✅ |
+| POST | `/api/marketplace/applications/{id}/accept-offer/` | Offered Cleaner/Agency | ✅ — overlapping cleaner returns private structured 409 |
+| POST | `/api/marketplace/applications/{id}/decline-offer/` | Offered Cleaner/Agency | ✅ |
 | GET/READ | `/api/marketplace/assignments/` | Required | ✅ |
-| POST | `/api/marketplace/assignments/{id}/assign-member/` | Agency | ✅ — immutable after first member delegation |
+| POST | `/api/marketplace/assignments/{id}/assign-member/` | Agency | ✅ — immutable after first member delegation; overlapping member returns private structured 409 |
 | GET/POST/DELETE | `/api/marketplace/favourites/` | Host | ✅ — create targets public-eligible cleaners only; historical rows remain visible to owner |
 
 Marketplace disclosure tiers are server-enforced. Anonymous demand contains
@@ -776,6 +791,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Cleaner applications | ✅ Complete |
 | Application acceptance + assignment | ✅ Complete |
 | Agency member delegation | ✅ Complete |
+| Authoritative cleaner assignment-overlap protection | ✅ Complete — application/direct-offer acceptance and member delegation |
 | Job completion (single-step, cleaner/admin; no host confirm) | ✅ Complete |
 | Job deletion guard (draft/open only) | ✅ Complete |
 | Two-way double-blind reviews + revealed-only rating update | ✅ Complete |
@@ -848,3 +864,4 @@ Rules that must never be broken regardless of task scope.
 | R19 | Favourites can be created only for public marketplace-eligible cleaners; historical unavailable favourites remain visible to the owning host through safe serializer fields | `accounts.models` eligibility helper + `marketplace/services.py` |
 | R20 | All new user-facing strings must ship with both `en.json` and `bg.json` values; keys are English camelCase; values only differ between files | `frontend/messages/` — next-intl v4 |
 | R21 | Never use hardcoded UI strings in components — always use `useTranslations` from next-intl | Frontend convention; module-level functions with strings must move inside the component |
+| R22 | One concrete cleaner cannot hold overlapping non-cancelled assignments; intervals are half-open and completed work remains interval-authoritative | `marketplace/services.py` worker row lock + assignment overlap query |

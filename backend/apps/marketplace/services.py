@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, User
@@ -15,6 +16,14 @@ from apps.notifications.tasks import send_application_submitted_email, send_job_
 
 class MarketplaceError(ValueError):
     pass
+
+
+class CleanerScheduleConflictError(MarketplaceError):
+    code = "cleaner_schedule_conflict"
+    detail = "The cleaner is unavailable for this time range."
+
+    def __init__(self):
+        super().__init__(self.detail)
 
 
 FAVOURITE_TARGET_INELIGIBLE = "Only approved, active, verified cleaner accounts can be favourited."
@@ -169,6 +178,8 @@ def accept_application(
         raise MarketplaceError("This job already has an assignment.")
 
     _ensure_cleaner_workable(applicant)
+    if applicant.is_cleaner:
+        _ensure_no_cleaner_schedule_conflict(worker=applicant, job=job)
 
     application.status = CleanerApplication.Status.ACCEPTED
     application.save(update_fields=["status", "updated_at"])
@@ -423,6 +434,28 @@ def _ensure_no_pending_offer_same_property_day(cleaner: User, job: CleaningJob) 
         )
 
 
+def _ensure_no_cleaner_schedule_conflict(*, worker: User, job: CleaningJob) -> None:
+    """Enforce concrete-worker occupancy using half-open scheduled intervals.
+
+    The caller must hold a row lock on ``worker`` for the surrounding transaction.
+    Cancelled assignments release their interval. Completion timestamps and job
+    statuses do not change occupancy because the scheduled interval remains the
+    authoritative source for overlap comparisons.
+    """
+    has_conflict = (
+        Assignment.objects.filter(
+            Q(cleaner_id=worker.id) | Q(assigned_member_id=worker.id),
+            cancelled_at__isnull=True,
+            job__scheduled_start__lt=job.scheduled_end,
+            job__scheduled_end__gt=job.scheduled_start,
+        )
+        .exclude(job_id=job.id)
+        .exists()
+    )
+    if has_conflict:
+        raise CleanerScheduleConflictError()
+
+
 def _ensure_cleaner_workable(cleaner: User) -> None:
     """Validate that a user can receive/accept cleaning work (verified + approved)."""
     if not cleaner.is_active:
@@ -619,6 +652,9 @@ def accept_offer(
     if hasattr(job, "assignment"):
         raise MarketplaceError("This job already has an assignment.")
 
+    if applicant.is_cleaner:
+        _ensure_no_cleaner_schedule_conflict(worker=applicant, job=job)
+
     application.status = CleanerApplication.Status.ACCEPTED
     application.save(update_fields=["status", "updated_at"])
 
@@ -727,6 +763,8 @@ def assign_member_to_assignment(
             return assignment
         raise MarketplaceError("Assignment has already been delegated to a cleaner member.")
 
+    member = User.objects.select_for_update().get(pk=member.pk)
+
     if not member.is_cleaner:
         raise MarketplaceError("Assigned member must be a cleaner account.")
 
@@ -737,19 +775,23 @@ def assign_member_to_assignment(
         raise MarketplaceError("Assigned cleaner must have an approved account.")
 
     try:
-        cleaner_profile = member.cleaner_profile
+        cleaner_profile = CleanerProfile.objects.select_for_update().get(user_id=member.pk)
     except CleanerProfile.DoesNotExist as exc:
         raise MarketplaceError("Assigned cleaner profile is required.") from exc
 
     if not cleaner_profile.is_verified:
         raise MarketplaceError("Assigned cleaner must be verified.")
 
-    if not AgencyMembership.objects.filter(
-        agency=agency_profile,
-        cleaner=member,
-        status=AgencyMembership.Status.ACTIVE,
-    ).exists():
-        raise MarketplaceError("Cleaner must be an active member of this agency.")
+    try:
+        AgencyMembership.objects.select_for_update().get(
+            agency=agency_profile,
+            cleaner=member,
+            status=AgencyMembership.Status.ACTIVE,
+        )
+    except AgencyMembership.DoesNotExist as exc:
+        raise MarketplaceError("Cleaner must be an active member of this agency.") from exc
+
+    _ensure_no_cleaner_schedule_conflict(worker=member, job=assignment.job)
 
     assignment.assigned_member = member
     assignment.save(update_fields=["assigned_member", "updated_at"])

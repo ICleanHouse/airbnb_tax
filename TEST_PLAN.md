@@ -146,6 +146,12 @@ Behavior currently covered:
 - Completion unlocks reviews, cannot complete twice, cannot complete before start, cleaner can complete in-progress, admin completion stamps both sides: `test_cleaner_completion_unlocks_reviews`, `test_cleaner_cannot_mark_completion_twice`, `test_future_job_cannot_be_marked_complete_before_start`, `test_cleaner_can_mark_in_progress_job_done`, `test_admin_completion_marks_both_sides_complete`
 - Cleaner calendar shows open applications and assignment states: `test_cleaner_calendar_tracks_open_application_and_assignment_states`
 - Direct offer creation, unverified cleaner rejection, non-owner host rejection, offer acceptance creates single assignment and rejects siblings, only offered cleaner can accept, decline notifies host, API accept/decline, same-property same-day conflict guards, and calendar visibility: `OfferServiceTests`
+- Authoritative cleaner schedule protection at application acceptance,
+  direct-offer acceptance, and agency-member delegation: half-open boundaries,
+  stale acceptance, direct and delegated occupancy, cancellation release,
+  completed-interval retention, UTC/Europe-Sofia and DST handling, private 409
+  responses, and PostgreSQL concurrent acceptance are covered by
+  `backend/apps/marketplace/tests/test_schedule_conflicts.py`.
 - Favourite CRUD, idempotence, cleaner cannot create favourites: `FavouriteCleanerApiTests`
 - Canonical public demand and the deprecated location alias expose only
   canonical city/zone aggregates: `MarketplacePrivacyTests` and the rewritten
@@ -153,7 +159,10 @@ Behavior currently covered:
 - Area stats are public aggregate-only and city-filtered: `AreaStatsViewTests`
 
 Obvious missing coverage:
-- Concurrent `accept_application` and `accept_offer` attempts. `select_for_update` is present in `marketplace/services.py`, but tests do not simulate competing accepts or assert database-level one-assignment protection under race-like conditions.
+- A same-job mixed `accept_application`/`accept_offer` PostgreSQL thread race is
+  not separately duplicated. The `Assignment.job` one-to-one database
+  invariant, stale-object tests, and the S1-E04 cross-job PostgreSQL worker-lock
+  race cover the underlying invariants without using SQLite threads.
 - Non-owner host and non-approved host paths for `accept_application`, `reject_application`, `withdraw_application`, `publish_job`, `complete_job`, and `destroy`.
 - Suspended/rejected users denied by `MarketplaceQuerysetMixin.filter_for_user`, `CleanerApplicationViewSet.get_queryset`, and `AssignmentViewSet.get_queryset`.
 - `CleaningBatchViewSet` ownership and batch CRUD.
@@ -161,7 +170,9 @@ Obvious missing coverage:
 - `CleaningJobSerializer.validate` scheduled end before start and duplicate exclusion on update.
 - `CleanerApplicationSerializer` PII exposure: `cleaner_email` is included for application payloads and should be tested against allowed recipients.
 - `offer_job_to_cleaner` find-or-create exact slot behavior and scheduled_end <= scheduled_start validation.
-- Concurrent `assign_member_to_assignment` replacement attempts on PostgreSQL. Deterministic stale/sequential immutability is covered; avoid unreliable thread-based SQLite tests.
+- Concurrent different-member replacement attempts remain outside the normal
+  immutable-delegation API contract. Deterministic stale/sequential
+  immutability is covered; avoid unreliable thread-based SQLite tests.
 - `MarketplaceCalendarView` coverage for host/admin/agency perspectives, date bounds, property images, pending offers, and denied pending users.
 - Notifications and email task side effects for accept/reject/withdraw are only partially covered.
 
@@ -179,6 +190,20 @@ Phase 5 resolved gaps:
 - Double-blind visibility and ratings: single public reviews remain hidden until counterpart review or deadline; late counterpart submissions do not re-hide deadline-revealed reviews; cleaner ratings average only revealed public reviews, exclude hidden and private issue reports, and remain stable across duplicate rejection: `backend/apps/feedback/tests/test_review_visibility.py`.
 - Private issue policy: `is_private_issue=True` reports are admin/internal only, are excluded from public cleaner profiles and normal received/own review lists, do not expose `private_note` or moderation flags through normal serializers, and do not contribute to cleaner rating averages: `backend/apps/feedback/tests/test_review_visibility.py`.
 - Review notification contract: first public review prompts only the counterparty, second public review sends unlock notifications to both parties, invalid duplicate/self/late/non-involved attempts create no notifications, private issue reports create no public-review prompt, and notification metadata avoids private review content: `backend/apps/feedback/tests/test_review_notifications.py`.
+
+S1-E04 resolved gaps (2026-07-15):
+- Application and direct-offer acceptance revalidate the concrete cleaner's
+  schedule after locking the worker row; agency acceptance intentionally waits
+  for a concrete delegated member.
+- Agency delegation reloads and locks the member, profile, and active
+  membership before checking direct and delegated assignment occupancy.
+- Half-open overlap behavior, cancellation release, completed scheduled
+  intervals, stale inputs, Europe/Sofia/UTC conversion, DST fallback, exact
+  non-sensitive 409 responses, and PostgreSQL concurrent acceptance are covered
+  by `backend/apps/marketplace/tests/test_schedule_conflicts.py`.
+- SQLite runs the functional contract and skips the `TransactionTestCase`
+  locking proof. PostgreSQL 16 runs that test with independent connections and
+  requires exactly one success and one `cleaner_schedule_conflict`.
 
 Duplicated or obsolete tests:
 - Completion tests in marketplace and feedback overlap on the cleaner-completion-to-review transition. Keep both layers but ensure one service test owns completion state, while feedback tests own review eligibility.
@@ -528,8 +553,8 @@ Duplicated or obsolete tests:
 | Object ownership and authorization | Critical | Some property/job/application owner paths covered indirectly | Non-owner API matrix across properties, jobs, applications, assignments, reviews, connections, notifications | `properties/views.py::*ViewSet`; `marketplace/views.py::*ViewSet`; `feedback/views.py::ReviewViewSet`; `connections/views.py::ConnectionViewSet` |
 | Job lifecycle | Critical | Apply/accept, duplicate job, completion timing covered | Publish/update/delete API guards, batch CRUD, status transition negatives | `marketplace/services.py::publish_job/complete_job`; `marketplace/views.py::CleaningJobViewSet` |
 | Applications and direct offers | Critical | Good service/API coverage for common flows | Non-approved/rejected/suspended users, offer-to-cleaner find-or-create, API negative cases | `marketplace/services.py::submit_application`, `offer_job`, `offer_job_to_cleaner`, `accept_offer`, `decline_offer` |
-| One-assignment-per-job enforcement | Critical | Sibling rejection and existing-assignment service checks covered | Race-like concurrent acceptance and DB invariant expectations | `marketplace/services.py::accept_application`, `accept_offer`; `marketplace/models.py::Assignment` |
-| Concurrent application acceptance | Critical | Not covered | Two pending apps accepted in parallel/serial stale-object simulation | `marketplace/services.py::accept_application` |
+| One-assignment-per-job enforcement | Critical | Sibling rejection, stale objects, one-to-one DB constraint, and cross-job worker-lock race covered | Optional same-job mixed-transition PostgreSQL race | `marketplace/services.py::accept_application`, `accept_offer`; `marketplace/models.py::Assignment` |
+| Cleaner assignment overlap | Critical | Application acceptance, direct-offer acceptance, agency delegation, interval boundaries, privacy, Sofia/DST, and PostgreSQL concurrency covered | Future reschedule/replacement services must reuse the locked check when implemented | `marketplace/services.py::_ensure_no_cleaner_schedule_conflict`; `marketplace/tests/test_schedule_conflicts.py` |
 | Completion timing | Critical | Cleaner/admin timing covered | Host denial after start/end, suspended user denial, timezone boundary around Europe/Sofia midnight | `marketplace/services.py::complete_job` |
 | Two-way reviews | Critical | Good double-blind basics | Duplicate/self/non-involved/private issue/window-closed/new review rejection | `feedback/services.py::submit_review`, `revealed_received_reviews`, `refresh_cleaner_rating`; `feedback/views.py::ReviewViewSet` |
 | Connections and messaging | High | Core service/API flow covered | Decline/remove/reactivate, unread counts, serializer fields, agency pairing | `connections/services.py::*`; `connections/views.py::ConnectionViewSet`; `connections/serializers.py::ConnectionSerializer` |
@@ -1115,7 +1140,10 @@ Coverage anti-goals:
 
 ## 6. Implementation Order
 
-1. ✅ Add backend marketplace invariant tests for one assignment per job and concurrent/stale acceptance: `backend/apps/marketplace/services.py::accept_application`, `accept_offer`.
+1. ✅ Add backend marketplace invariant tests for one assignment per job,
+   concurrent/stale acceptance, and S1-E04 cleaner schedule overlap:
+   `backend/apps/marketplace/services.py::accept_application`, `accept_offer`,
+   `assign_member_to_assignment`.
 2. ✅ Add account status and cleaner verification gate tests across accounts and marketplace: `UserViewSet.reject/suspend`, `CleanerProfileViewSet.perform_update`, `_ensure_cleaner_workable`.
 3. ✅ Add marketplace API negative-path tests for publish/update/delete/applications/offers/favourites/agency assignment. Phase 4 added explicit agency-delegation immutability and favourite-eligibility contracts.
 4. ✅ Add feedback invariant tests for duplicate/self/non-involved/private/window-closed reviews and notification unlock behavior.

@@ -2,15 +2,31 @@
 
 | Plan field | Value |
 |---|---|
-| Status | Working execution plan |
+| Status | Active execution plan — Gates A and B in progress |
 | Created | 2026-07-13 |
+| Last updated | 2026-07-15 |
 | Scope | Product, engineering, research, operations, and release work required to complete Stage 1 |
 | Decision at exit | Proceed, extend once, pivot, or stop |
 
 **Start here:** Hold the Gate A owner-decision session and sign every M0/M1
-entry criterion. In parallel, contain the three decision-independent security
-risks immediately: stop exact public job/property disclosure, remove passwords
-from browser storage, and disable calendar URL fetching until it is hardened.
+entry criterion. Exact anonymous job/property disclosure and sensitive signup
+storage have been contained, and authoritative cleaner-overlap protection is
+implemented. The next decision-independent security action is to disable
+calendar URL fetching or harden it before pilot use.
+
+### Current progress snapshot — 2026-07-15
+
+- **Done:** S1-D04, S1-E01, S1-E03, and S1-E04. Public disclosure/media,
+  signup-secret persistence, and cleaner schedule overlap protections are
+  implemented and tested.
+- **Not started:** S1-E02 account approval and cleaner-verification controls.
+- **Resolved launch blockers:** S1-B01 exact anonymous job/property disclosure,
+  S1-B03 sensitive signup-browser persistence, S1-B04 cross-property cleaner
+  double-booking, and S1-B09 raw/private property-media exposure.
+- **Gate status:** Gate A and Gate B are in progress. Gates C–F have not started.
+- **Next critical work:** complete S1-E02, finish the Gate A owner decisions,
+  define and implement S1-E05 recovery workflows, and disable or harden calendar
+  URL import.
 
 ---
 
@@ -264,15 +280,15 @@ dashboard.
 
 | ID | Blocker | Stage 1 disposition |
 |---|---|---|
-| S1-B01 | Anonymous users can receive exact property address, coordinates, photo, job time, and price | Must be removed before acquisition or pilot |
+| S1-B01 | Resolved 2026-07-14: anonymous job/property disclosure was replaced by canonical city/zone aggregates | Retain recursive privacy tests and compatibility-alias sunset controls; see [privacy evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-B02 | Public signup creates approved users and verified cleaners | Must return to pending plus separate admin verification |
-| S1-B03 | Signup persists plaintext password and confirmation in browser session storage | Must be removed |
-| S1-B04 | Cleaner scheduling can overlap across different properties | Must be prevented at authoritative assignment/delegation transitions |
+| S1-B03 | Resolved 2026-07-14: signup recovery now persists only a non-sensitive allowlist | Retain storage/telemetry regression tests; see [privacy evidence](testing/release_blocking_privacy_fix.tdd.md) |
+| S1-B04 | Resolved 2026-07-15: concrete cleaners are protected at every implemented assignment-producing transition | Retain PostgreSQL concurrency coverage; see [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-B05 | Assigned cancellation, rescheduling, no-show, dispute, and replacement recovery are not operational | Minimum history-preserving operator-supported workflows required |
 | S1-B06 | Agency signup redirects to an unbuilt route | Hide/disable public agency signup or deliver a minimum workspace |
 | S1-B07 | Delegated-agency completion notifications and review links target the agency instead of the assigned member | Must be corrected and tested |
 | S1-B08 | Anonymous Connect and some other calls fail silently | Must end in a usable localized next step |
-| S1-B09 | Public and private media are not clearly separated | Private property and verification media must require authorization |
+| S1-B09 | Resolved 2026-07-14 for property media: operational images are object-authorized and raw `/media/*` access is denied | Retain object-authorization/privacy tests; verification-media collection remains policy-gated |
 | S1-B10 | Account deletion can remove or corrupt active operational history | Must be blocked or routed through support while active obligations exist |
 | S1-B11 | Critical lifecycle notifications and reminder scheduling are incomplete | In-app and email reliability loop required |
 | S1-B12 | No password-reset flow exists | Recovery flow required before public pilot |
@@ -281,7 +297,12 @@ dashboard.
 | S1-B15 | Mobile, localization, and accessibility issues affect critical flows | Pilot-critical WCAG/mobile fixes and real-device verification required |
 | S1-B16 | The ICS URL-import endpoint can make unrestricted server-side requests and read unbounded responses | Disable URL import for Stage 1 or harden it against SSRF, redirects, oversized/malformed content, and information leakage |
 | S1-B17 | The property location picker sends searches/exact coordinates directly from the browser to third-party OSM/Nominatim services | Approve and proxy a compliant provider with privacy controls, or disable third-party exact-location search/maps |
-| S1-B18 | Public cleaner/review responses can expose unnecessary personal attributes, reviewer names, job IDs, and unmoderated free text | Add consented public field allowlists, non-identifying references, text moderation/redaction, and object-level tests |
+| S1-B18 | Resolved 2026-07-14: public cleaner/review responses use explicit safe projections and privacy tests | Retain publication, moderation/redaction, and object-level regression coverage |
+
+Resolved rows remain in this baseline as historical launch-blocker evidence;
+they must not be removed from regression coverage. “Partially resolved” does
+not permit pilot launch until the linked work item meets all acceptance
+criteria.
 
 The local development database is seeded demonstration data. It must not be
 reported as traction.
@@ -348,8 +369,8 @@ acceptance evidence is linked, not when work merely starts.
 
 | Gate | Owner | Status | Target date | Evidence/readout |
 |---|---|---|---|---|
-| A — Decisions and policy |  | Not started |  |  |
-| B — Product and workflow readiness |  | Not started |  |  |
+| A — Decisions and policy |  | In progress |  | [S1-D04 disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
+| B — Product and workflow readiness |  | In progress |  | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md); [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | C — Release, support, and verification |  | Not started |  |  |
 | D — M1 research and supply activation |  | Not started |  |  |
 | E — Free Sofia pilot |  | Not started |  |  |
@@ -369,9 +390,9 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-D03 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
 | S1-D04 | Must-have | Stage 1 owner | S1-D01 | Done | 2026-07-14 | [Recorded disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
 | S1-D05 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
-| S1-E01 | Must-have | Engineering owner | S1-D04 | Not started |  |  |
+| S1-E01 | Must-have | Engineering owner | S1-D04 | Done | 2026-07-14 | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E02 | Must-have | Engineering owner | S1-D02 | Not started |  |  |
-| S1-E03 | Must-have | Engineering owner | None | Not started |  |  |
+| S1-E03 | Must-have | Engineering owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E04 | Must-have | Engineering owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-E05 | Must-have | Engineering owner | S1-D03 and recovery ADR | Not started |  |  |
 | S1-E06 | Must-have; reminders may be operator-assisted | Engineering owner | S1-D03 | Not started |  |  |
@@ -622,37 +643,37 @@ passed Gate B/C verification.
 
 Required work:
 
-- [ ] Replace the public map response with city/district-level demand.
-- [ ] Define one shared eligibility predicate for public demand and
+- [x] Replace the public map response with city/district-level demand.
+- [x] Define one shared eligibility predicate for public demand and
       cleaner-visible open work: future, open, non-stale jobs owned by active,
       approved hosts.
-- [ ] Remove public job IDs, property IDs, property name, address, photo, exact
+- [x] Remove public job IDs, property IDs, property name, address, photo, exact
       coordinates, exact schedule, exact price, host identity, access
       instructions, and cleaning instructions.
-- [ ] Do not rely on random coordinate jitter for sparse locations; aggregation
+- [x] Do not rely on random coordinate jitter for sparse locations; aggregation
       is safer.
-- [ ] Keep exact/open job detail behind role, status, verification, ownership,
+- [x] Keep exact/open job detail behind role, status, verification, ownership,
       and assignment checks.
-- [ ] Restrict approved-but-unverified cleaners from full private job data.
-- [ ] Scope the calendar conflict API to authorized owners/participants.
-- [ ] Remove property media from public responses. For Stage 1, either serve
+- [x] Restrict approved-but-unverified cleaners from full private job data.
+- [x] Scope the calendar conflict API to authorized owners/participants.
+- [x] Remove property media from public responses. For Stage 1, either serve
       pilot property media through authorization or disable it; do not build a
       generalized private-media subsystem merely for future use.
-- [ ] Define explicit allowlists for public cleaner profiles and rating/review
+- [x] Define explicit allowlists for public cleaner profiles and rating/review
       responses. Exclude unnecessary personal attributes, internal/user/job
       identifiers, private contact details, verification evidence, and precise
       availability/location data.
-- [ ] Give cleaners an informed publication choice and explain exactly which
+- [x] Give cleaners an informed publication choice and explain exactly which
       approved profile fields become public and how publication can be paused.
-- [ ] Use a non-identifying reviewer label where public identity is unnecessary.
+- [x] Use a non-identifying reviewer label where public identity is unnecessary.
       Moderate, report, and redact public free-text reviews that contain an
       address, access instruction, guest data, contact details, harassment, or
       other unsafe content without altering the underlying audit record.
-- [ ] Do not collect verification/dispute files unless the approved policy
+- [x] Do not collect verification/dispute files unless the approved policy
       requires them and authorized private storage exists.
-- [ ] Refactor the public map into an approximate demand visualization plus a
+- [x] Refactor the public map into an approximate demand visualization plus a
       non-map list/CTA alternative.
-- [ ] Update BG/EN copy to state that public demand is approximate.
+- [x] Update BG/EN copy to state that public demand is approximate.
 
 Acceptance criteria:
 
@@ -703,15 +724,15 @@ Acceptance criteria:
 
 ### S1-E03 — Remove sensitive signup persistence
 
-- [ ] Never write password, password confirmation, email code, verification
+- [x] Never write password, password confirmation, email code, verification
       token, identity evidence, or access information to sessionStorage or
       localStorage.
-- [ ] Preserve only non-sensitive draft fields needed for refresh recovery.
-- [ ] Clear draft state after successful signup, explicit cancellation, and
+- [x] Preserve only non-sensitive draft fields needed for refresh recovery.
+- [x] Clear draft state after successful signup, explicit cancellation, and
       expiry.
-- [ ] Mask sensitive fields from logs, Sentry, analytics, and request-error
+- [x] Mask sensitive fields from logs, Sentry, analytics, and request-error
       reporting.
-- [ ] Verify browser history and page source do not expose secrets.
+- [x] Verify browser history and page source do not expose secrets.
 
 Acceptance criteria:
 
@@ -1979,12 +2000,14 @@ Recommended engineering order:
 
 1. Record the policy decisions, including agency participation, the R17
    turnover-lineage model, and the map/geocoder boundary, plus required ADRs.
-2. Ship the public-data/profile/review and Stage 1 media-containment privacy
-   fixes.
-3. Correct signup defaults and add real admin verification.
-4. Remove sensitive signup persistence.
+2. ✅ Maintain S1-E01 public-data/profile/review and property-media containment
+   regression coverage.
+3. Finish S1-E02 account approval and cleaner verification.
+4. ✅ Remove sensitive signup persistence; retain the allowlist and telemetry
+   regression suite.
 5. Repair anonymous conversion and contain agency routing.
-6. Add authoritative availability/overlap checks.
+6. ✅ Enforce authoritative assignment overlap checks for application/direct
+   offer acceptance and concrete agency-member delegation.
 7. Add history-preserving lifecycle/recovery services and UI.
 8. Disable or harden calendar URL import and validate every enabled upload.
 9. Proxy an approved map/geocoder through the owned API boundary or disable

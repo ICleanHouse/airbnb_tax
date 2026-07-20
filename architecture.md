@@ -33,13 +33,19 @@ Future extraction into microservices should be possible without rewriting core b
 ### Backend — `backend/apps/`
 
 - `apps.accounts`: users, host profiles, cleaner profiles, agency profiles, agency invitations, agency memberships, cookie consent, signup email-code verification state, and role permissions. New account creation requires a verified signup email token; admin notification tasks are dispatched via Celery after signup.
-- `apps.properties`: host properties, external calendar connections, reservations, and iCal file parsing (`POST /api/properties/parse-ics/`).
+- `apps.properties`: host properties, inert external calendar connection data,
+  reservations, and bounded file-only iCal parsing
+  (`POST /api/properties/parse-ics/`). There is no calendar URL-fetch route or
+  runtime network client in the Stage 1 calendar domain.
 - `apps.marketplace`: cleaning batches, jobs, applications, assignments, and marketplace workflow services.
-- `apps.calendars`: conflict checks and placeholder background sync tasks.
+- `apps.calendars`: conflict checks and deliberately network-inert placeholder
+  background sync tasks.
 - `apps.feedback`: two-way reviews and cleaner reputation updates.
 - `apps.notifications`: in-app notification records, Resend-only signup-code email delivery, Django mail-backend admin emails, and Celery task for admin signup alerts.
 - `apps.locations`: canonical cities, service zones, optional GeoJSON district geometry, and public read-only location APIs for city/district selectors.
-- `apps.core`: timestamp base model, request-ID middleware, JSON logging helpers, read-only `AuditLog`, health check, and CSRF failure view.
+- `apps.core`: timestamp base model, request-ID middleware, JSON logging helpers,
+  read-only `AuditLog`, health check, CSRF failure view, and reusable Stage 1
+  image decoding/normalization policies.
 
 ### Backend — `backend/config/`
 
@@ -52,6 +58,9 @@ Future extraction into microservices should be possible without rewriting core b
   - `BACKEND_URL`: base URL used by legacy email-confirmation links.
   - `EMAIL_RESEND_APIKEY`, `EMAIL_RESEND_FROM_EMAIL`: Resend signup-code delivery settings.
   - `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`: Redis connection strings.
+  - `CACHE_URL`: required Redis-backed shared cache in deployed environments;
+    local development and tests use LocMem. The manual ICS throttle uses this
+    cache and is keyed by authenticated user.
   - `APP_ENV`, `LOG_LEVEL`, `SENTRY_DSN`: JSON logging and backend/Celery crash reporting.
 - `celery.py`: Celery application wiring.
 - `manage.py`, `wsgi.py`, `asgi.py`: all load `.env` via `python-dotenv` before Django starts.
@@ -69,7 +78,7 @@ Future extraction into microservices should be possible without rewriting core b
 - `frontend/app/admin/page.tsx`: admin account approval panel. Lists all accounts, filters by pending / approved / all. Supports `?filter=pending` URL param to pre-select a tab (used in approval email links). Approve and reject actions call `POST /api/accounts/users/{id}/approve/` and `/reject/`. Accessible to `admin` role only.
 - `frontend/app/host/page.tsx`: host dashboard with two sections toggled in the topbar:
   - **Properties** — lists host properties as cards with job counts. "Add property" modal POSTs to `POST /api/properties/properties/`.
-  - **Jobs & Calendar** — custom month calendar grid with coloured status dots per day. "Post a job" modal POSTs to `POST /api/marketplace/jobs/` (saved as Draft). Publish button calls `POST /api/marketplace/jobs/{id}/publish/` to transition Draft → Open. **"Import ICS"** button opens a two-step modal: upload an Airbnb `.ics` file → review parsed reservations → bulk-create draft cleaning jobs (one per selected checkout date) via repeated `POST /api/marketplace/jobs/`.
+  - **Jobs & Calendar** — custom month calendar grid with coloured status dots per day. "Post a job" modal POSTs to `POST /api/marketplace/jobs/` (saved as Draft). Publish button calls `POST /api/marketplace/jobs/{id}/publish/` to transition Draft → Open. **"Import ICS"** is file-only during the pilot: upload a downloaded Airbnb `.ics` file → review parsed reservations → bulk-create draft cleaning jobs (one per selected checkout date) via repeated `POST /api/marketplace/jobs/`. Calendar-link import is unavailable.
 - `frontend/app/cleaner/page.tsx`: cleaner dashboard with calendar, open jobs, applications, assigned jobs, and modular profile forms (city-scoped service areas, district map/checklist selector overlay, other-languages overlay, profile-image crop editor, driving-license/own-car inputs, and extra-services toggles).
 - `frontend/components/CookieConsentBanner.tsx`: consent-first GDPR cookie banner.
 - `frontend/app/components/DistrictMapSelector.tsx`: reusable MapLibre district selector with selected tags and checklist fallback for city service areas. Sofia zones and both public search dropdowns share the hardcoded `frontend/lib/sofiaDistricts.ts` catalog and stable `sofia:osm-N` IDs; runtime geometry is loaded from `frontend/public/maps/sofia/districts.geojson`.
@@ -326,12 +335,13 @@ REST APIs through Django REST Framework.
 | `GET/POST /api/properties/properties/` | Host properties CRUD |
 | `GET/POST /api/properties/calendar-connections/` | External calendar connections |
 | `GET/POST /api/properties/reservations/` | Reservation records |
-| `POST /api/properties/parse-ics/` | Parse uploaded Airbnb `.ics` file → returns `[{uid, summary, checkin, checkout, nights}]`. Filters blocked dates automatically. |
+| `POST /api/properties/parse-ics/` | Active approved host/admin: parse a bounded multipart `.ics` file in memory → returns the unchanged `[{uid, summary, checkin, checkout, nights}]` shape. User-throttled, audited, private/no-store; filters blocked dates. |
 | `GET/POST /api/marketplace/batches/` | Monthly cleaning batches |
 | `GET/POST /api/marketplace/jobs/` | Cleaning jobs CRUD |
 | `GET /api/marketplace/area-stats/` | Public aggregate cleaner/host/open-job counts for a canonical city. |
 | `GET /api/marketplace/public-demand/` | Canonical public city/zone open-job counts only; no per-job or property fields. |
 | `GET /api/marketplace/open-job-locations/` | Deprecated compatibility alias returning the identical safe aggregate body; sunset 2026-10-15. |
+| `POST /api/properties/images/` | Decode a bounded single-frame JPEG/PNG/WebP, strip metadata, resize, and store a generated-name JPEG for the host-owned property. |
 | `GET/HEAD /api/properties/images/{id}/content/` | Object-authorized property-image stream with private/no-store and nosniff headers; no raw storage redirect/path. |
 | `POST /api/marketplace/jobs/{id}/publish/` | Transition Draft → Open |
 | `POST /api/marketplace/jobs/{id}/complete/` | Mark assigned work complete. Cleaner side allowed after start time; host/admin side allowed after end time. |

@@ -41,6 +41,7 @@ import AccountDeletionPanel from "../../components/AccountDeletionPanel";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
 import type { ServiceZone } from "../../types/locations";
+import { CLEANER_IMAGE_MAX_BYTES, validateImageFile } from "../../lib/uploadValidation";
 
 type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "disputed";
 type ApplicationStatus = "pending" | "accepted" | "rejected" | "withdrawn";
@@ -1199,9 +1200,13 @@ export default function CleanerDashboard() {
   function onProfileImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    const issue = validateImageFile(file, CLEANER_IMAGE_MAX_BYTES);
+    if (issue) {
       setProfileError("");
-      setProfileFieldErrors((current) => ({ ...current, profile_image: t("errors.invalidImage") }));
+      setProfileFieldErrors((current) => ({
+        ...current,
+        profile_image: t(issue === "too_large" ? "errors.imageTooLarge" : "errors.invalidImage"),
+      }));
       event.target.value = "";
       return;
     }
@@ -2489,7 +2494,7 @@ export default function CleanerDashboard() {
                       </div>
                       <div className="cleaner-profile-account-row">
                         <label className="cleaner-avatar-uploader">
-                          <input type="file" accept="image/*" onChange={onProfileImageChange} />
+                          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onProfileImageChange} />
                           <span className="cleaner-avatar-label">{t("profile.profileImageLabel")}</span>
                           <span className="cleaner-avatar-frame">
                             <Image

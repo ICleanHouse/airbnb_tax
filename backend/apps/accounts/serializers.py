@@ -15,6 +15,12 @@ from apps.accounts.models import (
     SignupEmailVerification,
     hash_signup_email_code,
 )
+from apps.core.image_uploads import (
+    ImageUploadValidationError,
+    normalize_cleaner_image_data_url,
+    public_image_error,
+    request_language,
+)
 
 
 User = get_user_model()
@@ -118,6 +124,17 @@ class SignupSerializer(serializers.Serializer):
     smoker = serializers.BooleanField(required=False, allow_null=True)
     profile_image = serializers.CharField(required=False, allow_blank=True)
     company_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+    def validate_profile_image(self, value):
+        if value == "":
+            return value
+        try:
+            return normalize_cleaner_image_data_url(value)
+        except ImageUploadValidationError as error:
+            request = self.context.get("request")
+            raise serializers.ValidationError(
+                public_image_error(request_language(request))
+            ) from error
 
     def validate_email(self, value):
         email = value.strip().lower()
@@ -349,6 +366,20 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def validate_profile_image(self, value):
+        if value == "":
+            return value
+        existing = getattr(self.instance, "profile_image", "") if self.instance is not None else ""
+        if existing and value == existing:
+            return value
+        try:
+            return normalize_cleaner_image_data_url(value)
+        except ImageUploadValidationError as error:
+            request = self.context.get("request")
+            raise serializers.ValidationError(
+                public_image_error(request_language(request))
+            ) from error
 
     def update(self, instance, validated_data):
         if "birth_date" in validated_data:

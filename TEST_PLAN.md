@@ -4,6 +4,18 @@ Date: 2026-06-29
 
 Scope: read-only audit of existing Django, React/Vitest, and end-to-end coverage. No source code or tests were modified during the audit.
 
+## 2026-07-20 S1-E09 Calendar/Upload Security Addendum
+
+The historical calendar gaps and `FetchIcsUrlView` recommendations below are
+superseded for Stage 1. The URL endpoint/view/UI were removed; calendar sync
+tasks are network-inert. Focused backend coverage now proves the literal 404,
+absence of calendar runtime network clients, dormant-task behavior, manual ICS
+access/limits/parser compatibility/throttling/audit redaction, property-image
+normalization/privacy, and cleaner signup/profile normalization plus legacy URL
+rules. Frontend coverage proves file-only ICS import and immediate Stage 1 file
+type/size feedback. The full evidence and exact command results are recorded in
+`docs/testing/s1_e09_upload_security.tdd.md`.
+
 ## 2026-07-14 Release Privacy Regression Addendum
 
 The implementation following this historical audit adds focused coverage for:

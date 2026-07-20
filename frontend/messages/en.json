@@ -198,7 +198,7 @@
       "createAccount": "Create account",
       "error": {
         "invalidFile": "Please choose a valid image file.",
-        "tooLarge": "Please choose an image up to 5 MB.",
+        "tooLarge": "Please choose an image up to 2 MB.",
         "openFailed": "Could not open this image. Please choose another file.",
         "readFailed": "Could not read this image. Try another file."
       }
@@ -405,7 +405,9 @@
       "removePhoto": "Remove photo",
       "newBadge": "New",
       "addPhotos": "Add photos",
-      "photosHint": "JPG, PNG, WebP — multiple files allowed."
+      "photosHint": "JPG, PNG, WebP — up to 10 MB each; multiple files allowed.",
+      "invalidPhotoType": "Choose a JPEG, PNG, or WebP image.",
+      "photoTooLarge": "Choose an image up to 10 MB."
     },
     "icsModal": {
       "ariaLabel": "Import Airbnb calendar",
@@ -415,16 +417,13 @@
       "closeAriaLabel": "Close",
       "propertyLabel": "Property *",
       "propertyPlaceholder": "Select a property…",
-      "uploadFile": "Upload file",
-      "pasteLink": "Paste link",
       "fileLabel": "Airbnb calendar file (.ics) *",
       "dropZone": "Click to choose file or drop here",
       "fileHint": "Airbnb → Calendar → Export calendar → download the .ics file and upload it here.",
-      "urlLabel": "Airbnb calendar link *",
-      "urlPlaceholder": "https://www.airbnb.com/calendar/ical/…",
-      "urlHint": "Airbnb → Listing → Calendar → Connect other calendars → Export calendar → copy the link and paste it above.",
-      "errorNoUrl": "Please paste an Airbnb calendar URL.",
+      "urlUnavailable": "Calendar-link import is unavailable during the pilot. Download the .ics file from Airbnb, then upload it here.",
       "errorNoFile": "Please select an .ics file.",
+      "errorInvalidFile": "Choose a valid .ics calendar file.",
+      "errorFileTooLarge": "Choose an .ics file up to 1 MB.",
       "errorNoProp": "Please select a property.",
       "errorNoEvents": "Select at least one event to import.",
       "errorNoReservations": "No reservations found. Blocked dates are excluded automatically.",
@@ -494,6 +493,7 @@
       "submitApplication": "Could not submit application.",
       "loadImage": "Could not load image preview.",
       "invalidImage": "Please choose a valid image file.",
+      "imageTooLarge": "Please choose an image up to 2 MB.",
       "openImage": "Could not open this image. Please choose another file.",
       "saveProfile": "Could not save profile."
     },

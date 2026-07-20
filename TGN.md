@@ -355,9 +355,9 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
          GET /api/feedback/reviews/
   writes: POST   /api/properties/properties/                  (add property)
           PATCH  /api/properties/properties/{id}/             (edit property)
-          POST   /api/properties/images/                      (upload photos)
+          POST   /api/properties/images/                      (upload + normalize photos)
           DELETE /api/properties/images/{id}/                 (remove photo)
-          POST   /api/properties/parse-ics/                   (ICS upload → parsed events)
+          POST   /api/properties/parse-ics/                   (bounded file-only ICS upload → parsed events)
           POST   /api/marketplace/jobs/                       (post job / ICS bulk create)
           POST   /api/marketplace/jobs/{id}/publish/          (draft → open)
           DELETE /api/marketplace/jobs/{id}/                  (delete; draft/open only)
@@ -436,7 +436,7 @@ Full API surface with implementation state.
 | GET/HEAD | `/api/properties/images/{id}/content/` | Object-authorized owner/admin/assigned participant | ✅ — private, no-store |
 | GET/POST | `/api/properties/calendar-connections/` | Host | ✅ |
 | GET/POST | `/api/properties/reservations/` | Host | ✅ |
-| POST | `/api/properties/parse-ics/` | Host | ✅ |
+| POST | `/api/properties/parse-ics/` | Active approved host / platform admin | ✅ — file-only, throttled, no-store |
 
 ### Marketplace
 
@@ -676,6 +676,17 @@ admins may read owned images; active approved/verified assigned participants may
 read only the primary image for a current non-cancelled assignment. Every raw
 `/media/*` route returns 404. Approved public cleaner profile media remains the
 public `profile_image` API/data value and is not `PropertyImage` raw storage.
+Every new property image and every changed cleaner signup/profile image is
+decoded as a single-frame JPEG/PNG/WebP, bounded, EXIF-oriented, rendered into a
+fresh RGB buffer, resized, and re-encoded as metadata-free JPEG. Generated
+property filenames never reuse the client filename. Unchanged legacy cleaner
+URLs may remain, but a new or different external URL is rejected.
+
+`POST /api/properties/parse-ics/` is the only Stage 1 calendar-import route. It
+accepts a bounded multipart `.ics` file and never persists its bytes. Calendar
+URL import is disabled: there is no URL endpoint or server-side calendar
+network fetcher. Existing external-calendar records are inert, and placeholder
+calendar sync tasks perform no network access.
 
 ### CleaningJob
 ```
@@ -785,7 +796,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Agency invitations + memberships | ✅ Complete |
 | Cookie consent | ✅ Complete |
 | Property CRUD | ✅ Complete |
-| ICS file parsing (`parse-ics/`) | ✅ Complete |
+| Hardened file-only ICS parsing (`parse-ics/`); URL import absent | ✅ Complete |
 | Cleaning job CRUD + publish | ✅ Complete |
 | Monthly batch CRUD | ✅ Complete |
 | Cleaner applications | ✅ Complete |
@@ -801,7 +812,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Job-completed email (Resend) | ✅ Complete |
 | Cleaner verification admin action | ⬜ Not built |
 | Notification triggers (acceptance, rejection, assignment emails) | ⬜ Placeholder |
-| iCal feed polling | ⬜ Placeholder |
+| iCal feed polling | ⬜ Network-inert placeholder |
 | Google Calendar sync | ⬜ Placeholder |
 | iCal export | ⬜ Planned |
 | SMS dispatch | ⬜ Placeholder |

@@ -42,7 +42,6 @@ const SAFE_ENDPOINT_SEGMENTS = new Set([
   "email-code",
   "favourites",
   "feedback",
-  "fetch-ics-url",
   "hosts",
   "images",
   "jobs",

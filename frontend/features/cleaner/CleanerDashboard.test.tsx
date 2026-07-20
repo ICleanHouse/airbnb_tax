@@ -430,4 +430,20 @@ describe("CleanerDashboard review modal", () => {
     expect(screen.queryByText("Checkout clean")).not.toBeInTheDocument();
     expect(screen.queryByText("Job #1")).not.toBeInTheDocument();
   });
+
+  it("shows immediate profile-image size feedback", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const { container } = render(<CleanerDashboard />);
+
+    await user.click(await screen.findByRole("button", { name: "cleaner.topbar.accountMenuAriaLabel" }));
+    await user.click(await screen.findByRole("menuitem", { name: "cleaner.topbar.profile" }));
+    const input = container.querySelector('.cleaner-avatar-uploader input[type="file"]') as HTMLInputElement;
+    await user.upload(
+      input,
+      new File([new Uint8Array(2 * 1024 * 1024 + 1)], "photo.png", { type: "image/png" }),
+    );
+
+    expect(await screen.findByText("cleaner.errors.imageTooLarge")).toBeInTheDocument();
+    expect(input.files).toHaveLength(0);
+  });
 });

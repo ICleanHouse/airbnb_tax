@@ -41,6 +41,11 @@ import NotificationBell from "../../components/NotificationBell";
 import Connections from "../../components/Connections";
 import AppdashGrid from "../../components/AppdashGrid";
 import { useAppdashPrefs } from "../../lib/useAppdashPrefs";
+import {
+  PROPERTY_IMAGE_MAX_BYTES,
+  validateIcsFile,
+  validateImageFile,
+} from "../../lib/uploadValidation";
 import JobOfferModal from "../../components/JobOfferModal";
 import ReviewModal from "../../components/ReviewModal";
 import RatingStars from "../../components/RatingStars";
@@ -352,10 +357,8 @@ export default function HostDashboard() {
   // ── ICS import ─────────────────────────────────────────────────────────────
   const [showIcsModal,   setShowIcsModal]   = useState(false);
   const [icsStep,        setIcsStep]        = useState<1 | 2>(1);
-  const [icsInputMode,   setIcsInputMode]   = useState<"file" | "url">("file");
   const [icsPropId,      setIcsPropId]      = useState("");
   const [icsFile,        setIcsFile]        = useState<File | null>(null);
-  const [icsUrl,         setIcsUrl]         = useState("");
   const [icsEvents,      setIcsEvents]      = useState<IcsEvent[]>([]);
   const [icsSelected,    setIcsSelected]    = useState<Set<string>>(new Set());
   const [icsStartTime,   setIcsStartTime]   = useState("10:00");
@@ -608,6 +611,13 @@ export default function HostDashboard() {
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
+    const issue = files.map((file) => validateImageFile(file, PROPERTY_IMAGE_MAX_BYTES)).find(Boolean);
+    if (issue) {
+      setPropError(t(issue === "too_large" ? "propForm.photoTooLarge" : "propForm.invalidPhotoType"));
+      e.currentTarget.value = "";
+      return;
+    }
+    setPropError("");
     const previews = files.map((f) => URL.createObjectURL(f));
     setNewImageFiles((prev) => [...prev, ...files]);
     setNewImagePreviews((prev) => [...prev, ...previews]);
@@ -898,10 +908,8 @@ export default function HostDashboard() {
   function openIcsModal() {
     if (shouldSuppressModalOpen()) return;
     setIcsStep(1);
-    setIcsInputMode("file");
     setIcsPropId(properties.length === 1 ? String(properties[0].id) : "");
     setIcsFile(null);
-    setIcsUrl("");
     setIcsEvents([]);
     setIcsSelected(new Set());
     setIcsStartTime("10:00");
@@ -914,19 +922,10 @@ export default function HostDashboard() {
     setIcsParsing(true);
     setIcsError("");
     try {
-      let res: Response;
-      if (icsInputMode === "url") {
-        if (!icsUrl.trim()) { setIcsError(t("icsModal.errorNoUrl")); setIcsParsing(false); return; }
-        res = await apiFetch("/api/properties/fetch-ics-url/", {
-          method: "POST",
-          body: JSON.stringify({ url: icsUrl.trim() }),
-        });
-      } else {
-        if (!icsFile) { setIcsError(t("icsModal.errorNoFile")); setIcsParsing(false); return; }
-        const formData = new FormData();
-        formData.append("ics_file", icsFile);
-        res = await apiFetch("/api/properties/parse-ics/", { method: "POST", body: formData });
-      }
+      if (!icsFile) { setIcsError(t("icsModal.errorNoFile")); return; }
+      const formData = new FormData();
+      formData.append("ics_file", icsFile);
+      const res = await apiFetch("/api/properties/parse-ics/", { method: "POST", body: formData });
       const data = await res.json() as IcsEvent[] | { detail: string };
       if (!res.ok) {
         setIcsError((data as { detail: string }).detail ?? t("icsModal.errorParseFailed"));
@@ -943,6 +942,23 @@ export default function HostDashboard() {
     } finally {
       setIcsParsing(false);
     }
+  }
+
+  function handleIcsFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) {
+      setIcsFile(null);
+      return;
+    }
+    const issue = validateIcsFile(file);
+    if (issue) {
+      setIcsFile(null);
+      setIcsError(t(issue === "too_large" ? "icsModal.errorFileTooLarge" : "icsModal.errorInvalidFile"));
+      e.currentTarget.value = "";
+      return;
+    }
+    setIcsError("");
+    setIcsFile(file);
   }
 
   async function importIcsJobs() {
@@ -2497,7 +2513,7 @@ export default function HostDashboard() {
                   <input
                     ref={photoInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     multiple
                     className="prop-photos-file-input"
                     onChange={handlePhotoChange}
@@ -2546,7 +2562,7 @@ export default function HostDashboard() {
               </button>
             </div>
 
-            {/* ── Step 1: Upload / URL ── */}
+            {/* ── Step 1: File upload ── */}
             {icsStep === 1 && (
               <div className="host-form">
                 <label>
@@ -2563,60 +2579,21 @@ export default function HostDashboard() {
                   </select>
                 </label>
 
-                {/* Mode toggle */}
-                <div className="host-ics-mode-tabs">
-                  <button
-                    type="button"
-                    className={`host-ics-mode-tab${icsInputMode === "file" ? " host-ics-mode-tab--active" : ""}`}
-                    onClick={() => { setIcsInputMode("file"); setIcsError(""); }}
-                  >
-                    {t("icsModal.uploadFile")}
-                  </button>
-                  <button
-                    type="button"
-                    className={`host-ics-mode-tab${icsInputMode === "url" ? " host-ics-mode-tab--active" : ""}`}
-                    onClick={() => { setIcsInputMode("url"); setIcsError(""); }}
-                  >
-                    {t("icsModal.pasteLink")}
-                  </button>
-                </div>
-
-                {icsInputMode === "file" ? (
-                  <>
-                    <label className="host-ics-file-label">
-                      <span>{t("icsModal.fileLabel")}</span>
-                      <div className="host-ics-drop-zone">
-                        <Upload size={28} className="host-ics-drop-icon" aria-hidden />
-                        <span>{icsFile ? icsFile.name : t("icsModal.dropZone")}</span>
-                        <input
-                          type="file"
-                          accept=".ics,text/calendar"
-                          className="host-ics-file-input"
-                          onChange={(e) => setIcsFile(e.target.files?.[0] ?? null)}
-                        />
-                      </div>
-                    </label>
-                    <p className="host-form-hint">
-                      {t("icsModal.fileHint")}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <label>
-                      <span>{t("icsModal.urlLabel")}</span>
-                      <input
-                        type="url"
-                        value={icsUrl}
-                        onChange={(e) => setIcsUrl(e.target.value)}
-                        placeholder="https://www.airbnb.com/calendar/ical/…"
-                        autoComplete="off"
-                      />
-                    </label>
-                    <p className="host-form-hint">
-                      {t("icsModal.urlHint")}
-                    </p>
-                  </>
-                )}
+                <p className="host-form-hint">{t("icsModal.urlUnavailable")}</p>
+                <label className="host-ics-file-label">
+                  <span>{t("icsModal.fileLabel")}</span>
+                  <div className="host-ics-drop-zone">
+                    <Upload size={28} className="host-ics-drop-icon" aria-hidden />
+                    <span>{icsFile ? icsFile.name : t("icsModal.dropZone")}</span>
+                    <input
+                      type="file"
+                      accept=".ics,text/calendar,application/ics,application/octet-stream"
+                      className="host-ics-file-input"
+                      onChange={handleIcsFileChange}
+                    />
+                  </div>
+                </label>
+                <p className="host-form-hint">{t("icsModal.fileHint")}</p>
 
                 {icsError && <p className="form-error">{icsError}</p>}
                 <div className="host-form-actions">
@@ -2626,7 +2603,7 @@ export default function HostDashboard() {
                   <button
                     className="primary-link auth-submit"
                     type="button"
-                    disabled={icsParsing || !icsPropId || (icsInputMode === "file" ? !icsFile : !icsUrl.trim())}
+                    disabled={icsParsing || !icsPropId || !icsFile}
                     onClick={() => void parseIcs()}
                   >
                     {icsParsing ? t("icsModal.reading") : t("icsModal.continue")}

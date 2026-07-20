@@ -156,7 +156,28 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_RATES": {
+        # Manual calendar parsing is deliberately modest during the Sofia pilot.
+        "ics_import": "30/hour",
+    },
 }
+
+CACHE_URL = os.getenv("CACHE_URL", "")
+if CACHE_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": CACHE_URL,
+        }
+    }
+else:
+    # Local development and the test runner do not require an external service.
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "host-cleaners-local-cache",
+        }
+    }
 
 FRONTEND_TRUSTED_ORIGINS = [
     origin.strip()
@@ -179,6 +200,7 @@ def validate_production_settings() -> None:
         return
 
     required_env = {
+        "CACHE_URL": os.getenv("CACHE_URL"),
         "DATABASE_URL": os.getenv("DATABASE_URL"),
         "DJANGO_ALLOWED_HOSTS": os.getenv("DJANGO_ALLOWED_HOSTS"),
         "FRONTEND_TRUSTED_ORIGINS": os.getenv("FRONTEND_TRUSTED_ORIGINS"),

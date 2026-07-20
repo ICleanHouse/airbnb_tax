@@ -4,29 +4,30 @@
 |---|---|
 | Status | Active execution plan — Gates A and B in progress |
 | Created | 2026-07-13 |
-| Last updated | 2026-07-15 |
+| Last updated | 2026-07-20 |
 | Scope | Product, engineering, research, operations, and release work required to complete Stage 1 |
 | Decision at exit | Proceed, extend once, pivot, or stop |
 
 **Start here:** Hold the Gate A owner-decision session and sign every M0/M1
 entry criterion. Exact anonymous job/property disclosure and sensitive signup
 storage have been contained, and authoritative cleaner-overlap protection is
-implemented. The next decision-independent security action is to disable
-calendar URL fetching or harden it before pilot use.
+implemented. Calendar URL fetching is disabled for the pilot, and every
+enabled Stage 1 upload path is bounded and validated.
 
-### Current progress snapshot — 2026-07-15
+### Current progress snapshot — 2026-07-20
 
-- **Done:** S1-D04, S1-E01, S1-E03, and S1-E04. Public disclosure/media,
-  signup-secret persistence, and cleaner schedule overlap protections are
-  implemented and tested.
+- **Done:** S1-D04, S1-E01, S1-E03, S1-E04, and S1-E09. Public
+  disclosure/media, signup-secret persistence, cleaner schedule overlap, and
+  calendar/upload protections are implemented and tested.
 - **Not started:** S1-E02 account approval and cleaner-verification controls.
 - **Resolved launch blockers:** S1-B01 exact anonymous job/property disclosure,
   S1-B03 sensitive signup-browser persistence, S1-B04 cross-property cleaner
-  double-booking, and S1-B09 raw/private property-media exposure.
+  double-booking, S1-B09 raw/private property-media exposure, and S1-B16
+  unrestricted calendar URL fetching.
 - **Gate status:** Gate A and Gate B are in progress. Gates C–F have not started.
 - **Next critical work:** complete S1-E02, finish the Gate A owner decisions,
-  define and implement S1-E05 recovery workflows, and disable or harden calendar
-  URL import.
+  define and implement S1-E05 recovery workflows, and resolve S1-E10's
+  map/geocoding boundary.
 
 ---
 
@@ -295,7 +296,7 @@ dashboard.
 | S1-B13 | Current deployment handoff uses raw-IP HTTP, insecure cookies, and a placeholder secret | Real domain, HTTPS, secure settings, backup/restore, and rollback required |
 | S1-B14 | Product funnel evidence is not available from real usage | M1 research and a measured pilot are required |
 | S1-B15 | Mobile, localization, and accessibility issues affect critical flows | Pilot-critical WCAG/mobile fixes and real-device verification required |
-| S1-B16 | The ICS URL-import endpoint can make unrestricted server-side requests and read unbounded responses | Disable URL import for Stage 1 or harden it against SSRF, redirects, oversized/malformed content, and information leakage |
+| S1-B16 | Resolved 2026-07-20: the ICS URL-import endpoint, server fetcher, URL UI, and telemetry references were removed | Retain the no-route/no-network regression coverage and manual-upload controls; see [S1-E09 evidence](testing/s1_e09_upload_security.tdd.md) |
 | S1-B17 | The property location picker sends searches/exact coordinates directly from the browser to third-party OSM/Nominatim services | Approve and proxy a compliant provider with privacy controls, or disable third-party exact-location search/maps |
 | S1-B18 | Resolved 2026-07-14: public cleaner/review responses use explicit safe projections and privacy tests | Retain publication, moderation/redaction, and object-level regression coverage |
 
@@ -370,7 +371,7 @@ acceptance evidence is linked, not when work merely starts.
 | Gate | Owner | Status | Target date | Evidence/readout |
 |---|---|---|---|---|
 | A — Decisions and policy |  | In progress |  | [S1-D04 disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
-| B — Product and workflow readiness |  | In progress |  | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md); [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md) |
+| B — Product and workflow readiness |  | In progress |  | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md); [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md); [S1-E09 evidence](testing/s1_e09_upload_security.tdd.md) |
 | C — Release, support, and verification |  | Not started |  |  |
 | D — M1 research and supply activation |  | Not started |  |  |
 | E — Free Sofia pilot |  | Not started |  |  |
@@ -398,7 +399,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E06 | Must-have; reminders may be operator-assisted | Engineering owner | S1-D03 | Not started |  |  |
 | S1-E07 | Must-have | Engineering owner | S1-D05 | Not started |  |  |
 | S1-E08 | Must-have | Engineering owner | S1-D03/D04 | Not started |  |  |
-| S1-E09 | Must-have | Engineering owner | S1-D04 | Not started |  |  |
+| S1-E09 | Must-have | Engineering owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
 | S1-E10 | Must-have | Engineering owner | S1-D04 and provider decision | Not started |  |  |
 | S1-UX01 | Must-have | Engineering owner | S1-D04/D05 | Not started |  |  |
 | S1-UX02 | Must-have | Engineering owner | S1-D02/D05 | Not started |  |  |
@@ -924,8 +925,16 @@ Acceptance criteria:
 ### S1-E09 — Secure or disable calendar URL import and file uploads
 
 The safest Stage 1 default is to keep manual ICS file import and disable
-server-side URL fetching. Enable URL import only after all of the following are
-implemented and tested:
+server-side URL fetching. That decision was implemented on 2026-07-20. The URL
+fetch hardening checklist remains intentionally unchecked and not applicable
+while URL import is absent; all items would become mandatory before any future
+reintroduction.
+
+- [x] Remove the calendar URL endpoint, fetcher, frontend mode, API call, dead
+      state/styles/translations, and telemetry references; keep calendar sync
+      placeholders network-inert.
+
+Do not enable URL import until all of the following are implemented and tested:
 
 - [ ] Permit only `http` and `https`; reject credentials, fragments, malformed
       hosts, and unsupported schemes.
@@ -938,25 +947,33 @@ implemented and tested:
       before persisting anything.
 - [ ] Return generic errors; do not expose network, DNS, filesystem, or parser
       exception detail.
-- [ ] Rate-limit and audit import attempts without logging sensitive URLs or
+- [ ] Rate-limit and audit URL import attempts without logging sensitive URLs or
       calendar contents.
-- [ ] Apply explicit byte-size, filename, extension, media-type, and content
+
+Enabled upload controls:
+
+- [x] Rate-limit and audit enabled manual import attempts without logging
+      filenames, calendar content, UIDs, summaries, parser errors, or URLs.
+- [x] Apply explicit byte-size, filename, extension, media-type, and content
       validation to direct ICS uploads.
-- [ ] For any Stage 1 image upload, decode and safely re-encode/resample it,
-      enforce size/dimension limits, and serve it only at its approved privacy
-      tier.
-- [ ] Do not accept verification, dispute, or incident evidence files until an
+- [x] For every Stage 1 image upload, decode and safely re-encode/resample it,
+      enforce size/dimension/pixel/frame limits, and serve it only at its
+      approved privacy tier.
+- [x] Do not accept verification, dispute, or incident evidence files until an
       approved need, retention rule, malware-safe validation path, and
       authorized storage route exist.
 
 Acceptance criteria:
 
-- Tests reject loopback/private/link-local/metadata targets, DNS/IP edge cases,
-  redirects to blocked targets, excessive redirects, slow or oversized
-  responses, malformed calendars, misleading content types, and oversized or
-  malformed uploads.
-- If URL import remains disabled, no API or UI path can invoke server-side URL
-  fetching and the UI explains that users can upload an ICS file instead.
+- Future URL-import target/redirect/timeout tests are not applicable while the
+  endpoint and fetcher are absent. They become mandatory if URL import is ever
+  reintroduced.
+- [x] Tests reject malformed calendars, misleading content types, oversized or
+  malformed uploads, unsafe image formats/content, and unauthorized access.
+- [x] Because URL import remains disabled, no API or UI path can invoke
+  server-side URL fetching and the UI explains that users must download and
+  upload an ICS file instead. See
+  [S1-E09 evidence](testing/s1_e09_upload_security.tdd.md).
 
 ### S1-E10 — Govern maps, geocoding, and exact-location disclosure
 
@@ -2009,7 +2026,7 @@ Recommended engineering order:
 6. ✅ Enforce authoritative assignment overlap checks for application/direct
    offer acceptance and concrete agency-member delegation.
 7. Add history-preserving lifecycle/recovery services and UI.
-8. Disable or harden calendar URL import and validate every enabled upload.
+8. ✅ Disable calendar URL import and validate every enabled upload.
 9. Proxy an approved map/geocoder through the owned API boundary or disable
    exact third-party location features.
 10. Wire reliable critical notifications and the operator reminder runbook;

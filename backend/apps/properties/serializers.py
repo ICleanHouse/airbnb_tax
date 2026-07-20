@@ -1,6 +1,14 @@
+from django.core.files.base import ContentFile
 from django.urls import reverse
 from rest_framework import serializers
 
+from apps.core.image_uploads import (
+    PROPERTY_IMAGE_POLICY,
+    ImageUploadValidationError,
+    normalize_uploaded_image,
+    public_image_error,
+    request_language,
+)
 from apps.locations.models import ServiceZone
 from apps.marketplace.models import CleaningJob
 from apps.properties.models import ExternalCalendarConnection, Property, PropertyImage, Reservation
@@ -56,7 +64,7 @@ class ServiceZoneReferenceField(serializers.RelatedField):
 
 
 class PropertyImageSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(write_only=True)
+    image = serializers.FileField(write_only=True, allow_empty_file=False)
     content_url = serializers.SerializerMethodField()
     property_id = serializers.PrimaryKeyRelatedField(
         source="property",
@@ -71,6 +79,16 @@ class PropertyImageSerializer(serializers.ModelSerializer):
 
     def get_content_url(self, instance):
         return reverse("property-image-content", kwargs={"pk": instance.pk})
+
+    def validate_image(self, value):
+        try:
+            normalized = normalize_uploaded_image(value, PROPERTY_IMAGE_POLICY)
+        except ImageUploadValidationError as error:
+            request = self.context.get("request")
+            raise serializers.ValidationError(
+                public_image_error(request_language(request))
+            ) from error
+        return ContentFile(normalized.content, name=normalized.filename)
 
 
 class PropertySerializer(serializers.ModelSerializer):

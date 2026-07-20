@@ -108,6 +108,7 @@ Key variables and their defaults:
 | `DATABASE_URL` | *(absent → SQLite)* | **Comment out for local dev without Docker** |
 | `CELERY_BROKER_URL` | `redis://localhost:6379/0` | |
 | `CELERY_RESULT_BACKEND` | `redis://localhost:6379/1` | |
+| `CACHE_URL` | *(absent → LocMem)* | Required in deployed environments; use a dedicated Redis database (example: `redis://redis:6379/2`) for user-keyed throttles/cache |
 | `EMAIL_BACKEND` | `django.core.mail.backends.console.EmailBackend` | Django mail backend for non-signup emails only |
 | `EMAIL_HOST` | *(empty)* | Optional SMTP hostname for non-signup emails |
 | `EMAIL_PORT` | `587` | Optional SMTP port |
@@ -422,6 +423,12 @@ Operational property images stream from
 `/api/properties/images/{id}/content/`; every raw `/media/*` request is denied.
 Approved public cleaner profile media is the `profile_image` API/data value, not
 a `PropertyImage` storage path.
+New property and changed cleaner images accept only decoded single-frame
+JPEG/PNG/WebP within the centralized Stage 1 limits. The backend applies EXIF
+orientation, renders a fresh RGB buffer, strips source metadata, resizes, and
+encodes a new JPEG. Client MIME/extension values are hints, not trust anchors.
+Do not preserve an uploaded property filename or accept a new third-party
+cleaner-image URL. An unchanged legacy cleaner value may remain.
 
 `GET /api/connections/{id}/shared/` is no-store and is available only for an
 accepted connection when the requester is active/approved and, for a worker
@@ -449,8 +456,9 @@ instructions, coordinates, host identity, and free text.
   - Click a day with jobs → filters the list panel to that day.
   - Post a job via modal form (`POST /api/marketplace/jobs/`) — saved as Draft.
   - Publish button: `POST /api/marketplace/jobs/{id}/publish/` → transitions to Open.
-  - **Import ICS** button: two-step modal for Airbnb `.ics` file import:
-    1. Upload file + select property + set default cleaning start time.
+  - **Import ICS** button: two-step, file-only modal for Airbnb `.ics` import.
+    Calendar URL/paste-link import is unavailable for the Sofia pilot:
+    1. Download the `.ics` file, then upload it + select property + set default cleaning start time.
     2. Review parsed reservations (checkin, checkout, nights) — select which ones to import.
     3. Confirm: creates one Draft cleaning job per selected checkout date via `POST /api/marketplace/jobs/`.
 - Pending hosts see a gold warning banner but can still view the UI.
@@ -531,7 +539,14 @@ Implemented service-level behavior:
 - **Admin email notification on new account signup** — `send_admin_new_account_email` Celery task sends email to all `role=admin` or `is_staff=True` users with a direct link to the pending-tab admin panel. Retries up to 3 times on SMTP failure.
 - Agency profile, invitation, membership, and member assignment APIs.
 - Cookie consent records for essential, analytics, and marketing choices.
-- **ICS file parsing** — `POST /api/properties/parse-ics/` accepts a multipart-uploaded Airbnb `.ics` file, parses VEVENT entries, filters blocked-date placeholders, returns `[{uid, summary, checkin, checkout, nights}]`.
+- **ICS file parsing** — `POST /api/properties/parse-ics/` accepts only a
+  multipart-uploaded `.ics` file from an active approved host or platform admin.
+  It enforces 1 MiB/1,000-event/string bounds, parses in memory, filters blocked
+  placeholders, returns the unchanged
+  `[{uid, summary, checkin, checkout, nights}]` shape, is user-throttled at
+  30/hour, audits metadata-only outcomes, and sends private/no-store headers.
+  There is no server-side calendar URL-fetch route. External-calendar tasks are
+  intentionally network-inert during Stage 1.
 - Publish draft cleaning jobs.
 - Allow approved, verified cleaners and approved agencies to apply to open jobs.
 - Allow hosts/admins to accept one application.

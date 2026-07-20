@@ -44,7 +44,6 @@ SAFE_ENDPOINT_SEGMENTS = {
     "email-code",
     "favourites",
     "feedback",
-    "fetch-ics-url",
     "health",
     "images",
     "jobs",

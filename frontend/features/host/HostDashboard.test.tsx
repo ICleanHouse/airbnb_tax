@@ -163,6 +163,8 @@ const completedAssignment = {
   completed_at: "2026-06-29T11:00:00.000Z",
 };
 
+let propertiesResponse: unknown[] = [];
+
 function jsonResponse(data: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,
@@ -197,7 +199,7 @@ function mockApiFetch() {
             images: [],
           }, 201);
         }
-        return jsonResponse([]);
+        return jsonResponse(propertiesResponse);
       case "/api/marketplace/jobs/":
         return jsonResponse([]);
       case "/api/marketplace/applications/":
@@ -226,6 +228,15 @@ describe("HostDashboard review modal", () => {
       navigationState.search = url.search.startsWith("?") ? url.search.slice(1) : "";
     });
     apiFetchMock.mockReset();
+    propertiesResponse = [];
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:test-preview"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
     mockApiFetch();
   });
 
@@ -375,5 +386,72 @@ describe("HostDashboard review modal", () => {
       expect(body.service_zone_id).toBe("sofia:osm-66");
       expect(body.neighborhood).toBe("");
     });
+  });
+
+  it("offers file-only ICS import and renders no calendar URL control", async () => {
+    propertiesResponse = [{
+      id: 42,
+      name: "Sofia Flat",
+      city: "Sofia",
+      neighborhood: "",
+      address: "",
+      latitude: null,
+      longitude: null,
+      description: "",
+      bedrooms: null,
+      square_meters: null,
+      default_cleaning_duration_minutes: 120,
+      default_price_eur: null,
+      service_zone_id: "sofia:osm-66",
+      service_zone_name_bg: "ж.к. Лозенец",
+      service_zone_name_en: "ж.к. Лозенец",
+      images: [],
+    }];
+    const user = userEvent.setup();
+    const { container } = render(<HostDashboard />);
+
+    await user.click(await screen.findByRole("button", { name: "host.jobs.importIcs" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "host.icsModal.ariaLabel" });
+    expect(dialog.querySelector('input[type="file"]')).not.toBeNull();
+    expect(within(dialog).getByText("host.icsModal.urlUnavailable")).toBeInTheDocument();
+    expect(within(dialog).queryByText("host.icsModal.pasteLink")).not.toBeInTheDocument();
+    expect(container.querySelector('input[type="url"]')).toBeNull();
+  });
+
+  it("shows immediate feedback for an oversized ICS file", async () => {
+    propertiesResponse = [{
+      id: 42,
+      name: "Sofia Flat",
+      city: "Sofia",
+      default_cleaning_duration_minutes: 120,
+      images: [],
+    }];
+    const user = userEvent.setup();
+    render(<HostDashboard />);
+
+    await user.click(await screen.findByRole("button", { name: "host.jobs.importIcs" }));
+    const dialog = await screen.findByRole("dialog", { name: "host.icsModal.ariaLabel" });
+    const input = dialog.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(
+      input,
+      new File([new Uint8Array(1024 * 1024 + 1)], "calendar.ics", { type: "text/calendar" }),
+    );
+
+    expect(within(dialog).getByText("host.icsModal.errorFileTooLarge")).toBeInTheDocument();
+    expect(input.files).toHaveLength(0);
+  });
+
+  it("shows immediate property-image format feedback", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    render(<HostDashboard />);
+
+    await user.click((await screen.findAllByRole("button", { name: "host.rail.addProperty" }))[0]);
+    const dialog = await screen.findByRole("dialog", { name: "host.propForm.addTitle" });
+    const input = dialog.querySelector(".prop-photos-file-input") as HTMLInputElement;
+    await user.upload(input, new File(["GIF89a"], "photo.gif", { type: "image/gif" }));
+
+    expect(within(dialog).getByText("host.propForm.invalidPhotoType")).toBeInTheDocument();
+    expect(input.files).toHaveLength(0);
   });
 });

@@ -27,3 +27,13 @@ class IsVerifiedCleaner(BasePermission):
 class IsApprovedAccount(BasePermission):
     def has_permission(self, request, view) -> bool:
         return bool(request.user and request.user.is_authenticated and request.user.is_approved)
+
+
+class IsApprovedHostOrPlatformAdmin(BasePermission):
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        if user.is_platform_admin:
+            return True
+        return bool(user.is_active and user.is_host and user.is_approved)

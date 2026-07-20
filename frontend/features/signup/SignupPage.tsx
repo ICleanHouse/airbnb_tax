@@ -23,6 +23,7 @@ import { useTranslations } from "next-intl";
 import { apiFetch, UserRole } from "../../lib/api";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
+import { CLEANER_IMAGE_MAX_BYTES, validateImageFile } from "../../lib/uploadValidation";
 import { clearSignupRecovery, restoreSignupRecovery, saveSignupRecovery } from "./signupRecovery";
 
 type SignupRole = Extract<UserRole, "host" | "cleaner" | "agency">;
@@ -880,13 +881,9 @@ export default function SignupPage() {
   function onSignupProfileImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setProfileImageError(tS("profilePhoto.error.invalidFile"));
-      event.target.value = "";
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setProfileImageError(tS("profilePhoto.error.tooLarge"));
+    const issue = validateImageFile(file, CLEANER_IMAGE_MAX_BYTES);
+    if (issue) {
+      setProfileImageError(tS(issue === "too_large" ? "profilePhoto.error.tooLarge" : "profilePhoto.error.invalidFile"));
       event.target.value = "";
       return;
     }
@@ -1412,7 +1409,7 @@ export default function SignupPage() {
                 </div>
               </button>
             </div>
-            <input ref={profilePhotoInputRef} type="file" accept="image/*" onChange={onSignupProfileImageChange} hidden />
+            <input ref={profilePhotoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onSignupProfileImageChange} hidden />
             {profileImageError ? <p className="form-error">{profileImageError}</p> : null}
             {submitError ? <p className="form-error">{submitError}</p> : null}
             <div className="signup-nav-actions">

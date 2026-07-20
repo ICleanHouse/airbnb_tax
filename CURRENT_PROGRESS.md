@@ -1,6 +1,35 @@
 # Current Progress Handoff
 
-Updated: 2026-07-15, S1-E04 authoritative cleaner schedule protection.
+Updated: 2026-07-20, S1-E09 calendar and upload security.
+
+## Latest Work — S1-E09 Calendar and Upload Security (2026-07-20)
+
+- The Sofia pilot has no calendar URL-import API or UI. The former
+  `/api/properties/fetch-ics-url/` route, `FetchIcsUrlView`, `urllib` fetcher,
+  host paste-link mode, dead state/styles/translations, and telemetry allowlist
+  entries were removed. `ExternalCalendarConnection` data may remain, but both
+  calendar sync tasks are network-inert placeholders.
+- `POST /api/properties/parse-ics/` remains file-only and preserves its event
+  list response. It is restricted to active approved hosts and platform admins,
+  limited to 1 MiB/1,000 VEVENTs/255-character UIDs/500-character summaries,
+  throttled at 30 attempts per authenticated user per hour, audited with
+  metadata-only reason codes/counts, and returned with private/no-store headers.
+- Property image writes and cleaner signup/profile image changes share a Pillow
+  decode/orient/render/re-encode service. Only decoded JPEG/PNG/WebP single-frame
+  inputs are accepted; size, side, pixel, animation, truncation, and
+  decompression-bomb limits are enforced. New output is metadata-free RGB JPEG
+  with generated filenames. Property images fit within 2048 square; cleaner
+  images use the existing 720-square center crop.
+- The object-authorized property `content_url`, raw `/media/*` denial, and
+  approved public cleaner-image projection are unchanged. Identical legacy
+  cleaner URLs survive unchanged, new external URLs are rejected, and image
+  removal remains supported. Existing media was not bulk rewritten. No
+  verification, incident, dispute, support, or evidence upload was added.
+- Verification passed: Django check and migration drift; 145 focused app tests;
+  373 full backend tests (one skip); 43 frontend tests; TypeScript; ESLint with
+  zero errors and five existing warnings; focused Ruff; and dead-path/security
+  searches. No migration was added. Evidence:
+  `docs/testing/s1_e09_upload_security.tdd.md`.
 
 ## Latest Work — S1-E04 Cleaner Schedule Protection (2026-07-15)
 

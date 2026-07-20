@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import CleanerProfile, HostProfile, User
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property
 
 from apps.connections import services
@@ -132,7 +133,7 @@ class ConnectionApiTests(TestCase):
     def test_shared_endpoint_lists_collaborations(self):
         # Build an active assignment between host and cleaner.
         prop = Property.objects.create(host=self.host, name="Flat", city="Sofia")
-        job = CleaningJob.objects.create(
+        job = create_cleaning_job_record(
             property=prop, host=self.host, title="Turnover",
             scheduled_start=timezone.now() + timedelta(days=1),
             scheduled_end=timezone.now() + timedelta(days=1, hours=2),
@@ -186,7 +187,7 @@ class ConnectionApiTests(TestCase):
         now = timezone.now()
         jobs = []
         for index, status in enumerate((CleaningJob.Status.CANCELLED, CleaningJob.Status.COMPLETED)):
-            job = CleaningJob.objects.create(
+            job = create_cleaning_job_record(
                 property=prop,
                 host=self.host,
                 title=f"PRIVATE_JOB_TITLE_{index}",

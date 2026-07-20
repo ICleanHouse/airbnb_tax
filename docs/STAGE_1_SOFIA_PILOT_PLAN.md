@@ -388,14 +388,14 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 |---|---|---|---|---|---|---|
 | S1-D01 | Must-have | Stage 1 owner | None | Not started |  |  |
 | S1-D02 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
-| S1-D03 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
+| S1-D03 | Must-have | Repository owner | S1-D01 | Done | 2026-07-20 | [Approved lifecycle/support policy contract](S1_D03_LIFECYCLE_SUPPORT_POLICY.md) |
 | S1-D04 | Must-have | Stage 1 owner | S1-D01 | Done | 2026-07-14 | [Recorded disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
 | S1-D05 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
 | S1-E01 | Must-have | Engineering owner | S1-D04 | Done | 2026-07-14 | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E02 | Must-have | Engineering owner | S1-D02 | Not started |  |  |
 | S1-E03 | Must-have | Engineering owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E04 | Must-have | Engineering owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
-| S1-E05 | Must-have | Engineering owner | S1-D03 and recovery ADR | Not started |  |  |
+| S1-E05 | Must-have | Repository owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md) |
 | S1-E06 | Must-have; reminders may be operator-assisted | Engineering owner | S1-D03 | Not started |  |  |
 | S1-E07 | Must-have | Engineering owner | S1-D05 | Not started |  |  |
 | S1-E08 | Must-have | Engineering owner | S1-D03/D04 | Not started |  |  |
@@ -509,24 +509,24 @@ and reach a traceable decision without inventing criteria.
 
 ### S1-D03 — Define lifecycle and support policy
 
-- [ ] Decide who may cancel an open or assigned job.
-- [ ] Define cancellation reason categories and notice bands.
-- [ ] Decide how an assigned cleaner requests release from a job.
-- [ ] Define the rescheduling proposal/acceptance rule.
-- [ ] Define no-show grace periods.
-- [ ] Define dispute categories, visibility, filing window, and admin outcomes.
-- [ ] Define when a cancelled/failed job may produce a linked replacement; do
+- [x] Decide who may cancel an open or assigned job.
+- [x] Define cancellation reason categories and notice bands.
+- [x] Decide how an assigned cleaner requests release from a job.
+- [x] Define the rescheduling proposal/acceptance rule.
+- [x] Define no-show grace periods.
+- [x] Define dispute categories, visibility, filing window, and admin outcomes.
+- [x] Define when a cancelled/failed job may produce a linked replacement; do
       not “reopen” or overwrite the original job.
-- [ ] Resolve TGN R17 and the exact property/time unique constraint for linked
+- [x] Resolve TGN R17 and the exact property/time unique constraint for linked
       replacement jobs, including the `assigned → cancelled` transition and a
       guarantee that only one job in the turnover lineage is actionable.
-- [ ] Require the host to create/accept a replacement or give explicit,
+- [x] Require the host to create/accept a replacement or give explicit,
       time-bounded, auditable pre-authorization for the operator to create it.
-- [ ] Define who may approve an emergency replacement.
-- [ ] Define the agency member-replacement support path without weakening normal
+- [x] Define who may approve an emergency replacement.
+- [x] Define the agency member-replacement support path without weakening normal
       immutable delegation.
-- [ ] Define support hours, response expectations, and emergency limitations.
-- [ ] Define account-deletion handling when future or historical obligations
+- [x] Define support hours, response expectations, and emergency limitations.
+- [x] Define account-deletion handling when future or historical obligations
       exist.
 - [ ] Approve the pilot incident-severity matrix and name its adjudicator.
 - [ ] Approve the operational-success evidence rule and allowed completion-window
@@ -800,10 +800,12 @@ the cancelled/failed job; it does not add a second assignment or overwrite the
 original cleaner/member. The constraint must ensure at most one actionable job
 in that lineage/property/time slot.
 
-Minimum Stage 1 capabilities:
+Minimum Stage 1 capabilities. Batch 2 completed the checked foundation items;
+the epic remains partially complete and cannot be Done while agency parity is
+deferred:
 
-- [ ] Cancel draft/open work without silently losing published history.
-- [ ] Cancel assigned work with actor, timestamp, reason, and notifications.
+- [x] Cancel draft/open work without silently losing published history.
+- [x] Cancel assigned work with actor, timestamp, reason, and notifications.
 - [ ] Propose and accept/decline assigned-job rescheduling with conflict
       revalidation.
 - [ ] Record a no-show/failed attendance incident without falsely completing or
@@ -818,16 +820,21 @@ Minimum Stage 1 capabilities:
       job back to that failed/cancelled record.
 - [ ] Preserve agency delegation immutability; support replacement creates a new
       historical event rather than overwriting the delegated member.
-- [ ] Prevent agency-assigned work from completing before an eligible member is
+- [x] Prevent agency-assigned work from completing before an eligible member is
       delegated.
 - [ ] Correct delegated-agency completion notifications and review links so they
       target the actual assigned member. Review authorization already treats the
       host and member as the review parties.
 - [ ] Make account deletion refuse or defer while active jobs, assignments,
       disputes, or required history exist.
-- [ ] Make the linked job/audit chronology inspectable through the hardened
+- [x] Make the linked job/audit chronology inspectable through the hardened
       Django admin or a minimal operator surface; a bespoke chronology UI is
       deferred.
+
+Batch 2 already preserves existing agency delegation, blocks active jobs and
+assignments, and routes all current protected marketplace history to support.
+The two broader unchecked rows close only after replacement/dispute records are
+implemented and included in those guards.
 
 These capabilities must exist as authorized service/API actions with a safe,
 audited operator route. Participant-facing request/acknowledgement UI is needed

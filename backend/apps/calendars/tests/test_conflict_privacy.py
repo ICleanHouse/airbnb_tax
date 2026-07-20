@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import HostProfile, User
 from apps.marketplace.models import CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property
 
 
@@ -30,7 +31,7 @@ class CalendarConflictPrivacyTests(TestCase):
         HostProfile.objects.create(user=self.other_host)
         self.property = Property.objects.create(host=self.host, name="Private Flat", city="Sofia")
         start = timezone.now() + timedelta(days=1)
-        self.job = CleaningJob.objects.create(
+        self.job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Private conflict",

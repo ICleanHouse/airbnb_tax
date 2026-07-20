@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, User
 from apps.core.services import write_audit_log
-from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob, FavouriteCleaner
+from apps.marketplace.models import (
+    Assignment,
+    CleanerApplication,
+    CleaningJob,
+    FavouriteCleaner,
+    JobLifecycleEvent,
+    TurnoverLineage,
+)
 from apps.marketplace.selectors import valid_future_marketplace_jobs
 from apps.notifications.services import create_notification
 from apps.notifications.tasks import send_application_submitted_email, send_job_completed_email
@@ -16,6 +24,30 @@ from apps.notifications.tasks import send_application_submitted_email, send_job_
 
 class MarketplaceError(ValueError):
     pass
+
+
+class LifecycleError(MarketplaceError):
+    code = "lifecycle_error"
+    detail = "The lifecycle action could not be completed."
+    status_code = 400
+    fields: dict = {}
+
+    def __init__(self, detail: str | None = None, *, fields: dict | None = None):
+        self.detail = detail or self.detail
+        self.fields = fields or {}
+        super().__init__(self.detail)
+
+
+class LifecycleConflict(LifecycleError):
+    code = "transition_conflict"
+    detail = "The job changed and this action is no longer available."
+    status_code = 409
+
+
+class LifecycleInputError(LifecycleError):
+    code = "invalid_input"
+    detail = "Correct the highlighted fields and try again."
+    status_code = 400
 
 
 class CleanerScheduleConflictError(MarketplaceError):
@@ -43,9 +75,122 @@ def create_favourite_cleaner(*, host: User, cleaner: User) -> tuple[FavouriteCle
     return FavouriteCleaner.objects.get_or_create(host=host, cleaner=cleaner)
 
 
+def _request_id(request) -> str:
+    return getattr(request, "request_id", "") if request is not None else ""
+
+
+def _record_lifecycle_event(
+    *,
+    job: CleaningJob,
+    event_type: str,
+    actor: User | None,
+    from_status: str = "",
+    to_status: str = "",
+    reason_code: str = "",
+    audience: str = JobLifecycleEvent.Audience.JOB_PARTICIPANTS,
+    metadata: dict | None = None,
+    request=None,
+) -> JobLifecycleEvent:
+    return JobLifecycleEvent.objects.create(
+        lineage=job.lineage,
+        job=job,
+        actor=actor,
+        actor_role_snapshot=getattr(actor, "role", "") if actor else "",
+        event_type=event_type,
+        from_status=from_status,
+        to_status=to_status,
+        reason_code=reason_code,
+        audience=audience,
+        request_id=_request_id(request),
+        metadata=metadata or {},
+    )
+
+
+@transaction.atomic
+def create_cleaning_job(
+    *,
+    actor: User,
+    property,
+    title: str,
+    scheduled_start,
+    scheduled_end,
+    batch=None,
+    description: str = "",
+    currency: str = "EUR",
+    proposed_price: Decimal | None = None,
+    agreed_price: Decimal | None = None,
+    cleaning_instructions: str = "",
+    request=None,
+) -> CleaningJob:
+    actor = User.objects.get(pk=actor.pk)
+    if not (actor.is_platform_admin or property.host_id == actor.id):
+        raise LifecycleInputError("Jobs can be created only for an owned property.")
+    if not actor.is_platform_admin and (
+        not actor.is_active or not actor.is_approved or not actor.is_host
+    ):
+        raise LifecycleInputError("Only approved hosts can create cleaning jobs.")
+    if scheduled_end <= scheduled_start:
+        raise LifecycleInputError(
+            fields={"scheduled_end": ["scheduled_end must be after scheduled_start."]}
+        )
+    if batch is not None and batch.host_id != property.host_id:
+        raise LifecycleInputError("Job batch must belong to the property host.")
+
+    lineage = TurnoverLineage.objects.create(property=property, host=property.host)
+    try:
+        job = CleaningJob.objects.create(
+            lineage=lineage,
+            property=property,
+            host=property.host,
+            batch=batch,
+            title=title,
+            description=description,
+            scheduled_start=scheduled_start,
+            scheduled_end=scheduled_end,
+            currency=currency,
+            proposed_price=proposed_price,
+            agreed_price=agreed_price,
+            status=CleaningJob.Status.DRAFT,
+            cleaning_instructions=cleaning_instructions,
+        )
+    except IntegrityError as exc:
+        error = LifecycleConflict(
+            "An actionable job already exists for this property and time.",
+        )
+        error.code = "exact_slot_conflict"
+        raise error from exc
+    _record_lifecycle_event(
+        job=job,
+        actor=actor,
+        event_type=JobLifecycleEvent.EventType.JOB_CREATED,
+        to_status=job.status,
+        metadata={"source": "job_creation_service"},
+        request=request,
+    )
+    write_audit_log(
+        actor=actor,
+        action="job.created",
+        entity_type="CleaningJob",
+        entity_id=job.id,
+        request=request,
+        metadata={"status": job.status, "lineage_id": job.lineage_id},
+    )
+    return job
+
+
+def _lock_lineage_and_job(job_id: int) -> CleaningJob:
+    initial = CleaningJob.objects.only("id", "lineage_id").get(pk=job_id)
+    TurnoverLineage.objects.select_for_update().get(pk=initial.lineage_id)
+    return (
+        CleaningJob.objects.select_for_update()
+        .select_related("host", "property", "lineage")
+        .get(pk=job_id)
+    )
+
+
 @transaction.atomic
 def publish_job(job: CleaningJob, *, actor: User | None = None, request=None) -> CleaningJob:
-    job = CleaningJob.objects.select_for_update().select_related("host").get(pk=job.pk)
+    job = _lock_lineage_and_job(job.pk)
     if actor is None:
         actor = job.host
     else:
@@ -58,8 +203,18 @@ def publish_job(job: CleaningJob, *, actor: User | None = None, request=None) ->
             raise MarketplaceError("Only the approved job host or admin can publish this job.")
     if job.status != CleaningJob.Status.DRAFT:
         raise MarketplaceError("Only draft jobs can be published.")
+    previous_status = job.status
     job.status = CleaningJob.Status.OPEN
-    job.save(update_fields=["status", "updated_at"])
+    job.published_at = timezone.now()
+    job.save(update_fields=["status", "published_at", "updated_at"])
+    _record_lifecycle_event(
+        job=job,
+        actor=actor,
+        event_type=JobLifecycleEvent.EventType.JOB_PUBLISHED,
+        from_status=previous_status,
+        to_status=job.status,
+        request=request,
+    )
     write_audit_log(
         actor=actor,
         action="job.published",
@@ -68,6 +223,274 @@ def publish_job(job: CleaningJob, *, actor: User | None = None, request=None) ->
         request=request,
     )
     return job
+
+
+def _cancellation_notice_band(job: CleaningJob, at) -> str:
+    if at >= job.scheduled_start:
+        return CleaningJob.CancellationNoticeBand.AFTER_START
+    notice = job.scheduled_start - at
+    if notice >= timedelta(hours=48):
+        return CleaningJob.CancellationNoticeBand.AT_LEAST_48_HOURS
+    if notice >= timedelta(hours=24):
+        return CleaningJob.CancellationNoticeBand.FROM_24_TO_48_HOURS
+    return CleaningJob.CancellationNoticeBand.UNDER_24_HOURS
+
+
+def _job_assignment(job: CleaningJob) -> Assignment | None:
+    try:
+        return job.assignment
+    except Assignment.DoesNotExist:
+        return None
+
+
+def _actor_is_job_participant(actor: User, job: CleaningJob, assignment: Assignment | None) -> bool:
+    if actor.is_platform_admin or actor.id == job.host_id:
+        return True
+    return bool(
+        assignment
+        and actor.id in {assignment.cleaner_id, assignment.assigned_member_id}
+    )
+
+
+def lifecycle_actor_is_eligible(actor: User) -> bool:
+    if (
+        not actor.is_active
+        or actor.account_status != User.AccountStatus.APPROVED
+    ):
+        return False
+    if actor.is_platform_admin:
+        return True
+    if actor.is_cleaner:
+        try:
+            return actor.cleaner_profile.is_verified
+        except CleanerProfile.DoesNotExist:
+            return False
+    return True
+
+
+def derive_available_job_actions(*, job: CleaningJob, actor: User) -> list[str]:
+    assignment = _job_assignment(job)
+    if not _actor_is_job_participant(actor, job, assignment):
+        return []
+    if not lifecycle_actor_is_eligible(actor):
+        return []
+
+    actions: list[str] = []
+    if job.status == CleaningJob.Status.DRAFT and (
+        actor.is_platform_admin or actor.id == job.host_id
+    ):
+        actions.extend(["edit", "publish", "cancel"])
+    elif job.status == CleaningJob.Status.OPEN and (
+        actor.is_platform_admin or actor.id == job.host_id
+    ):
+        actions.append("cancel")
+    elif job.status == CleaningJob.Status.ASSIGNED:
+        agency_backed = bool(assignment and assignment.cleaner.is_agency)
+        if actor.is_platform_admin or actor.id == job.host_id:
+            actions.append("cancel")
+        elif (
+            assignment
+            and not agency_backed
+            and actor.id == assignment.cleaner_id
+            and assignment.cancelled_at is None
+        ):
+            actions.append("cancel")
+    return actions
+
+
+@transaction.atomic
+def cancel_job(
+    *,
+    job: CleaningJob,
+    actor: User,
+    reason_code: str,
+    note: str = "",
+    request=None,
+) -> CleaningJob:
+    job = _lock_lineage_and_job(job.pk)
+    assignment = (
+        Assignment.objects.select_for_update()
+        .select_related("cleaner", "assigned_member")
+        .filter(job=job)
+        .first()
+    )
+    actor = User.objects.get(pk=actor.pk)
+
+    if not _actor_is_job_participant(actor, job, assignment):
+        raise LifecycleConflict("This lifecycle action is not available.")
+
+    agency_backed = bool(assignment and assignment.cleaner.is_agency)
+    if agency_backed and not (actor.is_platform_admin or actor.id == job.host_id):
+        error = LifecycleConflict(
+            "Agency recovery is not supported in the Stage 1 pilot. Contact support."
+        )
+        error.code = "agency_recovery_not_supported"
+        raise error
+
+    if not lifecycle_actor_is_eligible(actor):
+        error = LifecycleConflict("This account is not eligible for lifecycle actions.")
+        error.code = "account_not_eligible"
+        raise error
+
+    if reason_code not in CleaningJob.CancellationReason.values or reason_code.startswith("legacy_"):
+        raise LifecycleInputError(
+            fields={"reason_code": ["Choose a valid cancellation reason."]}
+        )
+    note = note.strip()
+    if len(note) > 1000:
+        raise LifecycleInputError(fields={"note": ["Ensure this value has at most 1000 characters."]})
+
+    if job.status == CleaningJob.Status.CANCELLED:
+        if (
+            job.cancelled_by_id == actor.id
+            and job.cancellation_reason_code == reason_code
+            and job.cancellation_note == note
+        ):
+            return job
+        raise LifecycleConflict("This job is already cancelled with different cancellation details.")
+    if job.status == CleaningJob.Status.COMPLETED:
+        error = LifecycleConflict("Completed jobs are terminal and cannot be cancelled.")
+        error.code = "job_already_terminal"
+        raise error
+    if job.status not in {
+        CleaningJob.Status.DRAFT,
+        CleaningJob.Status.OPEN,
+        CleaningJob.Status.ASSIGNED,
+    }:
+        raise LifecycleConflict()
+    if "cancel" not in derive_available_job_actions(job=job, actor=actor):
+        raise LifecycleConflict("This lifecycle action is not available.")
+
+    now = timezone.now()
+    previous_status = job.status
+    job.status = CleaningJob.Status.CANCELLED
+    job.cancelled_at = now
+    job.cancelled_by = actor
+    job.cancellation_reason_code = reason_code
+    job.cancellation_note = note
+    job.cancellation_notice_band = _cancellation_notice_band(job, now)
+    job.save(
+        update_fields=[
+            "status",
+            "cancelled_at",
+            "cancelled_by",
+            "cancellation_reason_code",
+            "cancellation_note",
+            "cancellation_notice_band",
+            "updated_at",
+        ]
+    )
+    if assignment and assignment.cancelled_at is None:
+        assignment.cancelled_at = now
+        assignment.save(update_fields=["cancelled_at", "updated_at"])
+    CleanerApplication.objects.filter(
+        job=job, status=CleanerApplication.Status.PENDING
+    ).update(status=CleanerApplication.Status.REJECTED, updated_at=now)
+
+    _record_lifecycle_event(
+        job=job,
+        actor=actor,
+        event_type=JobLifecycleEvent.EventType.JOB_CANCELLED,
+        from_status=previous_status,
+        to_status=job.status,
+        reason_code=reason_code,
+        metadata={"notice_band": job.cancellation_notice_band},
+        request=request,
+    )
+    write_audit_log(
+        actor=actor,
+        action="job.cancelled",
+        entity_type="CleaningJob",
+        entity_id=job.id,
+        request=request,
+        metadata={
+            "reason_code": reason_code,
+            "notice_band": job.cancellation_notice_band,
+            "lineage_id": job.lineage_id,
+        },
+    )
+
+    recipients: dict[int, User] = {job.host_id: job.host}
+    if assignment:
+        recipients[assignment.cleaner_id] = assignment.cleaner
+        if assignment.assigned_member_id and assignment.assigned_member:
+            recipients[assignment.assigned_member_id] = assignment.assigned_member
+    recipients.pop(actor.id, None)
+    for recipient in recipients.values():
+        create_notification(
+            user=recipient,
+            notification_type="job.cancelled",
+            title="Cleaning job cancelled",
+            body="A cleaning job involving you was cancelled. Open your dashboard for details.",
+            metadata={"job_id": job.id},
+        )
+    return job
+
+
+def lineage_chronology(*, lineage: TurnoverLineage, actor: User) -> dict:
+    safe_metadata_keys = {
+        "source",
+        "previous_status",
+        "normalized_status",
+        "notice_band",
+        "assignment_id",
+    }
+    attempts = list(
+        lineage.attempts.select_related("assignment", "assignment__cleaner").order_by(
+            "scheduled_start", "id"
+        )
+    )
+    is_admin = actor.is_platform_admin
+    is_host = actor.id == lineage.host_id
+    own_attempt_ids: set[int] = set()
+    if not (is_admin or is_host):
+        for attempt in attempts:
+            assignment = _job_assignment(attempt)
+            if assignment and actor.id in {
+                assignment.cleaner_id,
+                assignment.assigned_member_id,
+            }:
+                own_attempt_ids.add(attempt.id)
+        attempts = [attempt for attempt in attempts if attempt.id in own_attempt_ids]
+
+    attempt_payloads = []
+    for attempt in attempts:
+        payload = {
+            "id": attempt.id,
+            "status": attempt.status,
+            "title": attempt.title,
+            "scheduled_start": attempt.scheduled_start,
+            "scheduled_end": attempt.scheduled_end,
+            "published_at": attempt.published_at,
+            "cancelled_at": attempt.cancelled_at,
+            "cancellation_reason_code": attempt.cancellation_reason_code,
+            "cancellation_notice_band": attempt.cancellation_notice_band,
+        }
+        if is_admin or is_host:
+            payload["replaces_job_id"] = attempt.replaces_job_id
+        attempt_payloads.append(payload)
+
+    event_query = lineage.lifecycle_events.filter(job_id__in=[item.id for item in attempts])
+    if not is_admin:
+        event_query = event_query.exclude(audience=JobLifecycleEvent.Audience.ADMIN_ONLY)
+    events = [
+        {
+            "id": event.id,
+            "job_id": event.job_id,
+            "event_type": event.event_type,
+            "from_status": event.from_status,
+            "to_status": event.to_status,
+            "reason_code": event.reason_code,
+            "occurred_at": event.occurred_at,
+            "metadata": {
+                key: value
+                for key, value in event.metadata.items()
+                if key in safe_metadata_keys
+            },
+        }
+        for event in event_query.order_by("occurred_at", "id")
+    ]
+    return {"id": lineage.id, "attempts": attempt_payloads, "events": events}
 
 
 @transaction.atomic
@@ -79,6 +502,7 @@ def submit_application(
     message: str = "",
     request=None,
 ) -> CleanerApplication:
+    job = _lock_lineage_and_job(job.pk)
     cleaner = User.objects.select_for_update().get(pk=cleaner.pk)
     if not cleaner.is_active or not cleaner.is_approved:
         raise MarketplaceError("Account must be approved before applying for cleaning jobs.")
@@ -99,12 +523,8 @@ def submit_application(
     else:
         raise MarketplaceError("Only cleaners and agencies can apply for cleaning jobs.")
 
-    try:
-        job = valid_future_marketplace_jobs(
-            CleaningJob.objects.select_for_update().select_related("host", "property")
-        ).get(pk=job.pk)
-    except CleaningJob.DoesNotExist as exc:
-        raise MarketplaceError("This job is not available for applications.") from exc
+    if not valid_future_marketplace_jobs().filter(pk=job.pk).exists():
+        raise MarketplaceError("This job is not available for applications.")
 
     _ensure_no_assigned_job_same_property_day(cleaner, job)
     _ensure_no_pending_offer_same_property_day(cleaner, job)
@@ -151,10 +571,11 @@ def accept_application(
     agreed_price: Decimal | None = None,
     request=None,
 ) -> Assignment:
+    initial_application = CleanerApplication.objects.only("id", "job_id").get(id=application.id)
+    job = _lock_lineage_and_job(initial_application.job_id)
     application = CleanerApplication.objects.select_for_update().select_related("job", "cleaner").get(
-        id=application.id
+        id=initial_application.id
     )
-    job = CleaningJob.objects.select_for_update().get(id=application.job_id)
     accepted_by = User.objects.select_for_update().get(pk=accepted_by.pk)
     applicant = User.objects.select_for_update().get(pk=application.cleaner_id)
 
@@ -196,9 +617,19 @@ def accept_application(
         agreed_price=agreed_price if agreed_price is not None else application.proposed_price,
     )
 
+    previous_status = job.status
     job.status = CleaningJob.Status.ASSIGNED
     job.agreed_price = assignment.agreed_price
     job.save(update_fields=["status", "agreed_price", "updated_at"])
+    _record_lifecycle_event(
+        job=job,
+        actor=accepted_by,
+        event_type=JobLifecycleEvent.EventType.JOB_ASSIGNED,
+        from_status=previous_status,
+        to_status=job.status,
+        metadata={"assignment_id": assignment.id},
+        request=request,
+    )
 
     create_notification(
         user=applicant,
@@ -302,13 +733,16 @@ def withdraw_application(
 
 @transaction.atomic
 def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> CleaningJob:
-    job = CleaningJob.objects.select_for_update().get(id=job.id)
+    job = _lock_lineage_and_job(job.id)
 
     if job.status not in (CleaningJob.Status.ASSIGNED, CleaningJob.Status.COMPLETED):
         raise MarketplaceError("Only assigned jobs can be completed.")
 
-    if not hasattr(job, "assignment"):
-        raise MarketplaceError("Job cannot be completed without an assignment.")
+    try:
+        assignment = Assignment.objects.select_for_update().get(job=job)
+    except Assignment.DoesNotExist as exc:
+        raise MarketplaceError("Job cannot be completed without an assignment.") from exc
+    completed_by = User.objects.get(pk=completed_by.pk)
 
     if not completed_by.is_platform_admin and not completed_by.is_approved:
         raise MarketplaceError("Account must be approved before completing jobs.")
@@ -316,12 +750,11 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
     if not (
         completed_by.is_platform_admin
         or completed_by.id == job.host_id
-        or completed_by.id == job.assignment.cleaner_id
-        or completed_by.id == job.assignment.assigned_member_id
+        or completed_by.id == assignment.cleaner_id
+        or completed_by.id == assignment.assigned_member_id
     ):
         raise MarketplaceError("Only an involved user can complete this job.")
 
-    assignment = Assignment.objects.select_for_update().get(job=job)
     now = timezone.now()
     is_cleaner_completion = (
         completed_by.id == assignment.cleaner_id
@@ -349,8 +782,18 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
     )
 
     if job.status != CleaningJob.Status.COMPLETED:
+        previous_status = job.status
         job.status = CleaningJob.Status.COMPLETED
         job.save(update_fields=["status", "updated_at"])
+        _record_lifecycle_event(
+            job=job,
+            actor=completed_by,
+            event_type=JobLifecycleEvent.EventType.JOB_COMPLETED,
+            from_status=previous_status,
+            to_status=job.status,
+            metadata={"assignment_id": assignment.id},
+            request=request,
+        )
 
     # Both sides can now review each other (revealed double-blind / after window).
     create_notification(
@@ -494,7 +937,7 @@ def offer_job(
     request=None,
 ) -> CleanerApplication:
     """Host directly offers a job to a specific cleaner (reuses CleanerApplication)."""
-    job = CleaningJob.objects.select_for_update().get(id=job.id)
+    job = _lock_lineage_and_job(job.id)
     host = User.objects.select_for_update().get(pk=host.pk)
     cleaner = User.objects.select_for_update().get(pk=cleaner.pk)
 
@@ -570,11 +1013,12 @@ def offer_job_to_cleaner(
 ) -> CleanerApplication:
     """Offer a job to a cleaner by property + time slot, find-or-creating the job.
 
-    Reuses an existing job in the exact (property, scheduled_start, scheduled_end)
-    slot — e.g. a draft left behind by a previously declined offer — instead of
-    creating a duplicate that would violate the unique-slot constraint. The actual
-    offer (including "already pending" guarding and re-activating a declined
-    application) is delegated to ``offer_job``.
+    Reuses an existing actionable job in the exact
+    (property, scheduled_start, scheduled_end) slot — e.g. a draft left behind
+    by a previously declined offer — instead of creating a duplicate that would
+    violate the partial unique-slot constraint. The actual offer (including
+    lineage-first locking, "already pending" guarding, and re-activating a
+    declined application) is delegated to ``offer_job``.
     """
     if not (host.is_platform_admin or property.host_id == host.id):
         raise MarketplaceError("Hosts can offer jobs only for their own properties.")
@@ -586,23 +1030,27 @@ def offer_job_to_cleaner(
         raise MarketplaceError(JOB_START_NOT_FUTURE)
 
     job = (
-        CleaningJob.objects.select_for_update()
-        .filter(
+        CleaningJob.objects.filter(
             property=property,
             scheduled_start=scheduled_start,
             scheduled_end=scheduled_end,
+            status__in=[
+                CleaningJob.Status.DRAFT,
+                CleaningJob.Status.OPEN,
+                CleaningJob.Status.ASSIGNED,
+            ],
         )
         .first()
     )
     if job is None:
-        job = CleaningJob.objects.create(
+        job = create_cleaning_job(
+            actor=host,
             property=property,
-            host=property.host,
             title=title or "Turnover cleaning",
             scheduled_start=scheduled_start,
             scheduled_end=scheduled_end,
             proposed_price=proposed_price,
-            status=CleaningJob.Status.DRAFT,
+            request=request,
         )
 
     return offer_job(
@@ -623,10 +1071,11 @@ def accept_offer(
     request=None,
 ) -> Assignment:
     """Cleaner accepts a host-initiated offer; creates the single Assignment."""
+    initial_application = CleanerApplication.objects.only("id", "job_id").get(id=application.id)
+    job = _lock_lineage_and_job(initial_application.job_id)
     application = CleanerApplication.objects.select_for_update().select_related("job", "cleaner").get(
-        id=application.id
+        id=initial_application.id
     )
-    job = CleaningJob.objects.select_for_update().get(id=application.job_id)
     cleaner = User.objects.select_for_update().get(pk=cleaner.pk)
     applicant = User.objects.select_for_update().get(pk=application.cleaner_id)
 
@@ -670,9 +1119,19 @@ def accept_offer(
         agreed_price=application.proposed_price,
     )
 
+    previous_status = job.status
     job.status = CleaningJob.Status.ASSIGNED
     job.agreed_price = assignment.agreed_price
     job.save(update_fields=["status", "agreed_price", "updated_at"])
+    _record_lifecycle_event(
+        job=job,
+        actor=cleaner,
+        event_type=JobLifecycleEvent.EventType.JOB_ASSIGNED,
+        from_status=previous_status,
+        to_status=job.status,
+        metadata={"assignment_id": assignment.id},
+        request=request,
+    )
 
     create_notification(
         user=job.host,
@@ -742,8 +1201,10 @@ def assign_member_to_assignment(
     member: User,
     request=None,
 ) -> Assignment:
+    initial_assignment = Assignment.objects.only("id", "job_id").get(id=assignment.id)
+    _lock_lineage_and_job(initial_assignment.job_id)
     assignment = Assignment.objects.select_for_update().select_related("job", "cleaner").get(
-        id=assignment.id
+        id=initial_assignment.id
     )
 
     if not assignment.cleaner.is_agency:

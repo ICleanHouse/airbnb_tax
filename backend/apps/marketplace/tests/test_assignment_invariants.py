@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from apps.accounts.models import CleanerProfile, HostProfile, User
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.marketplace.services import (
     MarketplaceError,
     accept_application,
@@ -36,7 +37,7 @@ class AssignmentAcceptanceInvariantTests(TestCase):
             city="Sofia",
             cleaning_instructions="Change linens.",
         )
-        self.job = CleaningJob.objects.create(
+        self.job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Turnover cleaning",

@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, HostProfile, User
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningBatch, CleaningJob, FavouriteCleaner
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property
 
 
@@ -97,7 +98,7 @@ class MarketplaceApiNegativeBase(TestCase):
         host = host or self.host
         property = property or self.property
         start, end = self.next_window()
-        return CleaningJob.objects.create(
+        return create_cleaning_job_record(
             property=property,
             host=host,
             title=f"Turnover {self.job_counter}",
@@ -237,7 +238,11 @@ class CleaningJobApiNegativeTests(MarketplaceApiNegativeBase):
         self.client.force_authenticate(self.other_host)
         create_response = self.client.post(
             "/api/marketplace/jobs/",
-            self.job_payload(self.property),
+            self.job_payload(
+                self.property,
+                start=job.scheduled_start,
+                end=job.scheduled_end,
+            ),
             format="json",
         )
         self.assertEqual(create_response.status_code, 403)
@@ -272,7 +277,6 @@ class CleaningJobApiNegativeTests(MarketplaceApiNegativeBase):
             CleaningJob.Status.ASSIGNED,
             CleaningJob.Status.COMPLETED,
             CleaningJob.Status.CANCELLED,
-            CleaningJob.Status.DISPUTED,
         ]:
             with self.subTest(state=state):
                 job = self.create_job(status=state)
@@ -294,7 +298,6 @@ class CleaningJobApiNegativeTests(MarketplaceApiNegativeBase):
             CleaningJob.Status.ASSIGNED,
             CleaningJob.Status.COMPLETED,
             CleaningJob.Status.CANCELLED,
-            CleaningJob.Status.DISPUTED,
         ]:
             with self.subTest(state=state):
                 job = self.create_job(status=state)
@@ -314,8 +317,8 @@ class CleaningJobApiNegativeTests(MarketplaceApiNegativeBase):
             with self.subTest(status=job.status):
                 response = self.client.delete(f"/api/marketplace/jobs/{job.id}/")
 
-                self.assertEqual(response.status_code, 400)
-                self.assertEqual(response.data, {"detail": "Only draft or open jobs can be deleted."})
+                self.assertEqual(response.status_code, 409)
+                self.assertEqual(response.data["code"], "job_deletion_replaced_by_cancellation")
                 self.assertTrue(CleaningJob.objects.filter(id=job.id).exists())
 
     def test_job_serializer_rejects_bad_times_and_real_duplicates(self):
@@ -493,7 +496,6 @@ class CleanerApplicationApiNegativeTests(MarketplaceApiNegativeBase):
             CleaningJob.Status.ASSIGNED,
             CleaningJob.Status.COMPLETED,
             CleaningJob.Status.CANCELLED,
-            CleaningJob.Status.DISPUTED,
         ]:
             with self.subTest(state=state):
                 job = self.create_job(status=state)
@@ -696,7 +698,7 @@ class DirectOfferApiNegativeTests(MarketplaceApiNegativeBase):
 
     def test_offer_to_cleaner_reuses_exact_slot_and_rejects_invalid_payload_without_partials(self):
         start, end = self.next_window()
-        existing_job = CleaningJob.objects.create(
+        existing_job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Existing draft",

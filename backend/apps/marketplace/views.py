@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import permissions, status, views, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import PermissionDenied, Throttled, ValidationError
 from rest_framework.response import Response
 
 from apps.core.services import write_audit_log
@@ -20,6 +20,7 @@ from apps.marketplace.models import (
     CleaningBatch,
     CleaningJob,
     FavouriteCleaner,
+    TurnoverLineage,
 )
 from apps.marketplace.serializers import (
     AssignMemberSerializer,
@@ -29,6 +30,7 @@ from apps.marketplace.serializers import (
     CleanerApplicationCreateSerializer,
     CleaningBatchSerializer,
     CleaningJobSerializer,
+    CancelJobSerializer,
     FavouriteCleanerSerializer,
     MarketplaceCalendarItemSerializer,
     OfferJobSerializer,
@@ -61,10 +63,18 @@ from apps.marketplace.services import (
     offer_job,
     offer_job_to_cleaner,
     publish_job,
+    cancel_job,
+    create_cleaning_job,
+    derive_available_job_actions,
+    LifecycleError,
+    lifecycle_actor_is_eligible,
+    lineage_chronology,
     reject_application,
     submit_application,
     withdraw_application,
 )
+from apps.marketplace.throttles import LifecycleWriteThrottle
+from apps.properties.models import Property
 
 
 User = get_user_model()
@@ -74,12 +84,62 @@ PUBLIC_CITY_SLUG_MAX_LENGTH = 64
 
 
 def marketplace_error_response(exc: MarketplaceError) -> Response:
+    if isinstance(exc, LifecycleError):
+        return Response(
+            {"code": exc.code, "detail": exc.detail, "fields": exc.fields},
+            status=exc.status_code,
+        )
     if isinstance(exc, CleanerScheduleConflictError):
         return Response(
             {"code": exc.code, "detail": str(exc)},
             status=status.HTTP_409_CONFLICT,
         )
     return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def lifecycle_error_response(code: str, detail: str, *, status_code: int, fields=None):
+    return Response(
+        {"code": code, "detail": detail, "fields": fields or {}},
+        status=status_code,
+    )
+
+
+def lifecycle_job_for_actor(*, job_id, actor):
+    try:
+        job = (
+            CleaningJob.objects.select_related(
+                "host", "property", "lineage", "assignment", "assignment__cleaner"
+            )
+            .get(pk=job_id)
+        )
+    except CleaningJob.DoesNotExist as exc:
+        raise Http404 from exc
+    assignment = get_job_assignment(job)
+    participant_ids = {
+        job.host_id,
+        getattr(assignment, "cleaner_id", None),
+        getattr(assignment, "assigned_member_id", None),
+    }
+    if not actor.is_platform_admin and actor.id not in participant_ids:
+        raise Http404
+    return job
+
+
+class LifecycleErrorResponseMixin:
+    def handle_exception(self, exc):
+        if isinstance(exc, Http404):
+            return lifecycle_error_response(
+                "not_found",
+                "The requested object was not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        if isinstance(exc, Throttled):
+            return lifecycle_error_response(
+                "rate_limited",
+                "Too many lifecycle requests. Try again later.",
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        return super().handle_exception(exc)
 
 
 def public_city_slug_from_request(request):
@@ -560,6 +620,7 @@ class CleaningBatchViewSet(viewsets.ModelViewSet):
 
 class CleaningJobViewSet(
     PrivateNoStoreResponseMixin,
+    LifecycleErrorResponseMixin,
     MarketplaceQuerysetMixin,
     viewsets.ModelViewSet,
 ):
@@ -623,7 +684,20 @@ class CleaningJobViewSet(
             or not request.user.is_approved
         ):
             raise PermissionDenied("Only approved hosts can create cleaning jobs.")
-        return super().create(request, *args, **kwargs)
+        if not request.user.is_platform_admin:
+            requested_property = request.data.get("property_id")
+            if requested_property not in (None, ""):
+                property_host_id = (
+                    Property.objects.filter(pk=requested_property)
+                    .values_list("host_id", flat=True)
+                    .first()
+                )
+                if property_host_id is not None and property_host_id != request.user.id:
+                    raise PermissionDenied("Hosts can create jobs only for their own properties.")
+        try:
+            return super().create(request, *args, **kwargs)
+        except LifecycleError as exc:
+            return marketplace_error_response(exc)
 
     def perform_create(self, serializer):
         property = serializer.validated_data["property"]
@@ -633,7 +707,14 @@ class CleaningJobViewSet(
             raise PermissionDenied("Account must be approved before creating cleaning jobs.")
         if not self.request.user.is_platform_admin and property.host_id != self.request.user.id:
             raise PermissionDenied("Hosts can create jobs only for their own properties.")
-        serializer.save(host=property.host)
+        values = dict(serializer.validated_data)
+        values.pop("property", None)
+        serializer.instance = create_cleaning_job(
+            actor=self.request.user,
+            property=property,
+            request=self.request,
+            **values,
+        )
 
     def perform_update(self, serializer):
         property = serializer.validated_data.get("property", serializer.instance.property)
@@ -648,6 +729,25 @@ class CleaningJobViewSet(
         instance = self.get_object()
         if not request.user.is_platform_admin and instance.host_id != request.user.id:
             raise PermissionDenied("Only the job host or admin can edit this job.")
+        if not request.user.is_platform_admin:
+            requested_property = request.data.get("property_id")
+            if requested_property not in (None, ""):
+                property_host_id = (
+                    Property.objects.filter(pk=requested_property)
+                    .values_list("host_id", flat=True)
+                    .first()
+                )
+                if property_host_id is not None and property_host_id != request.user.id:
+                    raise PermissionDenied("Hosts can update jobs only for their own properties.")
+            requested_batch = request.data.get("batch_id")
+            if requested_batch not in (None, ""):
+                batch_host_id = (
+                    CleaningBatch.objects.filter(pk=requested_batch)
+                    .values_list("host_id", flat=True)
+                    .first()
+                )
+                if batch_host_id is not None and batch_host_id != request.user.id:
+                    raise PermissionDenied("Job batches must belong to the job host.")
         if instance.status != CleaningJob.Status.DRAFT:
             return Response(
                 {"detail": "Only draft jobs can be edited."},
@@ -656,16 +756,65 @@ class CleaningJobViewSet(
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
+        instance = lifecycle_job_for_actor(job_id=kwargs["pk"], actor=request.user)
         if not request.user.is_platform_admin and instance.host_id != request.user.id:
-            raise PermissionDenied("Only the job host or admin can delete this job.")
-        if instance.status not in (CleaningJob.Status.DRAFT, CleaningJob.Status.OPEN):
-            return Response(
-                {"detail": "Only draft or open jobs can be deleted."},
-                status=status.HTTP_400_BAD_REQUEST,
+            raise Http404
+        return lifecycle_error_response(
+            "job_deletion_replaced_by_cancellation",
+            "Use the cancellation action for this job.",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        throttle_classes=[LifecycleWriteThrottle],
+    )
+    def cancel(self, request, pk=None):
+        job = lifecycle_job_for_actor(job_id=pk, actor=request.user)
+        assignment = get_job_assignment(job)
+        if (
+            assignment is not None
+            and assignment.cleaner.is_agency
+            and not (request.user.is_platform_admin or request.user.id == job.host_id)
+        ):
+            return lifecycle_error_response(
+                "agency_recovery_not_supported",
+                "Agency recovery is not supported in the Stage 1 pilot. Contact support.",
+                status_code=status.HTTP_409_CONFLICT,
             )
-        self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        if not lifecycle_actor_is_eligible(request.user):
+            return lifecycle_error_response(
+                "account_not_eligible",
+                "This account is not eligible for lifecycle actions.",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        serializer = CancelJobSerializer(data=request.data)
+        if not serializer.is_valid():
+            return lifecycle_error_response(
+                "invalid_input",
+                "Correct the highlighted fields and try again.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                fields=serializer.errors,
+            )
+        try:
+            job = cancel_job(
+                job=job,
+                actor=request.user,
+                reason_code=serializer.validated_data["reason_code"],
+                note=serializer.validated_data.get("note", ""),
+                request=request,
+            )
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response(CleaningJobSerializer(job, context={"request": request}).data)
+
+    @action(detail=True, methods=["get"], url_path="available-actions")
+    def available_actions(self, request, pk=None):
+        job = lifecycle_job_for_actor(job_id=pk, actor=request.user)
+        return Response(
+            {"job_id": job.id, "available_actions": derive_available_job_actions(job=job, actor=request.user)}
+        )
 
     @action(detail=True, methods=["post"])
     def publish(self, request, pk=None):
@@ -766,6 +915,30 @@ class CleaningJobViewSet(
             CleanerApplicationSerializer(application, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class TurnoverLineageViewSet(
+    PrivateNoStoreResponseMixin,
+    LifecycleErrorResponseMixin,
+    viewsets.GenericViewSet,
+):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=True, methods=["get"])
+    def chronology(self, request, pk=None):
+        try:
+            lineage = TurnoverLineage.objects.select_related("host", "property").get(pk=pk)
+        except TurnoverLineage.DoesNotExist as exc:
+            raise Http404 from exc
+        if not request.user.is_platform_admin and request.user.id != lineage.host_id:
+            is_participant = Assignment.objects.filter(
+                job__lineage=lineage,
+            ).filter(
+                Q(cleaner=request.user) | Q(assigned_member=request.user)
+            ).exists()
+            if not is_participant:
+                raise Http404
+        return Response(lineage_chronology(lineage=lineage, actor=request.user))
 
 
 class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewSet):

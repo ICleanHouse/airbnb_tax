@@ -50,6 +50,7 @@ import JobOfferModal from "../../components/JobOfferModal";
 import ReviewModal from "../../components/ReviewModal";
 import RatingStars from "../../components/RatingStars";
 import AccountDeletionPanel from "../../components/AccountDeletionPanel";
+import CancelJobDialog from "../../components/CancelJobDialog";
 import DistrictMapSelector from "../../components/DistrictMapSelector";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -143,7 +144,7 @@ interface HostAssignment {
   assigned_at: string;
 }
 
-type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "disputed";
+type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled";
 
 interface CleaningJob {
   id: number;
@@ -154,6 +155,7 @@ interface CleaningJob {
   proposed_price: string | null;
   status: JobStatus;
   description: string;
+  available_actions?: string[];
 }
 
 // ── Calendar helpers ───────────────────────────────────────────────────────────
@@ -189,7 +191,6 @@ const STATUS_COLOR: Record<JobStatus, string> = {
   assigned:  "var(--gold)",
   completed: "#22c55e",
   cancelled: "var(--brand)",
-  disputed:  "#f97316",
 };
 
 // ── Format helpers ─────────────────────────────────────────────────────────────
@@ -232,7 +233,6 @@ export default function HostDashboard() {
     assigned:  t("jobs.status.assigned"),
     completed: t("jobs.status.completed"),
     cancelled: t("jobs.status.cancelled"),
-    disputed:  t("jobs.status.disputed"),
   };
   const sqmErr = (value: string) => sqmError(value, t("propForm.sqmErrorZero"), t("propForm.sqmErrorHalf"));
 
@@ -252,9 +252,8 @@ export default function HostDashboard() {
   const [loadingData,  setLoadingData]  = useState(false);
   const [dataError,    setDataError]    = useState("");
   const [actingAppId,  setActingAppId]  = useState<number | null>(null);   // which app is being accepted/rejected
-  const [confirmDeleteJobId, setConfirmDeleteJobId] = useState<number | null>(null);
+  const [cancelJobTarget, setCancelJobTarget] = useState<CleaningJob | null>(null);
   const [expandedAppsJobId, setExpandedAppsJobId] = useState<number | null>(null); // job whose applicants are shown in the calendar panel
-  const [deletingJobId,      setDeletingJobId]      = useState<number | null>(null);
 
   // ── Reviews ────────────────────────────────────────────────────────────────
   const [reviews,         setReviews]         = useState<Review[]>([]);
@@ -864,20 +863,6 @@ export default function HostDashboard() {
       setAllApplications((prev) => prev.filter((a) => a.id !== appId));
     } finally {
       setActingAppId(null);
-    }
-  }
-
-  // ── Delete job ─────────────────────────────────────────────────────────────
-  async function deleteJob(id: number) {
-    setDeletingJobId(id);
-    try {
-      const res = await apiFetch(`/api/marketplace/jobs/${id}/`, { method: "DELETE" });
-      if (res.ok || res.status === 204) {
-        setAllJobs((prev) => prev.filter((j) => j.id !== id));
-      }
-    } finally {
-      setDeletingJobId(null);
-      setConfirmDeleteJobId(null);
     }
   }
 
@@ -2133,36 +2118,19 @@ export default function HostDashboard() {
                                     </button>
                                   </>
                                 )}
-                                {(job.status === "draft" || job.status === "open") && (
-                                  confirmDeleteJobId === job.id ? (
-                                    <div className="host-delete-confirm">
-                                      <button
-                                        className="host-delete-confirm-yes"
-                                        type="button"
-                                        disabled={deletingJobId === job.id}
-                                        onClick={() => void deleteJob(job.id)}
-                                      >
-                                        {deletingJobId === job.id ? "…" : t("jobs.delete")}
-                                      </button>
-                                      <button
-                                        className="host-delete-confirm-no"
-                                        type="button"
-                                        onClick={() => setConfirmDeleteJobId(null)}
-                                      >
-                                        {t("common.cancel")}
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      className="host-delete-btn"
-                                      type="button"
-                                      onClick={() => setConfirmDeleteJobId(job.id)}
-                                      aria-label={t("jobs.deleteAriaLabel")}
-                                    >
-                                      <Trash2 size={14} aria-hidden />
-                                    </button>
-                                  )
-                                )}
+                                {job.available_actions?.includes("cancel") ? (
+                                  <button
+                                    className="host-delete-btn"
+                                    type="button"
+                                    onClick={() => {
+                                      if (shouldSuppressModalOpen()) return;
+                                      setCancelJobTarget(job);
+                                    }}
+                                    aria-label={t("jobs.cancelAriaLabel")}
+                                  >
+                                    <X size={14} aria-hidden />
+                                  </button>
+                                ) : null}
                               </div>
                             )}
                           </div>
@@ -2853,6 +2821,20 @@ export default function HostDashboard() {
           onSubmitted={() => void loadAll()}
         />
       )}
+
+      {cancelJobTarget ? (
+        <CancelJobDialog
+          jobId={cancelJobTarget.id}
+          jobTitle={cancelJobTarget.title}
+          onClose={() => setCancelJobTarget(null)}
+          onCancelled={(updated) => {
+            setAllJobs((current) => current.map((job) => (
+              job.id === updated.id ? { ...job, ...updated } as CleaningJob : job
+            )));
+            void loadAll(true);
+          }}
+        />
+      ) : null}
     </>
   );
 }

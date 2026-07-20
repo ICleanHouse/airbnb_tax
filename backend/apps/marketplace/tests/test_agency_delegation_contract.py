@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, HostProfile, User
 from apps.core.models import AuditLog
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.marketplace.services import MarketplaceError, accept_application, assign_member_to_assignment
 from apps.notifications.models import Notification
 from apps.properties.models import Property
@@ -101,7 +102,7 @@ class AgencyDelegationContractTests(TestCase):
     def create_accepted_agency_assignment(self):
         self.job_counter += 1
         start = timezone.now().replace(microsecond=0) + timedelta(days=self.job_counter)
-        job = CleaningJob.objects.create(
+        job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title=f"Agency turnover {self.job_counter}",

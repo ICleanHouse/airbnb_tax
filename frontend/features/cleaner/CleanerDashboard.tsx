@@ -38,12 +38,13 @@ import { useAppdashPrefs } from "../../lib/useAppdashPrefs";
 import RatingStars from "../../components/RatingStars";
 import ReviewModal from "../../components/ReviewModal";
 import AccountDeletionPanel from "../../components/AccountDeletionPanel";
+import CancelJobDialog from "../../components/CancelJobDialog";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
 import type { ServiceZone } from "../../types/locations";
 import { CLEANER_IMAGE_MAX_BYTES, validateImageFile } from "../../lib/uploadValidation";
 
-type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled" | "disputed";
+type JobStatus = "draft" | "open" | "assigned" | "completed" | "cancelled";
 type ApplicationStatus = "pending" | "accepted" | "rejected" | "withdrawn";
 type VerificationStatus = "pending" | "verified" | "rejected" | "suspended";
 type CleanerSex = "male" | "female" | "prefer_not_to_say";
@@ -82,6 +83,7 @@ interface AssignmentSummary {
   host_completed_at: string | null;
   cleaner_completed_at: string | null;
   completed_at: string | null;
+  available_actions?: string[];
 }
 
 interface CleaningJob {
@@ -109,6 +111,7 @@ interface CleaningJob {
   status: JobStatus;
   cleaning_instructions?: string;
   assignment?: AssignmentSummary | null;
+  available_actions?: string[];
 }
 
 type ApplicationOrigin = "cleaner_applied" | "host_offered";
@@ -525,7 +528,6 @@ export default function CleanerDashboard() {
     assigned:  t("calendar.statusLabel.assigned"),
     completed: t("calendar.statusLabel.completed"),
     cancelled: t("calendar.statusLabel.cancelled"),
-    disputed:  t("calendar.statusLabel.disputed"),
   };
   const APPLICATION_LABEL: Record<ApplicationStatus, string> = {
     pending:   t("calendar.applicationLabel.pending"),
@@ -636,6 +638,7 @@ export default function CleanerDashboard() {
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState("");
   const [completingJobId, setCompletingJobId] = useState<number | null>(null);
+  const [cancelJobTarget, setCancelJobTarget] = useState<{ id: number; title: string } | null>(null);
   const [reviewTarget, setReviewTarget] = useState<
     { jobId: number; jobTitle: string; revieweeId: number; revieweeName: string } | null
   >(null);
@@ -1514,7 +1517,7 @@ export default function CleanerDashboard() {
   }, [jobs]);
 
   const activeAssignments = useMemo(
-    () => assignments.filter((a) => !a.completed_at && (!scopedJobIds || scopedJobIds.has(a.job))),
+    () => assignments.filter((a) => !a.completed_at && !a.cancelled_at && (!scopedJobIds || scopedJobIds.has(a.job))),
     [assignments, scopedJobIds],
   );
   const completedAssignments = useMemo(
@@ -2214,6 +2217,21 @@ export default function CleanerDashboard() {
                                     {completingJobId === assignment.job ? "..." : t("apps.active.markDone")}
                                   </button>
                                 )}
+                                {assignment.available_actions?.includes("cancel") ? (
+                                  <button
+                                    className="host-delete-confirm-yes"
+                                    type="button"
+                                    onClick={() => {
+                                      if (shouldSuppressModalOpen()) return;
+                                      setCancelJobTarget({
+                                        id: assignment.job,
+                                        title: t("apps.openJobs.jobFallback"),
+                                      });
+                                    }}
+                                  >
+                                    {t("apps.active.cancelJob")}
+                                  </button>
+                                ) : null}
                               </div>
                             </li>
                           );
@@ -3165,6 +3183,15 @@ export default function CleanerDashboard() {
           onSubmitted={() => void loadAll()}
         />
       )}
+
+      {cancelJobTarget ? (
+        <CancelJobDialog
+          jobId={cancelJobTarget.id}
+          jobTitle={cancelJobTarget.title}
+          onClose={() => setCancelJobTarget(null)}
+          onCancelled={() => void loadAll(true)}
+        />
+      ) : null}
     </>
   );
 }

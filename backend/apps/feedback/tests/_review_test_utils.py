@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, HostProfile, User
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob, FavouriteCleaner
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property
 
 
@@ -83,7 +84,7 @@ class ReviewScenarioMixin:
         cleaner = cleaner or self.cleaner
         property = property or self.property
         start = start or timezone.now() - timedelta(days=1, hours=2)
-        job = CleaningJob.objects.create(
+        job = create_cleaning_job_record(
             property=property,
             host=host,
             title=f"Turnover {CleaningJob.objects.count() + 1}",
@@ -123,7 +124,7 @@ class ReviewScenarioMixin:
 
     def create_agency_job(self, *, assigned_member: User | None = None):
         agency_application = CleanerApplication.objects.create(
-            job=CleaningJob.objects.create(
+            job=create_cleaning_job_record(
                 property=self.property,
                 host=self.host,
                 title="Agency turnover",

@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import CleanerProfile, HostProfile, User
 from apps.feedback.services import submit_review
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.marketplace.services import (
     MarketplaceError,
     accept_application,
@@ -63,7 +64,7 @@ class MarketplaceServiceTests(TestCase):
             city="Sofia",
             cleaning_instructions="Change linens and restock basics.",
         )
-        self.job = CleaningJob.objects.create(
+        self.job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Turnover cleaning",

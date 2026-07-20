@@ -345,9 +345,9 @@
         "assigned": "assigned"
       },
       "publish": "Publish",
-      "delete": "Delete",
+      "cancel": "Cancel job",
       "editAriaLabel": "Edit job",
-      "deleteAriaLabel": "Delete job",
+      "cancelAriaLabel": "Cancel job",
       "status": {
         "draft": "Draft",
         "open": "Open",
@@ -559,7 +559,8 @@
         "badge": "Assigned",
         "waitingHost": "Waiting for host",
         "hostConfirmed": "Host confirmed",
-        "markDone": "Mark done"
+        "markDone": "Mark done",
+        "cancelJob": "Cancel job"
       },
       "completed": {
         "title": "Completed",
@@ -1025,6 +1026,40 @@
       "cancelBtn": "Cancel",
       "today": "Today"
     },
+    "cancelJobDialog": {
+      "heading": "Cancel cleaning job",
+      "description": "Cancel {title}. The attempt remains in the turnover history and cannot be reopened.",
+      "closeAriaLabel": "Close cancellation dialog",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "Choose a reason",
+      "noteLabel": "Private note (optional)",
+      "noteHint": "This note is restricted to authorized support access and is not copied into notifications.",
+      "keepJob": "Keep job",
+      "cancelling": "Cancelling…",
+      "confirm": "Cancel job",
+      "reasons": {
+        "host_change": "Host plans changed",
+        "property_unavailable": "Property unavailable",
+        "cleaner_unavailable": "Cleaner unavailable",
+        "illness": "Illness",
+        "safety": "Safety concern",
+        "access": "Access problem",
+        "no_show": "No-show",
+        "scheduling_error": "Scheduling error",
+        "other": "Other"
+      },
+      "errors": {
+        "reasonRequired": "Choose a cancellation reason.",
+        "cancelFailed": "The job could not be cancelled.",
+        "agency_recovery_not_supported": "Agency recovery is not supported in the Stage 1 pilot. Contact support.",
+        "account_not_eligible": "This account cannot perform lifecycle actions.",
+        "job_already_terminal": "This job is already complete and cannot be cancelled.",
+        "transition_conflict": "The job changed. Refresh and try again.",
+        "invalid_input": "Correct the highlighted fields and try again.",
+        "not_found": "This job is no longer available.",
+        "rate_limited": "Too many requests. Try again later."
+      }
+    },
     "accountDeletionPanel": {
       "heading": "Delete account",
       "description": "Permanently delete your account and related profile data. This action cannot be undone.",
@@ -1032,12 +1067,16 @@
       "confirmHeading": "Delete account permanently?",
       "confirmSubtitle": "This will delete {email} and sign you out immediately.",
       "closeAriaLabel": "Close",
-      "confirmBody": "All account access will be removed. Any profile, property, application, and marketplace records tied to this account will be permanently removed where the database owns them.",
+      "confirmBody": "Accounts with active obligations cannot be deleted. Accounts with retained marketplace history are routed to support; that history is not removed by this action.",
       "cancelBtn": "Cancel",
       "deleting": "Deleting...",
       "confirmBtn": "Delete permanently",
       "errors": {
-        "deleteFailed": "Could not delete your account."
+        "deleteFailed": "Could not delete your account.",
+        "activeObligations": "Finish or cancel your active marketplace obligations before deleting your account.",
+        "requiresSupport": "Your marketplace history must be reviewed by support. Contact {channel} during {hours}. This is not an emergency service.",
+        "supportFallback": "support",
+        "supportHoursFallback": "08:00–20:00 Europe/Sofia daily"
       }
     },
     "areaDemandPanel": {

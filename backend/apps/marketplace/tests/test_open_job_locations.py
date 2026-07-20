@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import User
 from apps.marketplace.models import CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property, PropertyImage
 
 
@@ -58,7 +59,7 @@ class OpenJobLocationsViewTests(TestCase):
             order=0,
         )
 
-        self.sofia_job = CleaningJob.objects.create(
+        self.sofia_job = create_cleaning_job_record(
             property=self.sofia_property,
             host=self.host,
             title="Turnover cleaning",
@@ -67,7 +68,7 @@ class OpenJobLocationsViewTests(TestCase):
             proposed_price=Decimal("45.00"),
             status=CleaningJob.Status.OPEN,
         )
-        self.plovdiv_job = CleaningJob.objects.create(
+        self.plovdiv_job = create_cleaning_job_record(
             property=self.plovdiv_property,
             host=self.host,
             title="Guest checkout cleaning",
@@ -76,7 +77,7 @@ class OpenJobLocationsViewTests(TestCase):
             proposed_price=Decimal("50.00"),
             status=CleaningJob.Status.OPEN,
         )
-        CleaningJob.objects.create(
+        create_cleaning_job_record(
             property=self.unpinned_property,
             host=self.host,
             title="Unpinned cleaning",
@@ -84,7 +85,7 @@ class OpenJobLocationsViewTests(TestCase):
             scheduled_end=timezone.now() + timedelta(days=3, hours=2),
             status=CleaningJob.Status.OPEN,
         )
-        CleaningJob.objects.create(
+        create_cleaning_job_record(
             property=self.sofia_property,
             host=self.host,
             title="Draft cleaning",

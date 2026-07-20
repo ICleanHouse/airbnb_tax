@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-20
 **Stage:** v1 MVP — Active Development
 
 ---
@@ -31,14 +31,21 @@ HostProfile ──[has_many]──────► CleaningJob     (via Property)
 Property ──[has_many]─────────► ExternalCalendarConnection
 Property ──[has_many]─────────► Reservation
 Property ──[has_many]─────────► CleaningJob
+Property ──[has_many]─────────► TurnoverLineage
 
 CleaningBatch ──[belongs_to]──► HostProfile
 CleaningBatch ──[has_many]────► CleaningJob
 
 CleaningJob ──[belongs_to]────► Property
+CleaningJob ──[belongs_to]────► TurnoverLineage
+CleaningJob ──[optionally replaces]► CleaningJob
 CleaningJob ──[has_many]──────► CleanerApplication
 CleaningJob ──[has_one]───────► Assignment
 CleaningJob ──[has_many]──────► Review
+CleaningJob ──[has_many]──────► JobLifecycleEvent
+
+TurnoverLineage ──[has_many]──► CleaningJob (immutable attempts)
+TurnoverLineage ──[has_many]──► JobLifecycleEvent
 
 CleanerApplication ──[belongs_to]──► CleaningJob
 CleanerApplication ──[belongs_to]──► CleanerProfile   (individual)
@@ -175,23 +182,32 @@ AuditLog ──[references]────────► (any entity — polymorph
        │cancelled │  │ assigned │
        └──────────┘  └────┬─────┘
                           │
-               ┌──────────┼───────────┐
-               │ completed│ disputed  │
-               ▼          ▼           │
-          ┌──────────┐ ┌──────────┐   │
-          │completed │ │ disputed │◄──┘
-          └──────────┘ └──────────┘
-               │
-               └──► reviews unlocked (both directions; double-blind reveal)
+                    ┌─────┴─────┐
+                    ▼           ▼
+               ┌──────────┐ ┌──────────┐
+               │completed │ │cancelled │
+               └──────────┘ └──────────┘
+                    │
+                    └──► reviews unlocked (both directions; double-blind reveal)
 ```
 
 **Rules:**
-- Only one `Assignment` per job (enforced at service layer).
-- Only one job per property can exist for the exact same `scheduled_start` and `scheduled_end` (serializer validation plus database constraint).
+- Every job belongs to exactly one `TurnoverLineage`; a job is an immutable
+  attempt, and cancelled/completed attempts are never reopened.
+- Only one `Assignment` belongs to a job (database one-to-one plus service
+  rules). The assignment and delegated agency member remain attached to that
+  attempt.
+- Actionable statuses are `draft`, `open`, and `assigned`. Partial uniqueness
+  permits one actionable job per exact property/start/end slot and one
+  actionable job per lineage. Historical `completed`/`cancelled` attempts may
+  share a slot.
+- Recovery creates a new linked job in the same lineage. Replacement is a later
+  S1-E05 batch; agency recovery remains explicitly unsupported.
 - Competing applications are rejected when one is accepted.
 - **Completion is a single step by the assigned cleaner (or an admin)** — there is no separate host confirmation. Marking done sets `completed_at` and flips the job to `completed` immediately; `cleaner_completed_at`/`host_completed_at` are both stamped at that moment. Cleaner completion is time-gated to after `scheduled_start`.
 - Reviews only allowed after `completed` with `assignment.completed_at` set, and are **double-blind**: a review about a user is revealed only once both sides have reviewed that job, or after a 14-day window (`feedback.services.REVIEW_WINDOW_DAYS`). On completion both host and cleaner receive a `review.requested` prompt. For delegated agency assignments, the review parties are the host and the actual assigned cleaner member; the agency account is not a review participant after delegation.
-- `disputed` requires admin inspection (not yet built).
+- Disputes are orthogonal case records, not job statuses. The dispute workflow
+  is a later S1-E05 batch and cannot change completion, reviews, or ratings.
 
 ### 2d. Cleaner Application Lifecycle
 
@@ -360,7 +376,10 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
           POST   /api/properties/parse-ics/                   (bounded file-only ICS upload → parsed events)
           POST   /api/marketplace/jobs/                       (post job / ICS bulk create)
           POST   /api/marketplace/jobs/{id}/publish/          (draft → open)
-          DELETE /api/marketplace/jobs/{id}/                  (delete; draft/open only)
+          POST   /api/marketplace/jobs/{id}/cancel/           (structured cancellation)
+          GET    /api/marketplace/jobs/{id}/available-actions/
+          GET    /api/marketplace/lineages/{id}/chronology/
+          DELETE /api/marketplace/jobs/{id}/                  (409; use cancellation)
           POST   /api/marketplace/applications/{id}/accept/   (accept → creates assignment)
           POST   /api/marketplace/applications/{id}/reject/   (decline application)
           POST   /api/feedback/reviews/                       (review cleaner via ReviewModal; body: job_id, reviewee_id)
@@ -447,7 +466,10 @@ Full API surface with implementation state.
 | GET | `/api/marketplace/public-demand/` | None | ✅ — canonical city/zone aggregate only |
 | GET | `/api/marketplace/open-job-locations/` | None | Deprecated alias — identical aggregate body; sunset 2026-10-15 |
 | POST | `/api/marketplace/jobs/{id}/publish/` | Host | ✅ |
-| DELETE | `/api/marketplace/jobs/{id}/` | Host | ✅ — draft/open only |
+| POST | `/api/marketplace/jobs/{id}/cancel/` | Authorized host/direct cleaner/admin | ✅ — agency recovery writes explicitly unsupported |
+| GET | `/api/marketplace/jobs/{id}/available-actions/` | Authorized participant/admin | ✅ — server-derived |
+| GET | `/api/marketplace/lineages/{id}/chronology/` | Authorized participant/admin | ✅ — disclosure-tiered |
+| DELETE | `/api/marketplace/jobs/{id}/` | Authorized participant | ✅ — stable 409; use cancellation |
 | POST | `/api/marketplace/jobs/{id}/complete/` | Cleaner/Admin | ✅ — single-step completion; host no longer confirms |
 | GET | `/api/marketplace/calendar/` | Required | ✅ |
 | GET/POST | `/api/marketplace/applications/` | Host/Cleaner/Agency | ✅ |
@@ -688,18 +710,41 @@ URL import is disabled: there is no URL endpoint or server-side calendar
 network fetcher. Existing external-calendar records are inert, and placeholder
 calendar sync tasks perform no network access.
 
+### TurnoverLineage
+```
+property (protected FK), host (protected FK), created_at, updated_at
+```
+
+One lineage represents one genuine turnover need. Its property and host are
+immutable, and its attempts/history are protected from physical deletion.
+
 ### CleaningJob
 ```
-property (FK), title, description,
+lineage (protected FK), replaces_job (protected nullable 1:1),
+property (protected FK), host (protected FK), title, description,
 scheduled_start (datetime UTC), scheduled_end (datetime UTC),
-status: [draft | open | assigned | completed | cancelled | disputed],
-price_eur, published_at,
+status: [draft | open | assigned | completed | cancelled],
+price_eur, published_at, cancelled_at, cancelled_by,
+cancellation_reason_code, cancellation_note, cancellation_notice_band,
 batch (FK→CleaningBatch, nullable),
 source: [manual | ics_import | batch]
 ```
 
 Uniqueness rule:
-- `(property, scheduled_start, scheduled_end)` must be unique.
+- status-conditional uniqueness permits only one actionable
+  `(property, scheduled_start, scheduled_end)` row;
+- status-conditional uniqueness permits only one actionable job per lineage;
+- completed/cancelled historical attempts are excluded from both conditions.
+
+### JobLifecycleEvent
+```
+lineage (protected FK), job (protected FK), actor (nullable FK),
+actor_role_snapshot, event_type, from_status, to_status, reason_code,
+audience, occurred_at, request_id, idempotency_key, metadata
+```
+
+Events are append-only lifecycle truth. `AuditLog` remains separate security
+evidence and is not used as the lifecycle store or required migration source.
 
 ### CleanerApplication
 ```
@@ -804,7 +849,10 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Agency member delegation | ✅ Complete |
 | Authoritative cleaner assignment-overlap protection | ✅ Complete — application/direct-offer acceptance and member delegation |
 | Job completion (single-step, cleaner/admin; no host confirm) | ✅ Complete |
-| Job deletion guard (draft/open only) | ✅ Complete |
+| Lineage foundation + append-only lifecycle chronology | ✅ Complete (S1-E05 Batch 2) |
+| Structured cancellation + assignment interval release | ✅ Complete (S1-E05 Batch 2) |
+| Physical job deletion replacement (stable 409) | ✅ Complete (S1-E05 Batch 2) |
+| Account-deletion active blocker/history support route | ✅ Complete (S1-E05 Batch 2) |
 | Two-way double-blind reviews + revealed-only rating update | ✅ Complete |
 | In-app notification records | ✅ Complete |
 | Calendar conflict API | ✅ Complete |
@@ -831,7 +879,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Host dashboard `/host` — jobs + calendar | ✅ Complete |
 | Host dashboard `/host` — ICS import modal | ✅ Complete |
 | Host dashboard — job form (date + start/end time fields) | ✅ Complete |
-| Host dashboard — delete job (two-step confirm; draft/open only) | ✅ Complete |
+| Host/direct-cleaner dashboard — policy-authorized cancellation dialog | ✅ Complete |
 | Cleaner dashboard — mark-done completion control (host confirm step removed) | ✅ Complete |
 | Host dashboard — job completion email to host via Resend | ✅ Complete |
 | Host dashboard — application submitted email to host via Resend | ✅ Complete |
@@ -870,7 +918,7 @@ Rules that must never be broken regardless of task scope.
 | R14 | Public `/` is marketing only — never a dashboard | Frontend routing |
 | R15 | Timezone `Europe/Sofia`; store UTC, display local | All datetime handling |
 | R16 | Signup field changes must update database models, migrations, serializers, frontend payloads, and tests together | Accounts signup/profile workflow |
-| R17 | A property cannot have two jobs for the exact same start/end time | `CleaningJob` unique constraint + serializer validation |
+| R17 | A property/start/end slot and a turnover lineage may each have at most one actionable (`draft/open/assigned`) job; terminal history may share the slot | `CleaningJob` PostgreSQL partial unique constraints + services |
 | R18 | Job completion is a single step by the assigned cleaner (or admin) after `scheduled_start` — there is no host confirmation step | `marketplace/services.py` + dashboard guards |
 | R19 | Favourites can be created only for public marketplace-eligible cleaners; historical unavailable favourites remain visible to the owning host through safe serializer fields | `accounts.models` eligibility helper + `marketplace/services.py` |
 | R20 | All new user-facing strings must ship with both `en.json` and `bg.json` values; keys are English camelCase; values only differ between files | `frontend/messages/` — next-intl v4 |

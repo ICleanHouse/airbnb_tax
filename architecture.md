@@ -37,7 +37,9 @@ Future extraction into microservices should be possible without rewriting core b
   reservations, and bounded file-only iCal parsing
   (`POST /api/properties/parse-ics/`). There is no calendar URL-fetch route or
   runtime network client in the Stage 1 calendar domain.
-- `apps.marketplace`: cleaning batches, jobs, applications, assignments, and marketplace workflow services.
+- `apps.marketplace`: cleaning batches, turnover lineages, immutable job
+  attempts, applications, one-to-one assignments, append-only lifecycle events,
+  and marketplace workflow services.
 - `apps.calendars`: conflict checks and deliberately network-inert placeholder
   background sync tasks.
 - `apps.feedback`: two-way reviews and cleaner reputation updates.
@@ -62,6 +64,8 @@ Future extraction into microservices should be possible without rewriting core b
     local development and tests use LocMem. The manual ICS throttle uses this
     cache and is keyed by authenticated user.
   - `APP_ENV`, `LOG_LEVEL`, `SENTRY_DSN`: JSON logging and backend/Celery crash reporting.
+  - `MARKETPLACE_SUPPORT_CHANNEL`: monitored support route shown when protected
+    marketplace history prevents physical account deletion.
 - `celery.py`: Celery application wiring.
 - `manage.py`, `wsgi.py`, `asgi.py`: all load `.env` via `python-dotenv` before Django starts.
 
@@ -171,22 +175,47 @@ Responsibilities:
 - Job lifecycle state transitions.
 - Assignment rules.
 - Agency assignment delegation to an active member cleaner; normal delegation is immutable after the first assigned member.
-- Cancellation and dispute flags.
+- Structured cancellation and lifecycle chronology.
 
 Recommended job lifecycle:
 
 ```text
 draft -> open -> assigned -> completed
-              -> cancelled
-assigned -> disputed
+   |       |       |
+   +-------+-------+--------> cancelled
 ```
 
-Applications exist between `open` and `assigned`. A job should have at most one accepted cleaner assignment.
+Applications exist between `open` and `assigned`. A job has at most one accepted
+cleaner assignment. `completed` and `cancelled` are terminal. Disputes are
+separate case records in a later S1-E05 batch and never become a job status.
 
 Rules:
 
-- A property cannot have two jobs with the exact same `scheduled_start` and `scheduled_end`.
-- Assigned jobs use two-sided completion: cleaners can mark done once `scheduled_start` is in the past, while hosts and admins can complete only once `scheduled_end` is in the past.
+- `TurnoverLineage` identifies one genuine turnover need. Every `CleaningJob`
+  belongs to one lineage and remains one immutable historical attempt.
+- Partial unique constraints permit one actionable (`draft`, `open`, or
+  `assigned`) exact property/start/end slot and one actionable job per lineage.
+  Historical cancelled/completed attempts may share a slot.
+- Cancellation uses an atomic domain service, preserves the job/assignment,
+  releases `Assignment.cancelled_at`, records structured cancellation fields,
+  and appends exactly one `JobLifecycleEvent` plus separate audit evidence.
+- Physical job deletion is not an operational transition. Published and
+  assigned history, lineages, assignments, lifecycle events, and their
+  properties/accounts use protected relationships.
+- Lifecycle APIs are explicit actions. Ordinary updates cannot change an
+  assigned schedule or lifecycle status; lifecycle reads are object-authorized
+  and lineage chronology is disclosure-tiered.
+- Agency-backed reschedule/replacement remains unsupported and must fail before
+  mutation. Normal delegated-member immutability is unchanged.
+- Assigned jobs use the existing single-step completion rule: the assigned
+  concrete cleaner may complete after `scheduled_start`; platform admins may
+  complete after `scheduled_end`. Completion remains independent of future
+  dispute records.
+
+S1-E05 account deletion currently blocks active obligations and sends accounts
+with protected marketplace history to operator support. De-identification and
+retention execution are separate privacy work; hard deletion remains available
+only for accounts with no protected marketplace history.
 
 ### Favourite Cleaners
 

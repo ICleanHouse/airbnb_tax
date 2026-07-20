@@ -10,6 +10,7 @@ from apps.marketplace.views import (
     MarketplaceCalendarView,
     OpenJobLocationsView,
     PublicDemandView,
+    TurnoverLineageViewSet,
 )
 from django.urls import path
 
@@ -17,6 +18,7 @@ from django.urls import path
 router = DefaultRouter()
 router.register("batches", CleaningBatchViewSet, basename="cleaning-batch")
 router.register("jobs", CleaningJobViewSet, basename="cleaning-job")
+router.register("lineages", TurnoverLineageViewSet, basename="turnover-lineage")
 router.register("applications", CleanerApplicationViewSet, basename="cleaner-application")
 router.register("assignments", AssignmentViewSet, basename="assignment")
 router.register("favourites", FavouriteCleanerViewSet, basename="favourite-cleaner")

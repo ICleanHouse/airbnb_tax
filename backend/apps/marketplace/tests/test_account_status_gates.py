@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, HostProfile, User
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.marketplace.services import (
     MarketplaceError,
     accept_application,
@@ -88,7 +89,7 @@ class MarketplaceAccountStatusGateTests(TestCase):
         property = property or self.property
         self.job_counter += 1
         start = timezone.now() + timedelta(days=self.job_counter)
-        return CleaningJob.objects.create(
+        return create_cleaning_job_record(
             property=property,
             host=host,
             title=f"Turnover {self.job_counter}",

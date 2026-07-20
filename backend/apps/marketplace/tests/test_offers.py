@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import CleanerProfile, HostProfile, User
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob, FavouriteCleaner
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.marketplace.services import (
     MarketplaceError,
     accept_offer,
@@ -56,7 +57,7 @@ class OfferServiceTests(TestCase):
             city="Sofia",
             cleaning_instructions="Change linens.",
         )
-        self.job = CleaningJob.objects.create(
+        self.job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Turnover cleaning",
@@ -287,7 +288,7 @@ class OfferServiceTests(TestCase):
         day = (timezone.localtime(timezone.now()) + timedelta(days=2)).replace(
             hour=9, minute=0, second=0, microsecond=0
         )
-        morning_job = CleaningJob.objects.create(
+        morning_job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Morning turnover",
@@ -295,7 +296,7 @@ class OfferServiceTests(TestCase):
             scheduled_end=day + timedelta(hours=2),
             proposed_price=Decimal("45.00"),
         )
-        afternoon_job = CleaningJob.objects.create(
+        afternoon_job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Afternoon turnover",
@@ -318,7 +319,7 @@ class OfferServiceTests(TestCase):
         day = (timezone.localtime(timezone.now()) + timedelta(days=3)).replace(
             hour=9, minute=0, second=0, microsecond=0
         )
-        morning_job = CleaningJob.objects.create(
+        morning_job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Morning turnover",
@@ -326,7 +327,7 @@ class OfferServiceTests(TestCase):
             scheduled_end=day + timedelta(hours=2),
             proposed_price=Decimal("45.00"),
         )
-        afternoon_job = CleaningJob.objects.create(
+        afternoon_job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Afternoon turnover",

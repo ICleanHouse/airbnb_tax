@@ -14,6 +14,7 @@ from apps.marketplace.selectors import (
     user_has_operational_job_access,
 )
 from apps.properties.models import Property
+from apps.marketplace.services import derive_available_job_actions
 
 
 User = get_user_model()
@@ -55,6 +56,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
     cleaner_name = serializers.SerializerMethodField()
     cleaner_email = serializers.EmailField(source="cleaner.email", read_only=True)
     cleaner_profile_image = serializers.SerializerMethodField()
+    available_actions = serializers.SerializerMethodField()
 
     class Meta:
         model = Assignment
@@ -82,6 +84,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "completed_at",
             "created_at",
             "updated_at",
+            "available_actions",
         ]
         read_only_fields = fields
 
@@ -91,6 +94,13 @@ class AssignmentSerializer(serializers.ModelSerializer):
     def get_cleaner_profile_image(self, obj):
         profile = getattr(obj.cleaner, "cleaner_profile", None)
         return (getattr(profile, "profile_image", "") or "") or None
+
+
+    def get_available_actions(self, obj):
+        request = self.context.get("request")
+        if request is None:
+            return []
+        return derive_available_job_actions(job=obj.job, actor=request.user)
 
 
 class AssignMemberSerializer(serializers.Serializer):
@@ -161,6 +171,7 @@ class CleaningJobSerializer(serializers.ModelSerializer):
     property_neighborhood = serializers.CharField(source="property.neighborhood", read_only=True)
     property_address = serializers.CharField(source="property.address", read_only=True)
     assignment = AssignmentSerializer(read_only=True)
+    available_actions = serializers.SerializerMethodField()
 
     class Meta:
         model = CleaningJob
@@ -174,6 +185,8 @@ class CleaningJobSerializer(serializers.ModelSerializer):
             "property_address",
             "host",
             "host_name",
+            "lineage",
+            "replaces_job",
             "batch_id",
             "batch",
             "title",
@@ -184,8 +197,13 @@ class CleaningJobSerializer(serializers.ModelSerializer):
             "proposed_price",
             "agreed_price",
             "status",
+            "published_at",
+            "cancelled_at",
+            "cancellation_reason_code",
+            "cancellation_notice_band",
             "cleaning_instructions",
             "assignment",
+            "available_actions",
             "created_at",
             "updated_at",
         ]
@@ -193,10 +211,17 @@ class CleaningJobSerializer(serializers.ModelSerializer):
             "id",
             "property",
             "host",
+            "lineage",
+            "replaces_job",
             "batch",
             "agreed_price",
             "status",
+            "published_at",
+            "cancelled_at",
+            "cancellation_reason_code",
+            "cancellation_notice_band",
             "assignment",
+            "available_actions",
             "created_at",
             "updated_at",
         ]
@@ -205,8 +230,22 @@ class CleaningJobSerializer(serializers.ModelSerializer):
     def get_host_name(self, obj):
         return safe_host_display_name(obj.host)
 
+    def get_available_actions(self, obj):
+        request = self.context.get("request")
+        if request is None:
+            return []
+        return derive_available_job_actions(job=obj, actor=request.user)
+
     def validate(self, attrs):
         property_obj = attrs.get("property", getattr(self.instance, "property", None))
+        if (
+            self.instance is not None
+            and property_obj is not None
+            and property_obj.pk != self.instance.property_id
+        ):
+            raise serializers.ValidationError(
+                {"property_id": "A job's property is immutable after creation."}
+            )
         scheduled_start = attrs.get("scheduled_start", getattr(self.instance, "scheduled_start", None))
         scheduled_end = attrs.get("scheduled_end", getattr(self.instance, "scheduled_end", None))
         if scheduled_start and scheduled_end and scheduled_end <= scheduled_start:
@@ -216,6 +255,11 @@ class CleaningJobSerializer(serializers.ModelSerializer):
                 property=property_obj,
                 scheduled_start=scheduled_start,
                 scheduled_end=scheduled_end,
+                status__in=[
+                    CleaningJob.Status.DRAFT,
+                    CleaningJob.Status.OPEN,
+                    CleaningJob.Status.ASSIGNED,
+                ],
             )
             if self.instance is not None:
                 duplicate = duplicate.exclude(id=self.instance.id)
@@ -224,6 +268,17 @@ class CleaningJobSerializer(serializers.ModelSerializer):
                     "scheduled_start": "This property already has a job scheduled for that exact time.",
                 })
         return attrs
+
+
+class CancelJobSerializer(serializers.Serializer):
+    reason_code = serializers.ChoiceField(
+        choices=[
+            choice
+            for choice in CleaningJob.CancellationReason.choices
+            if not choice[0].startswith("legacy_")
+        ]
+    )
+    note = serializers.CharField(required=False, allow_blank=True, max_length=1000)
 
 
 class PublicDemandDistrictSerializer(serializers.Serializer):
@@ -316,6 +371,8 @@ class EvaluatorCleaningJobSerializer(serializers.ModelSerializer):
 
 
 class AssignedWorkerAssignmentSerializer(serializers.ModelSerializer):
+    available_actions = serializers.SerializerMethodField()
+
     class Meta:
         model = Assignment
         fields = [
@@ -330,8 +387,15 @@ class AssignedWorkerAssignmentSerializer(serializers.ModelSerializer):
             "host_completed_at",
             "cleaner_completed_at",
             "completed_at",
+            "available_actions",
         ]
         read_only_fields = fields
+
+    def get_available_actions(self, obj):
+        request = self.context.get("request")
+        if request is None:
+            return []
+        return derive_available_job_actions(job=obj.job, actor=request.user)
 
 
 class AssignedWorkerCleaningJobSerializer(serializers.ModelSerializer):
@@ -357,6 +421,7 @@ class AssignedWorkerCleaningJobSerializer(serializers.ModelSerializer):
     )
     assignment = AssignedWorkerAssignmentSerializer(read_only=True)
     can_apply = serializers.SerializerMethodField()
+    available_actions = serializers.SerializerMethodField()
 
     class Meta:
         model = CleaningJob
@@ -384,6 +449,7 @@ class AssignedWorkerCleaningJobSerializer(serializers.ModelSerializer):
             "status",
             "cleaning_instructions",
             "assignment",
+            "available_actions",
             "can_apply",
         ]
         read_only_fields = fields
@@ -447,6 +513,12 @@ class AssignedWorkerCleaningJobSerializer(serializers.ModelSerializer):
 
     def get_can_apply(self, obj):
         return False
+
+    def get_available_actions(self, obj):
+        request = self.context.get("request")
+        if request is None:
+            return []
+        return derive_available_job_actions(job=obj, actor=request.user)
 
 
 class WorkerCleaningJobSerializer(serializers.BaseSerializer):

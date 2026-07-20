@@ -207,7 +207,6 @@ class ReviewInvariantTests(ReviewScenarioMixin, TestCase):
             CleaningJob.Status.OPEN,
             CleaningJob.Status.ASSIGNED,
             CleaningJob.Status.CANCELLED,
-            CleaningJob.Status.DISPUTED,
         ]
 
         for status in incomplete_states:

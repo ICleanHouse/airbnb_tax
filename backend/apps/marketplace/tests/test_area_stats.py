@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import CleanerProfile, HostProfile, User
 from apps.marketplace.models import CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property
 
 
@@ -52,7 +53,7 @@ class AreaStatsViewTests(TestCase):
             name="Center Apartment",
             city="Sofia",
         )
-        self.open_job = CleaningJob.objects.create(
+        self.open_job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Turnover cleaning",
@@ -62,7 +63,7 @@ class AreaStatsViewTests(TestCase):
             status=CleaningJob.Status.OPEN,
         )
         # A draft job that should not show in open_jobs.
-        CleaningJob.objects.create(
+        create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Draft cleaning",

@@ -12,6 +12,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import AgencyProfile, CleanerProfile, HostProfile, User
 from apps.locations.models import City, ServiceZone
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property, PropertyImage
 
 
@@ -102,7 +103,7 @@ class MarketplacePrivacyBase(TestCase):
         host = host or self.host
         property_obj = property_obj or self.property
         start = timezone.now().replace(microsecond=0) + timedelta(days=days)
-        return CleaningJob.objects.create(
+        return create_cleaning_job_record(
             property=property_obj,
             host=host,
             title="PRIVATE JOB TITLE",
@@ -365,6 +366,7 @@ class EvaluatorJobPrivacyTests(MarketplacePrivacyBase):
         "agreed_price",
         "cleaning_instructions",
         "assignment",
+        "available_actions",
     }
     history_job_keys = evaluator_keys | {
         "host",
@@ -384,6 +386,7 @@ class EvaluatorJobPrivacyTests(MarketplacePrivacyBase):
         "host_completed_at",
         "cleaner_completed_at",
         "completed_at",
+        "available_actions",
     }
 
     def test_anonymous_job_discovery_preserves_authentication_response(self):
@@ -471,8 +474,10 @@ class EvaluatorJobPrivacyTests(MarketplacePrivacyBase):
             f"/api/marketplace/jobs/{self.job.id}/complete/"
         )
 
-        for response in (delete_response, offer_response, complete_response):
+        self.assertEqual(delete_response.status_code, 404)
+        for response in (offer_response, complete_response):
             self.assertEqual(response.status_code, 403)
+        for response in (delete_response, offer_response, complete_response):
             self.assertEqual(response["Cache-Control"], "private, no-store")
             self.assertEqual(response["Clear-Site-Data"], '"cache"')
         self.assertTrue(CleaningJob.objects.filter(pk=self.job.pk).exists())

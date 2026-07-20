@@ -159,8 +159,13 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         # Manual calendar parsing is deliberately modest during the Sofia pilot.
         "ics_import": "30/hour",
+        "lifecycle": "30/hour",
     },
 }
+
+MARKETPLACE_SUPPORT_CHANNEL = os.getenv(
+    "MARKETPLACE_SUPPORT_CHANNEL", "support"
+)
 
 CACHE_URL = os.getenv("CACHE_URL", "")
 if CACHE_URL:

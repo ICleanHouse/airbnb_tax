@@ -161,13 +161,20 @@ This is a Windows dev machine. Commands and paths must match it.
 
 **Marketplace (`apps/marketplace`)**
 
-- Cleaning job CRUD (draft → open → assigned → completed lifecycle).
+- Turnover lineages with immutable job attempts
+  (`draft → open → assigned → completed/cancelled`) and append-only lifecycle
+  events. Physical job deletion is replaced by structured cancellation.
+- One actionable job per exact property/time slot and per lineage; terminal
+  cancelled/completed attempts may share historical slots.
 - Monthly batch CRUD.
 - Cleaner applications.
 - Application acceptance (creates assignment, rejects competing applications).
 - Agency member delegation for accepted agency jobs; normal agency assignment is immutable after the first delegated cleaner member.
 - Host favourites for public marketplace-eligible cleaners, with historical favourites retained if a saved cleaner later becomes unavailable.
 - Single-step job completion by the assigned cleaner (or admin) after `scheduled_start`; on completion both host and cleaner get a `review.requested` notification.
+- S1-E05 agency recovery is explicitly unsupported. Account deletion blocks
+  active obligations and routes protected marketplace history to support;
+  de-identification is separate privacy work.
 
 **Notifications (`apps/notifications`)**
 

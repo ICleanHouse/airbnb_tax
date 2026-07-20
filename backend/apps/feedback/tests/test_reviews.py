@@ -14,6 +14,7 @@ from apps.feedback.services import (
     submit_review,
 )
 from apps.marketplace.models import Assignment, CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.marketplace.services import MarketplaceError, complete_job
 from apps.properties.models import Property
 
@@ -35,7 +36,7 @@ class ReviewFlowTests(TestCase):
             verification_status=CleanerProfile.VerificationStatus.VERIFIED,
         )
         self.property = Property.objects.create(host=self.host, name="Flat", city="Sofia")
-        self.job = CleaningJob.objects.create(
+        self.job = create_cleaning_job_record(
             property=self.property, host=self.host, title="Turnover",
             scheduled_start=timezone.now() - timedelta(hours=2),
             scheduled_end=timezone.now() - timedelta(hours=1),

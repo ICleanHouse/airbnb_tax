@@ -18,6 +18,7 @@ from apps.accounts.models import (
     User,
 )
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.marketplace.services import (
     MarketplaceError,
     accept_application,
@@ -102,7 +103,7 @@ class ScheduleConflictFactoryMixin:
         status=CleaningJob.Status.OPEN,
         title_prefix="job",
     ):
-        return CleaningJob.objects.create(
+        return create_cleaning_job_record(
             property=property,
             host=property.host,
             title=self.next_name(title_prefix),

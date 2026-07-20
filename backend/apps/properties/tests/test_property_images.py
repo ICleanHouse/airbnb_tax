@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import AgencyProfile, CleanerProfile, User
 from apps.marketplace.models import Assignment, CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property, PropertyImage
 from apps.properties.serializers import PropertyImageSerializer
 
@@ -71,7 +72,7 @@ class PropertyImagePrivacyTests(TestCase):
 
     def _assign(self, cleaner, *, assigned_member=None, cancelled=False):
         start = timezone.now() + timedelta(days=1)
-        job = CleaningJob.objects.create(
+        job = create_cleaning_job_record(
             property=self.property,
             host=self.host,
             title="Assigned clean",

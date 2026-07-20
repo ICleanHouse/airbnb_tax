@@ -236,6 +236,19 @@ class PropertyViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewSet):
             request=self.request,
         )
 
+    def destroy(self, request, *args, **kwargs):
+        property = self.get_object()
+        if property.turnover_lineages.exists():
+            return Response(
+                {
+                    "code": "property_deletion_blocked_lifecycle_history",
+                    "detail": "This property has retained marketplace history and cannot be deleted.",
+                    "fields": {},
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        return super().destroy(request, *args, **kwargs)
+
 
 class PropertyImageViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewSet):
     serializer_class = PropertyImageSerializer

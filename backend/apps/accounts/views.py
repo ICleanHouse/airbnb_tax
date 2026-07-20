@@ -28,7 +28,7 @@ from apps.accounts.models import (
     SignupEmailVerification,
 )
 from apps.accounts.permissions import IsPlatformAdmin
-from apps.accounts.services import delete_account_permanently
+from apps.accounts.services import AccountDeletionBlocked, delete_account_permanently
 from apps.accounts.tokens import email_verification_token
 from apps.notifications.tasks import send_admin_new_account_email, send_signup_email_code
 from apps.accounts.serializers import (
@@ -232,8 +232,14 @@ class MeView(APIView):
 
     def delete(self, request):
         user = request.user
+        try:
+            delete_account_permanently(user=user, request=request)
+        except AccountDeletionBlocked as exc:
+            return Response(
+                {"code": exc.code, "detail": exc.detail, "fields": exc.fields},
+                status=status.HTTP_409_CONFLICT,
+            )
         logout(request)
-        delete_account_permanently(user=user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

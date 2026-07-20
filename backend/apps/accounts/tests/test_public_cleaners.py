@@ -3,6 +3,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from apps.accounts.models import CleanerProfile, User
+from apps.marketplace.tests.factories import create_cleaning_job_record
 
 
 def make_cleaner(
@@ -182,7 +183,7 @@ class PublicCleanerDirectoryTests(TestCase):
 
         prop = Property.objects.create(host=host, name="Flat", address="1 St", city="Sofia")
         start = timezone.now()
-        job = CleaningJob.objects.create(
+        job = create_cleaning_job_record(
             host=host,
             property=prop,
             title="Deep clean",

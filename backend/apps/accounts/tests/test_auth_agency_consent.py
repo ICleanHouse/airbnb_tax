@@ -18,7 +18,8 @@ from apps.accounts.models import (
     User,
 )
 from apps.connections.models import Connection, Message
-from apps.marketplace.models import Assignment, CleaningJob
+from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.marketplace.services import accept_application, publish_job, submit_application
 from apps.notifications.models import Notification
 from apps.properties.models import Property
@@ -353,7 +354,7 @@ class AccountAuthTests(TestCase):
                 self.assertFalse(profile_exists(user.id))
                 self.assertEqual(client.get(reverse("account-me")).status_code, 403)
 
-    def test_host_account_deletion_removes_jobs_connections_and_notifies_cleaners(self):
+    def test_host_account_deletion_is_blocked_without_partial_mutation(self):
         host = User.objects.create_user(
             username="delete-host@example.com",
             email="delete-host@example.com",
@@ -385,7 +386,7 @@ class AccountAuthTests(TestCase):
             verification_status=CleanerProfile.VerificationStatus.VERIFIED,
         )
         property = Property.objects.create(host=host, name="Delete Flat", city="Sofia")
-        assigned_job = CleaningJob.objects.create(
+        assigned_job = create_cleaning_job_record(
             property=property,
             host=host,
             title="Assigned turnover",
@@ -395,7 +396,7 @@ class AccountAuthTests(TestCase):
         )
         assigned_application = submit_application(job=assigned_job, cleaner=assigned_cleaner)
         assigned = accept_application(application=assigned_application, accepted_by=host)
-        pending_job = CleaningJob.objects.create(
+        pending_job = create_cleaning_job_record(
             property=property,
             host=host,
             title="Published turnover",
@@ -419,37 +420,21 @@ class AccountAuthTests(TestCase):
 
         response = client.delete(reverse("account-me"))
 
-        self.assertEqual(response.status_code, 204)
-        self.assertFalse(User.objects.filter(id=host.id).exists())
-        self.assertFalse(Property.objects.filter(id=property.id).exists())
-        self.assertFalse(CleaningJob.objects.filter(id__in=[assigned_job.id, pending_job.id]).exists())
-        self.assertFalse(Assignment.objects.filter(id=assigned.id).exists())
-        self.assertFalse(Connection.objects.filter(id=connection.id).exists())
-        self.assertFalse(Message.objects.filter(connection_id=connection.id).exists())
-        assigned_notification = Notification.objects.get(
-            user=assigned_cleaner,
-            notification_type="account.host_deleted",
-            metadata__assignment_id=assigned.id,
-        )
-        pending_notification = Notification.objects.get(
-            user=pending_cleaner,
-            notification_type="account.host_deleted",
-            metadata__application_id=pending_application.id,
-        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data["code"], "account_deletion_blocked_active_obligations")
+        self.assertTrue(User.objects.filter(id=host.id).exists())
+        self.assertTrue(Property.objects.filter(id=property.id).exists())
         self.assertEqual(
-            assigned_notification.metadata,
-            {"job_id": assigned_job.id, "assignment_id": assigned.id},
+            CleaningJob.objects.filter(id__in=[assigned_job.id, pending_job.id]).count(), 2
         )
-        self.assertEqual(
-            pending_notification.metadata,
-            {"job_id": pending_job.id, "application_id": pending_application.id},
-        )
-        for notification in (assigned_notification, pending_notification):
-            self.assertNotIn(host.email, notification.body)
-            self.assertNotIn("deleted_user_id", notification.metadata)
-            self.assertNotIn("property_id", notification.metadata)
+        self.assertTrue(Assignment.objects.filter(id=assigned.id).exists())
+        self.assertTrue(CleanerApplication.objects.filter(id=pending_application.id).exists())
+        self.assertTrue(Connection.objects.filter(id=connection.id).exists())
+        self.assertTrue(Message.objects.filter(connection_id=connection.id).exists())
+        self.assertFalse(Notification.objects.filter(notification_type="account.host_deleted").exists())
+        self.assertEqual(client.get(reverse("account-me")).status_code, 200)
 
-    def test_cleaner_account_deletion_removes_taken_jobs_connections_and_notifies_host(self):
+    def test_cleaner_account_deletion_is_blocked_without_partial_mutation(self):
         host = User.objects.create_user(
             username="host-for-cleaner-delete@example.com",
             email="host-for-cleaner-delete@example.com",
@@ -470,7 +455,7 @@ class AccountAuthTests(TestCase):
             verification_status=CleanerProfile.VerificationStatus.VERIFIED,
         )
         property = Property.objects.create(host=host, name="Host Flat", city="Sofia")
-        assigned_job = CleaningJob.objects.create(
+        assigned_job = create_cleaning_job_record(
             property=property,
             host=host,
             title="Accepted job",
@@ -480,7 +465,7 @@ class AccountAuthTests(TestCase):
         )
         assigned_application = submit_application(job=assigned_job, cleaner=cleaner)
         assigned = accept_application(application=assigned_application, accepted_by=host)
-        pending_job = CleaningJob.objects.create(
+        pending_job = create_cleaning_job_record(
             property=property,
             host=host,
             title="Pending application",
@@ -504,27 +489,19 @@ class AccountAuthTests(TestCase):
 
         response = client.delete(reverse("account-me"))
 
-        self.assertEqual(response.status_code, 204)
-        self.assertFalse(User.objects.filter(id=cleaner.id).exists())
-        self.assertFalse(CleaningJob.objects.filter(id=assigned_job.id).exists())
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data["code"], "account_deletion_blocked_active_obligations")
+        self.assertTrue(User.objects.filter(id=cleaner.id).exists())
+        self.assertTrue(CleaningJob.objects.filter(id=assigned_job.id).exists())
         self.assertTrue(CleaningJob.objects.filter(id=pending_job.id).exists())
-        self.assertFalse(Assignment.objects.filter(id=assigned.id).exists())
-        self.assertFalse(Connection.objects.filter(id=connection.id).exists())
-        self.assertFalse(Message.objects.filter(connection_id=connection.id).exists())
-        self.assertTrue(
-            Notification.objects.filter(
-                user=host,
-                notification_type="account.cleaner_deleted",
-                metadata__assignment_id=assigned.id,
-            ).exists()
+        self.assertTrue(Assignment.objects.filter(id=assigned.id).exists())
+        self.assertTrue(CleanerApplication.objects.filter(id=pending_application.id).exists())
+        self.assertTrue(Connection.objects.filter(id=connection.id).exists())
+        self.assertTrue(Message.objects.filter(connection_id=connection.id).exists())
+        self.assertFalse(
+            Notification.objects.filter(notification_type="account.cleaner_deleted").exists()
         )
-        self.assertTrue(
-            Notification.objects.filter(
-                user=host,
-                notification_type="account.cleaner_deleted",
-                metadata__application_id=pending_application.id,
-            ).exists()
-        )
+        self.assertEqual(client.get(reverse("account-me")).status_code, 200)
 
     def test_admin_can_approve_user_through_api(self):
         admin = User.objects.create_user(
@@ -660,7 +637,7 @@ class AgencyWorkflowTests(TestCase):
             account_status=User.AccountStatus.APPROVED,
         )
         property = Property.objects.create(host=host, name="Center Flat", city="Sofia")
-        job = CleaningJob.objects.create(
+        job = create_cleaning_job_record(
             property=property,
             host=host,
             title="Turnover",

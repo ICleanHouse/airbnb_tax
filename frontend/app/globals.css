@@ -2034,6 +2034,44 @@ img {
   border-color: transparent;
 }
 
+.cancel-job-modal {
+  max-width: 560px;
+}
+
+.cancel-job-modal-body {
+  display: grid;
+  gap: 10px;
+  padding: 20px 24px 24px;
+}
+
+.cancel-job-modal-body .host-field-label {
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.cancel-job-modal-body .host-field-input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.cancel-job-modal-body .host-field-input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--teal) 34%, transparent);
+  outline-offset: 2px;
+}
+
+.cancel-job-note {
+  min-height: 96px;
+  resize: vertical;
+}
+
 @media (max-width: 640px) {
   .account-danger-zone {
     align-items: stretch;

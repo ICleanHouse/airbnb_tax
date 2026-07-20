@@ -213,6 +213,35 @@ python manage.py test
 python -m compileall .
 ```
 
+### Lifecycle migration and PostgreSQL verification
+
+S1-E05 migrations `0006`–`0008` use an expand → deterministic backfill →
+validate → constrain sequence. Migration `0008` is non-atomic so PostgreSQL can
+create the two actionable-job unique indexes concurrently. Do not squash or
+reorder this sequence, and do not derive required backfill values from
+`AuditLog`.
+
+Before deployment, run:
+
+```powershell
+python manage.py makemigrations --check --dry-run
+python manage.py migrate --plan
+python manage.py test apps.marketplace.tests.test_lifecycle_migrations
+python manage.py test apps.marketplace.tests.test_lifecycle_foundation
+python manage.py test apps.accounts.tests.test_deletion_blockers
+```
+
+Run `apps.marketplace.tests.test_postgres_lifecycle_constraints` against a real
+PostgreSQL database. A SQLite pass, including thread-based tests, is not evidence
+that PostgreSQL concurrent-index or locking behavior is correct. If PostgreSQL
+is unavailable, record that suite as unverified rather than treating its skip as
+a pass.
+
+Operational lifecycle changes must use `apps.marketplace.services`; direct ORM,
+ordinary PATCH, Django admin edits, and physical job deletion are not supported
+state-transition paths. `MARKETPLACE_SUPPORT_CHANNEL` must name the monitored
+account-deletion support route before pilot deployment.
+
 Run a Celery worker after Redis is available and dependencies are installed. On Windows, use `--pool=solo`:
 
 ```powershell

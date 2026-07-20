@@ -1,6 +1,43 @@
 # Current Progress Handoff
 
-Updated: 2026-07-20, S1-E09 calendar and upload security.
+Updated: 2026-07-20, S1-E05 lifecycle foundation (Batch 2).
+
+## Latest Work — S1-E05 Lifecycle Foundation (Batch 2, 2026-07-20)
+
+- ADR-0001 and S1-D03 are owner-approved. `TurnoverLineage` now represents one
+  turnover need; every `CleaningJob` is a protected immutable attempt with at
+  most one protected `Assignment`. `JobLifecycleEvent` is append-only domain
+  chronology, separate from `AuditLog`.
+- Migrations `0006`–`0008` add nullable lifecycle data, deterministically
+  backfill one lineage per legacy job (`lineage_id = job_id`), normalize legacy
+  `disputed` states from assignment facts, validate the result, and install
+  partial uniqueness for one actionable exact slot and one actionable job per
+  lineage. Required backfill values do not depend on audit records.
+- Job creation, publication, application/offer acceptance, agency delegation,
+  completion, and cancellation use the common lineage-first locking order.
+  Cancellation is structured, atomic, idempotent for identical retries,
+  releases the active assignment interval, rejects pending applications, and
+  records one event, one audit row, and non-sensitive in-app notifications.
+- Added explicit `cancel`, `available-actions`, and disclosure-tiered lineage
+  chronology endpoints. Physical job deletion now returns stable 409
+  `job_deletion_replaced_by_cancellation`. Agency/member recovery writes return
+  `agency_recovery_not_supported` before mutation.
+- Host and approved direct-cleaner dashboards use server-derived actions and an
+  accessible BG/EN cancellation dialog. Account deletion blocks active
+  obligations and routes protected history to configured support before logout;
+  accounts with no protected marketplace history retain the existing hard-delete
+  path. Property/admin cascade deletion of lifecycle history is disabled.
+- Verification passed: Django check and migration drift, 31 focused lifecycle /
+  migration / deletion tests, all 406 backend tests (three expected skips), all
+  47 frontend tests, TypeScript, EN/BG 904-key parity, and ESLint with zero
+  errors and five pre-existing warnings. The PostgreSQL-only partial-index suite
+  is present but still requires execution against an available PostgreSQL
+  service; SQLite is not counted as locking evidence. Evidence:
+  `docs/testing/s1_e05_lifecycle_foundation.tdd.md`.
+- S1-E05 is **Partially complete**. Reschedule proposals/incidents,
+  replacements, disputes/optional messaging, privacy de-identification, and
+  agency recovery parity remain separate batches. Agency parity deferral means
+  this epic cannot be marked Done.
 
 ## Latest Work — S1-E09 Calendar and Upload Security (2026-07-20)
 
@@ -231,7 +268,7 @@ ClickUp task: "Host calendar redesign — compact thumbnail-driven day grid" (`8
 
 ## Latest Work — Direct-Offer Conflicts & Host Applications UI (2026-06-03)
 
-- **Robust direct-offer endpoint**: `POST /api/marketplace/jobs/offer-to-cleaner/` (action `offer_to_cleaner` on `CleaningJobViewSet`, `OfferToCleanerSerializer`). The `offer_job_to_cleaner` service find-or-creates the draft `CleaningJob` for the exact `(property, scheduled_start, scheduled_end)` slot, then delegates to `offer_job`. This fixed the prior 400 where the frontend created a duplicate job that collided with the `unique_property_job_time` constraint on a re-offer. `frontend/components/JobOfferModal.tsx` now makes a single POST to this endpoint (removed the old create-then-offer + client-side slot matching).
+- **Robust direct-offer endpoint**: `POST /api/marketplace/jobs/offer-to-cleaner/` (action `offer_to_cleaner` on `CleaningJobViewSet`, `OfferToCleanerSerializer`). The `offer_job_to_cleaner` service reuses an actionable draft for the exact `(property, scheduled_start, scheduled_end)` slot or creates a new lineage/job through the lifecycle service, then delegates to `offer_job`. This avoids collisions with the actionable exact-slot partial constraint. `frontend/components/JobOfferModal.tsx` makes a single POST to this endpoint.
 - **Same property + same-day conflict guards** (`apps/marketplace/services.py`), applied to **both** `offer_job` (host offers) and `submit_application` (cleaner applications), day computed in Europe/Sofia:
   - `_ensure_no_assigned_job_same_property_day` — blocks when the cleaner already holds an active (non-cancelled) `Assignment` for that property on that day.
   - `_ensure_no_pending_offer_same_property_day` — blocks when the cleaner already has a **pending** offer/application for that property on that day (any time slot), preventing two pending offers from both being accepted (double-booking).

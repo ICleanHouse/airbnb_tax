@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.locations.models import City, ServiceZone
 from apps.marketplace.models import CleaningJob
+from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property
 from apps.properties.serializers import PropertySerializer
 
@@ -85,7 +86,7 @@ class PropertyServiceZoneSerializerTests(TestCase):
             service_zone=self.lozenets,
         )
         start = timezone.now() + timedelta(days=1)
-        CleaningJob.objects.create(
+        create_cleaning_job_record(
             property=property_obj,
             host=self.host,
             title="Open clean",

@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Host Cleaners Bulgaria",
-    "description": "Verified turnover cleaners for Bulgarian short-term rental hosts.",
+    "description": "Email-confirmed turnover-cleaning profiles for Bulgarian short-term rental hosts.",
     "applicationName": "Host Cleaner Marketplace"
   },
   "nav": {
@@ -21,13 +21,13 @@
     "welcomeBack": "Welcome back",
     "welcomeBackNamed": "Welcome back, {name}",
     "loggedInCleanerHeading": "Cleaning jobs near you",
-    "loggedInHostHeading": "Find a verified cleaner",
+    "loggedInHostHeading": "Find a marketplace-active cleaner",
     "eyebrow": "Short-term rental turnover cleaning · Bulgaria",
-    "heroHostHeading": "Find a verified cleaner near you",
+    "heroHostHeading": "Find a marketplace-active cleaner near you",
     "heroCleanerHeading": "Find cleaning work near you",
     "heroHostCopy": "Browse trusted cleaners across Bulgaria. Filter by city and district, then open a profile to see ratings and reviews.",
-    "heroCleanerCopy": "See how many hosts are hiring in your area and join the verified cleaner network — free.",
-    "chipVerified": "Verified cleaners",
+    "heroCleanerCopy": "See how many hosts are hiring in your area and join the email-confirmed marketplace — free.",
+    "chipVerified": "Email-confirmed profiles",
     "chipRated": "Rated & reviewed",
     "chipBulgaria": "Across Bulgaria"
   },
@@ -259,7 +259,7 @@
       "filterAriaLabel": "Filter by property",
       "addShort": "Add"
     },
-    "pendingBanner": "Your account is {status}. You can browse, but cannot create properties or jobs until a marketplace admin approves your account.",
+    "pendingBanner": "Your account is {status}. You can browse while the configured contact requirements are completed.",
     "errors": {
       "loadProperties": "Could not load properties.",
       "network": "Network error. Check that the backend is running.",
@@ -329,7 +329,7 @@
       "notApproved": "Jobs are available after your account is approved.",
       "firstProp": {
         "heading": "Add your first property",
-        "body": "Set it up once, then post a turnover cleaning in under a minute — verified cleaners in your area can apply right away.",
+        "body": "Set it up once, then post a turnover cleaning in under a minute — cleaners with active marketplace access in your area can apply right away.",
         "cta": "Add your first property"
       },
       "loading": "Loading…",
@@ -484,8 +484,8 @@
       "allProperties": "All properties",
       "filterAriaLabel": "Filter by property"
     },
-    "pendingBanner": "Your account is {status}. You can complete your profile while marketplace access waits for admin approval.",
-    "verificationBanner": "Your cleaner profile is {status}. Job applications unlock after admin verification.",
+    "pendingBanner": "Your account is {status}. You can complete your profile while the configured contact requirements are completed.",
+    "verificationBanner": "Your cleaner marketplace status is {status}. Job applications unlock when contact-policy eligibility is active.",
     "errors": {
       "loadProfile": "Could not load cleaner profile.",
       "loadJobs": "Could not load jobs.",
@@ -761,17 +761,57 @@
     },
     "userRow": {
       "adminChip": "Admin",
-      "approve": "Approve",
+      "reconcile": "Reconcile contact status",
       "reject": "Reject",
+      "suspend": "Suspend",
       "approved": "Approved",
       "rejected": "Rejected",
+      "suspended": "Suspended",
+      "account": "Account",
+      "email": "Email",
+      "phone": "Phone",
+      "contact": "Contact",
+      "marketplace": "Marketplace",
+      "full": "Full",
+      "cleanerStatus": "Cleaner access",
+      "confirmed": "Confirmed",
+      "incomplete": "Incomplete",
+      "active": "Active",
+      "locked": "Locked",
+      "evidenceExcluded": "Excluded from genuine evidence",
+      "latestDecision": "Latest: {action} by {actor} · {timestamp}",
+      "history": "Review history",
       "busy": "…"
+    },
+    "decisionDialog": {
+      "rejectTitle": "Reject pending account",
+      "suspendTitle": "Suspend marketplace access",
+      "body": "Apply this decision to {email}. Existing safe history is preserved.",
+      "reasonLabel": "Neutral reason",
+      "noteLabel": "Internal admin note (optional)",
+      "notePrivacy": "This note is restricted to authorized administrators and is never shown in public or ordinary user responses.",
+      "reasons": {
+        "prerequisite": "Policy prerequisite incomplete",
+        "safety": "Marketplace safety",
+        "policy": "Terms or policy breach",
+        "support": "Operator support"
+      },
+      "cancel": "Cancel",
+      "confirmReject": "Reject account",
+      "confirmSuspend": "Suspend access"
+    },
+    "historyDialog": {
+      "title": "Account review history",
+      "loading": "Loading review history…",
+      "empty": "No verification decisions recorded.",
+      "close": "Close"
     },
     "errors": {
       "loadFailed": "Failed to load accounts.",
       "networkError": "Network error — check the backend is running.",
-      "approveFailed": "Approval failed — please try again.",
-      "rejectFailed": "Rejection failed — please try again."
+      "reconcileFailed": "Reconciliation could not advance this account.",
+      "rejectFailed": "Rejection failed — please try again.",
+      "suspendFailed": "Suspension failed — refresh the account state and try again."
     }
   },
   "common": {
@@ -804,7 +844,7 @@
       "dashboardLink": "Dashboard"
     },
     "head": {
-      "eyebrow": "Verified supply",
+      "eyebrow": "Marketplace-active supply",
       "title": "Browse cleaners"
     }
   },
@@ -827,7 +867,7 @@
     "statusCopy": {
       "approved": {
         "title": "{role} workspace",
-        "body": "Your account is approved. Marketplace tools can now be opened for your role."
+        "body": "Your stored account state permits marketplace tools for your role."
       },
       "rejected": {
         "title": "Account request rejected",
@@ -838,8 +878,8 @@
         "body": "Marketplace access is paused while an admin reviews the account."
       },
       "pending": {
-        "title": "Waiting for admin approval",
-        "body": "You can complete onboarding details while the marketplace team reviews your account."
+        "title": "Contact requirements incomplete",
+        "body": "You can complete onboarding details while the configured contact requirements are completed."
       }
     },
     "roleLabels": {
@@ -856,9 +896,31 @@
       "label": "Next step",
       "openTools": "Open role tools",
       "completeProfile": "Complete profile details",
-      "agencyBody": "Agency profiles can invite cleaners and assign accepted agency work after approval.",
+      "agencyBody": "Agency profiles can invite cleaners and assign accepted agency work after marketplace access becomes active.",
       "defaultBody": "Profile details stay available while marketplace permissions are gated."
     }
+  },
+  "verificationStatus": {
+    "eyebrow": "Contact and access status",
+    "title": "Verification status",
+    "labels": {
+      "email": "Email",
+      "phone": "Phone",
+      "contact": "Contact policy",
+      "account": "Account",
+      "cleanerMarketplace": "Cleaner marketplace",
+      "full": "Full contact verification"
+    },
+    "states": {
+      "confirmed": "Confirmed",
+      "incomplete": "Incomplete",
+      "required": "Required — not confirmed",
+      "planned": "Planned — not currently required",
+      "accessActive": "Marketplace access active",
+      "accessLocked": "Marketplace access locked"
+    },
+    "interimPolicy": "Pilot marketplace access currently uses an interim email contact-confirmation policy. Phone verification is planned and is not currently required.",
+    "disclaimer": "Email confirmation does not mean identity, references, an interview, or a trial job were checked."
   },
   "components": {
     "cookieBanner": {
@@ -1086,7 +1148,7 @@
       "hostsHiring": "Hosts hiring",
       "openJobs": "Open jobs",
       "postedThisWeek": "Posted this week",
-      "ctaText": "{count} verified cleaners already work here. Add your profile and start getting jobs.",
+      "ctaText": "{count} marketplace-active cleaner profiles already work here. Add your profile and start getting jobs.",
       "joinAsCleaner": "Join as a cleaner",
       "defaultCity": "Bulgaria"
     },

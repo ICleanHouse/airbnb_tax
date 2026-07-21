@@ -33,6 +33,7 @@ import {
 import { Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { apiFetch, CurrentUser, type FavouriteCleaner } from "../../lib/api";
+import VerificationStatusSummary from "../../components/VerificationStatusSummary";
 import { formatMoney } from "../../lib/money";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { useRefocusClickGuard } from "../../lib/useRefocusClickGuard";
@@ -1478,6 +1479,7 @@ export default function HostDashboard() {
             ⏳ {t("pendingBanner", { status: me.account_status })}
           </div>
         )}
+        <VerificationStatusSummary user={me} compact />
         {dataError && <p className="form-error" style={{ margin: "16px 24px 0" }}>{dataError}</p>}
 
         {/* ══ APPLICATIONS SECTION ══ */}

@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
@@ -45,6 +46,7 @@ class UserSerializer(serializers.ModelSerializer):
     contact_verified = serializers.BooleanField(source="is_contact_verified", read_only=True)
     fully_verified = serializers.BooleanField(source="is_fully_verified", read_only=True)
     marketplace_eligible = serializers.BooleanField(source="is_marketplace_eligible", read_only=True)
+    phone_verification_required = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -69,6 +71,7 @@ class UserSerializer(serializers.ModelSerializer):
             "contact_verified",
             "fully_verified",
             "marketplace_eligible",
+            "phone_verification_required",
             "password",
         ]
         read_only_fields = [
@@ -84,7 +87,11 @@ class UserSerializer(serializers.ModelSerializer):
             "contact_verified",
             "fully_verified",
             "marketplace_eligible",
+            "phone_verification_required",
         ]
+
+    def get_phone_verification_required(self, _obj):
+        return settings.PHONE_VERIFICATION_REQUIRED
 
     def validate_dashboard_prefs(self, value):
         if not isinstance(value, dict):

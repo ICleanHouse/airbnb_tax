@@ -6,3 +6,4 @@ Only records with status **accepted** define implemented architecture.
 | ADR | Title | Status | Date |
 |---|---|---|---|
 | [0001](0001-turnover-lineage-recovery.md) | Turnover lineage and history-preserving recovery | accepted | 2026-07-20 |
+| [0002](0002-contact-based-verification.md) | Interim contact-based marketplace verification | accepted | 2026-07-21 |

@@ -4,7 +4,7 @@
 |---|---|
 | Status | Active execution plan — Gates A and B in progress |
 | Created | 2026-07-13 |
-| Last updated | 2026-07-20 |
+| Last updated | 2026-07-21 |
 | Scope | Product, engineering, research, operations, and release work required to complete Stage 1 |
 | Decision at exit | Proceed, extend once, pivot, or stop |
 
@@ -14,18 +14,22 @@ storage have been contained, and authoritative cleaner-overlap protection is
 implemented. Calendar URL fetching is disabled for the pilot, and every
 enabled Stage 1 upload path is bounded and validated.
 
-### Current progress snapshot — 2026-07-20
+### Current progress snapshot — 2026-07-21
 
 - **Done:** S1-D04, S1-E01, S1-E03, S1-E04, and S1-E09. Public
   disclosure/media, signup-secret persistence, cleaner schedule overlap, and
   calendar/upload protections are implemented and tested.
-- **Not started:** S1-E02 account approval and cleaner-verification controls.
+- **In progress — policy recorded and maturity audited:** ADR-0002 records the
+  owner-approved contact policy and the S1-E02 maturity matrix identifies the
+  exact built, partial, missing, testing-disabled, and S1-D02-blocked behavior.
+  Public signup still hard-codes approved/verified states until the production
+  batches below replace it with pending-first atomic reconciliation.
 - **Resolved launch blockers:** S1-B01 exact anonymous job/property disclosure,
   S1-B03 sensitive signup-browser persistence, S1-B04 cross-property cleaner
   double-booking, S1-B09 raw/private property-media exposure, and S1-B16
   unrestricted calendar URL fetching.
 - **Gate status:** Gate A and Gate B are in progress. Gates C–F have not started.
-- **Next critical work:** complete S1-E02, finish the Gate A owner decisions,
+- **Next critical work:** audit and complete S1-E02, finish the Gate A owner decisions,
   define and implement S1-E05 recovery workflows, and resolve S1-E10's
   map/geocoding boundary.
 
@@ -101,7 +105,7 @@ If this plan conflicts with one of those documents, the priority order in
 After Stage 1 passes:
 
 > A Sofia host can safely request or post a genuine turnover-cleaning job; only
-> approved users and genuinely verified cleaners can participate; the platform
+> approved users and marketplace-eligible cleaners can participate; the platform
 > prevents overlapping assignments, protects exact property details, preserves
 > job history when something fails, and gives an operator enough information and
 > control to support the job through completion. The business can measure
@@ -161,10 +165,23 @@ Registrations remain a funnel measure, not proof of marketplace value.
 
 The following are not optional Stage 1 design choices:
 
-- New accounts start as **pending**.
-- Email confirmation and account approval are separate.
-- Cleaner verification and account approval are separate.
-- A cleaner must be both approved and verified before marketplace work.
+- New accounts and cleaner profiles are persisted in the safest **pending**
+  states before reconciliation.
+- Email confirmation satisfies the owner-approved interim contact policy while
+  phone is not required. With normal requirements enabled, reconciliation may
+  automatically approve the account and activate cleaner marketplace access.
+- `email_verified`, `phone_verified`, `contact_verified`,
+  `marketplace_eligible`, and `fully_verified` are distinct. Full verification
+  always requires both contact timestamps.
+- An email-confirmed cleaner must never be represented as identity-, reference-,
+  interview-, or trial-job-verified. Use “Email-confirmed marketplace profile”
+  or “Marketplace access active.”
+- A cleaner must be active, approved, and in the stored eligible cleaner state
+  before marketplace work. Environment flags never authorize an endpoint.
+- Approval/cleaner-requirement switches are delivery controls. A disabled
+  requirement marks the user permanently excluded from genuine Stage 1
+  evidence. Production-like use requires a signed, active, guarded rehearsal
+  window and paused genuine intake.
 - A cleaning job can have only one accepted cleaner assignment.
 - Agency delegation cannot silently replace the first assigned member through
   the normal agency API.
@@ -189,17 +206,17 @@ The following are not optional Stage 1 design choices:
 | Anonymous visitor | Public landing, approximate demand, public cleaner profile, lead/waitlist | Understand the offer and begin a safe role-specific journey |
 | Pending user | Role dashboard activation/status surface | Complete onboarding and understand what remains locked |
 | Approved host | Host dashboard | Create properties/jobs, review eligible applicants, assign one cleaner, coordinate, cancel/reschedule through policy, and review |
-| Approved and verified cleaner | Cleaner dashboard | Manage availability, discover eligible work, apply/accept, coordinate, complete, report failure, and review |
+| Approved marketplace-eligible cleaner | Cleaner dashboard | Manage availability, discover eligible work, apply/accept, coordinate, complete, report failure, and review |
 | Controlled agency | Generic status surface for research-only agencies, or a minimum agency workspace for live participation, depending on Gate A | Never receive live work through the generic status surface |
-| Platform admin/operator | Admin and support surfaces | Approve accounts, verify supply, inspect history, support recovery, resolve disputes, suspend access, and measure the pilot |
+| Platform admin/operator | Admin and support surfaces | Reconcile exceptional accounts, reject/suspend access, inspect history, support recovery, resolve disputes, and measure the pilot; manual supply vetting remains S1-D02 |
 | Research participant | External consented research process | Provide evidence without being silently added to marketing or pilot cohorts |
 
 ### Required lifecycle transitions
 
 | Domain | Required Stage 1 transitions |
 |---|---|
-| Account | pending → approved, rejected, or suspended; approved → suspended |
-| Cleaner verification | unverified → verified; verification rejection/suspension representation is a blocking decision in S1-D02 |
+| Account | pending → approved by contact reconciliation, or pending → rejected/suspended; approved → suspended |
+| Cleaner marketplace eligibility | pending → stored eligible state by contact reconciliation; negative outcomes/restoration remain blocked by S1-D02 |
 | Job | draft → open → assigned → completed; open/assigned → cancelled. A linked dispute may exist while work is assigned or after it is completed without replacing the job status |
 | Application | pending → accepted, rejected, or withdrawn |
 | Assignment | created → completed or cancelled; exactly one assignment belongs to one cleaning job |
@@ -282,7 +299,7 @@ dashboard.
 | ID | Blocker | Stage 1 disposition |
 |---|---|---|
 | S1-B01 | Resolved 2026-07-14: anonymous job/property disclosure was replaced by canonical city/zone aggregates | Retain recursive privacy tests and compatibility-alias sunset controls; see [privacy evidence](testing/release_blocking_privacy_fix.tdd.md) |
-| S1-B02 | Public signup creates approved users and verified cleaners | Must return to pending plus separate admin verification |
+| S1-B02 | In progress: ADR-0002 and the pre-code maturity audit are complete; persisted states and broad gates exist, while signup still hard-codes promoted state until S1-E02 implementation lands | Implement pending-first contact reconciliation, protected transitions, guarded shortcuts, honest UI, and PostgreSQL evidence without claiming manual identity/quality review |
 | S1-B03 | Resolved 2026-07-14: signup recovery now persists only a non-sensitive allowlist | Retain storage/telemetry regression tests; see [privacy evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-B04 | Resolved 2026-07-15: concrete cleaners are protected at every implemented assignment-producing transition | Retain PostgreSQL concurrency coverage; see [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-B05 | Assigned cancellation, rescheduling, no-show, dispute, and replacement recovery are not operational | Minimum history-preserving operator-supported workflows required |
@@ -371,7 +388,7 @@ acceptance evidence is linked, not when work merely starts.
 | Gate | Owner | Status | Target date | Evidence/readout |
 |---|---|---|---|---|
 | A — Decisions and policy |  | In progress |  | [S1-D04 disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
-| B — Product and workflow readiness |  | In progress |  | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md); [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md); [S1-E09 evidence](testing/s1_e09_upload_security.tdd.md) |
+| B — Product and workflow readiness |  | In progress |  | [S1-E02 policy](adr/0002-contact-based-verification.md); [S1-E02 maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md); [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md); [S1-E09 evidence](testing/s1_e09_upload_security.tdd.md) |
 | C — Release, support, and verification |  | Not started |  |  |
 | D — M1 research and supply activation |  | Not started |  |  |
 | E — Free Sofia pilot |  | Not started |  |  |
@@ -392,7 +409,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-D04 | Must-have | Stage 1 owner | S1-D01 | Done | 2026-07-14 | [Recorded disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
 | S1-D05 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
 | S1-E01 | Must-have | Engineering owner | S1-D04 | Done | 2026-07-14 | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md) |
-| S1-E02 | Must-have | Engineering owner | S1-D02 | Not started |  |  |
+| S1-E02 | Must-have | Engineering owner | ADR-0002; remaining S1-D02 items | In progress |  | [Owner policy](adr/0002-contact-based-verification.md); [pre-code maturity audit](testing/s1_e02_account_verification_maturity_audit.md); TDD evidence pending |
 | S1-E03 | Must-have | Engineering owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E04 | Must-have | Engineering owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-E05 | Must-have | Repository owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md) |
@@ -489,6 +506,12 @@ linked owner decision. Only then may M1 recruitment begin.
 ### S1-D02 — Define cleaner and agency verification
 
 The exact verification standard is currently an open business decision.
+
+ADR-0002 resolves only the interim contact-access policy: confirmed email may
+activate marketplace access while phone is not required, without claiming any
+identity or quality evidence. The checklist below remains open and continues to
+block broader cleaner and agency vetting, negative outcomes, restoration,
+re-review, and retention.
 
 - [ ] Choose the cleaner evidence required: identity review, interview,
       references, trial job, or a documented combination.
@@ -692,36 +715,82 @@ Acceptance criteria:
   approved-unverified, approved-verified, owner, unrelated host, assigned
   cleaner, controlled agency, and admin access.
 
-### S1-E02 — Restore real account approval and cleaner verification
+### S1-E02 — Implement contact-based verification completion
+
+**Status: In progress.** The owner-approved policy is recorded in
+[ADR-0002](adr/0002-contact-based-verification.md), and the required pre-code
+[maturity audit](testing/s1_e02_account_verification_maturity_audit.md) is
+complete. The capability is partially built but the production transition path
+is still disabled by hard-coded promoted signup state until the implementation
+batches finish.
+
+#### Policy and configuration contract
+
+- Signup persists pending account/profile state first, then one atomic service
+  reconciles from stored timestamps.
+- Confirmed email satisfies interim contact verification while
+  `PHONE_VERIFICATION_REQUIRED=False`. With normal requirements enabled, this
+  automatically approves the account and activates cleaner marketplace access.
+- Email-only confirmation is not identity, reference, interview, or trial-job
+  verification. `fully_verified` means both email and phone timestamps exist.
+- Normal enabled-requirement users are genuine Stage 1 evidence. Any disabled
+  account/cleaner requirement creates a permanent restricted evidence exclusion.
+
+| Variable | Safe default | Meaning |
+|---|---:|---|
+| `ACCOUNT_APPROVAL_REQUIRED` | `True` | Approval must be earned through contact reconciliation; false is a testing/rehearsal shortcut. |
+| `CLEANER_VERIFICATION_REQUIRED` | `True` | Cleaner eligibility must be earned through contact reconciliation; false is a testing/rehearsal shortcut. |
+| `ALLOW_PILOT_VERIFICATION_BYPASS` | `False` | Second guard for a production-like shortcut. Invalid when unused. |
+| `PHONE_VERIFICATION_REQUIRED` | `False` | False applies the email-only interim policy; true waits for both contact timestamps. |
+
+A production-like shortcut (`staging`, `pilot`, `prod`, `production`) also
+requires non-empty owner/reason metadata, timezone-aware active start/end,
+`PILOT_GENUINE_JOB_INTAKE_PAUSED=True`, startup and signup-time validation, and
+a non-sensitive operator warning. Flags never authorize marketplace endpoints
+and never retroactively rewrite existing users.
+
+The complete configuration truth table and rollback semantics are normative in
+ADR-0002.
 
 Required work:
 
-- [ ] Public signup creates a pending user.
-- [ ] Cleaner signup creates an unverified/pending cleaner profile.
-- [ ] Email confirmation grants no marketplace rights.
-- [ ] Keep pending users able to log in and view onboarding status.
-- [ ] Centralize approval, rejection, suspension, verification, verification
-      rejection, and verification suspension in atomic account service
-      functions.
-- [ ] Extend the hardened Django admin or existing admin panel to show the
-      account, role profile, verification checklist, decision, and internal
-      reason. A new custom verification workspace is not required.
-- [ ] Record reviewer, timestamp, outcome, reason category, and audit event.
-- [ ] Notify the user of approval and verification outcomes.
-- [ ] Audit all marketplace write endpoints, connections, offers, and agency
-      invitations for correct approval/verification gates.
-- [ ] Preserve safe historical read access needed for support while denying new
-      marketplace actions.
-- [ ] Update tests that currently expect automatic approval.
+- [x] Record the owner decision and reconcile the Stage 1 source documents.
+- [x] Complete and link the line-referenced implementation maturity audit.
+- [ ] Add the four primary settings and guarded bypass metadata validation.
+- [ ] Add pending-first atomic, row-locked, idempotent initialization and
+      reconciliation.
+- [ ] Add restricted evidence exclusion and notification deduplication data.
+- [ ] Replace `/approve/` with honest admin reconciliation; centralize reject
+      and suspend transitions with expected-state conflict handling.
+- [ ] Protect account/cleaner transition fields from generic PATCH and Django
+      admin editing; add restricted review history.
+- [ ] Harden only the confirmed authorization gaps in connections/messages,
+      private cleaner profiles, favourite creation, agency invitations and
+      delegation.
+- [ ] Extend admin and user status UI with separate email, phone, contact,
+      account, cleaner-marketplace, and full-verification states and BG/EN copy.
+- [ ] Add configuration, transition, authorization, frontend, rollback, and
+      PostgreSQL concurrency evidence.
+- [ ] Document deploy configuration and operator rollback.
 
 Acceptance criteria:
 
-- A newly registered cleaner cannot appear publicly, connect, apply, accept an
-  offer, or receive agency delegation until separately approved and verified.
-- Only a platform admin can change approval or verification state.
-- Every transition is audited and its notification is idempotent.
-- Admin and user dashboards display account and verification state separately in
-  BG/EN.
+- The eight-row ADR truth table passes with a confirmed email and no phone;
+  `fully_verified` remains false in all rows.
+- Production-like unsafe or unused bypass configurations fail fast, and an
+  expired runtime window returns stable 503 without creating a user.
+- Normal email-only signup is automatically reconciled and remains genuine
+  evidence; explicit shortcuts are auditable and excluded.
+- Reconciliation never restores rejected/suspended records, repeated calls are
+  safe, and audit/notification effects occur once per effective transition.
+- Persisted eligibility—not environment flags—protects publication,
+  connections, messages, favourites, applications, offers, assignments,
+  invitations, delegation, property/job creation, and current calendar data.
+- Admin/user BG/EN UI states are honest and never expose internal notes or
+  bypass metadata.
+- Phone OTP, manual evidence vetting, negative cleaner outcomes/restoration,
+  re-review, retention, and agency verification remain explicitly blocked by
+  S1-D02, so S1-E02 stays **In progress**.
 
 ### S1-E03 — Remove sensitive signup persistence
 
@@ -2026,7 +2095,9 @@ Recommended engineering order:
    turnover-lineage model, and the map/geocoder boundary, plus required ADRs.
 2. ✅ Maintain S1-E01 public-data/profile/review and property-media containment
    regression coverage.
-3. Finish S1-E02 account approval and cleaner verification.
+3. ✅ Record ADR-0002 and audit the S1-E02 boundary; now implement the four
+   safe-default variables, pending-first contact reconciliation, protected
+   transitions, evidence exclusion, and honest status UI.
 4. ✅ Remove sensitive signup persistence; retain the allowlist and telemetry
    regression suite.
 5. Repair anonymous conversion and contain agency routing.
@@ -2043,7 +2114,7 @@ Recommended engineering order:
 13. Deploy behind domain/TLS, prove point-in-time restore, and rehearse
     rollback/support.
 14. Start genuine pilot jobs only after the M1 segment/cluster decision plus
-    release and verified-supply gates sign off.
+    release and marketplace-eligible-supply gates sign off.
 
 For implementation:
 

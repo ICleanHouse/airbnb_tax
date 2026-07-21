@@ -126,7 +126,7 @@ AuditLog ──[references]────────► (any entity — polymorph
            ────────►│ pending │
                     │         │
                     └────┬────┘
-                         │
+                         │ contact reconciliation or admin decision
             ┌────────────┼────────────┐
             ▼            ▼            ▼
        ┌──────────┐ ┌──────────┐ ┌──────────┐
@@ -134,16 +134,24 @@ AuditLog ──[references]────────► (any entity — polymorph
        └──────────┘ └──────────┘ └──────────┘
             │                         ▲
             └─────────────────────────┘
-                    (admin action)
+                    (admin suspension)
 ```
 
 **Rules:**
 - `pending` users can log in and view dashboards but cannot post jobs, apply, or accept assignments.
-- `approved` → `suspended` by admin action.
+- Signup persists `pending` first. With normal requirements enabled and
+  `PHONE_VERIFICATION_REQUIRED=False`, stored email confirmation satisfies the
+  interim contact policy and reconciliation advances the account to `approved`.
+- If phone is required, normal reconciliation waits for both contact
+  timestamps. An explicit disabled account requirement is a guarded
+  test/rehearsal shortcut and marks the user as excluded from genuine evidence.
+- `approved` → `suspended` by admin action. `pending` may also be suspended.
 - `rejected` is terminal for marketplace access.
 - A 6-digit email confirmation code is sent before account creation; final signup requires the verified token.
-- Admin email is sent to all `role=admin` or `is_staff=True` users on every `pending` creation.
-- Email confirmation sets `email_verified_at`; admin approval still controls marketplace rights.
+- Admin email is sent to all `role=admin` or `is_staff=True` users on account creation.
+- `email_verified`, `phone_verified`, `contact_verified`,
+  `marketplace_eligible`, and `fully_verified` are distinct. The last always
+  requires both timestamps; email-only access is not identity verification.
 - Public signup is a single React wizard at `/signup`; old signup step URLs redirect back to it.
 - Cleaner signup payloads must include birth date, sex, native language, experience level, work preference, and at least one preferred time slot.
 - Any changed signup field for Cleaner, Host, or Agency must be reflected in database fields, migrations, serializers, frontend payloads, and tests.
@@ -151,14 +159,19 @@ AuditLog ──[references]────────► (any entity — polymorph
 ### 2b. Cleaner Verification Status
 
 ```
-┌────────────┐   admin verifies   ┌──────────┐
-│unverified  │──────────────────►│ verified  │
+┌────────────┐ contact reconcile  ┌──────────┐
+│unverified  │──────────────────►│ eligible │
 └────────────┘                    └──────────┘
 ```
 
 **Rules:**
-- Cleaners must be `verified` AND `approved` before applying for any job.
-- Verification UI in admin panel: **not yet built**.
+- Cleaners must be active, stored `approved`, and in the stored legacy
+  `verified` cleaner state before applying for any job. Under ADR-0002 that
+  state means marketplace eligibility through the interim contact policy, not
+  identity/reference/interview/trial-job review.
+- Only pending-to-eligible reconciliation is defined here. Cleaner rejection,
+  suspension, restoration, evidence review, re-review, and retention remain
+  blocked by S1-D02.
 
 ### 2c. Cleaning Job Lifecycle
 
@@ -315,7 +328,7 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
 / (landing)
   auth: optional
   reads: GET /api/accounts/me/   (to set header link)
-         GET /api/accounts/public-cleaners/   (verified cleaner directory)
+         GET /api/accounts/public-cleaners/   (marketplace-eligible cleaner directory)
          GET /api/marketplace/public-demand/?city=sofia
          GET /api/marketplace/area-stats/?city=sofia
   writes: PATCH /api/accounts/users/{id}/   (authenticated preferred-language slider)

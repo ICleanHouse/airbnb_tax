@@ -1,6 +1,22 @@
 # Current Progress Handoff
 
-Updated: 2026-07-20, S1-E05 lifecycle foundation (Batch 2).
+Updated: 2026-07-21, S1-E02 policy and maturity audit.
+
+## Latest Work — S1-E02 Contact-Based Verification (In progress, 2026-07-21)
+
+- ADR-0002 records the owner-approved interim policy: a confirmed email
+  satisfies contact verification while phone is not required, and normal
+  reconciliation automatically approves the account and activates cleaner
+  marketplace access. This does not claim identity, reference, interview, or
+  trial-job review; full verification requires both contact timestamps.
+- The pre-code maturity audit is linked at
+  `docs/testing/s1_e02_account_verification_maturity_audit.md`. It confirms the
+  feature is partially built but signup currently bypasses its transitions by
+  hard-coding approved/verified states.
+- S1-E02 remains **In progress**. Implementation, migrations, RED/GREEN evidence,
+  UI changes, and PostgreSQL concurrency proof are still required. Phone OTP,
+  manual cleaner evidence, negative cleaner outcomes/restoration, re-review,
+  retention, and agency verification remain S1-D02 blockers.
 
 ## Latest Work — S1-E05 Lifecycle Foundation (Batch 2, 2026-07-20)
 
@@ -108,8 +124,9 @@ Updated: 2026-07-20, S1-E05 lifecycle foundation (Batch 2).
   `/open-job-locations/` route is an identical safe compatibility alias with
   deprecation headers and a 15 October 2026 sunset. The historical per-job map
   sections below are superseded and must not be restored.
-- S1-D04 evaluator disclosure is an explicit server allowlist for approved,
-  verified cleaners and eligible approved agencies. Only a current active
+- S1-D04 evaluator disclosure is an explicit server allowlist for approved
+  cleaners in the stored marketplace-eligible state and eligible approved
+  agencies. Only a current active
   assignment receives the approved operational extension. Completed or other
   retained worker records use the `history` tier, which removes property name,
   address, image, and instructions while retaining evaluator, non-contact host display,
@@ -121,8 +138,8 @@ Updated: 2026-07-20, S1-E05 lifecycle foundation (Batch 2).
   Approved public cleaner profile media remains the public `profile_image`
   API/data value and is not `PropertyImage` raw storage.
 - Accepted connections expose shared work only when the requesting participant
-  is active/approved and, when the requester is the worker, is a verified
-  eligible evaluator. The current non-cancelled-assignment response is no-store
+  is active/approved and, when the requester is the worker, is a
+  marketplace-eligible evaluator. The current non-cancelled-assignment response is no-store
   and contains only property name/city/count and cleaning job ID, property name,
   schedule, status, agreed price, and currency; no address, image, instructions,
   host identity, coordinates, or free text is included.

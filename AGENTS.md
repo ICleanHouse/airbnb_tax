@@ -4,7 +4,8 @@ This file is the lean Codex entrypoint for this repo. `CLAUDE.md` is intentional
 
 ## Project Snapshot
 
-Bulgarian short-term-rental marketplace connecting hosts with verified cleaners and agencies.
+Bulgarian short-term-rental marketplace connecting hosts with
+marketplace-eligible cleaners and agencies.
 
 Stack:
 - Backend: Django / DRF, PostgreSQL or local SQLite, Redis, Celery.
@@ -34,10 +35,18 @@ Instruction priority:
 
 ## Critical Invariants
 
-- Cleaners must be verified and users approved before full marketplace actions.
+- Marketplace authorization uses persisted state: users must be active and
+  approved, and cleaners must also hold the stored eligible cleaner state.
+  Under ADR-0002 that legacy `verified` state currently means contact-policy
+  eligibility, not identity/reference/interview/trial-job verification.
 - A cleaning job can have only one accepted cleaner assignment.
 - Agency member delegation is immutable through the normal agency API after the first member assignment; do not replace the member without an explicit admin/support workflow.
-- Host favourites may be created only for active, approved, verified cleaner accounts that are eligible for the public cleaner directory; do not delete historical favourites automatically when eligibility later changes.
+- Host favourites may be created only for active, approved,
+  marketplace-eligible cleaner accounts in the public cleaner directory; do
+  not delete historical favourites automatically when eligibility later
+  changes.
+- Public wording for an email-only cleaner is “Email-confirmed marketplace
+  profile” or “Marketplace access active,” never “identity-verified cleaner.”
 - Reviews are two-way, post-completion only, and double-blind until both submit or the review window closes.
 - Payments happen outside the platform in v1; do not add payment processing, payouts, wallets, invoices, or platform fees unless explicitly requested.
 - Internal app calendar is the source of truth.

@@ -32,7 +32,12 @@ Future extraction into microservices should be possible without rewriting core b
 
 ### Backend — `backend/apps/`
 
-- `apps.accounts`: users, host profiles, cleaner profiles, agency profiles, agency invitations, agency memberships, cookie consent, signup email-code verification state, and role permissions. New account creation requires a verified signup email token; admin notification tasks are dispatched via Celery after signup.
+- `apps.accounts`: users, host profiles, cleaner profiles, agency profiles,
+  agency invitations, agency memberships, cookie consent, signup email-code
+  verification state, contact-policy reconciliation, restricted pilot evidence
+  exclusions, and role permissions. New account creation requires a verified
+  signup email token, writes pending base states, and reconciles forward from
+  persisted contact timestamps.
 - `apps.properties`: host properties, inert external calendar connection data,
   reservations, and bounded file-only iCal parsing
   (`POST /api/properties/parse-ics/`). There is no calendar URL-fetch route or
@@ -79,7 +84,10 @@ Future extraction into microservices should be possible without rewriting core b
 - `frontend/app/signup/page.tsx`: single-route signup wizard. It handles credentials, Resend 6-digit email-code verification, role selection, cleaner personal details, location/service-area selection, native language, experience, introduction, profile photo, and final account creation without full page reloads between steps. It uses Motion (`motion/react`) for reusable panel transitions. Refresh recovery is 24-hour `sessionStorage` state built from the explicit `version`, `savedAt`, `role`, `citySlug`, `selectedZoneIds`, and `experienceLevel` allowlist; credentials, codes, tokens, identity/profile data, errors, and responses remain memory-only and refresh empty.
 - `frontend/app/signup/confirm-email/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`, `frontend/app/signup/personal-info/page.tsx`, `frontend/app/signup/native-language/page.tsx`, `frontend/app/signup/experience/page.tsx`: lightweight compatibility redirects to `/signup`.
 - `frontend/app/app/page.tsx`: generic authenticated workspace. Automatically redirects hosts to `/host` and admins to `/admin`. For cleaners and agencies shows account status.
-- `frontend/app/admin/page.tsx`: admin account approval panel. Lists all accounts, filters by pending / approved / all. Supports `?filter=pending` URL param to pre-select a tab (used in approval email links). Approve and reject actions call `POST /api/accounts/users/{id}/approve/` and `/reject/`. Accessible to `admin` role only.
+- `frontend/app/admin/page.tsx`: admin verification/review panel. It displays
+  separate email, phone, contact, account, cleaner-marketplace, and full states,
+  and uses reconciliation, reject, and suspend actions. Accessible to `admin`
+  role only; internal notes never enter ordinary user serializers.
 - `frontend/app/host/page.tsx`: host dashboard with two sections toggled in the topbar:
   - **Properties** — lists host properties as cards with job counts. "Add property" modal POSTs to `POST /api/properties/properties/`.
   - **Jobs & Calendar** — custom month calendar grid with coloured status dots per day. "Post a job" modal POSTs to `POST /api/marketplace/jobs/` (saved as Draft). Publish button calls `POST /api/marketplace/jobs/{id}/publish/` to transition Draft → Open. **"Import ICS"** is file-only during the pilot: upload a downloaded Airbnb `.ics` file → review parsed reservations → bulk-create draft cleaning jobs (one per selected checkout date) via repeated `POST /api/marketplace/jobs/`. Calendar-link import is unavailable.
@@ -92,7 +100,8 @@ Future extraction into microservices should be possible without rewriting core b
 
 - `/agency` — agency dashboard (manage members, view jobs).
 - Applications review panel inside the host dashboard (host sees applications per job, accepts one).
-- Cleaner verification flow in the admin panel.
+- Manual cleaner evidence verification (blocked by S1-D02; the interim contact
+  reconciliation status surface is part of S1-E02).
 - Real search connected to the backend cleaner/agency API.
 - Google Calendar sync (backend placeholder exists in `apps/calendars/`).
 
@@ -105,9 +114,11 @@ Responsibilities:
 - User authentication.
 - Property owner, cleaner, agency, and admin roles.
 - Django session-cookie authentication with CSRF protection for the v1 web app.
-- Account approval states: pending, approved, rejected, and suspended.
+- Account approval states: pending, approved, rejected, and suspended. Signup
+  stores pending first; ADR-0002 permits automatic contact reconciliation.
 - Profile data.
-- Cleaner verification status.
+- Cleaner marketplace-eligibility status. The legacy internal value `verified`
+  does not claim identity or quality evidence.
 - Agency profiles, agency invitations, and agency-cleaner memberships.
 - Cookie consent records for essential, analytics, and marketing choices.
 - Permissions and role-based API access.
@@ -120,7 +131,9 @@ Rules:
 - Property owners are stored with the `host` role value and presented in the UI as "Property owner".
 - Cleaners who work for an agency remain separate users with their own cleaner profile and calendar.
 - Agencies invite cleaners into their group; cleaners accept invitations from their own account.
-- Email-code confirmation is implemented for signup. SMS code verification remains planned.
+- Email-code confirmation is implemented for signup and satisfies the interim
+  contact policy while phone is not required. SMS/phone OTP remains planned;
+  full verification requires both email and phone timestamps.
 - Normal signup stays on `/signup`; old signup step routes exist only as redirects.
 - Signup UI fields must map to backend serializer fields and persistent profile fields. When Cleaner, Host, or Agency onboarding changes, update models, migrations, serializer validation, profile serializers, frontend payloads, and tests in the same change.
 
@@ -159,9 +172,11 @@ Responsibilities:
 
 Rules:
 
-- Agencies must be approved before applying for jobs or assigning work.
+- Agencies must be active and approved before invitations, applying for jobs,
+  or assigning work.
 - Agencies can assign work only to active cleaner members.
-- Member cleaners must still have approved accounts and verified cleaner profiles before receiving agency work.
+- Member cleaners must still have active approved accounts and the stored
+  marketplace-eligible cleaner state before receiving agency work.
 - Once an accepted agency assignment is delegated to a member cleaner, the normal agency API cannot replace that member. The delegated cleaner owns calendar and operational responsibility, so reassignment needs a separate explicit admin/support workflow with reason and notification semantics.
 
 ### Marketplace Jobs
@@ -227,7 +242,9 @@ Responsibilities:
 
 Rules:
 
-- New favourites can target only public marketplace-eligible cleaners: role `cleaner`, active user, approved account, existing cleaner profile, and verified cleaner status.
+- New favourites can target only public marketplace-eligible cleaners: role
+  `cleaner`, active user, approved account, existing cleaner profile, and the
+  stored eligible cleaner status.
 - Hosts cannot favourite pending, rejected, suspended, inactive, unverified, missing-profile, host, agency, or admin targets.
 - Historical favourites are retained if the cleaner later becomes unavailable. They remain visible to the owning host through the existing safe favourite fields and are not automatically deleted.
 
@@ -273,7 +290,9 @@ Implemented notification triggers:
 
 - **Signup email-code request** → `send_signup_email_code` Celery task sends a 6-digit code through Resend only. The server stores only a hash of the code.
 - Signup email HTML is rendered from `backend/apps/notifications/templates/notifications/signup_code_email.html`.
-- **New account signup** → `send_admin_new_account_email` Celery task sends an email to all `role=admin` or `is_staff=True` users with a direct link to the admin approval panel (`FRONTEND_URL/admin?filter=pending`).
+- **New account signup** → contact reconciliation records effective transitions;
+  admin notification remains an operational alert rather than a requirement
+  for normal email-only approval.
 
 Planned notification triggers:
 
@@ -300,7 +319,8 @@ Reviews should only be created for completed jobs by parties involved in that jo
 
 Responsibilities:
 
-- Cleaner verification.
+- Account exception/reconciliation review and suspension. Manual cleaner
+  evidence verification remains blocked by S1-D02.
 - Review moderation.
 - Dispute inspection.
 - Job and application visibility.
@@ -349,12 +369,13 @@ REST APIs through Django REST Framework.
 | `GET /api/accounts/me/` | Current authenticated user |
 | `GET/POST /api/accounts/cookie-consent/` | Cookie consent record |
 | `GET /api/accounts/users/` | Admin: list all users |
-| `POST /api/accounts/users/{id}/approve/` | Admin: approve account |
-| `POST /api/accounts/users/{id}/reject/` | Admin: reject account |
-| `POST /api/accounts/users/{id}/suspend/` | Admin: suspend account |
+| `POST /api/accounts/users/{id}/reconcile-verification/` | Admin: re-run contact-policy reconciliation; returns `changed` or a stable prerequisite conflict |
+| `POST /api/accounts/users/{id}/reject/` | Admin: reject a pending account using expected state and structured reason |
+| `POST /api/accounts/users/{id}/suspend/` | Admin: suspend a pending/approved account using expected state and structured reason |
+| `GET /api/accounts/users/{id}/review-history/` | Admin: restricted account transition history |
 | `GET/POST /api/accounts/hosts/` | Host profiles |
 | `GET/POST /api/accounts/cleaners/` | Cleaner profiles |
-| `GET /api/accounts/public-cleaners/` | Public verified-cleaner directory. Safe fields only; supports `city`, `service_area`, `min_rating`, and `q` filters. |
+| `GET /api/accounts/public-cleaners/` | Public marketplace-eligible cleaner directory. Safe fields only; supports `city`, `service_area`, `min_rating`, and `q` filters. |
 | `GET /api/accounts/public-cleaners/{id}/` | Public cleaner detail with dedicated public reviews; no job/reviewer/reviewee IDs or private issues. |
 | `GET/POST /api/accounts/agencies/` | Agency profiles |
 | `POST /api/accounts/agencies/{id}/invite-cleaner/` | Agency: invite a cleaner |

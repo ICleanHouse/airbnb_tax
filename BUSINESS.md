@@ -6,7 +6,7 @@ See `CURRENT_PROGRESS.md` for the current deployment and signup-flow resume poin
 
 ## Business Concept
 
-The product is a Bulgarian-market marketplace that connects short-term rental hosts with verified cleaners and cleaning agencies.
+The product is a Bulgarian-market marketplace that connects short-term rental hosts with cleaners and cleaning agencies whose marketplace access is controlled by the platform.
 
 The core idea is simple: hosts need reliable turnover cleaning around guest reservations, and cleaners need a clear way to find available work, manage their calendar, and build reputation. The app should reduce coordination through shared calendars, job posting, cleaner applications, assignment tracking, and two-way feedback.
 
@@ -39,7 +39,7 @@ Cleaner segments:
 
 - Individual cleaners who want recurring short-term rental cleaning jobs.
 - Cleaning agencies that can cover several properties, cities, or higher-volume host accounts.
-- Existing trusted cleaners who can join the platform as verified supply.
+- Existing trusted cleaners who can join the platform as marketplace-eligible supply.
 
 Agency segment:
 
@@ -50,8 +50,10 @@ Agency segment:
 
 Admin segment:
 
-- Internal operators who approve cleaners, inspect marketplace activity, handle disputes, moderate reviews, and support users.
-- Internal operators also approve or reject new user accounts before full marketplace rights are enabled.
+- Internal operators reconcile exceptional accounts, reject pending accounts,
+  suspend access, inspect marketplace activity, handle disputes, moderate
+  reviews, and support users. Manual cleaner evidence review remains undefined
+  under S1-D02.
 
 ## Core Problems
 
@@ -61,7 +63,8 @@ Hosts need:
 - Backup options when their regular cleaner is unavailable.
 - Clear records of who applied, who was assigned, and what happened.
 - Shared calendar coordination around check-in and check-out times.
-- Confidence that cleaners are verified and reviewed.
+- Confidence that cleaners have active marketplace access and visible reviews,
+  without overstating the evidence checked.
 
 Cleaners and agencies need:
 
@@ -83,7 +86,7 @@ The platform needs:
 For hosts:
 
 - Post one cleaning or a monthly cleaning batch.
-- Let verified cleaners and agencies apply.
+- Let marketplace-eligible cleaners and agencies apply.
 - Share calendar context without manually duplicating every event.
 - Track assignments and completed work.
 - Build a trusted network through reviews and repeat usage.
@@ -115,7 +118,7 @@ The MVP marketplace flow should remain:
 1. Host creates a property.
 2. Host connects or imports calendar data where relevant.
 3. Host posts a single cleaning job or a monthly batch.
-4. Approved and verified cleaners, or approved agencies, apply.
+4. Active marketplace-eligible cleaners, or approved agencies, apply.
 5. Host accepts one cleaner or agency for the job.
 6. If an agency is accepted, the agency assigns the work to an active member cleaner.
 7. Both sides coordinate and complete the cleaning.
@@ -123,9 +126,13 @@ The MVP marketplace flow should remain:
 
 Business rules to preserve:
 
-- New signups start as pending accounts and can log in only for onboarding until admin approval.
+- New signups are persisted as pending first. Under the interim contact policy,
+  confirmed email automatically reconciles the account to approved when phone
+  is not required; pending users can log in for onboarding while requirements
+  remain incomplete.
 - Approved property owners can post jobs and batches.
-- Cleaners must be verified before applying.
+- Cleaners must have an active approved account and the persisted
+  marketplace-eligible cleaner state before applying.
 - Agencies must be approved before applying or assigning work.
 - Hosts choose who to assign.
 - A job can have only one accepted cleaner assignment.
@@ -135,11 +142,14 @@ Business rules to preserve:
 
 ## Trust and Quality
 
-The main trust promise is verified and reviewed supply.
+The current trust promise is contact-confirmed marketplace access plus visible
+reviews. Email confirmation alone is not identity, reference, interview, or
+trial-job verification.
 
 Trust should come from:
 
-- Manual account, cleaner, and agency approval before marketplace access.
+- Automatic contact-policy reconciliation for accounts and cleaners, with
+  manual rejection/suspension support and no claim of manual evidence review.
 - Agency membership invitations that the cleaner accepts from their own account.
 - Two-way reviews after completed jobs.
 - Admin-visible application and assignment history.
@@ -147,10 +157,19 @@ Trust should come from:
 - Dispute visibility for internal operators.
 - Clear cleaner profiles and service areas.
 
-Signup and verification direction:
+Signup and verification direction (owner-approved interim policy; see
+`docs/adr/0002-contact-based-verification.md`):
 
-- V1 uses email confirmation and admin approval after signup. Pending users can log in, complete onboarding, and wait for approval.
+- V1 persists a safe pending state, then confirmed email automatically approves
+  the account and activates cleaner marketplace access while
+  `PHONE_VERIFICATION_REQUIRED=False` and normal requirements are enabled.
+  Phone-required users remain pending until a phone timestamp exists.
 - Email confirmation is implemented through a 6-digit Resend code before account creation. SMS code verification remains a future step.
+- `fully_verified` always requires both email and phone timestamps. Public copy
+  uses “Email-confirmed marketplace profile” or “Marketplace access active,”
+  never “identity-verified cleaner.”
+- Explicit account/cleaner requirement bypasses are test/rehearsal controls;
+  their records are excluded from genuine Stage 1 evidence.
 - Signup is now designed as a single React wizard at `/signup`, not a full page reload between onboarding steps. Continue and Back should feel like one guided flow with Motion-based transitions.
 - Progress tracking starts after email confirmation, at account type selection.
 - Cleaner signup currently collects birth date for 18+ validation, sex, native language, cleaning experience, introduction, and an optional profile photo.
@@ -170,14 +189,15 @@ Avoid positioning the product mainly as the cheapest cleaning option. For this m
 
 ## Launch Strategy
 
-The product should support all Bulgaria from the beginning, but growth should focus on areas where there is enough host demand and verified cleaner supply.
+The product should support all Bulgaria from the beginning, but growth should focus on areas where there is enough host demand and marketplace-eligible cleaner supply.
 
 Suggested launch approach:
 
 - Start with known hosts and cleaners from existing real operations.
-- Add verified cleaners and agencies in cities or regions where host demand exists.
+- Add marketplace-eligible cleaners and agencies in cities or regions where host demand exists.
 - Encourage hosts to import calendars and post real monthly cleaning demand.
-- Use manual admin review early to understand quality issues before automating too much.
+- Use admin review for exceptions, suspension, and research while S1-D02 defines
+  any future manual quality-evidence process.
 - Track where jobs are posted but not filled, then recruit supply in those areas.
 
 Current public-site direction:
@@ -223,7 +243,8 @@ Secondary signals:
 - Host versus cleaner audience selection.
 - Cities selected in the lead/search form.
 - Month/timeframe selected in the lead/search form.
-- Number of verified cleaners and agencies.
+- Number of marketplace-eligible cleaners and agencies, separately from
+  email-, phone-, contact-, and fully-verified counts.
 - Number of agency invitations sent, accepted, declined, or expired.
 - Number of active agency-cleaner memberships.
 - Cookie consent choices and analytics opt-in rate.
@@ -245,7 +266,7 @@ The business should be careful not to overvalue registrations if users do not po
 
 Marketplace liquidity:
 
-- Can enough verified cleaners and agencies be available in the same areas where hosts post jobs?
+- Can enough marketplace-eligible cleaners and agencies be available in the same areas where hosts post jobs?
 - Should the business prioritize cities with real demand instead of broad national marketing?
 
 Trust and quality:
@@ -286,9 +307,10 @@ Operations:
 - Public first page should be a landing page for the service, not a logged-in dashboard.
 - Visual direction should be marketplace-friendly and inspired by Airbnb-style clarity, without copying Airbnb branding.
 - The first target host segment is small and mid-sized hosts with roughly 1-20 properties.
-- Cleaner supply should include verified individual cleaners and agency partnerships.
+- Cleaner supply should include marketplace-eligible individual cleaners and agency partnerships.
 - Agencies have their own user accounts; cleaners who work for agencies remain separate cleaner users with their own calendars.
-- New users start pending and need admin approval before posting jobs, applying, or assigning agency work.
+- New users start pending in storage and advance through the configured contact
+  reconciliation policy; manual-only approval is not the interim default.
 - V1 authentication uses Django session cookies with CSRF protection.
 - New users confirm email through a 6-digit Resend code before account creation.
 - Signup should behave like a React wizard at `/signup`; old step URLs are compatibility redirects, not the normal flow.
@@ -296,7 +318,8 @@ Operations:
 - Signup questions for Cleaner, Host, and Agency must be backed by database fields, migrations, serializers, and tests when the flow is finalized or expanded.
 - Cookie consent is consent-first: only essential cookies are enabled before opt-in.
 - The marketplace should be available across Bulgaria while building practical local supply clusters.
-- The main trust promise is verified and reviewed cleaners/agencies.
+- The current trust promise is honestly labelled contact-confirmed marketplace
+  access plus reviews; broader cleaner/agency verification remains S1-D02.
 - The primary MVP business success signal is registered users.
 - Secondary metrics should still track job posting, assignment, completion, repeat usage, and reviews.
 - Monetization is undecided.

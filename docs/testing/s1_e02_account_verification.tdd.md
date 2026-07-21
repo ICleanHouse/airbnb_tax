@@ -111,18 +111,18 @@ the same atomic reconciliation used by the code-confirmation path.
 |---|---|
 | `python manage.py check` | Passed; zero issues. |
 | `python manage.py makemigrations --check --dry-run` | Passed; no changes detected. |
-| Focused S1-E02 backend tests | 35 passed; 5 PostgreSQL-only tests skipped on SQLite. |
-| Widened accounts/connections/favourites/status-gate tests | 112 passed; 5 PostgreSQL-only tests skipped on SQLite. |
+| Focused S1-E02 backend tests | 35 tests, OK; 5 PostgreSQL-only tests skipped on SQLite. |
+| Widened accounts/connections/favourites/status-gate tests | 112 tests, OK; 5 PostgreSQL-only tests skipped on SQLite. |
 | Frontend focused S1-E02 tests | 6 passed. |
 | Frontend full suite | 53 passed across 12 files. JSDOM emitted two non-failing navigation-not-implemented notices. |
 | Frontend typecheck | Passed. |
 | Frontend lint | Passed with zero errors and four pre-existing hook-dependency warnings outside the new S1-E02 admin code. |
-| Accounts app | 85 passed; 5 PostgreSQL-only tests skipped on SQLite. |
-| Marketplace app | 181 passed; 3 existing PostgreSQL-only tests skipped on SQLite. |
-| Connections app | 13 passed. |
-| Notifications app | 17 passed. |
-| Core app | 11 passed. |
-| Complete backend suite | 444 passed; 8 PostgreSQL-only skips on the SQLite run. |
+| Accounts app | 85 tests, OK; 5 PostgreSQL-only tests skipped on SQLite. |
+| Marketplace app | 181 tests, OK; 3 existing PostgreSQL-only tests skipped on SQLite. |
+| Connections app | 13 tests, OK. |
+| Notifications app | 17 tests, OK. |
+| Core app | 11 tests, OK. |
+| Complete backend suite | 444 tests, OK; 8 PostgreSQL-only skips on the SQLite run. |
 | PostgreSQL-only S1-E02 concurrency target | 5/5 passed against PostgreSQL 16 in the repository Compose network. The current backend image was rebuilt first because the cached image lacked a declared dependency. |
 
 The PostgreSQL target created and destroyed Django's isolated

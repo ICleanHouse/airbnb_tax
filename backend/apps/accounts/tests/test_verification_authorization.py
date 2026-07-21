@@ -125,7 +125,7 @@ class VerificationAuthorizationTests(TestCase):
         self.client.force_authenticate(self.host)
         response = self.client.get("/api/connections/")
         self.assertEqual(response.status_code, 200)
-        rows = response.data.get("results", response.data)
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
         self.assertEqual(len(rows), 1)
 
     def test_favourite_service_requires_eligible_host(self):

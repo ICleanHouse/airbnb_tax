@@ -4,6 +4,7 @@ import uuid
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login, logout
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Count, Q
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -28,10 +29,21 @@ from apps.accounts.models import (
     SignupEmailVerification,
 )
 from apps.accounts.permissions import IsPlatformAdmin
-from apps.accounts.services import AccountDeletionBlocked, delete_account_permanently
+from apps.accounts.services import (
+    AccountDeletionBlocked,
+    AccountTransitionError,
+    delete_account_permanently,
+    ensure_agency_can_invite,
+    ensure_invitation_can_be_accepted,
+    reconcile_contact_verification,
+    reject_account,
+    suspend_account,
+)
 from apps.accounts.tokens import email_verification_token
 from apps.notifications.tasks import send_admin_new_account_email, send_signup_email_code
 from apps.accounts.serializers import (
+    AccountTransitionSerializer,
+    AdminUserSerializer,
     AgencyInvitationSerializer,
     AgencyInviteSerializer,
     AgencyMembershipSerializer,
@@ -47,6 +59,8 @@ from apps.accounts.serializers import (
     SignupSerializer,
     UserSerializer,
 )
+from apps.core.models import AuditLog
+from config.verification import validate_runtime_verification_configuration
 
 
 User = get_user_model()
@@ -58,7 +72,21 @@ class SignupView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        serializer = SignupSerializer(data=request.data)
+        try:
+            validate_runtime_verification_configuration()
+        except ImproperlyConfigured:
+            logger.error(
+                "Signup blocked by verification configuration",
+                extra={"event": "verification.bypass_unavailable"},
+            )
+            return Response(
+                {
+                    "code": "verification_configuration_unavailable",
+                    "detail": "Account creation is temporarily unavailable.",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        serializer = SignupSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         login(request, user)
@@ -266,11 +294,32 @@ class CookieConsentView(APIView):
 
 class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
+    protected_transition_fields = {
+        "role",
+        "account_status",
+        "approved_at",
+        "approved_by",
+        "email_verified_at",
+        "phone_verified_at",
+        "is_staff",
+        "is_superuser",
+    }
+
+    def get_serializer_class(self):
+        user = self.request.user
+        if getattr(user, "is_authenticated", False) and user.is_platform_admin:
+            return AdminUserSerializer
+        return UserSerializer
 
     def get_permissions(self):
         if self.action == "create":
             return [IsPlatformAdmin()]
-        if self.action in {"approve", "reject", "suspend"}:
+        if self.action in {
+            "reconcile_verification",
+            "reject",
+            "suspend",
+            "review_history",
+        }:
             return [IsPlatformAdmin()]
         return [permissions.IsAuthenticated()]
 
@@ -280,51 +329,119 @@ class UserViewSet(viewsets.ModelViewSet):
             return User.objects.all().order_by("id")
         return User.objects.filter(id=user.id)
 
-    def perform_update(self, serializer):
-        if not self.request.user.is_platform_admin:
-            protected_fields = {"role", "account_status", "is_staff", "is_superuser"}
-            if protected_fields.intersection(self.request.data):
-                raise PermissionDenied("Only admins can change account role or approval state.")
-        serializer.save()
+    def update(self, request, *args, **kwargs):
+        if self.protected_transition_fields.intersection(request.data):
+            return Response(
+                {
+                    "code": "protected_transition_field",
+                    "detail": "Verification and account transitions require a dedicated action.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
 
-    @action(detail=True, methods=["post"])
-    def approve(self, request, pk=None):
+    @action(detail=True, methods=["post"], url_path="reconcile-verification")
+    def reconcile_verification(self, request, pk=None):
         user = self.get_object()
-        user.account_status = User.AccountStatus.APPROVED
-        user.approved_at = timezone.now()
-        user.approved_by = request.user
-        user.save(update_fields=["account_status", "approved_at", "approved_by"])
-        write_audit_log(
-            actor=request.user,
-            action="account.approved",
-            entity_type="User",
-            entity_id=user.id,
-            request=request,
-            metadata={"role": user.role},
+        try:
+            result = reconcile_contact_verification(
+                user_id=user.id,
+                trigger="admin_reconciliation",
+                actor=request.user,
+                request=request,
+            )
+        except ImproperlyConfigured:
+            return Response(
+                {
+                    "code": "verification_configuration_unavailable",
+                    "detail": "Verification configuration is unavailable.",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        still_incomplete = (
+            result.user.account_status != User.AccountStatus.APPROVED
+            or (
+                result.cleaner_profile is not None
+                and result.cleaner_profile.verification_status
+                != CleanerProfile.VerificationStatus.VERIFIED
+            )
         )
-        return Response(self.get_serializer(user).data)
+        if not result.changed and still_incomplete:
+            return Response(
+                {
+                    "code": "verification_prerequisites_incomplete",
+                    "detail": "Stored contact-verification prerequisites are incomplete.",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(
+            {
+                "user": AdminUserSerializer(
+                    result.user, context={"request": request}
+                ).data,
+                "changed": result.changed,
+            }
+        )
+
+    def _transition_response(self, request, service, user_id):
+        serializer = AccountTransitionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            result = service(
+                user_id=user_id,
+                actor=request.user,
+                request=request,
+                **serializer.validated_data,
+            )
+        except AccountTransitionError as error:
+            return Response(
+                {"code": error.code, "detail": error.detail, "fields": error.fields},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(
+            {
+                "user": AdminUserSerializer(
+                    result.user, context={"request": request}
+                ).data,
+                "changed": result.changed,
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         user = self.get_object()
-        user.account_status = User.AccountStatus.REJECTED
-        user.save(update_fields=["account_status"])
-        write_audit_log(
-            actor=request.user,
-            action="account.rejected",
-            entity_type="User",
-            entity_id=user.id,
-            request=request,
-            metadata={"role": user.role},
-        )
-        return Response(self.get_serializer(user).data)
+        return self._transition_response(request, reject_account, user.id)
 
     @action(detail=True, methods=["post"])
     def suspend(self, request, pk=None):
         user = self.get_object()
-        user.account_status = User.AccountStatus.SUSPENDED
-        user.save(update_fields=["account_status"])
-        return Response(self.get_serializer(user).data)
+        return self._transition_response(request, suspend_account, user.id)
+
+    @action(detail=True, methods=["get"], url_path="review-history")
+    def review_history(self, request, pk=None):
+        user = self.get_object()
+        entity_filters = Q(entity_type="User", entity_id=str(user.id))
+        profile = getattr(user, "cleaner_profile", None)
+        if profile is not None:
+            entity_filters |= Q(
+                entity_type="CleanerProfile", entity_id=str(profile.id)
+            )
+        history = AuditLog.objects.filter(entity_filters).select_related("actor")
+        return Response(
+            [
+                {
+                    "action": item.action,
+                    "actor": item.actor.get_username() if item.actor else "system",
+                    "timestamp": item.created_at,
+                    "outcome": item.metadata.get("outcome", ""),
+                    "reason_category": item.metadata.get("reason_category", ""),
+                    "internal_note": item.metadata.get("internal_note", ""),
+                    "previous_status": item.metadata.get("previous_status", ""),
+                    "next_status": item.metadata.get("next_status", ""),
+                }
+                for item in history
+            ]
+        )
 
 
 class HostProfileViewSet(viewsets.ModelViewSet):
@@ -343,18 +460,29 @@ class CleanerProfileViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         queryset = CleanerProfile.objects.select_related("user").all().order_by("id")
-        if user.is_platform_admin or user.is_host:
+        if user.is_platform_admin:
             return queryset
-        if user.is_agency:
+        if user.is_agency and user.is_active and user.is_approved:
             return queryset.filter(user__agency_memberships__agency__user=user, user__agency_memberships__status=AgencyMembership.Status.ACTIVE)
         return queryset.filter(user=user)
 
+    def update(self, request, *args, **kwargs):
+        if "verification_status" in request.data:
+            return Response(
+                {
+                    "code": "protected_transition_field",
+                    "detail": "Cleaner marketplace status requires reconciliation.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
     def perform_update(self, serializer):
-        if not self.request.user.is_platform_admin:
-            if serializer.instance.user_id != self.request.user.id:
-                raise PermissionDenied("You can update only your own cleaner profile.")
-            if "verification_status" in self.request.data:
-                raise PermissionDenied("Only admins can change cleaner verification status.")
+        if (
+            not self.request.user.is_platform_admin
+            and serializer.instance.user_id != self.request.user.id
+        ):
+            raise PermissionDenied("You can update only your own cleaner profile.")
         serializer.save()
 
 
@@ -449,6 +577,10 @@ class AgencyProfileViewSet(viewsets.ModelViewSet):
         agency = self.get_object()
         if not (request.user.is_platform_admin or agency.user_id == request.user.id):
             raise PermissionDenied("You can invite cleaners only for your own agency.")
+        try:
+            ensure_agency_can_invite(agency_user=agency.user)
+        except AccountTransitionError as error:
+            raise PermissionDenied(detail=error.detail, code=error.code) from error
 
         serializer = AgencyInviteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -503,6 +635,13 @@ class AgencyInvitationViewSet(viewsets.ReadOnlyModelViewSet):
         user = request.user
         if not user.is_cleaner:
             raise PermissionDenied("Only cleaner accounts can accept agency invitations.")
+        try:
+            ensure_invitation_can_be_accepted(
+                agency_user=invitation.agency.user,
+                cleaner=user,
+            )
+        except AccountTransitionError as error:
+            raise PermissionDenied(detail=error.detail, code=error.code) from error
         if invitation.status != AgencyInvitation.Status.PENDING:
             raise ValidationError("Only pending invitations can be accepted.")
         if invitation.is_expired:

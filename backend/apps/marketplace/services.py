@@ -71,6 +71,11 @@ def ensure_favourite_target_eligible(cleaner: User) -> None:
 
 @transaction.atomic
 def create_favourite_cleaner(*, host: User, cleaner: User) -> tuple[FavouriteCleaner, bool]:
+    host = User.objects.select_related("cleaner_profile").get(id=host.id)
+    if not host.is_host or not host.is_marketplace_eligible:
+        raise MarketplaceError(
+            "Only active approved hosts can save favourite cleaners."
+        )
     ensure_favourite_target_eligible(cleaner)
     return FavouriteCleaner.objects.get_or_create(host=host, cleaner=cleaner)
 
@@ -1215,7 +1220,7 @@ def assign_member_to_assignment(
     else:
         if agency_user.id != assignment.cleaner_id or not agency_user.is_agency:
             raise MarketplaceError("Only the assigned agency can delegate this cleaning.")
-        if not agency_user.is_approved:
+        if not agency_user.is_active or not agency_user.is_approved:
             raise MarketplaceError("Agency account must be approved before assigning work.")
         agency_profile = agency_user.agency_profile
 

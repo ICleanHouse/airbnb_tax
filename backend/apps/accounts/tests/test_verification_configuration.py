@@ -82,10 +82,10 @@ class VerificationConfigurationTests(SimpleTestCase):
         invalid_cases = (
             ("bypass_owner", "", "owner"),
             ("bypass_reason", "", "reason"),
-            ("bypass_start_at", "not-a-date", "start"),
+            ("bypass_start_at", "not-a-date", "PILOT_VERIFICATION_BYPASS_START_AT"),
             ("bypass_start_at", "2026-07-21T08:00:00", "timezone-aware"),
-            ("bypass_end_at", (now - timedelta(hours=2)).isoformat(), "end"),
-            ("genuine_job_intake_paused", False, "paused"),
+            ("bypass_end_at", (now - timedelta(hours=2)).isoformat(), "PILOT_VERIFICATION_BYPASS_END_AT"),
+            ("genuine_job_intake_paused", False, "PILOT_GENUINE_JOB_INTAKE_PAUSED"),
         )
         for key, value, message in invalid_cases:
             with self.subTest(key=key):

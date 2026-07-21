@@ -22,10 +22,16 @@ class Notification(TimeStampedModel):
     metadata = models.JSONField(default=dict, blank=True)
     read_at = models.DateTimeField(null=True, blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    deduplication_key = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        unique=True,
+        editable=False,
+    )
 
     class Meta:
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
         return f"{self.user} - {self.title}"
-

@@ -8,6 +8,7 @@ from apps.core.services import write_audit_log
 from apps.notifications.services import create_notification
 
 from apps.connections.models import Connection, Message
+from apps.accounts.models import User
 
 
 class ConnectionError(ValueError):
@@ -27,6 +28,24 @@ def _valid_pairing(a, b) -> bool:
     return (a.is_host and _is_worker(b)) or (_is_worker(a) and b.is_host)
 
 
+def _fresh_participants(*users):
+    by_id = {
+        user.id: user
+        for user in User.objects.select_related("cleaner_profile").filter(
+            id__in=[candidate.id for candidate in users]
+        )
+    }
+    return tuple(by_id[user.id] for user in users)
+
+
+def _ensure_marketplace_eligible(*users) -> None:
+    for user in users:
+        if not user.is_marketplace_eligible:
+            raise ConnectionError(
+                "Both participants must have active marketplace access."
+            )
+
+
 def find_pair(u1, u2):
     return Connection.objects.filter(
         Q(requester=u1, addressee=u2) | Q(requester=u2, addressee=u1)
@@ -35,10 +54,12 @@ def find_pair(u1, u2):
 
 @transaction.atomic
 def request_connection(*, requester, addressee, request=None) -> Connection:
+    requester, addressee = _fresh_participants(requester, addressee)
     if requester.id == addressee.id:
         raise ConnectionError("You cannot connect with yourself.")
     if not _valid_pairing(requester, addressee):
         raise ConnectionError("Connections are between a host and a cleaner.")
+    _ensure_marketplace_eligible(requester, addressee)
 
     existing = find_pair(requester, addressee)
     if existing is not None:
@@ -80,11 +101,17 @@ def request_connection(*, requester, addressee, request=None) -> Connection:
 
 @transaction.atomic
 def accept_connection(*, connection, user, request=None) -> Connection:
-    connection = Connection.objects.select_for_update().get(id=connection.id)
+    connection = Connection.objects.select_for_update().select_related(
+        "requester", "addressee"
+    ).get(id=connection.id)
     if connection.addressee_id != user.id:
         raise ConnectionError("Only the recipient can accept this request.")
     if connection.status != Connection.Status.PENDING:
         raise ConnectionError("Only pending requests can be accepted.")
+    requester, addressee = _fresh_participants(
+        connection.requester, connection.addressee
+    )
+    _ensure_marketplace_eligible(requester, addressee)
 
     connection.status = Connection.Status.ACCEPTED
     connection.save(update_fields=["status", "updated_at"])
@@ -146,11 +173,17 @@ def remove_connection(*, connection, user, request=None) -> Connection:
 
 @transaction.atomic
 def send_message(*, connection, sender, body, request=None) -> Message:
-    connection = Connection.objects.select_for_update().get(id=connection.id)
+    connection = Connection.objects.select_for_update().select_related(
+        "requester", "addressee"
+    ).get(id=connection.id)
     if not connection.involves(sender):
         raise ConnectionError("You are not part of this connection.")
     if connection.status != Connection.Status.ACCEPTED:
         raise ConnectionError("You can only message accepted connections.")
+    requester, addressee = _fresh_participants(
+        connection.requester, connection.addressee
+    )
+    _ensure_marketplace_eligible(requester, addressee)
     body = (body or "").strip()
     if not body:
         raise ConnectionError("Message cannot be empty.")

@@ -99,13 +99,17 @@ class AccountStatusPermissionTests(TestCase):
                 self.assertFalse(user.is_staff)
                 self.assertFalse(user.is_superuser)
 
-        approved_at = timezone.now()
-        response = self.client.patch(
+        protected_timestamp_response = self.client.patch(
             f"/api/accounts/users/{user.id}/",
-            {"approved_at": approved_at.isoformat(), "first_name": "Allowed"},
+            {"approved_at": timezone.now().isoformat()},
             format="json",
         )
-
+        self.assertEqual(protected_timestamp_response.status_code, 403)
+        response = self.client.patch(
+            f"/api/accounts/users/{user.id}/",
+            {"first_name": "Allowed"},
+            format="json",
+        )
         self.assertEqual(response.status_code, 200)
         user.refresh_from_db()
         self.assertIsNone(user.approved_at)
@@ -163,7 +167,7 @@ class AccountStatusPermissionTests(TestCase):
         )
 
         self.assertEqual(host_response.status_code, 403)
-        self.assertEqual(other_cleaner_response.status_code, 404)
+        self.assertEqual(other_cleaner_response.status_code, 403)
         cleaner.cleaner_profile.refresh_from_db()
         self.assertEqual(
             cleaner.cleaner_profile.verification_status,
@@ -184,19 +188,39 @@ class AccountStatusPermissionTests(TestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
         cleaner.cleaner_profile.refresh_from_db()
         self.assertEqual(cleaner.cleaner_profile.display_name, "cleaner-profile-owner")
 
-    def test_admin_status_actions_and_cleaner_verification_mutation_path(self):
+    def test_admin_uses_reconciliation_and_structured_account_transitions(self):
         admin = self.create_admin()
         host = self.create_user("status-target", account_status=User.AccountStatus.PENDING)
+        host.email_verified_at = timezone.now()
+        host.save(update_fields=["email_verified_at"])
+        rejected = self.create_user("reject-target", account_status=User.AccountStatus.PENDING)
+        suspended = self.create_user("suspend-target", account_status=User.AccountStatus.APPROVED)
         cleaner = self.create_cleaner("verification-target")
         self.client.force_authenticate(admin)
 
-        approve_response = self.client.post(f"/api/accounts/users/{host.id}/approve/")
-        reject_response = self.client.post(f"/api/accounts/users/{host.id}/reject/")
-        suspend_response = self.client.post(f"/api/accounts/users/{host.id}/suspend/")
+        approve_response = self.client.post(
+            f"/api/accounts/users/{host.id}/reconcile-verification/"
+        )
+        reject_response = self.client.post(
+            f"/api/accounts/users/{rejected.id}/reject/",
+            {
+                "expected_status": "pending",
+                "reason_category": "policy_prerequisite_incomplete",
+            },
+            format="json",
+        )
+        suspend_response = self.client.post(
+            f"/api/accounts/users/{suspended.id}/suspend/",
+            {
+                "expected_status": "approved",
+                "reason_category": "operator_support",
+            },
+            format="json",
+        )
         verify_response = self.client.patch(
             f"/api/accounts/cleaners/{cleaner.cleaner_profile.id}/",
             {"verification_status": CleanerProfile.VerificationStatus.VERIFIED},
@@ -206,13 +230,17 @@ class AccountStatusPermissionTests(TestCase):
         self.assertEqual(approve_response.status_code, 200)
         self.assertEqual(reject_response.status_code, 200)
         self.assertEqual(suspend_response.status_code, 200)
-        self.assertEqual(verify_response.status_code, 200)
+        self.assertEqual(verify_response.status_code, 403)
         host.refresh_from_db()
+        rejected.refresh_from_db()
+        suspended.refresh_from_db()
         cleaner.cleaner_profile.refresh_from_db()
-        self.assertEqual(host.account_status, User.AccountStatus.SUSPENDED)
+        self.assertEqual(host.account_status, User.AccountStatus.APPROVED)
+        self.assertEqual(rejected.account_status, User.AccountStatus.REJECTED)
+        self.assertEqual(suspended.account_status, User.AccountStatus.SUSPENDED)
         self.assertEqual(
             cleaner.cleaner_profile.verification_status,
-            CleanerProfile.VerificationStatus.VERIFIED,
+            CleanerProfile.VerificationStatus.PENDING,
         )
 
     def test_public_cleaner_detail_excludes_private_fields(self):

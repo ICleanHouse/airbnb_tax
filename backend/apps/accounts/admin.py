@@ -1,6 +1,5 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.utils import timezone
 
 from apps.accounts.models import (
     AgencyInvitation,
@@ -9,6 +8,7 @@ from apps.accounts.models import (
     CleanerProfile,
     CookieConsent,
     HostProfile,
+    PilotEvidenceExclusion,
     User,
 )
 
@@ -43,18 +43,13 @@ class AppUserAdmin(UserAdmin):
     )
     list_display = ("username", "email", "role", "account_status", "is_staff", "is_active")
     list_filter = UserAdmin.list_filter + ("role", "account_status")
-    readonly_fields = ("approved_at", "approved_by")
-
-    def save_model(self, request, obj, form, change):
-        if obj.role == User.Role.ADMIN or obj.is_superuser:
-            obj.role = User.Role.ADMIN
-            obj.account_status = User.AccountStatus.APPROVED
-            obj.is_staff = True
-            obj.is_superuser = True
-        if obj.account_status == User.AccountStatus.APPROVED and obj.approved_at is None:
-            obj.approved_at = timezone.now()
-            obj.approved_by = request.user
-        super().save_model(request, obj, form, change)
+    readonly_fields = UserAdmin.readonly_fields + (
+        "account_status",
+        "approved_at",
+        "approved_by",
+        "email_verified_at",
+        "phone_verified_at",
+    )
 
 
 @admin.register(HostProfile)
@@ -76,6 +71,30 @@ class CleanerProfileAdmin(admin.ModelAdmin):
     )
     list_filter = ("kind", "verification_status", "city")
     search_fields = ("user__username", "display_name", "city", "service_areas")
+    readonly_fields = ("verification_status",)
+
+
+@admin.register(PilotEvidenceExclusion)
+class PilotEvidenceExclusionAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "excluded_at",
+        "reason_category",
+        "account_approval_required",
+        "cleaner_verification_required",
+        "phone_verification_required",
+    )
+    readonly_fields = list_display
+    search_fields = ("user__username", "user__email")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(AgencyProfile)

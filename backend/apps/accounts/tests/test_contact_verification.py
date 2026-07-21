@@ -1,5 +1,7 @@
+from datetime import timedelta
 from unittest import mock
 
+from django.db import transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -11,6 +13,8 @@ from apps.accounts.services import (
 )
 from apps.core.models import AuditLog
 from apps.notifications.models import Notification
+from apps.accounts.models import SignupEmailVerification
+from apps.accounts.services import VerificationReconciliationResult
 
 
 BASE_POLICY = {
@@ -64,11 +68,10 @@ class ContactVerificationTruthTableTests(TestCase):
                 PHONE_VERIFICATION_REQUIRED=phone_required,
             ):
                 user = self.create_cleaner(index)
-                with self.captureOnCommitCallbacks(execute=True):
-                    result = reconcile_contact_verification(
-                        user_id=user.id,
-                        trigger="signup",
-                    )
+                result = reconcile_contact_verification(
+                    user_id=user.id,
+                    trigger="signup",
+                )
 
                 user.refresh_from_db()
                 user.cleaner_profile.refresh_from_db()
@@ -130,6 +133,49 @@ class ContactVerificationTruthTableTests(TestCase):
                     user.cleaner_profile.verification_status,
                     CleanerProfile.VerificationStatus.PENDING,
                 )
+
+    @override_settings(
+        ACCOUNT_APPROVAL_REQUIRED=True,
+        CLEANER_VERIFICATION_REQUIRED=True,
+        PHONE_VERIFICATION_REQUIRED=False,
+    )
+    @mock.patch("apps.accounts.services.dispatch_notification.delay")
+    def test_rollback_discards_state_audit_notification_and_on_commit(self, dispatch):
+        user = self.create_cleaner("rollback")
+
+        with self.assertRaises(RuntimeError):
+            with transaction.atomic():
+                reconcile_contact_verification(user_id=user.id, trigger="signup")
+                raise RuntimeError("force rollback")
+
+        user.refresh_from_db()
+        user.cleaner_profile.refresh_from_db()
+        self.assertEqual(user.account_status, User.AccountStatus.PENDING)
+        self.assertEqual(
+            user.cleaner_profile.verification_status,
+            CleanerProfile.VerificationStatus.PENDING,
+        )
+        self.assertFalse(
+            AuditLog.objects.filter(entity_type="User", entity_id=str(user.id)).exists()
+        )
+        self.assertFalse(Notification.objects.filter(user=user).exists())
+        dispatch.assert_not_called()
+
+    def test_flag_changes_do_not_retroactively_unlock_existing_user(self):
+        user = self.create_cleaner("no-retroactive")
+
+        with override_settings(
+            ACCOUNT_APPROVAL_REQUIRED=False,
+            CLEANER_VERIFICATION_REQUIRED=False,
+            PHONE_VERIFICATION_REQUIRED=False,
+        ):
+            user.refresh_from_db()
+            self.assertEqual(user.account_status, User.AccountStatus.PENDING)
+            self.assertEqual(
+                user.cleaner_profile.verification_status,
+                CleanerProfile.VerificationStatus.PENDING,
+            )
+            self.assertFalse(user.is_marketplace_eligible)
 
 
 @override_settings(
@@ -274,4 +320,82 @@ class AccountTransitionApiTests(TestCase):
                 expected_status="pending",
                 reason_category="policy_prerequisite_incomplete",
                 internal_note="x" * 2001,
+            )
+
+    @mock.patch("apps.accounts.views.send_admin_new_account_email.delay")
+    def test_signup_writes_safe_base_state_before_reconciliation(self, _admin_email):
+        email = "safe-base-cleaner@example.test"
+        verification, _ = SignupEmailVerification.create_for_email(email)
+        verification.verified_at = timezone.now()
+        verification.save(update_fields=["verified_at"])
+
+        def inspect_base_state(*, user_id, **_kwargs):
+            user = User.objects.get(id=user_id)
+            profile = CleanerProfile.objects.get(user=user)
+            self.assertEqual(user.account_status, User.AccountStatus.PENDING)
+            self.assertEqual(
+                profile.verification_status,
+                CleanerProfile.VerificationStatus.PENDING,
+            )
+            return VerificationReconciliationResult(user, profile, False, False)
+
+        with mock.patch(
+            "apps.accounts.serializers.reconcile_contact_verification",
+            side_effect=inspect_base_state,
+        ):
+            response = APIClient().post(
+                "/api/accounts/signup/",
+                {
+                    "first_name": "Safe",
+                    "last_name": "Base",
+                    "email": email,
+                    "role": "cleaner",
+                    "password": "Password123!",
+                    "password_confirm": "Password123!",
+                    "email_verification_token": str(verification.token),
+                    "birth_date": "1990-01-01",
+                    "sex": "prefer_not_to_say",
+                    "native_language": "Bulgarian",
+                },
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+
+    def test_expired_bypass_window_returns_stable_503_before_user_creation(self):
+        now = timezone.now()
+        with override_settings(
+            APP_ENV="pilot",
+            ACCOUNT_APPROVAL_REQUIRED=False,
+            CLEANER_VERIFICATION_REQUIRED=True,
+            PHONE_VERIFICATION_REQUIRED=False,
+            ALLOW_PILOT_VERIFICATION_BYPASS=True,
+            PILOT_VERIFICATION_BYPASS_OWNER="owner",
+            PILOT_VERIFICATION_BYPASS_REASON="rehearsal",
+            PILOT_VERIFICATION_BYPASS_START_AT=(
+                now - timedelta(hours=2)
+            ).isoformat(),
+            PILOT_VERIFICATION_BYPASS_END_AT=(
+                now - timedelta(hours=1)
+            ).isoformat(),
+            PILOT_GENUINE_JOB_INTAKE_PAUSED=True,
+        ):
+            response = APIClient().post("/api/accounts/signup/", {}, format="json")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data["code"], "verification_configuration_unavailable"
+        )
+        self.assertEqual(User.objects.count(), 1)  # only the test admin
+
+    def test_evidence_exclusion_fields_are_not_ordinarily_editable(self):
+        for field_name in (
+            "excluded_at",
+            "reason_category",
+            "account_approval_required",
+            "cleaner_verification_required",
+            "phone_verification_required",
+        ):
+            self.assertFalse(
+                PilotEvidenceExclusion._meta.get_field(field_name).editable
             )

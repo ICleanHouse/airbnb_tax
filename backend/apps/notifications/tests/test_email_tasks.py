@@ -62,7 +62,11 @@ class SendAdminNewAccountEmailTaskTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         msg = mail.outbox[0]
         self.assertIn(admin.email, msg.recipients())
-        self.assertIn("awaiting approval", msg.subject)
+        self.assertIn("New account created", msg.subject)
+        self.assertNotIn("awaiting approval", msg.subject.lower())
+        self.assertNotIn("awaiting your approval", msg.body.lower())
+        self.assertIn("Account state: pending", msg.body)
+        self.assertNotIn("filter=pending", msg.body)
         self.assertIn(new_user.email, msg.body)
         self.assertIn("Host", msg.body)  # role display
 

@@ -10,7 +10,7 @@ from apps.marketplace.models import FavouriteCleaner
     PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
 )
 class FavouriteEligibilityTests(TestCase):
-    ineligible_detail = "Only approved, active, verified cleaner accounts can be favourited."
+    ineligible_detail = "Only cleaners with active marketplace access can be favourited."
 
     def setUp(self):
         self.client = APIClient()

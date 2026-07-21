@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
@@ -12,9 +13,12 @@ from apps.accounts.models import (
     CleanerProfile,
     CookieConsent,
     HostProfile,
+    PilotEvidenceExclusion,
     SignupEmailVerification,
     hash_signup_email_code,
 )
+from apps.accounts.services import reconcile_contact_verification
+from apps.core.models import AuditLog
 from apps.core.image_uploads import (
     ImageUploadValidationError,
     normalize_cleaner_image_data_url,
@@ -37,6 +41,12 @@ class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, min_length=8)
     is_approved = serializers.BooleanField(read_only=True)
     is_platform_admin = serializers.BooleanField(read_only=True)
+    email_verified = serializers.BooleanField(source="is_email_verified", read_only=True)
+    phone_verified = serializers.BooleanField(source="is_phone_verified", read_only=True)
+    contact_verified = serializers.BooleanField(source="is_contact_verified", read_only=True)
+    fully_verified = serializers.BooleanField(source="is_fully_verified", read_only=True)
+    marketplace_eligible = serializers.BooleanField(source="is_marketplace_eligible", read_only=True)
+    phone_verification_required = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -56,6 +66,12 @@ class UserSerializer(serializers.ModelSerializer):
             "approved_at",
             "email_verified_at",
             "phone_verified_at",
+            "email_verified",
+            "phone_verified",
+            "contact_verified",
+            "fully_verified",
+            "marketplace_eligible",
+            "phone_verification_required",
             "password",
         ]
         read_only_fields = [
@@ -66,7 +82,16 @@ class UserSerializer(serializers.ModelSerializer):
             "email_verified_at",
             "phone_verified_at",
             "account_status",
+            "email_verified",
+            "phone_verified",
+            "contact_verified",
+            "fully_verified",
+            "marketplace_eligible",
+            "phone_verification_required",
         ]
+
+    def get_phone_verification_required(self, _obj):
+        return settings.PHONE_VERIFICATION_REQUIRED
 
     def validate_dashboard_prefs(self, value):
         if not isinstance(value, dict):
@@ -91,6 +116,62 @@ class UserSerializer(serializers.ModelSerializer):
             AgencyProfile.objects.get_or_create(user=user, defaults={"company_name": user.get_full_name() or user.username})
 
         return user
+
+
+class AdminUserSerializer(UserSerializer):
+    cleaner_marketplace_status = serializers.SerializerMethodField()
+    evidence_excluded = serializers.SerializerMethodField()
+    latest_decision = serializers.SerializerMethodField()
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + [
+            "cleaner_marketplace_status",
+            "evidence_excluded",
+            "latest_decision",
+        ]
+        read_only_fields = UserSerializer.Meta.read_only_fields + [
+            "cleaner_marketplace_status",
+            "evidence_excluded",
+            "latest_decision",
+        ]
+
+    def get_cleaner_marketplace_status(self, obj):
+        profile = getattr(obj, "cleaner_profile", None)
+        return profile.verification_status if profile is not None else None
+
+    def get_evidence_excluded(self, obj):
+        return PilotEvidenceExclusion.objects.filter(user=obj).exists()
+
+    def get_latest_decision(self, obj):
+        audit = (
+            AuditLog.objects.filter(
+                entity_type="User",
+                entity_id=str(obj.id),
+                action__in=[
+                    "account.approved",
+                    "account.rejected",
+                    "account.suspended",
+                ],
+            )
+            .select_related("actor")
+            .first()
+        )
+        if audit is None:
+            return None
+        return {
+            "action": audit.action,
+            "actor": audit.actor.get_username() if audit.actor else "system",
+            "timestamp": audit.created_at,
+            "reason_category": audit.metadata.get("reason_category", ""),
+        }
+
+
+class AccountTransitionSerializer(serializers.Serializer):
+    expected_status = serializers.ChoiceField(choices=User.AccountStatus.choices)
+    reason_category = serializers.CharField(max_length=64)
+    internal_note = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True, trim_whitespace=True
+    )
 
 
 class SignupSerializer(serializers.Serializer):
@@ -186,13 +267,14 @@ class SignupSerializer(serializers.Serializer):
 
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
         first_name = validated_data.pop("first_name").strip()
         last_name = validated_data.pop("last_name").strip()
         password = validated_data.pop("password")
         validated_data.pop("password_confirm", None)
         validated_data.pop("email_verification_token", None)
-        validated_data.pop("email_verification", None)
+        email_verification = validated_data.pop("email_verification")
         city = validated_data.pop("city", "").strip()
         service_areas = validated_data.pop("service_areas", [])
         birth_date = validated_data.pop("birth_date", None)
@@ -214,8 +296,8 @@ class SignupSerializer(serializers.Serializer):
             email=email,
             first_name=first_name,
             last_name=last_name,
-            account_status=User.AccountStatus.APPROVED,
-            email_verified_at=timezone.now(),
+            account_status=User.AccountStatus.PENDING,
+            email_verified_at=email_verification.verified_at,
             **validated_data,
         )
         user.set_password(password)
@@ -241,13 +323,18 @@ class SignupSerializer(serializers.Serializer):
                 has_own_car=has_own_car,
                 smoker=smoker,
                 profile_image=profile_image,
-                verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+                verification_status=CleanerProfile.VerificationStatus.PENDING,
             )
         elif user.is_agency:
             agency_name = company_name or f"{first_name} {last_name}".strip()
             AgencyProfile.objects.create(user=user, company_name=agency_name, city=city, service_areas=service_areas)
 
-        return user
+        reconciliation = reconcile_contact_verification(
+            user_id=user.id,
+            trigger="signup",
+            request=self.context.get("request"),
+        )
+        return reconciliation.user
 
 
 class SignupEmailCodeRequestSerializer(serializers.Serializer):
@@ -363,6 +450,7 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "average_rating",
             "completed_jobs_count",
             "is_verified",
+            "verification_status",
             "created_at",
             "updated_at",
         ]
@@ -392,7 +480,7 @@ class PublicCleanerSerializer(serializers.ModelSerializer):
     """Safe, browsable cleaner card — no PII (no email/phone/birth_date)."""
 
     user_id = serializers.IntegerField(source="user.id", read_only=True)
-    is_verified = serializers.BooleanField(read_only=True)
+    marketplace_eligible = serializers.SerializerMethodField()
 
     class Meta:
         model = CleanerProfile
@@ -413,9 +501,12 @@ class PublicCleanerSerializer(serializers.ModelSerializer):
             "profile_image",
             "average_rating",
             "completed_jobs_count",
-            "is_verified",
+            "marketplace_eligible",
         ]
         read_only_fields = fields
+
+    def get_marketplace_eligible(self, obj):
+        return obj.user.is_public_marketplace_eligible_cleaner
 
 
 class PublicCleanerDetailSerializer(PublicCleanerSerializer):

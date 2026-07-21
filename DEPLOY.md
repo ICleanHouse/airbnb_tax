@@ -36,6 +36,10 @@ DATABASE_URL=postgres://airbnb_cleaners:<strong-random-password>@db:5432/airbnb_
 FRONTEND_TRUSTED_ORIGINS=http://localhost,http://127.0.0.1,http://192.168.1.14
 FRONTEND_URL=http://192.168.1.14
 BACKEND_URL=http://192.168.1.14
+ACCOUNT_APPROVAL_REQUIRED=True
+CLEANER_VERIFICATION_REQUIRED=True
+ALLOW_PILOT_VERIFICATION_BYPASS=False
+PHONE_VERIFICATION_REQUIRED=False
 ```
 
 When you know the router public IP, add it:
@@ -55,6 +59,10 @@ Production settings fail fast when `APP_ENV=production` and any required value i
 - `DJANGO_SECRET_KEY` is unique and at least 32 characters
 - `DATABASE_URL`, `DJANGO_ALLOWED_HOSTS`, and `FRONTEND_TRUSTED_ORIGINS` are set
 - `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` match `DATABASE_URL`
+- `EMAIL_VER_USER_SIGNUP=true`; production-like startup rejects the local fake-confirmation shortcut
+- `ACCOUNT_APPROVAL_REQUIRED=true`, `CLEANER_VERIFICATION_REQUIRED=true`,
+  `ALLOW_PILOT_VERIFICATION_BYPASS=false`, and
+  `PHONE_VERIFICATION_REQUIRED=false` for the owner-approved interim policy
 
 For signup email-code delivery, configure Resend. Do not use Gmail or SMTP for signup confirmation:
 
@@ -79,6 +87,31 @@ NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.0
 `FRONTEND_URL` is used for frontend redirects and admin approval links. `BACKEND_URL` remains available for legacy backend links. Django's configurable mail backend may still be used by non-signup notification paths until those are migrated.
 
 Signup is a single React wizard at `/signup`; old signup step URLs redirect there. Cleaner signup writes additional profile fields such as `native_language` and `experience_level`. Before deploying signup-flow changes for Cleaner, Host, or Agency, ensure the matching Django migrations are included and applied so production profile tables match the final frontend payloads.
+
+### Guarded verification rehearsal
+
+Do not disable either normal requirement while accepting genuine pilot jobs.
+If a time-bounded production-like rehearsal is explicitly approved, set
+`ALLOW_PILOT_VERIFICATION_BYPASS=True`, provide non-empty owner/reason metadata,
+provide timezone-aware start/end values, and set
+`PILOT_GENUINE_JOB_INTAKE_PAUSED=True`. Django validates this at startup and
+again during signup; an expired window returns stable 503 and creates no user.
+The operator warning contains no personal data and does not log the full reason.
+
+### Verification rollback
+
+1. Set `ACCOUNT_APPROVAL_REQUIRED=True` to stop new account shortcuts.
+2. Set `CLEANER_VERIFICATION_REQUIRED=True` to stop new cleaner shortcuts.
+3. Set `PHONE_VERIFICATION_REQUIRED=True` to stop new email-only normal
+   advancement. This does not downgrade existing approved or eligible users.
+4. Suspend affected existing accounts through the admin transition when access
+   must stop; do not delete jobs, assignments, messages, audit history, or the
+   evidence-exclusion ledger.
+5. Use the restricted pilot ledger when excluding affected users from Stage 1
+   metrics. Never clear exclusions implicitly.
+6. Any bulk downgrade/reconciliation or user notification campaign requires a
+   separately approved operator procedure; changing flags alone is not a
+   rollback of existing state.
 
 ## 3. Open Windows Firewall
 

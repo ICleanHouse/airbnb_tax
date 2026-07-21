@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { apiFetch, CurrentUser } from "../../lib/api";
+import VerificationStatusSummary from "../../components/VerificationStatusSummary";
 import { money, formatMoney } from "../../lib/money";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { useRefocusClickGuard } from "../../lib/useRefocusClickGuard";
@@ -1877,14 +1878,19 @@ export default function CleanerDashboard() {
 
         {!me.is_approved && (
           <div className="host-pending-banner">
-            {t("pendingBanner", { status: me.account_status })}
+            {t("pendingBanner")}
           </div>
         )}
         {me.is_approved && profile && !profile.is_verified && (
           <div className="host-pending-banner cleaner-verification-banner">
-            {t("verificationBanner", { status: profile.verification_status })}
+            {t("verificationBanner")}
           </div>
         )}
+        <VerificationStatusSummary
+          user={me}
+          cleanerMarketplaceStatus={profile?.verification_status}
+          compact
+        />
         {dataError && <p className="form-error cleaner-page-error">{dataError}</p>}
 
         {section === "calendar" && (

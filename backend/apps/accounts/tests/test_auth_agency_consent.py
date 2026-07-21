@@ -503,7 +503,7 @@ class AccountAuthTests(TestCase):
         )
         self.assertEqual(client.get(reverse("account-me")).status_code, 200)
 
-    def test_admin_can_approve_user_through_api(self):
+    def test_admin_can_reconcile_email_confirmed_user_through_api(self):
         admin = User.objects.create_user(
             username="admin",
             password="password123",
@@ -514,10 +514,13 @@ class AccountAuthTests(TestCase):
             username="pending",
             password="password123",
             role=User.Role.HOST,
+            email_verified_at=timezone.now(),
         )
         self.client.force_authenticate(admin)
 
-        response = self.client.post(f"/api/accounts/users/{pending.id}/approve/")
+        response = self.client.post(
+            f"/api/accounts/users/{pending.id}/reconcile-verification/"
+        )
 
         self.assertEqual(response.status_code, 200)
         pending.refresh_from_db()

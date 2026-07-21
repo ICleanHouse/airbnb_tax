@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import logging
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -50,6 +51,28 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-change-me")
 DEBUG = env_bool("DJANGO_DEBUG", True)
 APP_ENV = os.getenv("APP_ENV", "local")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+ACCOUNT_APPROVAL_REQUIRED = env_bool("ACCOUNT_APPROVAL_REQUIRED", True)
+CLEANER_VERIFICATION_REQUIRED = env_bool("CLEANER_VERIFICATION_REQUIRED", True)
+ALLOW_PILOT_VERIFICATION_BYPASS = env_bool(
+    "ALLOW_PILOT_VERIFICATION_BYPASS", False
+)
+PHONE_VERIFICATION_REQUIRED = env_bool("PHONE_VERIFICATION_REQUIRED", False)
+EMAIL_VER_USER_SIGNUP = env_bool("EMAIL_VER_USER_SIGNUP", True)
+PILOT_VERIFICATION_BYPASS_OWNER = os.getenv(
+    "PILOT_VERIFICATION_BYPASS_OWNER", ""
+)
+PILOT_VERIFICATION_BYPASS_REASON = os.getenv(
+    "PILOT_VERIFICATION_BYPASS_REASON", ""
+)
+PILOT_VERIFICATION_BYPASS_START_AT = os.getenv(
+    "PILOT_VERIFICATION_BYPASS_START_AT", ""
+)
+PILOT_VERIFICATION_BYPASS_END_AT = os.getenv(
+    "PILOT_VERIFICATION_BYPASS_END_AT", ""
+)
+PILOT_GENUINE_JOB_INTAKE_PAUSED = env_bool(
+    "PILOT_GENUINE_JOB_INTAKE_PAUSED", False
+)
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -226,6 +249,29 @@ def validate_production_settings() -> None:
 
 validate_production_settings()
 
+from config.verification import VerificationConfiguration  # noqa: E402
+
+
+VERIFICATION_CONFIGURATION = VerificationConfiguration(
+    app_env=APP_ENV,
+    account_approval_required=ACCOUNT_APPROVAL_REQUIRED,
+    cleaner_verification_required=CLEANER_VERIFICATION_REQUIRED,
+    phone_verification_required=PHONE_VERIFICATION_REQUIRED,
+    signup_email_verification_required=EMAIL_VER_USER_SIGNUP,
+    allow_pilot_verification_bypass=ALLOW_PILOT_VERIFICATION_BYPASS,
+    bypass_owner=PILOT_VERIFICATION_BYPASS_OWNER,
+    bypass_reason=PILOT_VERIFICATION_BYPASS_REASON,
+    bypass_start_at=PILOT_VERIFICATION_BYPASS_START_AT,
+    bypass_end_at=PILOT_VERIFICATION_BYPASS_END_AT,
+    genuine_job_intake_paused=PILOT_GENUINE_JOB_INTAKE_PAUSED,
+)
+VERIFICATION_CONFIGURATION.validate()
+if VERIFICATION_CONFIGURATION.uses_requirement_bypass:
+    logging.getLogger("apps.accounts").warning(
+        "Verification requirement bypass is active; genuine pilot intake must remain paused.",
+        extra={"event": "verification.bypass_active"},
+    )
+
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
 CELERY_IMPORTS = ("apps.notifications.tasks",)
@@ -249,7 +295,6 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_RESEND_APIKEY = os.getenv("EMAIL_RESEND_APIKEY", "")
 EMAIL_RESEND_FROM_EMAIL = os.getenv("EMAIL_RESEND_FROM_EMAIL", "")
-EMAIL_VER_USER_SIGNUP = env_bool("EMAIL_VER_USER_SIGNUP", True)
 EMAIL_VER_USER_CONFIRMATION = env_bool("EMAIL_VER_USER_CONFIRMATION", True)
 EMAIL_NOTIF_ADMIN_NEW_ACCOUNT = env_bool("EMAIL_NOTIF_ADMIN_NEW_ACCOUNT", True)
 EMAIL_NOTIF_HOST_APPLICATION_SUBMITTED = env_bool("EMAIL_NOTIF_HOST_APPLICATION_SUBMITTED", True)

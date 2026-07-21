@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { CheckCircle2, Clock3, LogOut, ShieldCheck, ShieldAlert, UserRoundCog } from "lucide-react";
 import { CurrentUser, apiFetch } from "../../../lib/api";
 import AccountDeletionPanel from "../../../components/AccountDeletionPanel";
+import VerificationStatusSummary from "../../../components/VerificationStatusSummary";
 
 export default function AppEntryPage() {
   const t = useTranslations("app");
@@ -124,6 +125,8 @@ export default function AppEntryPage() {
             <p>{copy.body}</p>
           </div>
         </div>
+
+        <VerificationStatusSummary user={user} />
 
         <div className="workspace-grid">
           <article>

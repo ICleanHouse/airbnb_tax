@@ -30,6 +30,9 @@ class PlatformUserManager(UserManager):
         extra_fields.setdefault("account_status", self.model.AccountStatus.APPROVED)
         return super().create_superuser(username, email, password, **extra_fields)
 
+    def genuine_stage1_evidence(self):
+        return self.get_queryset().filter(pilot_evidence_exclusion__isnull=True)
+
 
 class User(AbstractUser):
     class Role(models.TextChoices):
@@ -98,6 +101,35 @@ class User(AbstractUser):
         return self.is_platform_admin or self.account_status == self.AccountStatus.APPROVED
 
     @property
+    def is_email_verified(self) -> bool:
+        return self.email_verified_at is not None
+
+    @property
+    def is_phone_verified(self) -> bool:
+        return self.phone_verified_at is not None
+
+    @property
+    def is_contact_verified(self) -> bool:
+        return self.is_email_verified and (
+            not settings.PHONE_VERIFICATION_REQUIRED or self.is_phone_verified
+        )
+
+    @property
+    def is_fully_verified(self) -> bool:
+        return self.is_email_verified and self.is_phone_verified
+
+    @property
+    def is_marketplace_eligible(self) -> bool:
+        if self.is_platform_admin:
+            return True
+        if not self.is_active or self.account_status != self.AccountStatus.APPROVED:
+            return False
+        if not self.is_cleaner:
+            return True
+        profile = getattr(self, "cleaner_profile", None)
+        return bool(profile and profile.is_verified)
+
+    @property
     def is_public_marketplace_eligible_cleaner(self) -> bool:
         if (
             not self.is_cleaner
@@ -107,12 +139,6 @@ class User(AbstractUser):
             return False
         profile = getattr(self, "cleaner_profile", None)
         return bool(profile and profile.is_verified)
-
-    def approve(self, approved_by=None) -> None:
-        self.account_status = self.AccountStatus.APPROVED
-        self.approved_at = timezone.now()
-        self.approved_by = approved_by
-        self.save(update_fields=["account_status", "approved_at", "approved_by"])
 
     def save(self, *args, **kwargs):
         if self.role == self.Role.ADMIN or self.is_superuser:
@@ -148,6 +174,36 @@ class HostProfile(TimeStampedModel):
 
     def __str__(self) -> str:
         return self.company_name or self.user.get_username()
+
+
+class PilotEvidenceExclusion(models.Model):
+    class ReasonCategory(models.TextChoices):
+        VERIFICATION_REQUIREMENT_BYPASS = (
+            "verification_requirement_bypass",
+            "Verification requirement bypass",
+        )
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.PROTECT,
+        related_name="pilot_evidence_exclusion",
+    )
+    excluded_at = models.DateTimeField(default=timezone.now, editable=False)
+    reason_category = models.CharField(
+        max_length=64,
+        choices=ReasonCategory.choices,
+        default=ReasonCategory.VERIFICATION_REQUIREMENT_BYPASS,
+        editable=False,
+    )
+    account_approval_required = models.BooleanField(editable=False)
+    cleaner_verification_required = models.BooleanField(editable=False)
+    phone_verification_required = models.BooleanField(editable=False)
+
+    class Meta:
+        ordering = ["-excluded_at"]
+
+    def __str__(self) -> str:
+        return f"Pilot evidence exclusion for user {self.user_id}"
 
 
 class CleanerProfile(TimeStampedModel):

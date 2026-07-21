@@ -249,7 +249,8 @@ This is a Windows dev machine. Commands and paths must match it.
 
 - Gate: redirects to `/login` if unauthenticated, shows "Admin only" if not admin role.
 - Fetches all accounts, client-side filters by status.
-- Reads `?filter=pending` URL param via `useSearchParams()` to pre-select tab — used in admin notification email approval links.
+- Reads `?filter=pending` via `useSearchParams()` for legacy/bookmarked filtered
+  views; signup notifications now link to the neutral account-review surface.
 - Approve: `POST /api/accounts/users/{id}/approve/`.
 - Reject: `POST /api/accounts/users/{id}/reject/`.
 

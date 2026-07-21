@@ -58,7 +58,9 @@ class CleanerScheduleConflictError(MarketplaceError):
         super().__init__(self.detail)
 
 
-FAVOURITE_TARGET_INELIGIBLE = "Only approved, active, verified cleaner accounts can be favourited."
+FAVOURITE_TARGET_INELIGIBLE = (
+    "Only cleaners with active marketplace access can be favourited."
+)
 JOB_START_NOT_FUTURE = (
     "This job is no longer available because its scheduled start must be in the future."
 )
@@ -71,6 +73,11 @@ def ensure_favourite_target_eligible(cleaner: User) -> None:
 
 @transaction.atomic
 def create_favourite_cleaner(*, host: User, cleaner: User) -> tuple[FavouriteCleaner, bool]:
+    host = User.objects.select_related("cleaner_profile").get(id=host.id)
+    if not host.is_host or not host.is_marketplace_eligible:
+        raise MarketplaceError(
+            "Only active approved hosts can save favourite cleaners."
+        )
     ensure_favourite_target_eligible(cleaner)
     return FavouriteCleaner.objects.get_or_create(host=host, cleaner=cleaner)
 
@@ -514,7 +521,9 @@ def submit_application(
             raise MarketplaceError("Cleaner profile is required before applying.") from exc
 
         if not cleaner_profile.is_verified:
-            raise MarketplaceError("Cleaner must be verified before applying.")
+            raise MarketplaceError(
+                "Cleaner marketplace access must be active before applying."
+            )
     elif cleaner.is_agency:
         try:
             cleaner.agency_profile
@@ -911,7 +920,7 @@ def _ensure_cleaner_workable(cleaner: User) -> None:
         except CleanerProfile.DoesNotExist as exc:
             raise MarketplaceError("Cleaner profile is required.") from exc
         if not cleaner_profile.is_verified:
-            raise MarketplaceError("Cleaner must be verified.")
+            raise MarketplaceError("Cleaner marketplace access must be active.")
     elif cleaner.is_agency:
         try:
             AgencyProfile.objects.select_for_update().get(user_id=cleaner.pk)
@@ -1215,7 +1224,7 @@ def assign_member_to_assignment(
     else:
         if agency_user.id != assignment.cleaner_id or not agency_user.is_agency:
             raise MarketplaceError("Only the assigned agency can delegate this cleaning.")
-        if not agency_user.is_approved:
+        if not agency_user.is_active or not agency_user.is_approved:
             raise MarketplaceError("Agency account must be approved before assigning work.")
         agency_profile = agency_user.agency_profile
 
@@ -1241,7 +1250,7 @@ def assign_member_to_assignment(
         raise MarketplaceError("Assigned cleaner profile is required.") from exc
 
     if not cleaner_profile.is_verified:
-        raise MarketplaceError("Assigned cleaner must be verified.")
+        raise MarketplaceError("Assigned cleaner marketplace access must be active.")
 
     try:
         AgencyMembership.objects.select_for_update().get(

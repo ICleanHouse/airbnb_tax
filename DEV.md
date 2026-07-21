@@ -10,9 +10,13 @@ See `CURRENT_PROGRESS.md` for the current deployment progress, local-development
 
 ## Project Purpose
 
-This project is a Bulgarian-market marketplace for connecting Airbnb and short-term rental hosts with verified cleaners.
+This project is a Bulgarian-market marketplace connecting Airbnb and short-term
+rental hosts with cleaners who have active marketplace access.
 
-The MVP should let hosts post one cleaning or a month of cleaning jobs, let verified cleaners apply, let both sides agree on price outside the platform, share calendar availability, and collect two-way feedback after completed work.
+The MVP should let hosts post one cleaning or a month of cleaning jobs, let
+marketplace-eligible cleaners apply, let both sides agree on price outside the
+platform, share calendar availability, and collect two-way feedback after
+completed work.
 
 ## MVP Scope
 
@@ -119,6 +123,14 @@ Key variables and their defaults:
 | `EMAIL_RESEND_APIKEY` | *(empty)* | Required Resend API key for signup email-code delivery |
 | `EMAIL_RESEND_FROM_EMAIL` | *(empty)* | Required verified Resend sender address for signup codes |
 | `EMAIL_VER_USER_SIGNUP` | `True` | Sends the 6-digit signup email verification code when enabled |
+| `ACCOUNT_APPROVAL_REQUIRED` | `True` | Require stored contact-policy satisfaction before normal account approval; false is a test/rehearsal shortcut |
+| `CLEANER_VERIFICATION_REQUIRED` | `True` | Require stored contact-policy satisfaction before normal cleaner marketplace activation; false is a test/rehearsal shortcut |
+| `ALLOW_PILOT_VERIFICATION_BYPASS` | `False` | Required second guard for any production-like requirement shortcut; invalid when no shortcut is active |
+| `PHONE_VERIFICATION_REQUIRED` | `False` | False uses the interim email-only policy; true stops new normal advancement until both timestamps exist |
+| `PILOT_VERIFICATION_BYPASS_OWNER` | *(empty)* | Non-empty operator/owner identifier required for a guarded bypass |
+| `PILOT_VERIFICATION_BYPASS_REASON` | *(empty)* | Non-empty internal reason required for a guarded bypass; full value is not logged |
+| `PILOT_VERIFICATION_BYPASS_START_AT` / `PILOT_VERIFICATION_BYPASS_END_AT` | *(empty)* | Timezone-aware active window required for a guarded bypass |
+| `PILOT_GENUINE_JOB_INTAKE_PAUSED` | `False` | Must be true while a production-like bypass is active |
 | `EMAIL_VER_USER_CONFIRMATION` | `True` | Sends the legacy link-based account confirmation email when enabled |
 | `EMAIL_NOTIF_ADMIN_NEW_ACCOUNT` | `True` | Sends admin/staff new-account notification emails when enabled |
 | `EMAIL_NOTIF_HOST_APPLICATION_SUBMITTED` | `True` | Sends host emails when a cleaner applies to a job |
@@ -156,7 +168,20 @@ FRONTEND_URL=http://localhost:3000
 
 Use a verified Resend sender/domain for `EMAIL_RESEND_FROM_EMAIL`. Restart both the backend and Celery after changing `.env`.
 
-If `EMAIL_VER_USER_SIGNUP=False`, the backend auto-verifies the signup email request and returns `email_verification_token` immediately so the frontend skips the email-code step. That token remains in React memory only; it is never part of browser recovery state.
+If `EMAIL_VER_USER_SIGNUP=False` in local/test, the backend auto-verifies the
+signup email request and returns `email_verification_token` immediately so the
+frontend skips the email-code step. That testing shortcut is rejected at
+startup in `staging`, `pilot`, `prod`, and `production`; automatic contact
+reconciliation must never treat a fabricated production email confirmation as
+genuine evidence. The token remains in React memory only and is never part of
+browser recovery state.
+
+Normal signup writes `pending` account and cleaner state first, then invokes
+one atomic contact reconciliation. With the safe defaults and a confirmed
+email, accounts advance to `approved` and cleaners to the stored marketplace
+eligibility state. This is contact confirmation only—not identity, reference,
+interview, or trial-job review. Configuration changes do not retroactively
+rewrite existing users.
 
 Signup refresh recovery uses only `sessionStorage` key `signup_wizard_state`
 with a 24-hour explicit allowlist: `version`, `savedAt`, `role`, `citySlug`,
@@ -409,9 +434,9 @@ cd frontend && npm.cmd run dev -- --hostname 127.0.0.1
 ### Landing page (`/`)
 
 - Compact centered public hero plus an audience toggle.
-- `Find a cleaner` renders the shared `CleanerBrowser`, which fetches `/api/accounts/public-cleaners/` and filters verified cleaners by selected city and dependent district.
+- `Find a cleaner` renders the shared `CleanerBrowser`, which fetches `/api/accounts/public-cleaners/` and filters marketplace-eligible cleaners by selected city and dependent district.
 - `Find cleaning work` renders `AreaDemandPanel` and the compatibility-named `OpenJobMap`. Canonical `/api/marketplace/public-demand/?city=sofia` returns city/zone aggregate counts only. `/api/marketplace/open-job-locations/` is a temporary identical-body alias with deprecation headers and a 15 October 2026 sunset.
-- Public discovery renders canonical district counts using catalog geometry/names only. It must never request or render per-job/property IDs, job-derived coordinates, address fragments, photos, exact schedules/prices, host identity, or free text. Applications remain in the authenticated approved/verified cleaner dashboard.
+- Public discovery renders canonical district counts using catalog geometry/names only. It must never request or render per-job/property IDs, job-derived coordinates, address fragments, photos, exact schedules/prices, host identity, or free text. Applications remain in the authenticated marketplace-eligible cleaner dashboard.
 
 The anonymous response contract is:
 
@@ -441,7 +466,7 @@ appear. Unmatched legacy jobs contribute only to a canonical city total. The
 alias adds `Deprecation: true`, a successor `Link`, and
 `Sunset: Thu, 15 Oct 2026 00:00:00 GMT`.
 
-Approved verified cleaners and eligible approved agencies receive only the
+Marketplace-eligible cleaners and eligible approved agencies receive only the
 S1-D04 evaluator job projection. A current active assigned participant may
 receive the minimum operational property/address/instructions/agreed-price and
 one protected primary image. Completed or otherwise retained worker records use
@@ -472,8 +497,14 @@ instructions, coordinates, host identity, and free text.
 ### Admin panel (`/admin`)
 
 - Lists all user accounts with client-side filtering by status (pending / approved / all).
-- Approve or reject pending accounts with instant local state update.
-- Reads `?filter=pending` URL query param on load — used in admin notification email links to pre-select the pending tab.
+- Displays email, phone, configured-contact, account, cleaner marketplace,
+  full-contact, latest-decision, and authorized evidence-exclusion state.
+- Reconciles pending accounts from stored timestamps, rejects pending accounts,
+  and suspends pending/approved accounts through structured atomic transitions.
+- Review history is admin-only; internal notes do not appear in ordinary user
+  serializers. Cleaner status is not directly editable.
+- Reads `?filter=pending` on load for legacy/bookmarked filtered views; signup
+  notifications link to the neutral account-review surface.
 - Accessible to `admin` role only — redirects others.
 
 ### Host dashboard (`/host`)
@@ -577,7 +608,7 @@ Implemented service-level behavior:
   There is no server-side calendar URL-fetch route. External-calendar tasks are
   intentionally network-inert during Stage 1.
 - Publish draft cleaning jobs.
-- Allow approved, verified cleaners and approved agencies to apply to open jobs.
+- Allow marketplace-eligible cleaners and approved agencies to apply to open jobs.
 - Allow hosts/admins to accept one application.
 - Allow assigned agencies to delegate accepted work to active member cleaners.
 - Reject competing applications after assignment.

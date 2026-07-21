@@ -22,4 +22,12 @@ export interface CurrentUser {
   account_status: AccountStatus;
   is_approved: boolean;
   is_platform_admin: boolean;
+  email_verified_at?: string | null;
+  phone_verified_at?: string | null;
+  email_verified?: boolean;
+  phone_verified?: boolean;
+  contact_verified?: boolean;
+  fully_verified?: boolean;
+  marketplace_eligible?: boolean;
+  phone_verification_required?: boolean;
 }

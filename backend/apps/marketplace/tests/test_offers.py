@@ -153,7 +153,10 @@ class OfferServiceTests(TestCase):
         CleanerProfile.objects.filter(user=self.cleaner).update(
             verification_status=CleanerProfile.VerificationStatus.PENDING
         )
-        with self.assertRaisesMessage(MarketplaceError, "Cleaner must be verified"):
+        with self.assertRaisesMessage(
+            MarketplaceError,
+            "Cleaner marketplace access must be active",
+        ):
             offer_job(job=self.job, host=self.host, cleaner=self.cleaner)
 
         self.assertFalse(CleanerApplication.objects.filter(job=self.job).exists())

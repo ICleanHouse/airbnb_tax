@@ -126,7 +126,7 @@ AuditLog ──[references]────────► (any entity — polymorph
            ────────►│ pending │
                     │         │
                     └────┬────┘
-                         │
+                         │ contact reconciliation or admin decision
             ┌────────────┼────────────┐
             ▼            ▼            ▼
        ┌──────────┐ ┌──────────┐ ┌──────────┐
@@ -134,16 +134,24 @@ AuditLog ──[references]────────► (any entity — polymorph
        └──────────┘ └──────────┘ └──────────┘
             │                         ▲
             └─────────────────────────┘
-                    (admin action)
+                    (admin suspension)
 ```
 
 **Rules:**
 - `pending` users can log in and view dashboards but cannot post jobs, apply, or accept assignments.
-- `approved` → `suspended` by admin action.
+- Signup persists `pending` first. With normal requirements enabled and
+  `PHONE_VERIFICATION_REQUIRED=False`, stored email confirmation satisfies the
+  interim contact policy and reconciliation advances the account to `approved`.
+- If phone is required, normal reconciliation waits for both contact
+  timestamps. An explicit disabled account requirement is a guarded
+  test/rehearsal shortcut and marks the user as excluded from genuine evidence.
+- `approved` → `suspended` by admin action. `pending` may also be suspended.
 - `rejected` is terminal for marketplace access.
 - A 6-digit email confirmation code is sent before account creation; final signup requires the verified token.
-- Admin email is sent to all `role=admin` or `is_staff=True` users on every `pending` creation.
-- Email confirmation sets `email_verified_at`; admin approval still controls marketplace rights.
+- Admin email is sent to all `role=admin` or `is_staff=True` users on account creation.
+- `email_verified`, `phone_verified`, `contact_verified`,
+  `marketplace_eligible`, and `fully_verified` are distinct. The last always
+  requires both timestamps; email-only access is not identity verification.
 - Public signup is a single React wizard at `/signup`; old signup step URLs redirect back to it.
 - Cleaner signup payloads must include birth date, sex, native language, experience level, work preference, and at least one preferred time slot.
 - Any changed signup field for Cleaner, Host, or Agency must be reflected in database fields, migrations, serializers, frontend payloads, and tests.
@@ -151,14 +159,19 @@ AuditLog ──[references]────────► (any entity — polymorph
 ### 2b. Cleaner Verification Status
 
 ```
-┌────────────┐   admin verifies   ┌──────────┐
-│unverified  │──────────────────►│ verified  │
+┌────────────┐ contact reconcile  ┌──────────┐
+│unverified  │──────────────────►│ eligible │
 └────────────┘                    └──────────┘
 ```
 
 **Rules:**
-- Cleaners must be `verified` AND `approved` before applying for any job.
-- Verification UI in admin panel: **not yet built**.
+- Cleaners must be active, stored `approved`, and in the stored legacy
+  `verified` cleaner state before applying for any job. Under ADR-0002 that
+  state means marketplace eligibility through the interim contact policy, not
+  identity/reference/interview/trial-job review.
+- Only pending-to-eligible reconciliation is defined here. Cleaner rejection,
+  suspension, restoration, evidence review, re-review, and retention remain
+  blocked by S1-D02.
 
 ### 2c. Cleaning Job Lifecycle
 
@@ -315,7 +328,7 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
 / (landing)
   auth: optional
   reads: GET /api/accounts/me/   (to set header link)
-         GET /api/accounts/public-cleaners/   (verified cleaner directory)
+         GET /api/accounts/public-cleaners/   (marketplace-eligible cleaner directory)
          GET /api/marketplace/public-demand/?city=sofia
          GET /api/marketplace/area-stats/?city=sofia
   writes: PATCH /api/accounts/users/{id}/   (authenticated preferred-language slider)
@@ -356,10 +369,14 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
 /admin                            [role: admin only]
   auth: required
   reads: GET /api/accounts/users/
-  reads param: ?filter=pending   (pre-selects tab; used in email approval links)
-  writes: POST /api/accounts/users/{id}/approve/
+         GET /api/accounts/users/{id}/review-history/
+  reads param: ?filter=pending   (legacy/bookmarked pending-account view)
+  writes: POST /api/accounts/users/{id}/reconcile-verification/
           POST /api/accounts/users/{id}/reject/
-  NOT YET: cleaner verification action
+          POST /api/accounts/users/{id}/suspend/
+  shows: separate email, phone, contact, account, cleaner-marketplace,
+         full-contact, decision-history, and evidence-exclusion state
+  NOT YET: manual cleaner evidence verification (S1-D02)
 
 /host                             [role: host only]
   auth: required
@@ -433,9 +450,10 @@ Full API surface with implementation state.
 | GET | `/api/accounts/me/` | Required | ✅ |
 | GET/POST | `/api/accounts/cookie-consent/` | Optional | ✅ |
 | GET | `/api/accounts/users/` | Admin | ✅ |
-| POST | `/api/accounts/users/{id}/approve/` | Admin | ✅ |
-| POST | `/api/accounts/users/{id}/reject/` | Admin | ✅ |
-| POST | `/api/accounts/users/{id}/suspend/` | Admin | ✅ |
+| POST | `/api/accounts/users/{id}/reconcile-verification/` | Admin | ✅ — stored-state reconciliation; 409 when prerequisites are incomplete |
+| POST | `/api/accounts/users/{id}/reject/` | Admin | ✅ — pending only; expected state + neutral reason required |
+| POST | `/api/accounts/users/{id}/suspend/` | Admin | ✅ — pending/approved; expected state + neutral reason required |
+| GET | `/api/accounts/users/{id}/review-history/` | Admin | ✅ — restricted transition history |
 | GET/POST | `/api/accounts/hosts/` | Required | ✅ |
 | GET/POST | `/api/accounts/cleaners/` | Required | ✅ |
 | GET | `/api/accounts/public-cleaners/` | None | ✅ |
@@ -483,8 +501,8 @@ Full API surface with implementation state.
 | GET/POST/DELETE | `/api/marketplace/favourites/` | Host | ✅ — create targets public-eligible cleaners only; historical rows remain visible to owner |
 
 Marketplace disclosure tiers are server-enforced. Anonymous demand contains
-only canonical city/zone IDs and names plus aggregate counts. Approved verified
-cleaners and eligible approved agencies receive only the S1-D04 evaluator
+only canonical city/zone IDs and names plus aggregate counts. Marketplace-
+eligible cleaners and eligible approved agencies receive only the S1-D04 evaluator
 allowlist (job ID, canonical location, exact schedule, proposed price/currency,
 bedrooms, square metres, status, and `can_apply`). Active assigned participants
 add only the minimum operational property/address/instructions/agreed-price,
@@ -545,10 +563,15 @@ EVENT: account.created (signup)
               │  sends: email with name, role, approve_link
               │  approve_link = FRONTEND_URL/admin?filter=pending
               │  retries: 3× with 60s delay on mail-backend failure
-              └──► SIDE EFFECT: admin redirected to /admin?filter=pending (via email link)
+              └──► SIDE EFFECT: admin receives a neutral /admin review link with stored account state
 
-EVENT: account.approved                            ⬜ planned
-  └──► TASK: notify cleaner/host of approval
+EVENT: account.approved                            ✅ implemented
+  ├──► SIDE EFFECT: deterministic AuditLog transition row
+  └──► ON COMMIT: deduplicated in-app notification dispatch
+
+EVENT: cleaner.eligible                           ✅ implemented
+  ├──► SIDE EFFECT: deterministic AuditLog transition row
+  └──► ON COMMIT: deduplicated in-app notification dispatch
 
 EVENT: application.submitted                       ✅ implemented
   ├──► TASK: send_application_submitted_email      sends via Resend to job host
@@ -858,7 +881,8 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Calendar conflict API | ✅ Complete |
 | Application-submitted email (Resend) | ✅ Complete |
 | Job-completed email (Resend) | ✅ Complete |
-| Cleaner verification admin action | ⬜ Not built |
+| Contact reconciliation + restricted account decision history | ✅ Complete (S1-E02 interim policy) |
+| Manual cleaner evidence verification | ⬜ Blocked by S1-D02 |
 | Notification triggers (acceptance, rejection, assignment emails) | ⬜ Placeholder |
 | iCal feed polling | ⬜ Network-inert placeholder |
 | Google Calendar sync | ⬜ Placeholder |
@@ -874,7 +898,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Login `/login` | ✅ Complete |
 | Signup `/signup` React wizard through cleaner profile photo | 🟨 In progress |
 | Generic workspace `/app` | ✅ Complete |
-| Admin approval panel `/admin` + URL filter | ✅ Complete |
+| Admin contact-reconciliation/reject/suspend panel `/admin` + URL filter | ✅ Complete |
 | Host dashboard `/host` — properties section | ✅ Complete |
 | Host dashboard `/host` — jobs + calendar | ✅ Complete |
 | Host dashboard `/host` — ICS import modal | ✅ Complete |
@@ -892,7 +916,8 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Cleaner dashboard `/cleaner` | ✅ Complete |
 | Agency dashboard `/agency` | ⬜ Not built |
 | Landing cleaner browser with city/district filtering | ✅ Complete |
-| Cleaner verification in admin panel | ⬜ Not built |
+| Separate interim verification states and restricted review history in admin panel | ✅ Complete |
+| Manual cleaner evidence verification in admin panel | ⬜ Blocked by S1-D02 |
 
 ---
 
@@ -904,7 +929,7 @@ Rules that must never be broken regardless of task scope.
 |---|---|---|
 | R1 | A job has at most one accepted `Assignment` | Service layer — `marketplace/services.py` |
 | R2 | Reviews only after job `completed`; two-way and double-blind (received reviews revealed only when both submit or the 14-day window closes; ratings count revealed reviews only) | `feedback/services.py` + `ReviewViewSet.get_queryset` |
-| R3 | Cleaners must be `verified` + `approved` before applying | Permission class in marketplace views |
+| R3 | Cleaners must be active, stored `approved`, and in the stored marketplace-eligible cleaner state before applying; the legacy `verified` value is not a public identity claim | Service and permission boundaries |
 | R4 | Agencies assign only to `active` members, and normal agency delegation is immutable after the first member assignment | Service layer — agency delegation |
 | R5 | No payment processing in v1 | Architecture constraint |
 | R6 | Internal calendar is source of truth | Calendar module owns conflict detection |

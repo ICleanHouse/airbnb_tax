@@ -1,6 +1,32 @@
 # Current Progress Handoff
 
-Updated: 2026-07-20, S1-E05 lifecycle foundation (Batch 2).
+Updated: 2026-07-21, S1-E02 interim contact policy implementation.
+
+## Latest Work — S1-E02 Contact-Based Verification (In progress, 2026-07-21)
+
+- ADR-0002 records the owner-approved interim policy: a confirmed email
+  satisfies contact verification while phone is not required, and normal
+  reconciliation automatically approves the account and activates cleaner
+  marketplace access. This does not claim identity, reference, interview, or
+  trial-job review; full verification requires both contact timestamps.
+- Signup now creates safe pending base state and calls one atomic, row-locked,
+  idempotent reconciliation service. Requirement shortcuts are guarded in
+  production-like environments and create a permanent restricted evidence
+  exclusion. Generic status PATCH writes and the old `/approve/` action are gone.
+- Admin reconciliation/reject/suspend/history and user-facing BG/EN status
+  surfaces distinguish email, phone, configured contact, account, cleaner
+  marketplace, and full-contact states without making an identity claim.
+- Additive migrations are `accounts/0019_pilotevidenceexclusion.py` and
+  `notifications/0002_notification_deduplication_key.py`. Focused and full
+  verification evidence is recorded in
+  `docs/testing/s1_e02_account_verification.tdd.md`.
+- Verification passed: Django check and migration drift; accounts 85,
+  marketplace 181, connections 13, notifications 17, core 11; full backend
+  444 with eight expected PostgreSQL skips; PostgreSQL 16 S1-E02 concurrency
+  5/5; frontend 53; typecheck; and lint with zero errors/four existing warnings.
+- S1-E02 remains **In progress**. Phone OTP,
+  manual cleaner evidence, negative cleaner outcomes/restoration, re-review,
+  retention, and agency verification remain S1-D02 blockers.
 
 ## Latest Work — S1-E05 Lifecycle Foundation (Batch 2, 2026-07-20)
 
@@ -108,8 +134,9 @@ Updated: 2026-07-20, S1-E05 lifecycle foundation (Batch 2).
   `/open-job-locations/` route is an identical safe compatibility alias with
   deprecation headers and a 15 October 2026 sunset. The historical per-job map
   sections below are superseded and must not be restored.
-- S1-D04 evaluator disclosure is an explicit server allowlist for approved,
-  verified cleaners and eligible approved agencies. Only a current active
+- S1-D04 evaluator disclosure is an explicit server allowlist for approved
+  cleaners in the stored marketplace-eligible state and eligible approved
+  agencies. Only a current active
   assignment receives the approved operational extension. Completed or other
   retained worker records use the `history` tier, which removes property name,
   address, image, and instructions while retaining evaluator, non-contact host display,
@@ -121,8 +148,8 @@ Updated: 2026-07-20, S1-E05 lifecycle foundation (Batch 2).
   Approved public cleaner profile media remains the public `profile_image`
   API/data value and is not `PropertyImage` raw storage.
 - Accepted connections expose shared work only when the requesting participant
-  is active/approved and, when the requester is the worker, is a verified
-  eligible evaluator. The current non-cancelled-assignment response is no-store
+  is active/approved and, when the requester is the worker, is a
+  marketplace-eligible evaluator. The current non-cancelled-assignment response is no-store
   and contains only property name/city/count and cleaning job ID, property name,
   schedule, status, agreed price, and currency; no address, image, instructions,
   host identity, coordinates, or free text is included.
@@ -448,7 +475,8 @@ python backend/manage.py test apps.accounts.tests.test_auth_agency_consent apps.
   - Migration check passed.
   - Targeted cleaner signup tests passed.
 
-- Full `apps.accounts.tests.test_auth_agency_consent` still has one existing unrelated failure: the host signup test expects `pending`, while current signup code creates `approved`.
+- The former signup-state test mismatch is superseded by S1-E02 truth-table and
+  pending-first initialization coverage.
 
 - Latest observability checks:
   - `python manage.py check` passed.

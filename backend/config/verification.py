@@ -17,6 +17,7 @@ class VerificationConfiguration:
     account_approval_required: bool
     cleaner_verification_required: bool
     phone_verification_required: bool
+    signup_email_verification_required: bool
     allow_pilot_verification_bypass: bool
     bypass_owner: str
     bypass_reason: str
@@ -45,6 +46,11 @@ class VerificationConfiguration:
         return parsed
 
     def validate(self, *, now: datetime | None = None) -> None:
+        if self.is_production_like and not self.signup_email_verification_required:
+            raise ImproperlyConfigured(
+                "EMAIL_VER_USER_SIGNUP must remain enabled in production-like environments."
+            )
+
         if self.allow_pilot_verification_bypass and not self.uses_requirement_bypass:
             raise ImproperlyConfigured(
                 "ALLOW_PILOT_VERIFICATION_BYPASS is enabled but unused."
@@ -103,6 +109,7 @@ def current_verification_configuration() -> VerificationConfiguration:
         account_approval_required=settings.ACCOUNT_APPROVAL_REQUIRED,
         cleaner_verification_required=settings.CLEANER_VERIFICATION_REQUIRED,
         phone_verification_required=settings.PHONE_VERIFICATION_REQUIRED,
+        signup_email_verification_required=settings.EMAIL_VER_USER_SIGNUP,
         allow_pilot_verification_bypass=settings.ALLOW_PILOT_VERIFICATION_BYPASS,
         bypass_owner=settings.PILOT_VERIFICATION_BYPASS_OWNER,
         bypass_reason=settings.PILOT_VERIFICATION_BYPASS_REASON,

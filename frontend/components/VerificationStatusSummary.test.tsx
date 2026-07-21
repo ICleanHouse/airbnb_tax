@@ -60,7 +60,7 @@ describe("VerificationStatusSummary", () => {
       />,
     );
 
-    expect(screen.getByText("Marketplace access active")).toBeInTheDocument();
+    expect(screen.getAllByText("Marketplace access active")).toHaveLength(2);
     expect(screen.getByText("Email")).toBeInTheDocument();
     expect(screen.getByText("Phone")).toBeInTheDocument();
     expect(screen.getByText("Contact policy")).toBeInTheDocument();
@@ -70,6 +70,7 @@ describe("VerificationStatusSummary", () => {
     expect(screen.getByText(/interim email contact-confirmation policy/i)).toBeInTheDocument();
     expect(screen.getByText(/does not mean identity, references/i)).toBeInTheDocument();
     expect(screen.queryByText(/identity verified/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^verified$/i)).not.toBeInTheDocument();
   });
 
   it("shows locked access and a required phone state for the future policy", () => {

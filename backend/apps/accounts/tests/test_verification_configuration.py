@@ -14,6 +14,7 @@ class VerificationConfigurationTests(SimpleTestCase):
             "account_approval_required": True,
             "cleaner_verification_required": True,
             "phone_verification_required": False,
+            "signup_email_verification_required": True,
             "allow_pilot_verification_bypass": False,
             "bypass_owner": "",
             "bypass_reason": "",
@@ -48,19 +49,80 @@ class VerificationConfigurationTests(SimpleTestCase):
                         config.validate(now=now)
 
     def test_unused_bypass_guard_is_rejected(self):
-        config, now = self.build(allow_pilot_verification_bypass=True)
+        for phone_required in (True, False):
+            with self.subTest(phone=phone_required):
+                config, now = self.build(
+                    allow_pilot_verification_bypass=True,
+                    phone_verification_required=phone_required,
+                )
 
-        with self.assertRaisesMessage(ImproperlyConfigured, "unused"):
-            config.validate(now=now)
+                with self.assertRaisesMessage(ImproperlyConfigured, "unused"):
+                    config.validate(now=now)
 
     def test_production_like_shortcut_requires_guard(self):
+        for app_env in ("staging", "pilot", "prod", "production"):
+            for account_required, cleaner_required in (
+                (True, False),
+                (False, True),
+                (False, False),
+            ):
+                for phone_required in (True, False):
+                    with self.subTest(
+                        app_env=app_env,
+                        account=account_required,
+                        cleaner=cleaner_required,
+                        phone=phone_required,
+                    ):
+                        config, now = self.build(
+                            app_env=app_env,
+                            account_approval_required=account_required,
+                            cleaner_verification_required=cleaner_required,
+                            phone_verification_required=phone_required,
+                        )
+                        with self.assertRaisesMessage(
+                            ImproperlyConfigured,
+                            "ALLOW_PILOT_VERIFICATION_BYPASS",
+                        ):
+                            config.validate(now=now)
+
+    def test_every_guarded_shortcut_truth_table_row_is_valid_in_active_window(self):
+        now = datetime(2026, 7, 21, 9, 0, tzinfo=dt_timezone.utc)
+        for account_required, cleaner_required in (
+            (True, False),
+            (False, True),
+            (False, False),
+        ):
+            for phone_required in (True, False):
+                with self.subTest(
+                    account=account_required,
+                    cleaner=cleaner_required,
+                    phone=phone_required,
+                ):
+                    config, _ = self.build(
+                        app_env="pilot",
+                        account_approval_required=account_required,
+                        cleaner_verification_required=cleaner_required,
+                        phone_verification_required=phone_required,
+                        allow_pilot_verification_bypass=True,
+                        bypass_owner="pilot-owner",
+                        bypass_reason="load-rehearsal",
+                        bypass_start_at=(now - timedelta(hours=1)).isoformat(),
+                        bypass_end_at=(now + timedelta(hours=1)).isoformat(),
+                        genuine_job_intake_paused=True,
+                    )
+                    config.validate(now=now)
+
+    def test_production_like_environment_rejects_fake_email_confirmation(self):
         for app_env in ("staging", "pilot", "prod", "production"):
             with self.subTest(app_env=app_env):
                 config, now = self.build(
                     app_env=app_env,
-                    account_approval_required=False,
+                    signup_email_verification_required=False,
                 )
-                with self.assertRaisesMessage(ImproperlyConfigured, "ALLOW_PILOT_VERIFICATION_BYPASS"):
+                with self.assertRaisesMessage(
+                    ImproperlyConfigured,
+                    "EMAIL_VER_USER_SIGNUP",
+                ):
                     config.validate(now=now)
 
     def test_guard_requires_metadata_aware_window_and_paused_intake(self):

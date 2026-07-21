@@ -356,6 +356,14 @@ function AdminPageContent() {
                   user.email.split("@")[0];
                 const initials = displayName[0]?.toUpperCase() ?? "?";
                 const busy = actioning === user.id;
+                const accountStatusLabel =
+                  user.account_status === "approved"
+                    ? t("userRow.approved")
+                    : user.account_status === "rejected"
+                      ? t("userRow.rejected")
+                      : user.account_status === "suspended"
+                        ? t("userRow.suspended")
+                        : t("userRow.pending");
 
                 return (
                   <li key={user.id} className="admin-user-row">
@@ -382,21 +390,30 @@ function AdminPageContent() {
                         <span
                           className={`admin-status-chip admin-status-${user.account_status}`}
                         >
-                          {user.account_status}
+                          {accountStatusLabel}
                         </span>
                         {user.evidence_excluded && (
                           <span className="admin-evidence-chip">{t("userRow.evidenceExcluded")}</span>
                         )}
                       </div>
                       <dl className="admin-verification-grid">
-                        <div><dt>{t("userRow.account")}</dt><dd>{user.account_status}</dd></div>
+                        <div><dt>{t("userRow.account")}</dt><dd>{accountStatusLabel}</dd></div>
                         <div><dt>{t("userRow.email")}</dt><dd>{user.email_verified ? t("userRow.confirmed") : t("userRow.incomplete")}</dd></div>
                         <div><dt>{t("userRow.phone")}</dt><dd>{user.phone_verified ? t("userRow.confirmed") : t("userRow.incomplete")}</dd></div>
                         <div><dt>{t("userRow.contact")}</dt><dd>{user.contact_verified ? t("userRow.confirmed") : t("userRow.incomplete")}</dd></div>
                         <div><dt>{t("userRow.marketplace")}</dt><dd>{user.marketplace_eligible ? t("userRow.active") : t("userRow.locked")}</dd></div>
                         <div><dt>{t("userRow.full")}</dt><dd>{user.fully_verified ? t("userRow.confirmed") : t("userRow.incomplete")}</dd></div>
                         {user.cleaner_marketplace_status && (
-                          <div><dt>{t("userRow.cleanerStatus")}</dt><dd>{user.cleaner_marketplace_status}</dd></div>
+                          <div>
+                            <dt>{t("userRow.cleanerStatus")}</dt>
+                            <dd>
+                              {user.cleaner_marketplace_status === "verified"
+                                ? t("userRow.cleanerStatusActive")
+                                : user.cleaner_marketplace_status === "pending"
+                                  ? t("userRow.cleanerStatusPending")
+                                  : t("userRow.cleanerStatusUnavailable")}
+                            </dd>
+                          </div>
                         )}
                       </dl>
                       {user.latest_decision && (

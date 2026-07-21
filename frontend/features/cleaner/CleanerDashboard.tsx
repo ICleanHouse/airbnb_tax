@@ -1878,12 +1878,12 @@ export default function CleanerDashboard() {
 
         {!me.is_approved && (
           <div className="host-pending-banner">
-            {t("pendingBanner", { status: me.account_status })}
+            {t("pendingBanner")}
           </div>
         )}
         {me.is_approved && profile && !profile.is_verified && (
           <div className="host-pending-banner cleaner-verification-banner">
-            {t("verificationBanner", { status: profile.verification_status })}
+            {t("verificationBanner")}
           </div>
         )}
         <VerificationStatusSummary

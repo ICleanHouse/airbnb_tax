@@ -259,7 +259,7 @@
       "filterAriaLabel": "Filter by property",
       "addShort": "Add"
     },
-    "pendingBanner": "Your account is {status}. You can browse while the configured contact requirements are completed.",
+    "pendingBanner": "Marketplace access is pending. You can browse while the configured contact requirements are completed.",
     "errors": {
       "loadProperties": "Could not load properties.",
       "network": "Network error. Check that the backend is running.",
@@ -484,8 +484,8 @@
       "allProperties": "All properties",
       "filterAriaLabel": "Filter by property"
     },
-    "pendingBanner": "Your account is {status}. You can complete your profile while the configured contact requirements are completed.",
-    "verificationBanner": "Your cleaner marketplace status is {status}. Job applications unlock when contact-policy eligibility is active.",
+    "pendingBanner": "Marketplace access is pending. You can complete your profile while the configured contact requirements are completed.",
+    "verificationBanner": "Cleaner marketplace access is not active. Job applications unlock when contact-policy eligibility is active.",
     "errors": {
       "loadProfile": "Could not load cleaner profile.",
       "loadJobs": "Could not load jobs.",
@@ -744,7 +744,7 @@
     "sidebar": {
       "accountsLabel": "Accounts",
       "filterLabels": {
-        "pending": "Pending approval",
+        "pending": "Pending accounts",
         "approved": "Approved",
         "all": "All accounts"
       }
@@ -767,6 +767,7 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "suspended": "Suspended",
+      "pending": "Pending",
       "account": "Account",
       "email": "Email",
       "phone": "Phone",
@@ -774,6 +775,9 @@
       "marketplace": "Marketplace",
       "full": "Full",
       "cleanerStatus": "Cleaner access",
+      "cleanerStatusActive": "Marketplace access active",
+      "cleanerStatusPending": "Marketplace access pending",
+      "cleanerStatusUnavailable": "Marketplace access unavailable",
       "confirmed": "Confirmed",
       "incomplete": "Incomplete",
       "active": "Active",
@@ -916,8 +920,16 @@
       "incomplete": "Incomplete",
       "required": "Required — not confirmed",
       "planned": "Planned — not currently required",
+      "pending": "Pending",
+      "unavailable": "Unavailable",
       "accessActive": "Marketplace access active",
       "accessLocked": "Marketplace access locked"
+    },
+    "accountStates": {
+      "approved": "Approved",
+      "pending": "Pending",
+      "rejected": "Rejected",
+      "suspended": "Suspended"
     },
     "interimPolicy": "Pilot marketplace access currently uses an interim email contact-confirmation policy. Phone verification is planned and is not currently required.",
     "disclaimer": "Email confirmation does not mean identity, references, an interview, or a trial job were checked."

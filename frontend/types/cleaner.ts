@@ -15,7 +15,7 @@ export interface PublicCleaner {
   profile_image: string;
   average_rating: string;
   completed_jobs_count: number;
-  is_verified: boolean;
+  marketplace_eligible: boolean;
 }
 
 export interface CleanerReview {

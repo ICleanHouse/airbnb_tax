@@ -4,6 +4,8 @@ from unittest import mock
 from django.db import transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from rest_framework.test import APIClient
 
 from apps.accounts.models import CleanerProfile, PilotEvidenceExclusion, User
@@ -15,6 +17,7 @@ from apps.core.models import AuditLog
 from apps.notifications.models import Notification
 from apps.accounts.models import SignupEmailVerification
 from apps.accounts.services import VerificationReconciliationResult
+from apps.accounts.tokens import email_verification_token
 
 
 BASE_POLICY = {
@@ -217,6 +220,26 @@ class AccountTransitionApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["changed"])
         self.assertEqual(response.data["user"]["account_status"], "approved")
+
+    def test_legacy_email_confirmation_uses_contact_reconciliation(self):
+        user = self.create_user(email_verified=False)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = email_verification_token.make_token(user)
+
+        response = self.client.get(f"/api/accounts/confirm-email/{uid}/{token}/")
+
+        self.assertEqual(response.status_code, 302)
+        user.refresh_from_db()
+        self.assertIsNotNone(user.email_verified_at)
+        self.assertEqual(user.account_status, User.AccountStatus.APPROVED)
+        self.assertEqual(
+            AuditLog.objects.filter(
+                action="account.approved",
+                entity_type="User",
+                entity_id=str(user.id),
+            ).count(),
+            1,
+        )
 
     @override_settings(PHONE_VERIFICATION_REQUIRED=True)
     def test_reconciliation_returns_stable_conflict_when_prerequisites_are_incomplete(self):

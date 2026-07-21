@@ -97,9 +97,10 @@ class PublicCleanerDirectoryTests(TestCase):
                 "profile_image",
                 "average_rating",
                 "completed_jobs_count",
-                "is_verified",
+                "marketplace_eligible",
             },
         )
+        self.assertTrue(row["marketplace_eligible"])
         self.assertEqual(row["profile_image"], "/media/cleaner_profiles/approved-public.webp")
         for operational_field in (
             "property",

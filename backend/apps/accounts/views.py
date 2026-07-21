@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import login, logout
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -165,22 +166,50 @@ class ConfirmEmailView(APIView):
     def get(self, request, uidb64, token):
         try:
             user_id = urlsafe_base64_decode(uidb64).decode()
-            user = User.objects.get(pk=user_id)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        except (TypeError, ValueError, OverflowError):
             return Response({"detail": "Invalid confirmation link."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not email_verification_token.check_token(user, token):
-            return Response({"detail": "Invalid or expired confirmation link."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            with transaction.atomic():
+                user = User.objects.select_for_update().get(pk=user_id)
+                if not email_verification_token.check_token(user, token):
+                    return Response(
+                        {"detail": "Invalid or expired confirmation link."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
-        if user.email_verified_at is None:
-            user.email_verified_at = timezone.now()
-            user.save(update_fields=["email_verified_at"])
-            write_audit_log(
-                actor=user,
-                action="user.email_verified",
-                entity_type="User",
-                entity_id=user.id,
-                request=request,
+                if user.email_verified_at is None:
+                    user.email_verified_at = timezone.now()
+                    user.save(update_fields=["email_verified_at"])
+                    write_audit_log(
+                        actor=user,
+                        action="user.email_verified",
+                        entity_type="User",
+                        entity_id=user.id,
+                        request=request,
+                    )
+
+                reconcile_contact_verification(
+                    user_id=user.id,
+                    trigger="legacy_email_confirmation",
+                    request=request,
+                )
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Invalid confirmation link."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ImproperlyConfigured:
+            logger.error(
+                "Email confirmation blocked by verification configuration",
+                extra={"event": "verification.bypass_unavailable"},
+            )
+            return Response(
+                {
+                    "code": "verification_configuration_unavailable",
+                    "detail": "Email confirmation is temporarily unavailable.",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}/login?email_confirmed=1"

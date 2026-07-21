@@ -21,6 +21,20 @@ export default function VerificationStatusSummary({
   const yesNo = (value: boolean | undefined) =>
     value ? t("states.confirmed") : t("states.incomplete");
   const marketplaceActive = Boolean(user.marketplace_eligible);
+  const accountStatusText = {
+    approved: t("accountStates.approved"),
+    pending: t("accountStates.pending"),
+    rejected: t("accountStates.rejected"),
+    suspended: t("accountStates.suspended"),
+  }[user.account_status];
+  const cleanerMarketplaceText =
+    cleanerMarketplaceStatus === "verified"
+      ? t("states.accessActive")
+      : cleanerMarketplaceStatus === "pending"
+        ? t("states.pending")
+        : cleanerMarketplaceStatus
+          ? t("states.unavailable")
+          : t("states.incomplete");
 
   return (
     <section
@@ -58,12 +72,12 @@ export default function VerificationStatusSummary({
         </div>
         <div>
           <dt>{t("labels.account")}</dt>
-          <dd>{user.account_status}</dd>
+          <dd>{accountStatusText}</dd>
         </div>
         {user.role === "cleaner" && (
           <div>
             <dt>{t("labels.cleanerMarketplace")}</dt>
-            <dd>{cleanerMarketplaceStatus ?? t("states.incomplete")}</dd>
+            <dd>{cleanerMarketplaceText}</dd>
           </div>
         )}
         <div>

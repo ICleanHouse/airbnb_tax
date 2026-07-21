@@ -480,7 +480,7 @@ class PublicCleanerSerializer(serializers.ModelSerializer):
     """Safe, browsable cleaner card — no PII (no email/phone/birth_date)."""
 
     user_id = serializers.IntegerField(source="user.id", read_only=True)
-    is_verified = serializers.BooleanField(read_only=True)
+    marketplace_eligible = serializers.SerializerMethodField()
 
     class Meta:
         model = CleanerProfile
@@ -501,9 +501,12 @@ class PublicCleanerSerializer(serializers.ModelSerializer):
             "profile_image",
             "average_rating",
             "completed_jobs_count",
-            "is_verified",
+            "marketplace_eligible",
         ]
         read_only_fields = fields
+
+    def get_marketplace_eligible(self, obj):
+        return obj.user.is_public_marketplace_eligible_cleaner
 
 
 class PublicCleanerDetailSerializer(PublicCleanerSerializer):

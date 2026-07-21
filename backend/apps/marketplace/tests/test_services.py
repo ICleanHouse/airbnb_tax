@@ -144,7 +144,10 @@ class MarketplaceServiceTests(TestCase):
             verification_status=CleanerProfile.VerificationStatus.PENDING
         )
 
-        with self.assertRaisesMessage(MarketplaceError, "Cleaner must be verified."):
+        with self.assertRaisesMessage(
+            MarketplaceError,
+            "Cleaner marketplace access must be active.",
+        ):
             accept_application(application=application, accepted_by=self.host)
 
         application.refresh_from_db()

@@ -1476,7 +1476,7 @@ export default function HostDashboard() {
         {/* ── Pending banner ── */}
         {!isApproved && (
           <div className="host-pending-banner">
-            ⏳ {t("pendingBanner", { status: me.account_status })}
+            ⏳ {t("pendingBanner")}
           </div>
         )}
         <VerificationStatusSummary user={me} compact />

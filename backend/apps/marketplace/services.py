@@ -58,7 +58,9 @@ class CleanerScheduleConflictError(MarketplaceError):
         super().__init__(self.detail)
 
 
-FAVOURITE_TARGET_INELIGIBLE = "Only approved, active, verified cleaner accounts can be favourited."
+FAVOURITE_TARGET_INELIGIBLE = (
+    "Only cleaners with active marketplace access can be favourited."
+)
 JOB_START_NOT_FUTURE = (
     "This job is no longer available because its scheduled start must be in the future."
 )
@@ -519,7 +521,9 @@ def submit_application(
             raise MarketplaceError("Cleaner profile is required before applying.") from exc
 
         if not cleaner_profile.is_verified:
-            raise MarketplaceError("Cleaner must be verified before applying.")
+            raise MarketplaceError(
+                "Cleaner marketplace access must be active before applying."
+            )
     elif cleaner.is_agency:
         try:
             cleaner.agency_profile
@@ -916,7 +920,7 @@ def _ensure_cleaner_workable(cleaner: User) -> None:
         except CleanerProfile.DoesNotExist as exc:
             raise MarketplaceError("Cleaner profile is required.") from exc
         if not cleaner_profile.is_verified:
-            raise MarketplaceError("Cleaner must be verified.")
+            raise MarketplaceError("Cleaner marketplace access must be active.")
     elif cleaner.is_agency:
         try:
             AgencyProfile.objects.select_for_update().get(user_id=cleaner.pk)
@@ -1246,7 +1250,7 @@ def assign_member_to_assignment(
         raise MarketplaceError("Assigned cleaner profile is required.") from exc
 
     if not cleaner_profile.is_verified:
-        raise MarketplaceError("Assigned cleaner must be verified.")
+        raise MarketplaceError("Assigned cleaner marketplace access must be active.")
 
     try:
         AgencyMembership.objects.select_for_update().get(

@@ -370,7 +370,7 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
   auth: required
   reads: GET /api/accounts/users/
          GET /api/accounts/users/{id}/review-history/
-  reads param: ?filter=pending   (pre-selects tab; used in email approval links)
+  reads param: ?filter=pending   (legacy/bookmarked pending-account view)
   writes: POST /api/accounts/users/{id}/reconcile-verification/
           POST /api/accounts/users/{id}/reject/
           POST /api/accounts/users/{id}/suspend/
@@ -563,7 +563,7 @@ EVENT: account.created (signup)
               │  sends: email with name, role, approve_link
               │  approve_link = FRONTEND_URL/admin?filter=pending
               │  retries: 3× with 60s delay on mail-backend failure
-              └──► SIDE EFFECT: admin redirected to /admin?filter=pending (via email link)
+              └──► SIDE EFFECT: admin receives a neutral /admin review link with stored account state
 
 EVENT: account.approved                            ✅ implemented
   ├──► SIDE EFFECT: deterministic AuditLog transition row

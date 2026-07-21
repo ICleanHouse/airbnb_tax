@@ -94,7 +94,10 @@ legacy `is_verified` name. GREEN localizes the stored state as “Marketplace
 access active” / its Bulgarian equivalent and exposes the honest public field
 `marketplace_eligible`. A legacy email-link RED also proved that the older
 confirmation route stamped the email without reconciliation; GREEN now performs
-the same atomic reconciliation used by the code-confirmation path.
+the same atomic reconciliation used by the code-confirmation path. A final
+notification-copy RED found the signup admin email still claimed every account
+was “awaiting approval”; GREEN reports the stored account state and links to the
+neutral account review surface instead.
 
 ## Data changes
 

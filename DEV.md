@@ -503,7 +503,8 @@ instructions, coordinates, host identity, and free text.
   and suspends pending/approved accounts through structured atomic transitions.
 - Review history is admin-only; internal notes do not appear in ordinary user
   serializers. Cleaner status is not directly editable.
-- Reads `?filter=pending` URL query param on load — used in admin notification email links to pre-select the pending tab.
+- Reads `?filter=pending` on load for legacy/bookmarked filtered views; signup
+  notifications link to the neutral account-review surface.
 - Accessible to `admin` role only — redirects others.
 
 ### Host dashboard (`/host`)

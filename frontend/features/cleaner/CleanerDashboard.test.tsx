@@ -15,6 +15,7 @@ const replaceMock = vi.hoisted(() =>
     navigationState.search = url.search.startsWith("?") ? url.search.slice(1) : "";
   }),
 );
+const localeReplaceMock = vi.hoisted(() => vi.fn());
 const liveRefreshState = vi.hoisted(() => ({
   callback: null as null | (() => void),
 }));
@@ -67,6 +68,11 @@ vi.mock("next-intl", () => ({
     translate.rich = (key: string) => `${namespace}.${key}`;
     return translate;
   },
+}));
+
+vi.mock("../../i18n/navigation", () => ({
+  usePathname: () => "/cleaner",
+  useRouter: () => ({ replace: localeReplaceMock }),
 }));
 
 vi.mock("../../lib/api", () => ({
@@ -277,7 +283,7 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 function mockApiFetch() {
-  apiFetchMock.mockImplementation(async (url: string) => {
+  apiFetchMock.mockImplementation(async (url: string, options?: RequestInit) => {
     switch (url) {
       case "/api/accounts/me/":
         return jsonResponse(cleanerUser);
@@ -291,6 +297,11 @@ function mockApiFetch() {
         return jsonResponse(assignmentsResponse);
       case "/api/feedback/reviews/":
         return jsonResponse([]);
+      case "/api/accounts/users/15/":
+        return jsonResponse({
+          ...cleanerUser,
+          preferred_language: JSON.parse(String(options?.body)).preferred_language,
+        });
       default:
         if (url.startsWith("/api/marketplace/calendar/")) return jsonResponse(calendarResponse);
         throw new Error(`Unhandled apiFetch call: ${url}`);
@@ -304,6 +315,7 @@ describe("CleanerDashboard review modal", () => {
     navigationState.search = "";
     liveRefreshState.callback = null;
     replaceMock.mockReset();
+    localeReplaceMock.mockReset();
     replaceMock.mockImplementation((href: string) => {
       const url = new URL(href, "http://localhost");
       navigationState.pathname = url.pathname;
@@ -346,6 +358,18 @@ describe("CleanerDashboard review modal", () => {
     });
     expect(screen.queryByRole("dialog", { name: "components.reviewModal.ariaLabel" })).not.toBeInTheDocument();
     expect(container.querySelector(".host-modal-backdrop")).toBeNull();
+  });
+
+  it("switches the active locale after saving the cleaner language preference", async () => {
+    const user = userEvent.setup();
+    render(<CleanerDashboard />);
+
+    await user.click(await screen.findByRole("button", { name: "cleaner.topbar.accountMenuAriaLabel" }));
+    await user.click(screen.getByRole("button", { name: "EN" }));
+
+    await waitFor(() => {
+      expect(localeReplaceMock).toHaveBeenCalledWith("/cleaner", { locale: "en" });
+    });
   });
 
   it("renders the evaluator allowlist without requiring private property fields", async () => {

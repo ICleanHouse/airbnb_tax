@@ -16,6 +16,7 @@ const replaceMock = vi.hoisted(() =>
     navigationState.search = url.search.startsWith("?") ? url.search.slice(1) : "";
   }),
 );
+const localeReplaceMock = vi.hoisted(() => vi.fn());
 const liveRefreshState = vi.hoisted(() => ({
   callback: null as null | (() => void),
 }));
@@ -70,6 +71,11 @@ vi.mock("next-intl", () => ({
     translate.rich = (key: string) => `${namespace}.${key}`;
     return translate;
   },
+}));
+
+vi.mock("../../i18n/navigation", () => ({
+  usePathname: () => "/host",
+  useRouter: () => ({ replace: localeReplaceMock }),
 }));
 
 vi.mock("../../lib/api", () => ({
@@ -210,6 +216,11 @@ function mockApiFetch() {
         return jsonResponse([]);
       case "/api/marketplace/favourites/":
         return jsonResponse([]);
+      case "/api/accounts/users/7/":
+        return jsonResponse({
+          ...hostUser,
+          preferred_language: JSON.parse(String(options?.body)).preferred_language,
+        });
       default:
         throw new Error(`Unhandled apiFetch call: ${url}`);
     }
@@ -222,6 +233,7 @@ describe("HostDashboard review modal", () => {
     navigationState.search = "";
     liveRefreshState.callback = null;
     replaceMock.mockReset();
+    localeReplaceMock.mockReset();
     replaceMock.mockImplementation((href: string) => {
       const url = new URL(href, "http://localhost");
       navigationState.pathname = url.pathname;
@@ -247,6 +259,18 @@ describe("HostDashboard review modal", () => {
 
     expect(screen.queryByRole("dialog", { name: "components.reviewModal.ariaLabel" })).not.toBeInTheDocument();
     expect(container.querySelector(".host-modal-backdrop")).toBeNull();
+  });
+
+  it("switches the active locale after saving the host language preference", async () => {
+    const user = userEvent.setup();
+    render(<HostDashboard />);
+
+    await user.click(await screen.findByRole("button", { name: "host.topbar.accountMenuAriaLabel" }));
+    await user.click(screen.getByRole("button", { name: "EN" }));
+
+    await waitFor(() => {
+      expect(localeReplaceMock).toHaveBeenCalledWith("/host", { locale: "en" });
+    });
   });
 
   it("keeps the review modal closed after dismissing it from a reviewJob deep link and refreshing data", async () => {

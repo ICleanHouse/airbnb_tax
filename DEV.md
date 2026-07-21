@@ -304,7 +304,7 @@ npm.cmd run lint
 
 ## Localisation (i18n)
 
-The frontend is fully localised with **next-intl v4** (App Router native). Bulgarian is the default/primary locale (no URL prefix); English is `/en/…`.
+The frontend is fully localised with **next-intl v4** (App Router native). Bulgarian is the default/primary locale at `/bg/…`; English is `/en/…`. Explicit prefixes avoid default-locale redirect loops while Next.js trailing-slash routing is enabled.
 
 ### Message files
 

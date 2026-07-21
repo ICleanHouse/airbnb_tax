@@ -19,17 +19,18 @@ enabled Stage 1 upload path is bounded and validated.
 - **Done:** S1-D04, S1-E01, S1-E03, S1-E04, and S1-E09. Public
   disclosure/media, signup-secret persistence, cleaner schedule overlap, and
   calendar/upload protections are implemented and tested.
-- **In progress — policy recorded and maturity audited:** ADR-0002 records the
-  owner-approved contact policy and the S1-E02 maturity matrix identifies the
-  exact built, partial, missing, testing-disabled, and S1-D02-blocked behavior.
-  Public signup still hard-codes approved/verified states until the production
-  batches below replace it with pending-first atomic reconciliation.
+- **In progress — contact policy implemented:** ADR-0002 records the
+  owner-approved contact policy; signup now creates safe pending state before
+  atomic reconciliation, guarded shortcuts are evidence-excluded, and the
+  admin/user surfaces describe the interim policy honestly. S1-E02 remains in
+  progress because phone OTP and the S1-D02 manual cleaner/agency policy are
+  unresolved.
 - **Resolved launch blockers:** S1-B01 exact anonymous job/property disclosure,
   S1-B03 sensitive signup-browser persistence, S1-B04 cross-property cleaner
   double-booking, S1-B09 raw/private property-media exposure, and S1-B16
   unrestricted calendar URL fetching.
 - **Gate status:** Gate A and Gate B are in progress. Gates C–F have not started.
-- **Next critical work:** audit and complete S1-E02, finish the Gate A owner decisions,
+- **Next critical work:** finish the Gate A owner decisions,
   define and implement S1-E05 recovery workflows, and resolve S1-E10's
   map/geocoding boundary.
 
@@ -299,7 +300,7 @@ dashboard.
 | ID | Blocker | Stage 1 disposition |
 |---|---|---|
 | S1-B01 | Resolved 2026-07-14: anonymous job/property disclosure was replaced by canonical city/zone aggregates | Retain recursive privacy tests and compatibility-alias sunset controls; see [privacy evidence](testing/release_blocking_privacy_fix.tdd.md) |
-| S1-B02 | In progress: ADR-0002 and the pre-code maturity audit are complete; persisted states and broad gates exist, while signup still hard-codes promoted state until S1-E02 implementation lands | Implement pending-first contact reconciliation, protected transitions, guarded shortcuts, honest UI, and PostgreSQL evidence without claiming manual identity/quality review |
+| S1-B02 | In progress: interim contact reconciliation, protected transitions, guarded shortcuts, evidence exclusion, honest UI, and PostgreSQL concurrency coverage are implemented; phone/manual vetting remains incomplete | Resolve the S1-D02 phone/manual cleaner/agency policy without claiming identity/quality review |
 | S1-B03 | Resolved 2026-07-14: signup recovery now persists only a non-sensitive allowlist | Retain storage/telemetry regression tests; see [privacy evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-B04 | Resolved 2026-07-15: concrete cleaners are protected at every implemented assignment-producing transition | Retain PostgreSQL concurrency coverage; see [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-B05 | Assigned cancellation, rescheduling, no-show, dispute, and replacement recovery are not operational | Minimum history-preserving operator-supported workflows required |
@@ -409,7 +410,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-D04 | Must-have | Stage 1 owner | S1-D01 | Done | 2026-07-14 | [Recorded disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
 | S1-D05 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
 | S1-E01 | Must-have | Engineering owner | S1-D04 | Done | 2026-07-14 | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md) |
-| S1-E02 | Must-have | Engineering owner | ADR-0002; remaining S1-D02 items | In progress |  | [Owner policy](adr/0002-contact-based-verification.md); [pre-code maturity audit](testing/s1_e02_account_verification_maturity_audit.md); TDD evidence pending |
+| S1-E02 | Must-have | Engineering owner | ADR-0002; remaining S1-D02 items | In progress |  | [Owner policy](adr/0002-contact-based-verification.md); [maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [TDD evidence](testing/s1_e02_account_verification.tdd.md) |
 | S1-E03 | Must-have | Engineering owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E04 | Must-have | Engineering owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-E05 | Must-have | Repository owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md) |
@@ -568,14 +569,14 @@ without product decisions being made inside views or components.
 **Decision recorded 2026-07-14:** Stage 1 uses canonical city/district
 aggregation for anonymous demand and the audience-specific allowlists below.
 Exact schedule, proposed price, bedrooms, and square metres are approved only
-for active, approved, verified marketplace evaluators. They are not public
+for active marketplace-eligible evaluators. They are not public
 fields.
 
 | Audience | Allowed job/location detail |
 |---|---|
 | Anonymous | Canonical city/district names and aggregate open-job counts only; no per-job marker, coordinate, centroid, date, price, scope, property, host, or media field |
 | Pending, rejected, suspended, or unverified user | No private open-job detail |
-| Approved and verified eligible cleaner or eligible agency | Job ID required to apply; canonical city/district; exact start/end; currency and proposed price; bedrooms and square metres; status and `can_apply`. No property ID/name/address/raw neighborhood/coordinates/media, host identity/contact, free text, instructions, agreed price, assignment, or batch data |
+| Marketplace-eligible cleaner or eligible agency | Job ID required to apply; canonical city/district; exact start/end; currency and proposed price; bedrooms and square metres; status and `can_apply`. No property ID/name/address/raw neighborhood/coordinates/media, host identity/contact, free text, instructions, agreed price, assignment, or batch data |
 | Active non-cancelled assigned cleaner, agency, or immutable assigned member | Evaluator fields plus the minimum property name/address, instructions, agreed price, workflow IDs, non-contact host display information, and one object-authorized primary property image required to perform the job. A blank display name falls back to `Host`, never the login username/email. Latitude and longitude remain excluded |
 | Completed or otherwise retained worker history | Evaluator fields plus the same non-contact host display, agreed price, and assignment history. Property name/address, image, instructions, coordinates, and other operational property details are removed |
 | Owning host and platform admin | Full authorized operational record |
@@ -720,9 +721,10 @@ Acceptance criteria:
 **Status: In progress.** The owner-approved policy is recorded in
 [ADR-0002](adr/0002-contact-based-verification.md), and the required pre-code
 [maturity audit](testing/s1_e02_account_verification_maturity_audit.md) is
-complete. The capability is partially built but the production transition path
-is still disabled by hard-coded promoted signup state until the implementation
-batches finish.
+complete. The owner-approved interim contact capability is implemented and may
+be enabled or stopped through its guarded configuration contract. Phone OTP,
+manual cleaner evidence, negative cleaner outcomes, re-review, retention, and
+agency verification remain incomplete, so the epic is not Done.
 
 #### Policy and configuration contract
 
@@ -756,22 +758,22 @@ Required work:
 
 - [x] Record the owner decision and reconcile the Stage 1 source documents.
 - [x] Complete and link the line-referenced implementation maturity audit.
-- [ ] Add the four primary settings and guarded bypass metadata validation.
-- [ ] Add pending-first atomic, row-locked, idempotent initialization and
+- [x] Add the four primary settings and guarded bypass metadata validation.
+- [x] Add pending-first atomic, row-locked, idempotent initialization and
       reconciliation.
-- [ ] Add restricted evidence exclusion and notification deduplication data.
-- [ ] Replace `/approve/` with honest admin reconciliation; centralize reject
+- [x] Add restricted evidence exclusion and notification deduplication data.
+- [x] Replace `/approve/` with honest admin reconciliation; centralize reject
       and suspend transitions with expected-state conflict handling.
-- [ ] Protect account/cleaner transition fields from generic PATCH and Django
+- [x] Protect account/cleaner transition fields from generic PATCH and Django
       admin editing; add restricted review history.
-- [ ] Harden only the confirmed authorization gaps in connections/messages,
+- [x] Harden only the confirmed authorization gaps in connections/messages,
       private cleaner profiles, favourite creation, agency invitations and
       delegation.
-- [ ] Extend admin and user status UI with separate email, phone, contact,
+- [x] Extend admin and user status UI with separate email, phone, contact,
       account, cleaner-marketplace, and full-verification states and BG/EN copy.
-- [ ] Add configuration, transition, authorization, frontend, rollback, and
+- [x] Add configuration, transition, authorization, frontend, rollback, and
       PostgreSQL concurrency evidence.
-- [ ] Document deploy configuration and operator rollback.
+- [x] Document deploy configuration and operator rollback.
 
 Acceptance criteria:
 
@@ -1405,7 +1407,8 @@ Acceptance criteria:
 
 ### S1-Q02 — Backend test matrix
 
-- [ ] Signup creates pending users and pending cleaner verification.
+- [x] Signup creates pending users and pending cleaner state before atomic
+      contact reconciliation advances allowed transitions.
 - [ ] Approval and verification transitions and permissions.
 - [ ] Serializer/API field allowlists by role and status.
 - [ ] Object-level authorization for every pilot resource and action, including
@@ -1421,7 +1424,7 @@ Acceptance criteria:
 - [ ] Exactly one accepted cleaner assignment per cleaning job and immutable
       agency delegation.
 - [ ] Delegated-member completion and reviews.
-- [ ] Favourites may be created only for active, approved, verified cleaners
+- [x] Favourites may be created only for active, approved, marketplace-eligible cleaners
       eligible for the public directory; historical favourites remain and
       serialize safely after later suspension or loss of eligibility.
 - [ ] Account-deletion guards and retention behavior.
@@ -1446,7 +1449,7 @@ Acceptance criteria:
 - [ ] Mobile widths and software-keyboard behavior.
 - [ ] Browser-level golden paths:
   1. Host signup → pending → approval.
-  2. Cleaner signup → pending → account approval + cleaner verification.
+  2. Cleaner signup → safe pending base → automatic contact reconciliation.
   3. Host property and job publication.
   4. Public demand without private property leakage.
   5. Cleaner application → host acceptance.
@@ -1684,7 +1687,8 @@ Record before launch:
       qualified cohort host is an approved target-segment host with an active
       Sofia STR property and at least one genuine standard turnover expected
       inside the activation window.
-- [ ] Activated verified cleaner pool.
+- [ ] Activated marketplace-eligible cleaner pool; any stronger manual-evidence
+      cohort label depends on S1-D02.
 - [ ] Controlled agencies, if any.
 - [ ] Cohort-freeze rule: designate five to eight qualified hosts and freeze
       membership before the first measured pilot job.
@@ -1808,7 +1812,7 @@ the first live job and do not move them after seeing results.
 | Frozen evaluation cohort | The five to eight qualified hosts designated before the first measured pilot job; membership does not change after launch |
 | Evaluable standard turnover | A genuine turnover lineage in the selected cluster whose first exposed attempt is frozen as eligible at least the owner-approved minimum notice before start (recommended: 48 hours). A withdrawal/material change before supply exposure may be excluded/superseded with reason; after exposure the original attempt remains recorded and a changed request becomes a linked attempt without creating a second volume denominator |
 | Urgent turnover | A genuine turnover whose first exposed attempt is below the minimum-notice threshold; report it as a separate cohort and never use it to lower the standard-turnover denominator |
-| Qualified response | A response from an approved, verified, in-area cleaner whose recorded availability/travel limits fit the job, through one recorded match mode |
+| Qualified response | A response from an active marketplace-eligible in-area cleaner whose recorded availability/travel limits fit the job, through one recorded match mode |
 | Match mode | Record outreach events, `first_qualified_response_mode`, and `assignment_source` as `organic_application`, `host_direct_offer`, or `operator_assisted`. Organic means no targeted host/operator outreach occurred before that response; assisted/direct results are not organic liquidity |
 | Qualified-response rate | Evaluable standard turnover lineages receiving a qualified response within 24 hours of first supply exposure / evaluable standard turnover lineages |
 | Organic qualified-application rate | Evaluable standard turnover lineages receiving an `organic_application` within 24 hours of first supply exposure / evaluable standard turnover lineages |
@@ -1822,7 +1826,7 @@ the first live job and do not move them after seeing results.
 | Cohort activation rate | Frozen-cohort hosts reaching a first operationally successful job inside the approved activation window / all frozen-cohort hosts |
 | Matured host | A frozen-cohort host who reached a first operationally successful job inside the activation window and has since received 30 complete observation days |
 | Repeat-host rate | Matured hosts who intentionally publish a new genuine job after their first operational-success timestamp and within the following 30 days / all matured hosts. Pre-existing drafts, monthly-batch jobs, imports, or other jobs created before first success do not count as repeat behavior |
-| Active verified supply | Verified cleaners with current availability who respond during the pilot |
+| Active eligible supply | Marketplace-eligible cleaners with current availability who respond during the pilot; email-only status is not an identity-verification claim |
 | District coverage | Active district/time bands with at least two total eligible activated cleaners (one potential assignee plus one distinct potential backup) / all active district/time bands |
 | Recurring operator effort per success | Total recurring operator minutes across all evaluable standard turnover lineages—including unfilled, cancelled, failed, and recovery work—/ operationally successful lineages |
 | Per-turnover operator effort | Median and maximum recurring operator minutes across all evaluable standard turnover lineages |
@@ -1908,7 +1912,8 @@ statistically representative.
 - Exact property search/coordinates never go directly to an unapproved map or
   geocoding third party.
 - Calendar URL import is disabled or passes the SSRF/redirect/size/content gate.
-- Real signup creates pending users; cleaner verification requires an admin.
+- Real signup creates a safe pending base and then applies automatic contact
+  reconciliation; manual cleaner evidence verification remains blocked by S1-D02.
 - No enabled role has a dead route/action.
 - No overlapping active cleaner assignments survive concurrency.
 - Minimum cancellation, reschedule, no-show, dispute, and replacement recovery
@@ -1954,7 +1959,7 @@ has materially stronger evidence than the current position.
 
 Pause or stop when:
 
-- unapproved/unverified supply reaches real work;
+- ineligible supply reaches real work;
 - a critical safety/privacy incident remains unresolved;
 - there is no viable backup capacity;
 - suitable participants cannot be recruited;
@@ -2095,9 +2100,9 @@ Recommended engineering order:
    turnover-lineage model, and the map/geocoder boundary, plus required ADRs.
 2. ✅ Maintain S1-E01 public-data/profile/review and property-media containment
    regression coverage.
-3. ✅ Record ADR-0002 and audit the S1-E02 boundary; now implement the four
-   safe-default variables, pending-first contact reconciliation, protected
-   transitions, evidence exclusion, and honest status UI.
+3. 🟨 S1-E02 interim contact verification and PostgreSQL concurrency coverage
+   are implemented; phone/manual cleaner/agency verification remains governed
+   by S1-D02.
 4. ✅ Remove sensitive signup persistence; retain the allowlist and telemetry
    regression suite.
 5. Repair anonymous conversion and contain agency routing.

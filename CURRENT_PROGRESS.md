@@ -1,6 +1,6 @@
 # Current Progress Handoff
 
-Updated: 2026-07-21, S1-E02 policy and maturity audit.
+Updated: 2026-07-21, S1-E02 interim contact policy implementation.
 
 ## Latest Work — S1-E02 Contact-Based Verification (In progress, 2026-07-21)
 
@@ -9,12 +9,22 @@ Updated: 2026-07-21, S1-E02 policy and maturity audit.
   reconciliation automatically approves the account and activates cleaner
   marketplace access. This does not claim identity, reference, interview, or
   trial-job review; full verification requires both contact timestamps.
-- The pre-code maturity audit is linked at
-  `docs/testing/s1_e02_account_verification_maturity_audit.md`. It confirms the
-  feature is partially built but signup currently bypasses its transitions by
-  hard-coding approved/verified states.
-- S1-E02 remains **In progress**. Implementation, migrations, RED/GREEN evidence,
-  UI changes, and PostgreSQL concurrency proof are still required. Phone OTP,
+- Signup now creates safe pending base state and calls one atomic, row-locked,
+  idempotent reconciliation service. Requirement shortcuts are guarded in
+  production-like environments and create a permanent restricted evidence
+  exclusion. Generic status PATCH writes and the old `/approve/` action are gone.
+- Admin reconciliation/reject/suspend/history and user-facing BG/EN status
+  surfaces distinguish email, phone, configured contact, account, cleaner
+  marketplace, and full-contact states without making an identity claim.
+- Additive migrations are `accounts/0019_pilotevidenceexclusion.py` and
+  `notifications/0002_notification_deduplication_key.py`. Focused and full
+  verification evidence is recorded in
+  `docs/testing/s1_e02_account_verification.tdd.md`.
+- Verification passed: Django check and migration drift; accounts 85,
+  marketplace 181, connections 13, notifications 17, core 11; full backend
+  444 with eight expected PostgreSQL skips; PostgreSQL 16 S1-E02 concurrency
+  5/5; frontend 53; typecheck; and lint with zero errors/four existing warnings.
+- S1-E02 remains **In progress**. Phone OTP,
   manual cleaner evidence, negative cleaner outcomes/restoration, re-review,
   retention, and agency verification remain S1-D02 blockers.
 
@@ -465,7 +475,8 @@ python backend/manage.py test apps.accounts.tests.test_auth_agency_consent apps.
   - Migration check passed.
   - Targeted cleaner signup tests passed.
 
-- Full `apps.accounts.tests.test_auth_agency_consent` still has one existing unrelated failure: the host signup test expects `pending`, while current signup code creates `approved`.
+- The former signup-state test mismatch is superseded by S1-E02 truth-table and
+  pending-first initialization coverage.
 
 - Latest observability checks:
   - `python manage.py check` passed.

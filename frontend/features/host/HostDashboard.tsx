@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { usePathname as useLocalePathname, useRouter as useLocaleRouter } from "../../i18n/navigation";
 import { apiFetch, CurrentUser, type FavouriteCleaner } from "../../lib/api";
 import VerificationStatusSummary from "../../components/VerificationStatusSummary";
 import { formatMoney } from "../../lib/money";
@@ -226,6 +227,8 @@ export default function HostDashboard() {
   const tNav = useTranslations("nav");
   const router = useRouter();
   const pathname = usePathname();
+  const localeRouter = useLocaleRouter();
+  const localePathname = useLocalePathname();
   const MONTHS = tC.raw("monthsFull") as string[];
   const DAYS = tC.raw("calDays") as string[];
   const STATUS_LABEL: Record<JobStatus, string> = {
@@ -1014,6 +1017,10 @@ export default function HostDashboard() {
     const updatedUser = (await response.json()) as CurrentUser;
     setMe(updatedUser);
     setAccountLanguage(updatedUser.preferred_language);
+    const query = searchParams.toString();
+    localeRouter.replace(query ? `${localePathname}?${query}` : localePathname, {
+      locale: preferredLanguage,
+    });
   }
 
   async function saveAccount(e: FormEvent) {

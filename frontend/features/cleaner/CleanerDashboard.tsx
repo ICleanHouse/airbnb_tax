@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { usePathname as useLocalePathname, useRouter as useLocaleRouter } from "../../i18n/navigation";
 import { apiFetch, CurrentUser } from "../../lib/api";
 import VerificationStatusSummary from "../../components/VerificationStatusSummary";
 import { money, formatMoney } from "../../lib/money";
@@ -521,6 +522,8 @@ export default function CleanerDashboard() {
   const t = useTranslations("cleaner");
   const tC = useTranslations("common");
   const tNav = useTranslations("nav");
+  const localeRouter = useLocaleRouter();
+  const localePathname = useLocalePathname();
   const MONTHS = tC.raw("monthsFull") as string[];
   const DAYS = tC.raw("calDays") as string[];
   const STATUS_LABEL: Record<JobStatus, string> = {
@@ -954,6 +957,10 @@ export default function CleanerDashboard() {
     });
     if (response.ok) {
       setMe((await response.json()) as CurrentUser);
+      const query = searchParams.toString();
+      localeRouter.replace(query ? `${localePathname}?${query}` : localePathname, {
+        locale: preferredLanguage,
+      });
     }
   }
 

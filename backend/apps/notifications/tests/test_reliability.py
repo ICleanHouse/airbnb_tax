@@ -2,7 +2,8 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 
 from apps.notifications.models import (
     Notification,
@@ -16,6 +17,8 @@ from apps.notifications.services import (
     NotificationEventValidationError,
     emit_notification_event,
 )
+from apps.notifications.delivery import NotificationProviderError
+from apps.notifications.tasks import deliver_notification
 
 
 User = get_user_model()
@@ -178,6 +181,129 @@ class NotificationEventEmissionTests(TestCase):
             pass
 
         self.assertFalse(NotificationEvent.objects.exists())
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    NOTIFICATION_EMAIL_PROVIDER="django",
+)
+class NotificationEmailDeliveryTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="email-recipient@example.test",
+            email="email-recipient@example.test",
+            password="Password123!",
+            role=User.Role.HOST,
+            account_status=User.AccountStatus.APPROVED,
+            preferred_language=User.Language.ENGLISH,
+        )
+        with patch("apps.notifications.services.deliver_notification.apply_async"):
+            result = emit_notification_event(
+                NotificationEventRequest(
+                    event_type="account.approved",
+                    recipient_id=self.user.id,
+                    occurrence_key=f"account:{self.user.id}:approved:v1",
+                    source_entity_type="User",
+                    source_entity_id=str(self.user.id),
+                    destination="/app",
+                    request_id="req_delivery_test",
+                )
+            )
+        self.delivery = result.event.deliveries.get(
+            channel=NotificationDelivery.Channel.EMAIL
+        )
+
+    def test_replaying_sent_delivery_does_not_send_a_duplicate_email(self):
+        deliver_notification.run(self.delivery.id)
+        deliver_notification.run(self.delivery.id)
+
+        self.delivery.refresh_from_db()
+        self.assertEqual(self.delivery.status, NotificationDelivery.Status.SENT)
+        self.assertEqual(self.delivery.attempt_count, 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(self.delivery.attempts.count(), 1)
+
+    @patch("apps.notifications.tasks.deliver_notification.apply_async")
+    @patch("apps.notifications.tasks.send_notification_email")
+    def test_transient_failure_is_retryable_then_succeeds_once(
+        self, send_notification_email, apply_async
+    ):
+        send_notification_email.side_effect = [
+            NotificationProviderError(
+                category="provider_unavailable",
+                code="timeout",
+                retryable=True,
+            ),
+            "provider-message-1",
+        ]
+
+        deliver_notification.run(self.delivery.id)
+        self.delivery.refresh_from_db()
+        self.assertEqual(
+            self.delivery.status, NotificationDelivery.Status.RETRYABLE_FAILED
+        )
+        apply_async.assert_called_once()
+
+        deliver_notification.run(self.delivery.id)
+        self.delivery.refresh_from_db()
+        self.assertEqual(self.delivery.status, NotificationDelivery.Status.SENT)
+        self.assertEqual(self.delivery.attempt_count, 2)
+        self.assertEqual(self.delivery.attempts.count(), 2)
+
+    @patch("apps.notifications.tasks.send_notification_email")
+    def test_permanent_failure_creates_exactly_one_operator_alert(self, send_email):
+        send_email.side_effect = NotificationProviderError(
+            category="recipient_invalid",
+            code="invalid_recipient",
+            retryable=False,
+        )
+
+        deliver_notification.run(self.delivery.id)
+        deliver_notification.run(self.delivery.id)
+
+        self.delivery.refresh_from_db()
+        self.assertEqual(self.delivery.status, NotificationDelivery.Status.FINAL_FAILED)
+        self.assertEqual(self.delivery.error_category, "recipient_invalid")
+        self.assertEqual(self.delivery.error_code, "invalid_recipient")
+        self.assertEqual(self.delivery.attempts.count(), 1)
+        self.assertEqual(OperatorNotificationAlert.objects.count(), 1)
+
+    @patch("apps.notifications.tasks.send_notification_email")
+    def test_raw_provider_exception_text_is_not_persisted(self, send_email):
+        secret = "customer@example.test token=super-secret private narrative"
+        send_email.side_effect = RuntimeError(secret)
+
+        deliver_notification.run(self.delivery.id)
+
+        self.delivery.refresh_from_db()
+        attempt = self.delivery.attempts.get()
+        stored = " ".join(
+            [
+                self.delivery.error_category,
+                self.delivery.error_code,
+                attempt.error_category,
+                attempt.error_code,
+            ]
+        )
+        self.assertNotIn(secret, stored)
+        self.assertEqual(self.delivery.status, NotificationDelivery.Status.FINAL_FAILED)
+
+    def test_email_uses_localized_safe_contract_content(self):
+        self.delivery.event.metadata = {
+            "address": "1 Private Street",
+            "access_code": "1234",
+            "narrative": "private incident text",
+        }
+        self.delivery.event.save(update_fields=["metadata", "updated_at"])
+
+        deliver_notification.run(self.delivery.id)
+
+        message = mail.outbox[0]
+        rendered = f"{message.subject} {message.body}"
+        self.assertEqual(message.subject, "Your Host Cleaners account is active")
+        self.assertNotIn("1 Private Street", rendered)
+        self.assertNotIn("1234", rendered)
+        self.assertNotIn("private incident text", rendered)
         self.assertFalse(NotificationDelivery.objects.exists())
         self.assertFalse(Notification.objects.exists())
         apply_async.assert_not_called()
@@ -225,4 +351,3 @@ class NotificationEventEmissionTests(TestCase):
                     emit_notification_event(request)
 
         self.assertFalse(NotificationEvent.objects.exists())
-

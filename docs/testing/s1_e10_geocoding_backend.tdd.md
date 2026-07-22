@@ -46,6 +46,11 @@ python manage.py test apps.locations.tests.test_geocoding_api
 
 Result: **PASS** — 7 tests, 0 failures.
 
+The provider review subsequently identified Geoapify's EU-only endpoint. A
+regression test was added first, failed against `api.geoapify.com`, and then
+passed after the client moved to `api-eu.geoapify.com`: **8 backend geocoding
+tests passed**. Checkpoints: `cd91d47` and `4d18ec3`.
+
 Additional backend verification:
 
 ```powershell
@@ -94,6 +99,10 @@ Result: **8 focused frontend tests passed**, TypeScript passed, and focused
 ESLint passed. The repository-wide `npm.cmd run lint` remains blocked by
 generated `frontend/.next/dev` chunks with unavailable third-party rule
 definitions; it is unrelated to these source files and was not suppressed.
+
+Geoapify attribution was also added test-first: the new test failed until the
+private picker showed a Geoapify link alongside OpenStreetMap attribution, then
+passed with **3 picker tests**. Checkpoints: `2d65dcd` and `46a96c6`.
 
 ## Remaining completion work
 

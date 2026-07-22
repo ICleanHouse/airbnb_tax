@@ -440,10 +440,13 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/1
   `.env`; `/api/locations/geocode/search/` and `/api/locations/geocode/reverse/`
   are approved-host/platform-admin-only, private/no-store, rate-limited, and
   audited without raw query/coordinate values. `PropertyLocationPicker` calls
-  those owned endpoints through `apiFetch` and has no remote tile layer;
+  those owned endpoints through `apiFetch` and has no remote tile layer; its
+  backend client uses Geoapify's EU-only endpoint and shows OSM/Geoapify
+  attribution.
   `DistrictMapSelector` uses canonical GeoJSON only. The provider
-  privacy/terms review and authenticated browser network trace remain release
-  work.
+  review evidence is in `docs/S1_E10_GEOAPIFY_PROVIDER_REVIEW.md`; owner
+  approval, privacy-notice update, and authenticated browser network trace
+  remain release work.
 
 - Celery must be running for signup emails when Celery is installed:
 

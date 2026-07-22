@@ -63,9 +63,11 @@ and one `osm-bright` raster tile. All three returned HTTP 200. No key, private
 address, request URL, or response body was recorded.
 
 The owner must approve Geoapify's plan/budget and privacy terms before pilot
-release. The approval record must cover its DPA/privacy terms, data location,
-retention/logging, rate and usage limits, attribution, credential restrictions,
-and incident/support contact.
+release. The prepared [Geoapify provider review](S1_E10_GEOAPIFY_PROVIDER_REVIEW.md)
+records the DPA/privacy evidence, the EU-only endpoint correction, attribution,
+and the explicit decision checklist. The approval record must cover its
+DPA/privacy terms, data location, retention/logging, rate and usage limits,
+attribution, credential restrictions, and incident/support contact.
 
 The public `nominatim.openstreetmap.org` service is not a valid production
 processor for private property addresses: its current policy says not to submit

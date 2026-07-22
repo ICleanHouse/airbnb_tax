@@ -3,7 +3,8 @@
 // Leaflet requires the browser's window object, so it must not run on the server.
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { apiFetch } from "../lib/api";
 
 export interface LocationResult {
   lat: number;
@@ -27,103 +28,79 @@ const CITY_CENTERS: Record<string, [number, number]> = {
 };
 const DEFAULT_CENTER: [number, number] = [42.6977, 23.3219];
 
-interface NominatimResult {
-  lat: string;
-  lon: string;
-  display_name: string;
-  address?: {
-    road?: string;
-    pedestrian?: string;
-    footway?: string;
-    house_number?: string;
-    suburb?: string;
-    city_district?: string;
-    quarter?: string;
-    neighbourhood?: string;
-    city?: string;
-    town?: string;
-    village?: string;
-    municipality?: string;
+interface GeocodingResponse {
+  results: LocationResult[];
+}
+
+function normalizeResult(value: unknown): LocationResult | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  const lat = candidate.latitude;
+  const lng = candidate.longitude;
+  const address = candidate.address;
+  if (
+    typeof lat !== "number" || !Number.isFinite(lat)
+    || typeof lng !== "number" || !Number.isFinite(lng)
+    || typeof address !== "string" || !address.trim()
+  ) {
+    return null;
+  }
+  return {
+    lat,
+    lng,
+    address: address.trim(),
+    city: typeof candidate.city === "string" ? candidate.city.trim() : "",
+    neighborhood: typeof candidate.neighborhood === "string" ? candidate.neighborhood.trim() : "",
   };
 }
 
-function extractLocation(data: NominatimResult): LocationResult {
-  const addr = data.address ?? {};
-  const lat = parseFloat(data.lat);
-  const lng = parseFloat(data.lon);
-  const road = addr.road ?? addr.pedestrian ?? addr.footway ?? "";
-  const houseNumber = addr.house_number ?? "";
-  const address = road
-    ? houseNumber ? `${road} ${houseNumber}` : road
-    : data.display_name.split(",")[0].trim();
-  const city = addr.city ?? addr.town ?? addr.village ?? addr.municipality ?? "";
-  const neighborhood =
-    addr.suburb ?? addr.city_district ?? addr.quarter ?? addr.neighbourhood ?? "";
-  return { lat, lng, address, city, neighborhood };
+function normalizeResults(value: unknown): LocationResult[] {
+  if (!value || typeof value !== "object" || !Array.isArray((value as GeocodingResponse).results)) return [];
+  return (value as GeocodingResponse).results
+    .map(normalizeResult)
+    .filter((result): result is LocationResult => result !== null);
 }
 
-/** Format a suggestion into a primary line and a secondary context line. */
-function formatSuggestion(s: NominatimResult): { main: string; sub: string } {
-  const addr = s.address ?? {};
-  const road = addr.road ?? addr.pedestrian ?? addr.footway ?? "";
-  const houseNumber = addr.house_number ?? "";
-  const suburb =
-    addr.suburb ?? addr.city_district ?? addr.quarter ?? addr.neighbourhood ?? "";
-  const city = addr.city ?? addr.town ?? addr.village ?? addr.municipality ?? "";
-
-  const main = road
-    ? houseNumber ? `${road} ${houseNumber}` : road
-    : s.display_name.split(",")[0].trim();
-  const sub = [suburb, city].filter(Boolean).join(", ") || s.display_name;
-  return { main, sub };
+/** Format a provider-neutral suggestion into a primary and context line. */
+function formatSuggestion(s: LocationResult): { main: string; sub: string } {
+  return {
+    main: s.address,
+    sub: [s.neighborhood, s.city].filter(Boolean).join(", "),
+  };
 }
 
 const PIN_HTML = `<span style="display:block;width:22px;height:22px;background:#ff385c;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35)"></span>`;
 
-const NOMINATIM_MIN_INTERVAL_MS = 1100;
-
 export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Props) {
   const t = useTranslations("components.propertyLocationPicker");
+  const locale = useLocale() === "bg" ? "bg" : "en";
   const containerRef = useRef<HTMLDivElement>(null);
   const wrapRef      = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<any>(null);
   const mapRef     = useRef<any>(null);
   const markerRef  = useRef<any>(null);
   const iconRef    = useRef<any>(null);
-  const nominatimCacheRef = useRef<Map<string, unknown>>(new Map());
-  const lastNominatimRequestAtRef = useRef(0);
-
   const [geocoding,    setGeocoding]    = useState(false);
   const [searchQuery,  setSearchQuery]  = useState("");
   const [searching,    setSearching]    = useState(false);
-  const [suggestions,  setSuggestions]  = useState<NominatimResult[]>([]);
+  const [suggestions,  setSuggestions]  = useState<LocationResult[]>([]);
   const [highlighted,  setHighlighted]  = useState(-1);
-
-  async function fetchNominatim<T>(url: string): Promise<T | null> {
-    const cached = nominatimCacheRef.current.get(url);
-    if (cached) return cached as T;
-
-    const now = Date.now();
-    const waitMs = Math.max(0, NOMINATIM_MIN_INTERVAL_MS - (now - lastNominatimRequestAtRef.current));
-    if (waitMs > 0) await new Promise((resolve) => window.setTimeout(resolve, waitMs));
-    lastNominatimRequestAtRef.current = Date.now();
-
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = (await res.json()) as T;
-    nominatimCacheRef.current.set(url, data);
-    return data;
-  }
+  const [lookupError, setLookupError] = useState("");
 
   // ── Reverse geocode on map click ──────────────────────────────────────────
   async function reverseGeocode(clickLat: number, clickLng: number) {
     setGeocoding(true);
+    setLookupError("");
     try {
-      const url = `https://nominatim.openstreetmap.org/reverse?lat=${clickLat}&lon=${clickLng}&format=json&accept-language=bg,en&addressdetails=1`;
-      const data = await fetchNominatim<NominatimResult>(url);
-      if (data) onSelect(extractLocation(data));
+      const response = await apiFetch("/api/locations/geocode/reverse/", {
+        method: "POST",
+        body: JSON.stringify({ latitude: clickLat, longitude: clickLng, locale }),
+      });
+      const result = response.ok ? normalizeResults(await response.json())[0] : null;
+      if (result) onSelect(result);
+      else setLookupError(t("lookupUnavailable"));
     } catch {
-      // Silently ignore — user can still fill fields manually
+      setLookupError(t("lookupUnavailable"));
     } finally {
       setGeocoding(false);
     }
@@ -132,15 +109,18 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
   // ── Fetch suggestions from Nominatim ─────────────────────────────────────
   async function fetchSuggestions(q: string) {
     setSearching(true);
+    setLookupError("");
     try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&countrycodes=bg&format=json&limit=6&accept-language=bg,en&addressdetails=1`;
-      const results = await fetchNominatim<NominatimResult[]>(url);
-      if (results) {
-        setSuggestions(results);
-        setHighlighted(-1);
-      }
+      const response = await apiFetch("/api/locations/geocode/search/", {
+        method: "POST",
+        body: JSON.stringify({ query: q, locale }),
+      });
+      const results = response.ok ? normalizeResults(await response.json()) : [];
+      setSuggestions(results);
+      setHighlighted(-1);
+      if (!response.ok) setLookupError(t("lookupUnavailable"));
     } catch {
-      // ignore
+      setLookupError(t("lookupUnavailable"));
     } finally {
       setSearching(false);
     }
@@ -192,10 +172,9 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
       const map = L.map(container, { center, zoom: lat !== null ? 16 : 14 });
       mapRef.current = map;
 
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
-        maxZoom: 19,
-      }).addTo(map);
+      // Exact private-property coordinates never trigger a direct third-party
+      // tile request. The picker remains usable as a neutral click-to-pin map;
+      // address lookup goes only through the owned, authenticated API.
 
       if (lat !== null && lng !== null) {
         markerRef.current = L.marker([lat, lng], { icon }).addTo(map);
@@ -232,8 +211,7 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
   }, [city, lat]);
 
   // ── Place pin and pan map when a suggestion is picked ────────────────────
-  function pickSuggestion(item: NominatimResult) {
-    const result = extractLocation(item);
+  function pickSuggestion(result: LocationResult) {
     const L    = leafletRef.current;
     const map  = mapRef.current;
     const icon = iconRef.current;
@@ -249,33 +227,6 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
     setSuggestions([]);
     setHighlighted(-1);
     setSearchQuery("");
-    // Refine the city/neighborhood from a reverse lookup at the picked point so
-    // it matches what a map click there produces (search results carry coarser
-    // neighborhood data than reverse geocoding).
-    void refineNeighborhood(result);
-  }
-
-  // ── Reverse-lookup the picked point to fill in a precise neighborhood ─────
-  async function refineNeighborhood(base: LocationResult) {
-    setGeocoding(true);
-    try {
-      const url = `https://nominatim.openstreetmap.org/reverse?lat=${base.lat}&lon=${base.lng}&format=json&accept-language=bg,en&addressdetails=1`;
-      const data = await fetchNominatim<NominatimResult>(url);
-      if (data) {
-        const rev = extractLocation(data);
-        onSelect({
-          lat: base.lat,
-          lng: base.lng,
-          address: base.address || rev.address,
-          city: rev.city || base.city,
-          neighborhood: rev.neighborhood || base.neighborhood,
-        });
-      }
-    } catch {
-      // Keep the search result if the reverse lookup fails.
-    } finally {
-      setGeocoding(false);
-    }
   }
 
   // ── Keyboard navigation inside the search input ──────────────────────────
@@ -358,6 +309,7 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
               type="search"
               className="prop-map-search-input"
               placeholder={t("searchPlaceholder")}
+              aria-label={t("searchPlaceholder")}
               value={searchQuery}
               autoComplete="off"
               aria-autocomplete="list"
@@ -384,8 +336,9 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
       </div>
 
       <p className="prop-map-hint">{t("hint")}</p>
+      {lookupError ? <p className="prop-map-status" role="status">{lookupError}</p> : null}
       <p className="map-data-credit">
-        Map data and geocoding:{" "}
+        {t("mapDataCredit")} {" "}
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
           © OpenStreetMap contributors
         </a>

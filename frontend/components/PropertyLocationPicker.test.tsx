@@ -18,6 +18,7 @@ const leafletMock = vi.hoisted(() => ({
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => `components.propertyLocationPicker.${key}`,
+  useLocale: () => "bg",
 }));
 
 vi.mock("../lib/api", () => ({

@@ -18,10 +18,58 @@ from apps.notifications.services import (
     emit_notification_event,
 )
 from apps.notifications.delivery import NotificationProviderError
+from apps.notifications.contracts import EVENT_SPECS
 from apps.notifications.tasks import deliver_notification
 
 
 User = get_user_model()
+
+
+class NotificationEventContractTests(TestCase):
+    def test_stage_one_event_contract_has_translation_and_channel_parity(self):
+        expected = {
+            "account.created_operator_review",
+            "account.approved",
+            "account.rejected",
+            "account.suspended",
+            "cleaner.marketplace_access_activated",
+            "matching.operator_invitation",
+            "offer.received",
+            "application.submitted",
+            "application.accepted",
+            "application.rejected",
+            "application.withdrawn",
+            "offer.accepted",
+            "offer.declined",
+            "assignment.created",
+            "assignment.member_delegated",
+            "job.cancelled",
+            "job.reschedule_proposed",
+            "job.reschedule_accepted",
+            "job.reschedule_declined",
+            "job.incident_reported",
+            "dispute.opened",
+            "dispute.status_changed",
+            "replacement.authorization_requested",
+            "replacement.draft_created",
+            "replacement.declined",
+            "job.completed",
+            "review.requested",
+            "review.revealed",
+            "job.upcoming_reminder",
+        }
+
+        self.assertTrue(expected.issubset(EVENT_SPECS))
+        for event_type in expected:
+            spec = EVENT_SPECS[event_type]
+            self.assertEqual(set(spec.templates), {"bg", "en"})
+            self.assertTrue(set(spec.channels).issubset({"in_app", "email"}))
+            for template in spec.templates.values():
+                self.assertTrue(template.title)
+                self.assertTrue(template.body)
+                if "email" in spec.channels:
+                    self.assertTrue(template.email_subject)
+                    self.assertTrue(template.email_body)
 
 
 class NotificationReliabilityModelTests(TestCase):

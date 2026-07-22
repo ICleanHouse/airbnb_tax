@@ -68,4 +68,11 @@ describe("PropertyLocationPicker private geocoding boundary", () => {
     await waitFor(() => expect(leafletMock.map).toHaveBeenCalled());
     expect(leafletMock.tileLayer).not.toHaveBeenCalled();
   });
+
+  it("keeps the required Geoapify attribution visible without exposing a provider key", () => {
+    render(<PropertyLocationPicker lat={null} lng={null} city="Sofia" onSelect={vi.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Geoapify" })).toHaveAttribute("href", "https://www.geoapify.com/");
+    expect(document.body.textContent).not.toContain("test-geoapify-key");
+  });
 });

@@ -1,4 +1,8 @@
 import logging
+import random
+from datetime import timedelta
+
+from apps.notifications.delivery import NotificationProviderError, send_notification_email
 
 try:
     from celery import shared_task
@@ -50,9 +54,238 @@ def dispatch_notification(notification_id: int) -> int:
     return notification_id
 
 
+MAX_DELIVERY_ATTEMPTS = 4
+PROCESSING_LEASE = timedelta(minutes=15)
+
+
+def _claim_delivery(delivery_id: int):
+    from django.db import transaction
+    from django.utils import timezone
+
+    from apps.notifications.models import NotificationDelivery, NotificationDeliveryAttempt
+
+    with transaction.atomic():
+        delivery = (
+            NotificationDelivery.objects.select_for_update()
+            .select_related("event", "recipient")
+            .filter(id=delivery_id)
+            .first()
+        )
+        if delivery is None or delivery.status in {
+            NotificationDelivery.Status.SENT,
+            NotificationDelivery.Status.SKIPPED,
+            NotificationDelivery.Status.FINAL_FAILED,
+        }:
+            return None
+        now = timezone.now()
+        if (
+            delivery.status == NotificationDelivery.Status.PROCESSING
+            and delivery.processing_started_at
+            and delivery.processing_started_at > now - PROCESSING_LEASE
+        ):
+            return None
+        delivery.attempt_count += 1
+        delivery.status = NotificationDelivery.Status.PROCESSING
+        delivery.processing_started_at = now
+        delivery.last_attempted_at = now
+        delivery.error_category = ""
+        delivery.error_code = ""
+        delivery.save(
+            update_fields=[
+                "attempt_count",
+                "status",
+                "processing_started_at",
+                "last_attempted_at",
+                "error_category",
+                "error_code",
+                "updated_at",
+            ]
+        )
+        NotificationDeliveryAttempt.objects.create(
+            delivery=delivery,
+            attempt_number=delivery.attempt_count,
+            status=NotificationDelivery.Status.PROCESSING,
+        )
+        return delivery
+
+
+def _record_delivery_success(delivery_id: int, attempt_number: int, external_id: str) -> None:
+    from django.db import transaction
+    from django.utils import timezone
+
+    from apps.notifications.models import NotificationDelivery, NotificationDeliveryAttempt
+
+    with transaction.atomic():
+        delivery = NotificationDelivery.objects.select_for_update().get(id=delivery_id)
+        if delivery.status != NotificationDelivery.Status.PROCESSING:
+            return
+        now = timezone.now()
+        NotificationDeliveryAttempt.objects.filter(
+            delivery=delivery, attempt_number=attempt_number
+        ).update(
+            status=NotificationDelivery.Status.SENT,
+            finished_at=now,
+            provider_external_id=external_id,
+        )
+        delivery.status = NotificationDelivery.Status.SENT
+        delivery.sent_at = now
+        delivery.processing_started_at = None
+        delivery.provider_external_id = external_id
+        delivery.save(
+            update_fields=[
+                "status",
+                "sent_at",
+                "processing_started_at",
+                "provider_external_id",
+                "updated_at",
+            ]
+        )
+
+
+def _record_delivery_failure(
+    delivery_id: int,
+    attempt_number: int,
+    *,
+    category: str,
+    code: str,
+    retryable: bool,
+) -> bool:
+    from django.db import transaction
+    from django.utils import timezone
+
+    from apps.notifications.models import (
+        NotificationDelivery,
+        NotificationDeliveryAttempt,
+        OperatorNotificationAlert,
+    )
+
+    with transaction.atomic():
+        delivery = NotificationDelivery.objects.select_for_update().get(id=delivery_id)
+        if delivery.status != NotificationDelivery.Status.PROCESSING:
+            return False
+        final = not retryable or attempt_number >= MAX_DELIVERY_ATTEMPTS
+        status = (
+            NotificationDelivery.Status.FINAL_FAILED
+            if final
+            else NotificationDelivery.Status.RETRYABLE_FAILED
+        )
+        now = timezone.now()
+        NotificationDeliveryAttempt.objects.filter(
+            delivery=delivery, attempt_number=attempt_number
+        ).update(
+            status=status,
+            finished_at=now,
+            error_category=category,
+            error_code=code,
+        )
+        delivery.status = status
+        delivery.processing_started_at = None
+        delivery.error_category = category
+        delivery.error_code = code
+        delivery.final_failed_at = now if final else None
+        delivery.save(
+            update_fields=[
+                "status",
+                "processing_started_at",
+                "error_category",
+                "error_code",
+                "final_failed_at",
+                "updated_at",
+            ]
+        )
+        if final:
+            OperatorNotificationAlert.objects.get_or_create(delivery=delivery)
+        return not final
+
+
+def _capture_unexpected_delivery_failure(delivery_id: int) -> None:
+    try:
+        import sentry_sdk
+
+        with sentry_sdk.new_scope() as scope:
+            scope.set_tag("delivery_id", str(delivery_id))
+            sentry_sdk.capture_message(
+                "Unexpected notification delivery failure",
+                level="error",
+            )
+    except Exception:
+        return
+
+
 @shared_task
 def deliver_notification(delivery_id: int) -> int:
-    """Canonical channel-delivery entry point; state machine added in the next slice."""
+    from apps.core.logging import reset_log_context, set_log_context
+
+    delivery = _claim_delivery(delivery_id)
+    if delivery is None:
+        return delivery_id
+    tokens = set_log_context(request_id=delivery.event.request_id)
+    attempt_number = delivery.attempt_count
+    try:
+        external_id = send_notification_email(delivery)
+    except NotificationProviderError as exc:
+        should_retry = _record_delivery_failure(
+            delivery_id,
+            attempt_number,
+            category=exc.category,
+            code=exc.code,
+            retryable=exc.retryable,
+        )
+        logger.warning(
+            "Notification delivery failed",
+            extra={
+                "event": "notification.delivery_failed",
+                "delivery_id": delivery_id,
+                "notification_event_type": delivery.event.event_type,
+                "channel": delivery.channel,
+                "attempt_number": attempt_number,
+                "delivery_result": "retryable" if should_retry else "final_failed",
+                "error_code": exc.code,
+            },
+        )
+        if should_retry:
+            countdown = min(900, 30 * (2 ** (attempt_number - 1))) + random.randint(0, 10)
+            deliver_notification.apply_async(
+                args=[delivery_id],
+                countdown=countdown,
+                headers={"request_id": delivery.event.request_id},
+            )
+    except Exception:
+        _record_delivery_failure(
+            delivery_id,
+            attempt_number,
+            category="unexpected",
+            code="unhandled_provider_error",
+            retryable=False,
+        )
+        _capture_unexpected_delivery_failure(delivery_id)
+        logger.exception(
+            "Unexpected notification delivery failure",
+            extra={
+                "event": "notification.delivery_failed",
+                "delivery_id": delivery_id,
+                "notification_event_type": delivery.event.event_type,
+                "channel": delivery.channel,
+                "attempt_number": attempt_number,
+                "delivery_result": "final_failed",
+                "error_code": "unhandled_provider_error",
+            },
+        )
+    else:
+        _record_delivery_success(delivery_id, attempt_number, external_id)
+        logger.info(
+            "Notification delivery sent",
+            extra={
+                "event": "notification.delivery_sent",
+                "delivery_id": delivery_id,
+                "notification_event_type": delivery.event.event_type,
+                "channel": delivery.channel,
+                "attempt_number": attempt_number,
+                "delivery_result": "sent",
+            },
+        )
+    finally:
+        reset_log_context(tokens)
     return delivery_id
 
 

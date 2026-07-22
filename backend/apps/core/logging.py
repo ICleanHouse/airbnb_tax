@@ -117,6 +117,11 @@ class JsonFormatter(logging.Formatter):
             "duration_ms",
             "task_name",
             "error_code",
+            "delivery_id",
+            "notification_event_type",
+            "channel",
+            "attempt_number",
+            "delivery_result",
         )
         for field in optional_fields:
             value = getattr(record, field, None)

@@ -181,6 +181,53 @@ class NotificationEventEmissionTests(TestCase):
             pass
 
         self.assertFalse(NotificationEvent.objects.exists())
+        self.assertFalse(NotificationDelivery.objects.exists())
+        self.assertFalse(Notification.objects.exists())
+        apply_async.assert_not_called()
+
+    def test_recipient_language_controls_in_app_content(self):
+        emit_notification_event(self.request())
+        english = Notification.objects.get()
+        self.assertEqual(english.title, "Marketplace account active")
+
+        bulgarian_user = User.objects.create_user(
+            username="host-bg@example.test",
+            email="host-bg@example.test",
+            password="Password123!",
+            role=User.Role.HOST,
+            account_status=User.AccountStatus.APPROVED,
+            preferred_language=User.Language.BULGARIAN,
+        )
+        emit_notification_event(
+            self.request(
+                recipient_id=bulgarian_user.id,
+                occurrence_key=f"account:{bulgarian_user.id}:v1",
+                source_entity_id=str(bulgarian_user.id),
+            )
+        )
+        bulgarian = Notification.objects.get(user=bulgarian_user)
+        self.assertEqual(bulgarian.title, "Акаунтът в платформата е активен")
+
+    def test_unsupported_language_falls_back_to_bulgarian(self):
+        User.objects.filter(id=self.user.id).update(preferred_language="de")
+
+        emit_notification_event(self.request())
+
+        event = NotificationEvent.objects.get()
+        self.assertEqual(event.language, "bg")
+
+    def test_unapproved_metadata_and_unsafe_destinations_are_rejected(self):
+        for request in (
+            self.request(metadata={"address": "1 Private Street"}),
+            self.request(destination="https://evil.example/steal"),
+            self.request(destination="//evil.example/steal"),
+            self.request(destination="/host?token=secret"),
+        ):
+            with self.subTest(request=request):
+                with self.assertRaises(NotificationEventValidationError):
+                    emit_notification_event(request)
+
+        self.assertFalse(NotificationEvent.objects.exists())
 
 
 @override_settings(
@@ -304,50 +351,3 @@ class NotificationEmailDeliveryTests(TestCase):
         self.assertNotIn("1 Private Street", rendered)
         self.assertNotIn("1234", rendered)
         self.assertNotIn("private incident text", rendered)
-        self.assertFalse(NotificationDelivery.objects.exists())
-        self.assertFalse(Notification.objects.exists())
-        apply_async.assert_not_called()
-
-    def test_recipient_language_controls_in_app_content(self):
-        emit_notification_event(self.request())
-        english = Notification.objects.get()
-        self.assertEqual(english.title, "Marketplace account active")
-
-        bulgarian_user = User.objects.create_user(
-            username="host-bg@example.test",
-            email="host-bg@example.test",
-            password="Password123!",
-            role=User.Role.HOST,
-            account_status=User.AccountStatus.APPROVED,
-            preferred_language=User.Language.BULGARIAN,
-        )
-        emit_notification_event(
-            self.request(
-                recipient_id=bulgarian_user.id,
-                occurrence_key=f"account:{bulgarian_user.id}:v1",
-                source_entity_id=str(bulgarian_user.id),
-            )
-        )
-        bulgarian = Notification.objects.get(user=bulgarian_user)
-        self.assertEqual(bulgarian.title, "Акаунтът в платформата е активен")
-
-    def test_unsupported_language_falls_back_to_bulgarian(self):
-        User.objects.filter(id=self.user.id).update(preferred_language="de")
-
-        emit_notification_event(self.request())
-
-        event = NotificationEvent.objects.get()
-        self.assertEqual(event.language, "bg")
-
-    def test_unapproved_metadata_and_unsafe_destinations_are_rejected(self):
-        for request in (
-            self.request(metadata={"address": "1 Private Street"}),
-            self.request(destination="https://evil.example/steal"),
-            self.request(destination="//evil.example/steal"),
-            self.request(destination="/host?token=secret"),
-        ):
-            with self.subTest(request=request):
-                with self.assertRaises(NotificationEventValidationError):
-                    emit_notification_event(request)
-
-        self.assertFalse(NotificationEvent.objects.exists())

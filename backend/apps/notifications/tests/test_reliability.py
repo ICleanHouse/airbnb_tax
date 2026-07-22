@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.core import mail
 from django.test import TestCase, override_settings
+from rest_framework.test import APIClient
 
 from apps.notifications.models import (
     Notification,
@@ -20,6 +21,7 @@ from apps.notifications.services import (
 from apps.notifications.delivery import NotificationProviderError
 from apps.notifications.contracts import EVENT_SPECS
 from apps.notifications.tasks import deliver_notification
+from apps.notifications.health import get_notification_health
 
 
 User = get_user_model()
@@ -70,6 +72,66 @@ class NotificationEventContractTests(TestCase):
                 if "email" in spec.channels:
                     self.assertTrue(template.email_subject)
                     self.assertTrue(template.email_body)
+
+
+class NotificationOperatorHealthTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser(
+            username="operator@example.test",
+            email="operator@example.test",
+            password="Password123!",
+        )
+        self.host = User.objects.create_user(
+            username="health-host@example.test",
+            email="health-host@example.test",
+            password="Password123!",
+            role=User.Role.HOST,
+            account_status=User.AccountStatus.APPROVED,
+        )
+
+    def test_health_counts_are_safe_and_actionable(self):
+        event = NotificationEvent.objects.create(
+            event_type="account.approved",
+            recipient=self.host,
+            language="en",
+            occurrence_key="health-event",
+            deduplication_key="h" * 64,
+            destination="/app",
+        )
+        NotificationDelivery.objects.create(
+            event=event,
+            recipient=self.host,
+            channel=NotificationDelivery.Channel.EMAIL,
+            status=NotificationDelivery.Status.FINAL_FAILED,
+            deduplication_key="i" * 64,
+            error_category="provider_unavailable",
+            error_code="timeout",
+        )
+
+        health = get_notification_health(include_runtime=False)
+
+        self.assertEqual(health["final_failed_count"], 1)
+        self.assertIn("oldest_queued_at", health)
+        self.assertNotIn(self.host.email, str(health))
+
+    @patch("apps.notifications.views.get_notification_health")
+    def test_health_api_is_admin_only(self, get_health):
+        get_health.return_value = {
+            "worker_running": True,
+            "queue_connected": True,
+            "oldest_queued_at": None,
+            "queued_count": 0,
+            "retryable_failed_count": 0,
+            "final_failed_count": 0,
+        }
+        client = APIClient()
+        client.force_authenticate(self.host)
+        self.assertEqual(client.get("/api/notifications/notifications/health/").status_code, 403)
+
+        client.force_authenticate(self.admin)
+        response = client.get("/api/notifications/notifications/health/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["worker_running"])
 
 
 class NotificationReliabilityModelTests(TestCase):

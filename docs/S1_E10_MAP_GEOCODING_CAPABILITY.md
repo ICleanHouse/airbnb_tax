@@ -20,12 +20,12 @@ existing city/district aggregate-demand map and list.
 - The anonymous `GET /api/marketplace/public-demand/` response and
   `OpenJobMap` are already aggregate-only: they contain no property/job ID,
   address, coordinate, schedule, price, host, or media value.
-- `PropertyLocationPicker` currently sends address searches and clicked
-  coordinates directly from the browser to public Nominatim and loads OpenStreetMap
-  raster tiles directly.  This does not meet S1-E10.
-- `DistrictMapSelector` also directly loads OpenStreetMap tiles.  It does not
-  carry a property address, but it must use the approved map-provider
-  configuration before the pilot release.
+- `PropertyLocationPicker` now sends address searches and clicked coordinates
+  to the owned private endpoints through `apiFetch`. It uses a neutral
+  click-to-pin Leaflet surface with no remote tile request; its localized
+  fallback keeps manual address/district entry usable.
+- `DistrictMapSelector` now renders the canonical GeoJSON and parks data over
+  a neutral background, without a remote map tile source.
 - The existing locations app owns the canonical city and Sofia-zone catalog;
   it is the correct boundary for geocoding, not a property serializer or view.
 
@@ -115,28 +115,24 @@ The backend caps results at six and requests Bulgarian/English output only.
 - Add `geocoding` user throttling in DRF configuration and a shared cache-backed
   provider budget.  The exact limits follow the approved provider plan; no
   browser-side timer is authoritative.
-- Add fail-closed configuration for a server-only Geoapify geocoding key and a
-  separate origin-restricted browser map key. Keys are never committed; the
-  browser key is restricted to the production origins, while the server key is
-  never returned to the browser. An absent or invalid configuration makes the
-  endpoints return the documented unavailable response.
+- Add fail-closed configuration for a server-only Geoapify geocoding key. It
+  is never committed or returned to the browser. A future third-party browser
+  tile layer would require a separately approved, origin-restricted browser
+  key; the Stage 1 implementation intentionally has no such layer. An absent
+  or invalid server configuration makes the endpoints return the documented
+  unavailable response.
 - Geoapify permits storage of its results under its terms, but raw
   address/coordinate values remain excluded from cache keys, logs, audit
   metadata, Sentry, and analytics.
 
 ### Frontend maps
 
-- Replace every direct Nominatim request in `PropertyLocationPicker` with the
-  two owned endpoints via `apiFetch`; remove Nominatim-specific caching,
-  delay, types, and wording.
-- Retain Leaflet in the private property picker and replace its public OSM tile
-  URL with Geoapify's approved OSM tile URL using the origin-restricted browser
-  key. The direct map request is permitted only to this approved processor and
-  must preserve the provider's attribution. Backend calls to Geoapify
-  Geocoding retain the server-only key.
-- Render `DistrictMapSelector` from local canonical GeoJSON against the same
-  neutral, no-tile background used by the public demand map. It does not need a
-  private street basemap to select a service district.
+- `PropertyLocationPicker` uses the two owned endpoints through `apiFetch` and
+  has removed Nominatim-specific caching, delay, types, and wording.
+- Retain Leaflet as a neutral private click-to-pin surface with no browser tile
+  request. Backend calls to Geoapify Geocoding retain the server-only key.
+- `DistrictMapSelector` renders local canonical GeoJSON against the same
+  neutral, no-tile background used by the public demand map.
 - Keep `OpenJobMap` self-contained.  It must retain its local canonical
   GeoJSON and aggregate list fallback and must not add tile, marker, or
   geocoding requests.
@@ -162,14 +158,15 @@ The backend caps results at six and requests Bulgarian/English output only.
 
 ## Execution order
 
-1. Approve the Geoapify account, two restricted keys, budget limit, and privacy
-   review.
-2. Add the Geoapify-backed backend service, endpoints, settings, throttles, and
-   backend tests using a fake upstream.
-3. Migrate `PropertyLocationPicker` to the owned API plus Geoapify tiles and
-   make `DistrictMapSelector` GeoJSON-only; preserve manual entry and public-map
-   isolation.
-4. Add frontend tests, privacy/network regression checks, and BG/EN copy.
+1. Approve the Geoapify account, server-only key, budget limit, and privacy
+   review before production enablement.
+2. [x] Add the Geoapify-backed backend service, endpoints, settings, throttles,
+   and backend tests using a fake upstream.
+3. [x] Migrate `PropertyLocationPicker` to the owned API with a neutral
+   click-to-pin surface and make `DistrictMapSelector` GeoJSON-only; preserve
+   manual entry and public-map isolation.
+4. [x] Add focused frontend tests and BG/EN failure/fallback copy. Complete the
+   authenticated browser network trace and provider privacy notice next.
 5. Attach provider review, network trace, test results, and release evidence to
    S1-E10; then update the Stage 1 tracker from **Not started** to **Done**.
 
@@ -183,6 +180,6 @@ The backend caps results at six and requests Bulgarian/English output only.
 
 ## Handoff
 
-The API and UI work is ready to implement against a fake provider.  Enabling a
-real processor or private tile source remains blocked on the named-provider
-approval above.
+The API and UI foundations are implemented and covered by fake-provider tests.
+Production use of the configured processor remains blocked on the
+named-provider approval, privacy notice, and authenticated network trace above.

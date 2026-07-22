@@ -436,12 +436,14 @@ CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/1
 ```
 
-- S1-E10 backend foundation: keep `GEOAPIFY_API_KEY` server-only in `.env` and
-  use `/api/locations/geocode/search/` or `/api/locations/geocode/reverse/`
-  only for approved hosts/platform admins. The endpoints are private/no-store,
-  rate-limited, audited without raw query/coordinate values, and return a
-  minimal normalized result shape. The frontend property picker migration and
-  provider privacy/terms review remain separate completion work.
+- S1-E10 map/geocoding foundation: keep `GEOAPIFY_API_KEY` server-only in
+  `.env`; `/api/locations/geocode/search/` and `/api/locations/geocode/reverse/`
+  are approved-host/platform-admin-only, private/no-store, rate-limited, and
+  audited without raw query/coordinate values. `PropertyLocationPicker` calls
+  those owned endpoints through `apiFetch` and has no remote tile layer;
+  `DistrictMapSelector` uses canonical GeoJSON only. The provider
+  privacy/terms review and authenticated browser network trace remain release
+  work.
 
 - Celery must be running for signup emails when Celery is installed:
 

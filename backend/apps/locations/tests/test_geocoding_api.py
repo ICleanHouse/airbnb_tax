@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 from django.core.cache import cache
 from django.test import TestCase, override_settings
@@ -109,6 +110,14 @@ class GeocodingApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["city"], "Sofia")
         self.assert_private_no_store(response)
+
+    @patch("apps.locations.geocoding.urlopen", side_effect=fake_urlopen.__func__)
+    def test_geocoding_requests_use_the_eu_only_provider_endpoint(self, urlopen_mock):
+        response = self.post(self.search_url, {"query": "Sofia", "locale": "en"}, user=self.host)
+
+        self.assertEqual(response.status_code, 200)
+        request = urlopen_mock.call_args.args[0]
+        self.assertEqual(urlparse(request.full_url).netloc, "api-eu.geoapify.com")
 
     def test_anonymous_and_ineligible_accounts_are_denied(self):
         denied_users = (

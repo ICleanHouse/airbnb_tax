@@ -38,7 +38,9 @@ vi.mock("maplibre-gl", () => ({
     isStyleLoaded() { return true; }
     on(event: string, ...args: unknown[]) {
       const callback = args.at(-1);
-      if (event === "load" && typeof callback === "function") queueMicrotask(callback);
+      if (event === "load" && typeof callback === "function") {
+        queueMicrotask(() => (callback as () => void)());
+      }
       return this;
     }
     remove() { maplibreMocks.remove(); }

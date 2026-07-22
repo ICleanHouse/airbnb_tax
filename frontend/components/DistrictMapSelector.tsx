@@ -171,25 +171,14 @@ export default function DistrictMapSelector({
           container: mapContainerRef.current,
           style: {
             version: 8,
-            sources: {
-              "openstreetmap": {
-                type: "raster",
-                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-                tileSize: 256,
-                attribution: '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>',
-              },
-            },
+            // Service-zone selection is fully served from the canonical local
+            // GeoJSON. A basemap would add an unnecessary third-party request.
+            sources: {},
             layers: [
               {
                 id: "district-selector-background",
                 type: "background",
                 paint: { "background-color": "#f7faf9" },
-              },
-              {
-                id: "openstreetmap",
-                type: "raster",
-                source: "openstreetmap",
-                paint: { "raster-opacity": 0.62 },
               },
             ],
           },

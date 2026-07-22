@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Bell, Check } from "lucide-react";
 import { apiFetch, type AppNotification } from "../lib/api";
+import { connectionTarget, notificationDestination } from "./notificationRouting";
 
 const BASE = "/api/notifications/notifications";
 const POLL_MS = 30_000;
@@ -90,66 +91,6 @@ export default function NotificationBell() {
     setUnread(0);
   }
 
-  function notificationHref(notification: AppNotification): string | null {
-    const jobId = typeof notification.metadata?.job_id === "number"
-      ? notification.metadata.job_id
-      : typeof notification.metadata?.job_id === "string"
-        ? Number(notification.metadata.job_id)
-        : null;
-    const reviewId = typeof notification.metadata?.review_id === "number"
-      ? notification.metadata.review_id
-      : typeof notification.metadata?.review_id === "string"
-        ? Number(notification.metadata.review_id)
-        : null;
-    const pathname = typeof window !== "undefined" ? window.location.pathname : "";
-
-    if (notification.notification_type === "review.requested" && jobId) {
-      // Both host and cleaner receive this when a job completes — open the
-      // review window on whichever dashboard the bell is being used from.
-      if (pathname.startsWith("/host")) {
-        return `/host?section=applications&appFilter=completed&reviewJob=${jobId}`;
-      }
-      return `/cleaner?section=assignments&reviewJob=${jobId}`;
-    }
-
-    if (notification.notification_type === "review.submitted" && jobId) {
-      if (pathname.startsWith("/host")) {
-        const params = new URLSearchParams({
-          section: "applications",
-          appFilter: "rating",
-          reviewJob: String(jobId),
-        });
-        if (reviewId) params.set("reviewId", String(reviewId));
-        return `/host?${params.toString()}`;
-      }
-
-      const params = new URLSearchParams({
-        section: "assignments",
-        reviewJob: String(jobId),
-      });
-      if (reviewId) params.set("reviewId", String(reviewId));
-      return `/cleaner?${params.toString()}`;
-    }
-
-    // Host: a cleaner application or a response to a direct offer opens the
-    // Applications section so the host can act on it right away.
-    if (pathname.startsWith("/host")) {
-      switch (notification.notification_type) {
-        case "application.submitted":
-        case "application.withdrawn":
-          return "/host?section=applications&appFilter=pending";
-        case "offer.accepted":
-          return "/host?section=applications&appFilter=active";
-        case "offer.declined":
-          return "/host?section=applications";
-        default:
-          break;
-      }
-    }
-
-    return null;
-  }
-
   async function handleNotificationClick(notification: AppNotification) {
     if (notification.read_at === null) {
       await markRead(notification.id);
@@ -158,35 +99,20 @@ export default function NotificationBell() {
     // Connection / message notifications open the Connections drawer (a sibling
     // component) via a window event rather than navigating. A message or an
     // accepted-connection opens the chat thread directly; a request opens the list.
-    const connectionId =
-      typeof notification.metadata?.connection_id === "number"
-        ? notification.metadata.connection_id
-        : typeof notification.metadata?.connection_id === "string"
-          ? Number(notification.metadata.connection_id)
-          : null;
-    if (
-      connectionId != null &&
-      (notification.notification_type === "message.received" ||
-        notification.notification_type === "connection.accepted" ||
-        notification.notification_type === "connection.request")
-    ) {
-      const openChat =
-        notification.notification_type === "message.received" ||
-        notification.notification_type === "connection.accepted";
+    const connection = connectionTarget(notification);
+    if (connection) {
       setOpen(false);
       window.dispatchEvent(
         new CustomEvent("hc:open-connection", {
-          detail: { connectionId: openChat ? connectionId : null },
+          detail: { connectionId: connection.openChat ? connection.connectionId : null },
         }),
       );
       return;
     }
 
-    const href = notificationHref(notification);
-    if (href) {
-      setOpen(false);
-      router.push(href);
-    }
+    const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+    setOpen(false);
+    router.push(notificationDestination(notification, pathname));
   }
 
   return (

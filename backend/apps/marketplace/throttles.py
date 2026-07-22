@@ -9,3 +9,11 @@ class LifecycleWriteThrottle(UserRateThrottle):
             return True
         return super().allow_request(request, view)
 
+
+class RecoveryCaseWriteThrottle(UserRateThrottle):
+    scope = "recovery_case"
+
+    def allow_request(self, request, view):
+        if request.user.is_authenticated and request.user.is_platform_admin:
+            return True
+        return super().allow_request(request, view)

@@ -184,6 +184,7 @@ REST_FRAMEWORK = {
         "ics_import": "30/hour",
         "geocoding": "30/hour",
         "lifecycle": "30/hour",
+        "recovery_case": "10/hour",
     },
 }
 

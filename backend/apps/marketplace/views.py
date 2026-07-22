@@ -19,7 +19,11 @@ from apps.marketplace.models import (
     CleanerApplication,
     CleaningBatch,
     CleaningJob,
+    Dispute,
     FavouriteCleaner,
+    JobIncident,
+    ReplacementRequest,
+    RescheduleProposal,
     TurnoverLineage,
 )
 from apps.marketplace.serializers import (
@@ -31,10 +35,18 @@ from apps.marketplace.serializers import (
     CleaningBatchSerializer,
     CleaningJobSerializer,
     CancelJobSerializer,
+    DisputeCreateSerializer,
+    DisputeUpdateSerializer,
     FavouriteCleanerSerializer,
     MarketplaceCalendarItemSerializer,
     OfferJobSerializer,
     OfferToCleanerSerializer,
+    ReplacementRequestCreateSerializer,
+    ReplacementResponseSerializer,
+    RecoveryRequestSerializer,
+    RescheduleProposalCreateSerializer,
+    RescheduleResponseSerializer,
+    JobIncidentCreateSerializer,
     PublicDemandSerializer,
     WorkerCleanerApplicationSerializer,
     WorkerCleaningJobSerializer,
@@ -55,6 +67,8 @@ from apps.marketplace.services import (
     CleanerScheduleConflictError,
     MarketplaceError,
     accept_application,
+    accept_reschedule_proposal,
+    authorize_replacement_request,
     accept_offer,
     assign_member_to_assignment,
     complete_job,
@@ -64,16 +78,22 @@ from apps.marketplace.services import (
     offer_job_to_cleaner,
     publish_job,
     cancel_job,
+    create_replacement_request,
     create_cleaning_job,
     derive_available_job_actions,
+    file_dispute,
     LifecycleError,
     lifecycle_actor_is_eligible,
     lineage_chronology,
+    propose_reschedule,
+    report_job_incident,
     reject_application,
     submit_application,
     withdraw_application,
+    respond_to_reschedule_proposal,
+    update_dispute,
 )
-from apps.marketplace.throttles import LifecycleWriteThrottle
+from apps.marketplace.throttles import LifecycleWriteThrottle, RecoveryCaseWriteThrottle
 from apps.properties.models import Property
 
 
@@ -808,6 +828,121 @@ class CleaningJobViewSet(
         except MarketplaceError as exc:
             return marketplace_error_response(exc)
         return Response(CleaningJobSerializer(job, context={"request": request}).data)
+
+    def _recovery_input_error(self, serializer):
+        if serializer.is_valid():
+            return None
+        return lifecycle_error_response(
+            "invalid_input", "Correct the highlighted fields and try again.",
+            status_code=status.HTTP_400_BAD_REQUEST, fields=serializer.errors,
+        )
+
+    @action(detail=True, methods=["post"], throttle_classes=[LifecycleWriteThrottle], url_path="reschedule")
+    def reschedule(self, request, pk=None):
+        job = lifecycle_job_for_actor(job_id=pk, actor=request.user)
+        serializer = RescheduleProposalCreateSerializer(data=request.data)
+        error = self._recovery_input_error(serializer)
+        if error:
+            return error
+        try:
+            proposal = propose_reschedule(job=job, actor=request.user, request=request, **serializer.validated_data)
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response({"id": proposal.id, "status": proposal.status, "expires_at": proposal.expires_at}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], throttle_classes=[LifecycleWriteThrottle], url_path="reschedule-respond")
+    def reschedule_respond(self, request, pk=None):
+        job = lifecycle_job_for_actor(job_id=pk, actor=request.user)
+        serializer = RescheduleResponseSerializer(data=request.data)
+        error = self._recovery_input_error(serializer)
+        if error:
+            return error
+        proposal = get_object_or_404(RescheduleProposal, pk=serializer.validated_data["proposal_id"], job=job)
+        try:
+            proposal = respond_to_reschedule_proposal(proposal=proposal, actor=request.user, request=request, accept=serializer.validated_data["accept"])
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response({"id": proposal.id, "status": proposal.status, "job_id": job.id})
+
+    @action(detail=True, methods=["post"], throttle_classes=[RecoveryCaseWriteThrottle], url_path="incidents")
+    def incidents(self, request, pk=None):
+        job = lifecycle_job_for_actor(job_id=pk, actor=request.user)
+        serializer = JobIncidentCreateSerializer(data=request.data)
+        error = self._recovery_input_error(serializer)
+        if error:
+            return error
+        try:
+            incident = report_job_incident(job=job, actor=request.user, request=request, **serializer.validated_data)
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response({"id": incident.id, "incident_type": incident.incident_type, "severity": incident.severity, "created_at": incident.created_at}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], throttle_classes=[LifecycleWriteThrottle], url_path="replacement-requests")
+    def replacement_requests(self, request, pk=None):
+        job = lifecycle_job_for_actor(job_id=pk, actor=request.user)
+        serializer = ReplacementRequestCreateSerializer(data=request.data)
+        error = self._recovery_input_error(serializer)
+        if error:
+            return error
+        incident = get_object_or_404(JobIncident, pk=serializer.validated_data["incident_id"], job=job)
+        try:
+            replacement = create_replacement_request(job=job, incident=incident, actor=request.user, request=request)
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response(RecoveryRequestSerializer(replacement).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], throttle_classes=[LifecycleWriteThrottle], url_path="replacement-respond")
+    def replacement_respond(self, request, pk=None):
+        job = lifecycle_job_for_actor(job_id=pk, actor=request.user)
+        serializer = ReplacementResponseSerializer(data=request.data)
+        error = self._recovery_input_error(serializer)
+        if error:
+            return error
+        replacement = get_object_or_404(ReplacementRequest, pk=serializer.validated_data["replacement_request_id"], source_job=job)
+        try:
+            replacement = authorize_replacement_request(replacement=replacement, actor=request.user, accept=serializer.validated_data["accept"], request=request)
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response(RecoveryRequestSerializer(replacement).data)
+
+    @action(detail=True, methods=["post"], throttle_classes=[RecoveryCaseWriteThrottle], url_path="disputes")
+    def disputes(self, request, pk=None):
+        job = lifecycle_job_for_actor(job_id=pk, actor=request.user)
+        serializer = DisputeCreateSerializer(data=request.data)
+        error = self._recovery_input_error(serializer)
+        if error:
+            return error
+        try:
+            dispute = file_dispute(job=job, actor=request.user, request=request, **serializer.validated_data)
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response({"id": dispute.id, "category": dispute.category, "status": dispute.status, "created_at": dispute.created_at}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["get"], url_path="recovery-queues")
+    def recovery_queues(self, request):
+        if not request.user.is_platform_admin:
+            raise Http404
+        return Response({
+            "replacement_requests": list(ReplacementRequest.objects.filter(status=ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION).values("id", "source_job_id", "status", "expires_at")),
+            "disputes": list(Dispute.objects.filter(status=Dispute.Status.OPEN).values("id", "job_id", "category", "status", "created_at")),
+            "incidents": list(JobIncident.objects.order_by("-created_at").values("id", "job_id", "incident_type", "severity", "created_at")[:100]),
+        })
+
+    @action(detail=False, methods=["post"], throttle_classes=[LifecycleWriteThrottle], url_path=r"disputes/(?P<dispute_id>[^/.]+)/update")
+    def dispute_update(self, request, dispute_id=None):
+        if not request.user.is_platform_admin:
+            raise Http404
+        serializer = DisputeUpdateSerializer(data=request.data)
+        error = self._recovery_input_error(serializer)
+        if error:
+            return error
+        dispute = get_object_or_404(Dispute, pk=dispute_id)
+        try:
+            dispute = update_dispute(dispute=dispute, actor=request.user, request=request,
+                                    note=serializer.validated_data["note"], status_after=serializer.validated_data.get("status", ""))
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response({"id": dispute.id, "status": dispute.status})
 
     @action(detail=True, methods=["get"], url_path="available-actions")
     def available_actions(self, request, pk=None):

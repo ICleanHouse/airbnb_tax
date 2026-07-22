@@ -41,6 +41,7 @@ import RatingStars from "../../components/RatingStars";
 import ReviewModal from "../../components/ReviewModal";
 import AccountDeletionPanel from "../../components/AccountDeletionPanel";
 import CancelJobDialog from "../../components/CancelJobDialog";
+import { RecoveryActions } from "../../components/RecoveryActions";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
 import type { ServiceZone } from "../../types/locations";
@@ -2246,6 +2247,7 @@ export default function CleanerDashboard() {
                                   </button>
                                 ) : null}
                               </div>
+                              {job && <RecoveryActions jobId={job.id} actions={job.available_actions} onComplete={() => void loadAll(true)} />}
                             </li>
                           );
                         })}

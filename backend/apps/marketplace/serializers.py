@@ -7,6 +7,10 @@ from apps.marketplace.models import (
     CleaningBatch,
     CleaningJob,
     FavouriteCleaner,
+    Dispute,
+    JobIncident,
+    ReplacementRequest,
+    RescheduleProposal,
 )
 from apps.marketplace.selectors import (
     canonical_location_values,
@@ -279,6 +283,59 @@ class CancelJobSerializer(serializers.Serializer):
         ]
     )
     note = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+
+
+class RescheduleProposalCreateSerializer(serializers.Serializer):
+    scheduled_start = serializers.DateTimeField()
+    scheduled_end = serializers.DateTimeField()
+
+    def validate(self, attrs):
+        if attrs["scheduled_end"] <= attrs["scheduled_start"]:
+            raise serializers.ValidationError({"scheduled_end": "Must be after scheduled_start."})
+        return attrs
+
+
+class RescheduleResponseSerializer(serializers.Serializer):
+    proposal_id = serializers.IntegerField()
+    accept = serializers.BooleanField()
+
+
+class JobIncidentCreateSerializer(serializers.Serializer):
+    incident_type = serializers.ChoiceField(choices=JobIncident.IncidentType.choices)
+    narrative = serializers.CharField(max_length=5000)
+
+
+class ReplacementRequestCreateSerializer(serializers.Serializer):
+    incident_id = serializers.IntegerField()
+
+
+class ReplacementResponseSerializer(serializers.Serializer):
+    replacement_request_id = serializers.IntegerField()
+    accept = serializers.BooleanField()
+
+
+class DisputeCreateSerializer(serializers.Serializer):
+    category = serializers.ChoiceField(choices=Dispute.Category.choices)
+    narrative = serializers.CharField(max_length=5000)
+
+
+class DisputeUpdateSerializer(serializers.Serializer):
+    note = serializers.CharField(max_length=5000)
+    status = serializers.ChoiceField(choices=Dispute.Status.choices, required=False)
+
+
+class RecoveryRequestSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    status = serializers.CharField(read_only=True)
+    expires_at = serializers.DateTimeField(read_only=True)
+    successor_id = serializers.IntegerField(source="successor_id", read_only=True)
+
+
+class ParticipantDisputeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Dispute
+        fields = ["id", "job", "category", "status", "created_at", "updated_at"]
+        read_only_fields = fields
 
 
 class PublicDemandDistrictSerializer(serializers.Serializer):

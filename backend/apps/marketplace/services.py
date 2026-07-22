@@ -13,12 +13,17 @@ from apps.marketplace.models import (
     Assignment,
     CleanerApplication,
     CleaningJob,
+    Dispute,
+    DisputeUpdate,
     FavouriteCleaner,
+    JobIncident,
     JobLifecycleEvent,
+    ReplacementRequest,
+    RescheduleProposal,
     TurnoverLineage,
 )
 from apps.marketplace.selectors import valid_future_marketplace_jobs
-from apps.notifications.services import create_notification
+from apps.notifications.services import create_notification, create_notification_once
 from apps.notifications.tasks import send_application_submitted_email, send_job_completed_email
 
 
@@ -302,6 +307,14 @@ def derive_available_job_actions(*, job: CleaningJob, actor: User) -> list[str]:
             and assignment.cancelled_at is None
         ):
             actions.append("cancel")
+        if not agency_backed:
+            actions.extend(["reschedule", "report_incident", "file_dispute"])
+    elif job.status == CleaningJob.Status.CANCELLED:
+        if not (assignment and assignment.cleaner.is_agency):
+            actions.extend(["report_incident", "file_dispute", "request_replacement"])
+    elif job.status == CleaningJob.Status.COMPLETED:
+        if not (assignment and assignment.cleaner.is_agency):
+            actions.append("file_dispute")
     return actions
 
 
@@ -432,6 +445,247 @@ def cancel_job(
             metadata={"job_id": job.id},
         )
     return job
+
+
+def _recovery_assignment(job: CleaningJob) -> Assignment | None:
+    return (
+        Assignment.objects.select_for_update()
+        .select_related("cleaner", "assigned_member")
+        .filter(job=job)
+        .first()
+    )
+
+
+def _ensure_direct_recovery(*, job: CleaningJob, actor: User, assignment: Assignment | None) -> None:
+    if assignment and assignment.cleaner.is_agency:
+        error = LifecycleConflict(
+            "Agency recovery is not supported in the Stage 1 pilot. Contact support."
+        )
+        error.code = "agency_recovery_not_supported"
+        raise error
+    if not _actor_is_job_participant(actor, job, assignment):
+        raise LifecycleConflict("This lifecycle action is not available.")
+    if not lifecycle_actor_is_eligible(actor):
+        error = LifecycleConflict("This account is not eligible for lifecycle actions.")
+        error.code = "account_not_eligible"
+        raise error
+
+
+def _recovery_recipients(*, job: CleaningJob, assignment: Assignment | None, actor: User) -> list[User]:
+    recipients = {job.host_id: job.host}
+    if assignment:
+        recipients[assignment.cleaner_id] = assignment.cleaner
+        if assignment.assigned_member_id and assignment.assigned_member:
+            recipients[assignment.assigned_member_id] = assignment.assigned_member
+    recipients.pop(actor.id, None)
+    return list(recipients.values())
+
+
+@transaction.atomic
+def propose_reschedule(*, job: CleaningJob, actor: User, scheduled_start, scheduled_end, request=None) -> RescheduleProposal:
+    job = _lock_lineage_and_job(job.pk)
+    assignment = _recovery_assignment(job)
+    actor = User.objects.select_for_update().get(pk=actor.pk)
+    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    if job.status != CleaningJob.Status.ASSIGNED or assignment is None or assignment.cancelled_at:
+        raise LifecycleConflict("Only an active direct assignment can be rescheduled.")
+    if scheduled_end <= scheduled_start:
+        raise LifecycleInputError(fields={"scheduled_end": ["scheduled_end must be after scheduled_start."]})
+    if scheduled_start <= timezone.now():
+        raise LifecycleInputError(fields={"scheduled_start": ["The proposed time must be in the future."]})
+    if scheduled_start == job.scheduled_start and scheduled_end == job.scheduled_end:
+        raise LifecycleInputError(fields={"scheduled_start": ["Choose a different time range."]})
+    expires_at = min(timezone.now() + timedelta(hours=24), job.scheduled_start - timedelta(hours=2))
+    if expires_at <= timezone.now():
+        raise LifecycleConflict("This job is too close to its scheduled start to reschedule.")
+    RescheduleProposal.objects.filter(job=job, status=RescheduleProposal.Status.PENDING).update(
+        status=RescheduleProposal.Status.EXPIRED, updated_at=timezone.now()
+    )
+    proposal = RescheduleProposal.objects.create(
+        job=job, proposed_by=actor, original_start=job.scheduled_start, original_end=job.scheduled_end,
+        proposed_start=scheduled_start, proposed_end=scheduled_end, expires_at=expires_at,
+    )
+    _record_lifecycle_event(
+        job=job, actor=actor, event_type=JobLifecycleEvent.EventType.JOB_RESCHEDULED,
+        reason_code="proposed", audience=JobLifecycleEvent.Audience.JOB_PARTICIPANTS,
+        metadata={"proposal_id": proposal.id}, request=request,
+    )
+    for recipient in _recovery_recipients(job=job, assignment=assignment, actor=actor):
+        create_notification_once(
+            user=recipient, notification_type="job.reschedule_proposed", title="Reschedule proposed",
+            body="A new time was proposed for an assigned cleaning job.", metadata={"job_id": job.id, "proposal_id": proposal.id},
+            deduplication_key=f"reschedule-proposed:{proposal.id}:{recipient.id}",
+        )
+    return proposal
+
+
+@transaction.atomic
+def respond_to_reschedule_proposal(*, proposal: RescheduleProposal, actor: User, accept: bool, request=None) -> RescheduleProposal:
+    proposal = RescheduleProposal.objects.select_for_update().select_related("job").get(pk=proposal.pk)
+    job = _lock_lineage_and_job(proposal.job_id)
+    assignment = _recovery_assignment(job)
+    actor = User.objects.select_for_update().get(pk=actor.pk)
+    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    if actor.id == proposal.proposed_by_id and not actor.is_platform_admin:
+        raise LifecycleConflict("The counterpart must respond to this proposal.")
+    if proposal.status != RescheduleProposal.Status.PENDING:
+        raise LifecycleConflict("This reschedule proposal is no longer actionable.")
+    if proposal.expires_at <= timezone.now():
+        proposal.status = RescheduleProposal.Status.EXPIRED
+        proposal.save(update_fields=["status", "updated_at"])
+        raise LifecycleConflict("This reschedule proposal has expired.")
+    proposal.responded_by = actor
+    proposal.status = RescheduleProposal.Status.ACCEPTED if accept else RescheduleProposal.Status.DECLINED
+    proposal.save(update_fields=["responded_by", "status", "updated_at"])
+    if accept:
+        _ensure_no_cleaner_schedule_conflict_for_range(
+            worker=assignment.cleaner, job=job,
+            scheduled_start=proposal.proposed_start, scheduled_end=proposal.proposed_end,
+        )
+        previous_start, previous_end = job.scheduled_start, job.scheduled_end
+        job.scheduled_start, job.scheduled_end = proposal.proposed_start, proposal.proposed_end
+        job.save(update_fields=["scheduled_start", "scheduled_end", "updated_at"])
+        _record_lifecycle_event(
+            job=job, actor=actor, event_type=JobLifecycleEvent.EventType.JOB_RESCHEDULED,
+            reason_code="accepted", metadata={"proposal_id": proposal.id}, request=request,
+        )
+        write_audit_log(actor=actor, action="job.rescheduled", entity_type="CleaningJob", entity_id=job.id, request=request,
+                        metadata={"proposal_id": proposal.id, "lineage_id": job.lineage_id})
+    return proposal
+
+
+def accept_reschedule_proposal(*, proposal: RescheduleProposal, actor: User, request=None) -> RescheduleProposal:
+    return respond_to_reschedule_proposal(proposal=proposal, actor=actor, accept=True, request=request)
+
+
+@transaction.atomic
+def report_job_incident(*, job: CleaningJob, actor: User, incident_type: str, narrative: str, request=None) -> JobIncident:
+    job = _lock_lineage_and_job(job.pk)
+    assignment = _recovery_assignment(job)
+    actor = User.objects.select_for_update().get(pk=actor.pk)
+    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    if incident_type not in JobIncident.IncidentType.values:
+        raise LifecycleInputError(fields={"incident_type": ["Choose a valid incident type."]})
+    narrative = narrative.strip()
+    if not narrative or len(narrative) > 5000:
+        raise LifecycleInputError(fields={"narrative": ["Provide up to 5000 characters of private context."]})
+    if incident_type == JobIncident.IncidentType.NO_SHOW and timezone.now() < job.scheduled_start + timedelta(minutes=15):
+        raise LifecycleConflict("A no-show can be reported 15 minutes after the scheduled start.")
+    incident = JobIncident.objects.create(job=job, reported_by=actor, incident_type=incident_type, narrative=narrative)
+    _record_lifecycle_event(job=job, actor=actor, event_type=JobLifecycleEvent.EventType.INCIDENT_REPORTED,
+                            reason_code=incident_type, audience=JobLifecycleEvent.Audience.ADMIN_ONLY,
+                            metadata={"incident_id": incident.id}, request=request)
+    write_audit_log(actor=actor, action="job.incident_reported", entity_type="JobIncident", entity_id=incident.id,
+                    request=request, metadata={"job_id": job.id, "incident_type": incident_type})
+    return incident
+
+
+def _replacement_expiry(job: CleaningJob):
+    return min(timezone.now() + timedelta(hours=4), job.scheduled_end)
+
+
+def _create_replacement_successor(*, source: CleaningJob, request: ReplacementRequest) -> CleaningJob:
+    return CleaningJob.objects.create(
+        property=source.property, host=source.host, lineage=source.lineage, replaces_job=source,
+        batch=source.batch, title=source.title, description=source.description,
+        scheduled_start=source.scheduled_start, scheduled_end=source.scheduled_end,
+        currency=source.currency, proposed_price=source.proposed_price,
+        cleaning_instructions=source.cleaning_instructions, status=CleaningJob.Status.DRAFT,
+    )
+
+
+@transaction.atomic
+def create_replacement_request(*, job: CleaningJob, incident: JobIncident | None, actor: User, request=None) -> ReplacementRequest:
+    job = _lock_lineage_and_job(job.pk)
+    assignment = _recovery_assignment(job)
+    actor = User.objects.select_for_update().get(pk=actor.pk)
+    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    if job.status != CleaningJob.Status.CANCELLED:
+        raise LifecycleConflict("Only a cancelled incomplete job can be replaced.")
+    if incident is None or incident.job_id != job.id:
+        raise LifecycleInputError(fields={"incident_id": ["A qualifying incident for this job is required."]})
+    expiry = _replacement_expiry(job)
+    if expiry <= timezone.now():
+        raise LifecycleConflict("The replacement window has expired.")
+    is_host = actor.id == job.host_id
+    replacement = ReplacementRequest.objects.create(
+        source_job=job, incident=incident, requested_by=actor, expires_at=expiry,
+        status=ReplacementRequest.Status.AUTHORIZED if is_host else ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION,
+        authorized_by=actor if is_host else None,
+    )
+    if is_host:
+        replacement.successor = _create_replacement_successor(source=job, request=replacement)
+        replacement.save(update_fields=["successor", "updated_at"])
+    _record_lifecycle_event(job=job, actor=actor, event_type=JobLifecycleEvent.EventType.REPLACEMENT_REQUESTED,
+                            metadata={"replacement_request_id": replacement.id}, request=request)
+    return replacement
+
+
+@transaction.atomic
+def authorize_replacement_request(*, replacement: ReplacementRequest, actor: User, accept: bool, request=None) -> ReplacementRequest:
+    replacement = ReplacementRequest.objects.select_for_update().select_related("source_job").get(pk=replacement.pk)
+    job = _lock_lineage_and_job(replacement.source_job_id)
+    assignment = _recovery_assignment(job)
+    actor = User.objects.select_for_update().get(pk=actor.pk)
+    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    if actor.id != job.host_id and not actor.is_platform_admin:
+        raise LifecycleConflict("Only the host can authorize this replacement.")
+    if replacement.status != ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION:
+        raise LifecycleConflict("This replacement request is no longer actionable.")
+    if replacement.expires_at <= timezone.now():
+        replacement.status = ReplacementRequest.Status.EXPIRED
+    elif not accept:
+        replacement.status = ReplacementRequest.Status.DECLINED
+    else:
+        replacement.status = ReplacementRequest.Status.AUTHORIZED
+        replacement.authorized_by = actor
+        replacement.successor = _create_replacement_successor(source=job, request=replacement)
+    replacement.save(update_fields=["status", "authorized_by", "successor", "updated_at"])
+    _record_lifecycle_event(job=job, actor=actor,
+                            event_type=JobLifecycleEvent.EventType.REPLACEMENT_APPROVED if accept else JobLifecycleEvent.EventType.REPLACEMENT_DECLINED,
+                            metadata={"replacement_request_id": replacement.id}, request=request)
+    return replacement
+
+
+@transaction.atomic
+def file_dispute(*, job: CleaningJob, actor: User, category: str, narrative: str, request=None) -> Dispute:
+    job = _lock_lineage_and_job(job.pk)
+    assignment = _recovery_assignment(job)
+    actor = User.objects.select_for_update().get(pk=actor.pk)
+    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    if category not in Dispute.Category.values:
+        raise LifecycleInputError(fields={"category": ["Choose a valid dispute category."]})
+    narrative = narrative.strip()
+    if not narrative or len(narrative) > 5000:
+        raise LifecycleInputError(fields={"narrative": ["Provide up to 5000 characters of private context."]})
+    anchors = [value for value in [job.cancelled_at, getattr(assignment, "completed_at", None), JobIncident.objects.filter(job=job).order_by("-created_at").values_list("created_at", flat=True).first()] if value]
+    if not anchors or timezone.now() > max(anchors) + timedelta(days=7):
+        raise LifecycleConflict("The dispute filing window has closed.")
+    dispute = Dispute.objects.create(job=job, filed_by=actor, category=category, narrative=narrative)
+    _record_lifecycle_event(job=job, actor=actor, event_type=JobLifecycleEvent.EventType.DISPUTE_OPENED,
+                            reason_code=category, audience=JobLifecycleEvent.Audience.ADMIN_ONLY,
+                            metadata={"dispute_id": dispute.id}, request=request)
+    return dispute
+
+
+@transaction.atomic
+def update_dispute(*, dispute: Dispute, actor: User, note: str, status_after: str = "", request=None) -> Dispute:
+    if not actor.is_platform_admin:
+        raise LifecycleConflict("Only an operator can update a dispute.")
+    dispute = Dispute.objects.select_for_update().select_related("job").get(pk=dispute.pk)
+    note = note.strip()
+    if not note or len(note) > 5000:
+        raise LifecycleInputError(fields={"note": ["Provide up to 5000 characters of private context."]})
+    if status_after and status_after not in Dispute.Status.values:
+        raise LifecycleInputError(fields={"status": ["Choose a valid dispute status."]})
+    if status_after:
+        dispute.status = status_after
+        dispute.save(update_fields=["status", "updated_at"])
+    DisputeUpdate.objects.create(dispute=dispute, actor=actor, note=note, status_after=status_after)
+    _record_lifecycle_event(job=dispute.job, actor=actor,
+                            event_type=JobLifecycleEvent.EventType.DISPUTE_RESOLVED if status_after == Dispute.Status.RESOLVED else JobLifecycleEvent.EventType.DISPUTE_UPDATED,
+                            audience=JobLifecycleEvent.Audience.ADMIN_ONLY, metadata={"dispute_id": dispute.id}, request=request)
+    return dispute
 
 
 def lineage_chronology(*, lineage: TurnoverLineage, actor: User) -> dict:
@@ -900,6 +1154,21 @@ def _ensure_no_cleaner_schedule_conflict(*, worker: User, job: CleaningJob) -> N
             cancelled_at__isnull=True,
             job__scheduled_start__lt=job.scheduled_end,
             job__scheduled_end__gt=job.scheduled_start,
+        )
+        .exclude(job_id=job.id)
+        .exists()
+    )
+    if has_conflict:
+        raise CleanerScheduleConflictError()
+
+
+def _ensure_no_cleaner_schedule_conflict_for_range(*, worker: User, job: CleaningJob, scheduled_start, scheduled_end) -> None:
+    has_conflict = (
+        Assignment.objects.filter(
+            Q(cleaner_id=worker.id) | Q(assigned_member_id=worker.id),
+            cancelled_at__isnull=True,
+            job__scheduled_start__lt=scheduled_end,
+            job__scheduled_end__gt=scheduled_start,
         )
         .exclude(job_id=job.id)
         .exists()

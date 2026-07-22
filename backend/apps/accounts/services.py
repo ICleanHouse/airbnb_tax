@@ -10,7 +10,7 @@ from django.utils import timezone
 from apps.accounts.models import CleanerProfile, PilotEvidenceExclusion, User
 from apps.connections.models import Connection
 from apps.core.services import write_audit_log
-from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
+from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob, Dispute, ReplacementRequest
 from apps.notifications.services import create_notification_once
 from apps.notifications.tasks import dispatch_notification
 from config.verification import validate_runtime_verification_configuration
@@ -415,7 +415,24 @@ def account_deletion_blocker(*, user: User) -> AccountDeletionBlocked | None:
         completed_at__isnull=True,
         job__status__in=actionable_statuses,
     ).exists()
-    if has_active_jobs or has_active_assignments:
+    has_pending_recovery = ReplacementRequest.objects.filter(
+        status__in=[
+            ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION,
+            ReplacementRequest.Status.AUTHORIZED,
+        ]
+    ).filter(
+        Q(source_job__host=user)
+        | Q(requested_by=user)
+        | Q(source_job__assignment__cleaner=user)
+        | Q(source_job__assignment__assigned_member=user)
+    ).exists()
+    has_unresolved_dispute = Dispute.objects.filter(status=Dispute.Status.OPEN).filter(
+        Q(job__host=user)
+        | Q(filed_by=user)
+        | Q(job__assignment__cleaner=user)
+        | Q(job__assignment__assigned_member=user)
+    ).exists()
+    if has_active_jobs or has_active_assignments or has_pending_recovery or has_unresolved_dispute:
         return AccountDeletionBlocked(
             code="account_deletion_blocked_active_obligations",
             detail="Account deletion is blocked while marketplace obligations are active.",

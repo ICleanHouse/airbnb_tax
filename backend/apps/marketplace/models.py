@@ -274,6 +274,122 @@ class Assignment(TimeStampedModel):
         return f"{self.cleaner} assigned to {self.job}"
 
 
+class RescheduleProposal(TimeStampedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+        EXPIRED = "expired", "Expired"
+
+    job = models.ForeignKey(CleaningJob, on_delete=models.PROTECT, related_name="reschedule_proposals")
+    proposed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reschedule_proposals")
+    responded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="responded_reschedule_proposals")
+    original_start = models.DateTimeField()
+    original_end = models.DateTimeField()
+    proposed_start = models.DateTimeField()
+    proposed_end = models.DateTimeField()
+    expires_at = models.DateTimeField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    admin_authority_reference = models.CharField(max_length=128, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(proposed_end__gt=models.F("proposed_start")), name="reschedule_end_after_start"),
+            models.UniqueConstraint(fields=["job"], condition=Q(status="pending"), name="uq_pending_reschedule_per_job"),
+        ]
+
+
+class JobIncident(TimeStampedModel):
+    class IncidentType(models.TextChoices):
+        NO_SHOW = "no_show", "No-show"
+        ATTENDANCE_FAILURE = "attendance_failure", "Attendance failure"
+
+    class Severity(models.TextChoices):
+        STANDARD = "standard", "Standard"
+        MAJOR = "major", "Major"
+        CRITICAL = "critical", "Critical"
+
+    job = models.ForeignKey(CleaningJob, on_delete=models.PROTECT, related_name="incidents")
+    reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reported_job_incidents")
+    incident_type = models.CharField(max_length=32, choices=IncidentType.choices)
+    narrative = models.TextField()
+    occurred_at = models.DateTimeField(default=timezone.now)
+    severity = models.CharField(max_length=16, choices=Severity.choices, default=Severity.STANDARD)
+    classified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="classified_job_incidents")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
+class ReplacementRequest(TimeStampedModel):
+    class Status(models.TextChoices):
+        PENDING_HOST_AUTHORIZATION = "pending_host_authorization", "Pending host authorization"
+        AUTHORIZED = "authorized", "Authorized"
+        DECLINED = "declined", "Declined"
+        EXPIRED = "expired", "Expired"
+        WITHDRAWN = "withdrawn", "Withdrawn"
+
+    source_job = models.ForeignKey(CleaningJob, on_delete=models.PROTECT, related_name="replacement_requests")
+    incident = models.ForeignKey(JobIncident, on_delete=models.PROTECT, related_name="replacement_requests")
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="replacement_requests")
+    authorized_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="authorized_replacement_requests")
+    successor = models.OneToOneField(CleaningJob, on_delete=models.PROTECT, null=True, blank=True, related_name="replacement_request")
+    expires_at = models.DateTimeField()
+    status = models.CharField(max_length=32, choices=Status.choices)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["source_job"], condition=Q(status__in=["pending_host_authorization", "authorized"]), name="uq_actionable_replacement_per_job"),
+        ]
+
+
+class Dispute(TimeStampedModel):
+    class Category(models.TextChoices):
+        SAFETY = "safety", "Safety"
+        ACCESS = "access", "Access"
+        QUALITY = "quality", "Quality"
+        DAMAGE = "damage", "Damage"
+        PRIVACY = "privacy", "Privacy"
+        CONDUCT = "conduct", "Conduct"
+        SCHEDULE = "schedule", "Schedule"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        RESOLVED = "resolved", "Resolved"
+        DISMISSED = "dismissed", "Dismissed"
+
+    job = models.ForeignKey(CleaningJob, on_delete=models.PROTECT, related_name="disputes")
+    filed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="filed_disputes")
+    category = models.CharField(max_length=24, choices=Category.choices)
+    narrative = models.TextField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
+class DisputeUpdate(models.Model):
+    dispute = models.ForeignKey(Dispute, on_delete=models.PROTECT, related_name="updates")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="dispute_updates")
+    note = models.TextField()
+    status_after = models.CharField(max_length=16, choices=Dispute.Status.choices, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Dispute updates are append-only.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Dispute updates are append-only.")
+
+
 class JobLifecycleEvent(models.Model):
     class EventType(models.TextChoices):
         LEGACY_SNAPSHOT_IMPORTED = "legacy_snapshot_imported", "Legacy snapshot imported"

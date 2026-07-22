@@ -2,8 +2,10 @@ from datetime import timedelta
 
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from apps.accounts.models import CleanerProfile, User
+from apps.accounts.services import account_deletion_blocker
 from apps.marketplace.models import Assignment, CleaningJob, JobLifecycleEvent
 from apps.marketplace.services import (
     LifecycleConflict,
@@ -19,6 +21,7 @@ from apps.properties.models import Property
 
 class RecoveryWorkflowTests(TestCase):
     def setUp(self):
+        self.client = APIClient()
         self.host = User.objects.create_user(
             username="recovery-host", password="password123", role=User.Role.HOST,
             account_status=User.AccountStatus.APPROVED,
@@ -57,6 +60,22 @@ class RecoveryWorkflowTests(TestCase):
             job=self.job, event_type=JobLifecycleEvent.EventType.JOB_RESCHEDULED,
         ).exists())
 
+    def test_reschedule_api_requires_counterpart_and_returns_safe_payload(self):
+        self.client.force_authenticate(self.host)
+        response = self.client.post(
+            f"/api/marketplace/jobs/{self.job.id}/reschedule/",
+            {"scheduled_start": (self.start + timedelta(hours=3)).isoformat(), "scheduled_end": (self.start + timedelta(hours=5)).isoformat()},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertNotIn("narrative", response.json())
+        self.client.force_authenticate(self.cleaner)
+        response = self.client.post(
+            f"/api/marketplace/jobs/{self.job.id}/reschedule-respond/",
+            {"proposal_id": response.json()["id"], "accept": True}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+
     def test_incident_narrative_is_not_copied_to_lifecycle_metadata(self):
         self.job.scheduled_start = timezone.now() - timedelta(minutes=16)
         self.job.save(update_fields=["scheduled_start", "updated_at"])
@@ -77,7 +96,7 @@ class RecoveryWorkflowTests(TestCase):
         self.job.cancellation_notice_band = "after_start"
         self.job.save()
         incident = report_job_incident(
-            job=self.job, actor=self.host, incident_type="no_show", narrative="Private",
+            job=self.job, actor=self.host, incident_type="attendance_failure", narrative="Private",
         )
 
         request = create_replacement_request(job=self.job, incident=incident, actor=self.host)
@@ -87,12 +106,25 @@ class RecoveryWorkflowTests(TestCase):
         self.assertFalse(Assignment.objects.filter(job=request.successor).exists())
 
     def test_dispute_is_private_and_completed_jobs_cannot_be_replaced(self):
+        self.job.status = CleaningJob.Status.CANCELLED
+        self.job.cancelled_at = timezone.now()
+        self.job.cancelled_by = self.host
+        self.job.cancellation_reason_code = "access"
+        self.job.cancellation_notice_band = "under_24_hours"
+        self.job.save()
         dispute = file_dispute(
             job=self.job, actor=self.host, category="quality", narrative="Private evidence",
         )
         self.assertEqual(dispute.status, "open")
         self.assertEqual(dispute.narrative, "Private evidence")
+        blocker = account_deletion_blocker(user=self.host)
+        self.assertEqual(blocker.code, "account_deletion_blocked_active_obligations")
         self.job.status = CleaningJob.Status.COMPLETED
-        self.job.save(update_fields=["status", "updated_at"])
+        self.job.cancelled_at = None
+        self.job.cancelled_by = None
+        self.job.cancellation_reason_code = ""
+        self.job.cancellation_note = ""
+        self.job.cancellation_notice_band = ""
+        self.job.save()
         with self.assertRaises(LifecycleConflict):
             create_replacement_request(job=self.job, incident=None, actor=self.host)

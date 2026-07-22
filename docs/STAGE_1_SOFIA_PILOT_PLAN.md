@@ -413,7 +413,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E02 | Must-have | Engineering owner | ADR-0002; remaining S1-D02 items | In progress |  | [Owner policy](adr/0002-contact-based-verification.md); [maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [TDD evidence](testing/s1_e02_account_verification.tdd.md) |
 | S1-E03 | Must-have | Engineering owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E04 | Must-have | Engineering owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
-| S1-E05 | Must-have | Repository owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md) |
+| S1-E05 | Must-have | Repository owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
 | S1-E06 | Must-have; reminders may be operator-assisted | Engineering owner | S1-D03 | Not started |  |  |
 | S1-E07 | Must-have | Engineering owner | S1-D05 | Not started |  |  |
 | S1-E08 | Must-have | Engineering owner | S1-D03/D04 | Not started |  |  |

@@ -1218,5 +1218,39 @@
       "ariaLabel": "Избрани райони",
       "removeAriaLabel": "Премахни {name}"
     }
+  },
+  "recovery": {
+    "title": "Действия за възстановяване",
+    "reschedule": "Предложи нов час",
+    "incident": "Докладвай проблем с присъствието",
+    "replacement": "Поискай замяна",
+    "dispute": "Подай спор",
+    "start": "Предложен начален час",
+    "end": "Предложен краен час",
+    "type": "Вид проблем",
+    "attendanceFailure": "Проблем с присъствието",
+    "noShow": "Неявяване",
+    "category": "Категория",
+    "quality": "Качество",
+    "access": "Достъп",
+    "safety": "Безопасност",
+    "other": "Друго",
+    "privateDetails": "Лични подробности (само за оператори)",
+    "incidentId": "ID на свързания инцидент",
+    "cancel": "Отказ",
+    "submit": "Изпрати",
+    "saving": "Запазване…",
+    "error": "Действието по възстановяване не можа да бъде изпълнено.",
+    "rescheduleTitle": "Предложи нов час",
+    "incidentTitle": "Докладвай проблем с присъствието",
+    "replacementTitle": "Поискай замяна",
+    "disputeTitle": "Подай личен спор"
+    ,"queueTitle": "Опашка за възстановяване"
+    ,"queueSummary": "{replacements} замени чакат одобрение от домакина · {disputes} отворени спора · {incidents} скорошни инцидента"
+    ,"disputeQueueItem": "Спор #{id} · задача #{job} · {category}"
+    ,"replacementQueueItem": "Заявка за замяна #{id} · изходна задача #{job}"
+    ,"operatorNote": "Лична бележка на оператор"
+    ,"resolve": "Разреши"
+    ,"resolveFailed": "Спорът не можа да бъде обновен."
   }
 }

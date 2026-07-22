@@ -62,6 +62,7 @@ type Filter = "pending" | "approved" | "all";
 function AdminPageContent() {
   const t = useTranslations("admin");
   const tNav = useTranslations("nav");
+  const tRecovery = useTranslations("recovery");
   const STATUS_FILTER_LABELS: Record<Filter, string> = {
     pending: t("sidebar.filterLabels.pending"),
     approved: t("sidebar.filterLabels.approved"),
@@ -89,6 +90,8 @@ function AdminPageContent() {
   const [historyUser, setHistoryUser] = useState<AdminUser | null>(null);
   const [history, setHistory] = useState<ReviewEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [disputeNotes, setDisputeNotes] = useState<Record<number, string>>({});
+  const [recoveryQueue, setRecoveryQueue] = useState<{ replacement_requests: { id: number; source_job_id: number; status: string; expires_at: string }[]; disputes: { id: number; job_id: number; category: string; status: string; created_at: string }[]; incidents: { id: number; job_id: number; incident_type: string; severity: string; created_at: string }[] } | null>(null);
 
   const loadUsers = useCallback(async (silent = false) => {
     if (!silent) {
@@ -115,10 +118,16 @@ function AdminPageContent() {
     }
   }, [t]);
 
+  const loadRecoveryQueue = useCallback(async () => {
+    const res = await apiFetch("/api/marketplace/jobs/recovery-queues/");
+    if (res.ok) setRecoveryQueue(await res.json());
+  }, []);
+
   useLiveRefresh(
     () => {
       if (!me?.is_platform_admin) return;
       void loadUsers(true);
+      void loadRecoveryQueue();
     },
     { enabled: me?.is_platform_admin },
   );
@@ -141,6 +150,9 @@ function AdminPageContent() {
   useEffect(() => {
     if (me?.is_platform_admin) void loadUsers();
   }, [loadUsers, me]);
+  useEffect(() => {
+    if (me?.is_platform_admin) void loadRecoveryQueue();
+  }, [loadRecoveryQueue, me]);
 
   async function reconcile(id: number) {
     setActioning(id);
@@ -203,6 +215,18 @@ function AdminPageContent() {
     } finally {
       setHistoryLoading(false);
     }
+  }
+
+  async function resolveDispute(disputeId: number) {
+    const note = (disputeNotes[disputeId] ?? "").trim();
+    if (!note) return;
+    setActionError("");
+    const response = await apiFetch(`/api/marketplace/jobs/disputes/${disputeId}/update/`, {
+      method: "POST", body: JSON.stringify({ note, status: "resolved" }),
+    });
+    if (!response.ok) { setActionError(tRecovery("resolveFailed")); return; }
+    setDisputeNotes((previous) => ({ ...previous, [disputeId]: "" }));
+    void loadRecoveryQueue();
   }
 
   async function logout() {
@@ -335,6 +359,22 @@ function AdminPageContent() {
           {/* Errors */}
           {fetchError && <p className="form-error">{fetchError}</p>}
           {actionError && <p className="form-error">{actionError}</p>}
+
+          {recoveryQueue && (
+            <section className="recovery-admin-queue" aria-label={tRecovery("queueTitle")}>
+              <div className="admin-section-header"><h2 className="admin-section-title">{tRecovery("queueTitle")}</h2><button type="button" className="secondary-link" onClick={() => void loadRecoveryQueue()}>{t("section.refresh")}</button></div>
+              <p>{tRecovery("queueSummary", { replacements: recoveryQueue.replacement_requests.length, disputes: recoveryQueue.disputes.length, incidents: recoveryQueue.incidents.length })}</p>
+              <ul className="admin-history-list">
+                {recoveryQueue.disputes.map((item) => <li key={`dispute-${item.id}`}>
+                  <span>{tRecovery("disputeQueueItem", { id: item.id, job: item.job_id, category: item.category })}</span>
+                  <label className="sr-only" htmlFor={`dispute-note-${item.id}`}>{tRecovery("operatorNote")}</label>
+                  <input id={`dispute-note-${item.id}`} value={disputeNotes[item.id] ?? ""} onChange={(event) => setDisputeNotes((previous) => ({ ...previous, [item.id]: event.target.value }))} placeholder={tRecovery("operatorNote")} maxLength={5000} />
+                  <button type="button" disabled={!(disputeNotes[item.id] ?? "").trim()} onClick={() => void resolveDispute(item.id)}>{tRecovery("resolve")}</button>
+                </li>)}
+                {recoveryQueue.replacement_requests.map((item) => <li key={`replacement-${item.id}`}>{tRecovery("replacementQueueItem", { id: item.id, job: item.source_job_id })}</li>)}
+              </ul>
+            </section>
+          )}
 
           {/* User list */}
           {loadingUsers ? (

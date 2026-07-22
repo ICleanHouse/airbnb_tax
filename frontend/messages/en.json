@@ -1218,5 +1218,39 @@
       "ariaLabel": "Selected districts",
       "removeAriaLabel": "Remove {name}"
     }
+  },
+  "recovery": {
+    "title": "Recovery actions",
+    "reschedule": "Propose reschedule",
+    "incident": "Report attendance incident",
+    "replacement": "Request replacement",
+    "dispute": "File dispute",
+    "start": "Proposed start",
+    "end": "Proposed end",
+    "type": "Incident type",
+    "attendanceFailure": "Attendance failure",
+    "noShow": "No-show",
+    "category": "Category",
+    "quality": "Quality",
+    "access": "Access",
+    "safety": "Safety",
+    "other": "Other",
+    "privateDetails": "Private details (operators only)",
+    "incidentId": "Qualifying incident ID",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "saving": "Saving…",
+    "error": "This recovery action could not be completed.",
+    "rescheduleTitle": "Propose a new time",
+    "incidentTitle": "Report attendance incident",
+    "replacementTitle": "Request a replacement",
+    "disputeTitle": "File a private dispute"
+    ,"queueTitle": "Recovery queue"
+    ,"queueSummary": "{replacements} replacements awaiting host authority · {disputes} open disputes · {incidents} recent incidents"
+    ,"disputeQueueItem": "Dispute #{id} · job #{job} · {category}"
+    ,"replacementQueueItem": "Replacement request #{id} · source job #{job}"
+    ,"operatorNote": "Private operator note"
+    ,"resolve": "Resolve"
+    ,"resolveFailed": "The dispute could not be updated."
   }
 }

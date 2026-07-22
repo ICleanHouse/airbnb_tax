@@ -53,6 +53,7 @@ import ReviewModal from "../../components/ReviewModal";
 import RatingStars from "../../components/RatingStars";
 import AccountDeletionPanel from "../../components/AccountDeletionPanel";
 import CancelJobDialog from "../../components/CancelJobDialog";
+import { RecoveryActions } from "../../components/RecoveryActions";
 import DistrictMapSelector from "../../components/DistrictMapSelector";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -2143,6 +2144,8 @@ export default function HostDashboard() {
                               </div>
                             )}
                           </div>
+
+                          <RecoveryActions jobId={job.id} actions={job.available_actions} onComplete={() => void loadAll(true)} />
 
                           {expandedAppsJobId === job.id &&
                             applications.some((a) => a.job === job.id && a.status === "pending") && (

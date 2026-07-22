@@ -342,6 +342,10 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
         <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
           © OpenStreetMap contributors
         </a>
+        {" · "}
+        <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">
+          Geoapify
+        </a>
       </p>
     </div>
   );

@@ -1206,7 +1206,7 @@
         "typeMore": "{count, plural, one {Type # more character…} other {Type # more characters…}}",
         "hint": "Click the map to pin the exact location, or search for an address below.",
         "lookupUnavailable": "Address search is temporarily unavailable. You can enter the address and district manually.",
-        "mapDataCredit": "Map data:"
+        "mapDataCredit": "Map data and address search:"
     },
     "districtChecklist": {
       "ariaLabel": "District checklist",

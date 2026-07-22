@@ -3,6 +3,17 @@ from rest_framework import serializers
 from apps.locations.models import City, ServiceZone
 
 
+class GeocodingSearchSerializer(serializers.Serializer):
+    query = serializers.CharField(min_length=3, max_length=160, trim_whitespace=True)
+    locale = serializers.ChoiceField(choices=("bg", "en"), required=False, default="en")
+
+
+class GeocodingReverseSerializer(serializers.Serializer):
+    latitude = serializers.FloatField(min_value=41.0, max_value=45.0)
+    longitude = serializers.FloatField(min_value=22.0, max_value=29.0)
+    locale = serializers.ChoiceField(choices=("bg", "en"), required=False, default="en")
+
+
 class CitySerializer(serializers.ModelSerializer):
     center = serializers.SerializerMethodField()
 

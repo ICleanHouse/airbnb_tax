@@ -182,9 +182,18 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         # Manual calendar parsing is deliberately modest during the Sofia pilot.
         "ics_import": "30/hour",
+        "geocoding": "30/hour",
         "lifecycle": "30/hour",
     },
 }
+
+GEOAPIFY_API_KEY = os.getenv("GEOAPIFY_API_KEY", "")
+GEOAPIFY_GEOCODING_TIMEOUT_SECONDS = float(
+    os.getenv("GEOAPIFY_GEOCODING_TIMEOUT_SECONDS", "5")
+)
+GEOAPIFY_PROVIDER_REQUESTS_PER_SECOND = max(
+    1, int(os.getenv("GEOAPIFY_PROVIDER_REQUESTS_PER_SECOND", "4"))
+)
 
 MARKETPLACE_SUPPORT_CHANNEL = os.getenv(
     "MARKETPLACE_SUPPORT_CHANNEL", "support"

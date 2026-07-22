@@ -49,7 +49,7 @@ Future extraction into microservices should be possible without rewriting core b
   background sync tasks.
 - `apps.feedback`: two-way reviews and cleaner reputation updates.
 - `apps.notifications`: in-app notification records, Resend-only signup-code email delivery, Django mail-backend admin emails, and Celery task for admin signup alerts.
-- `apps.locations`: canonical cities, service zones, optional GeoJSON district geometry, and public read-only location APIs for city/district selectors.
+- `apps.locations`: canonical cities, service zones, optional GeoJSON district geometry, public read-only location APIs for city/district selectors, and private approved-host Geoapify geocoding endpoints that return a minimized address candidate shape.
 - `apps.core`: timestamp base model, request-ID middleware, JSON logging helpers,
   read-only `AuditLog`, health check, CSRF failure view, and reusable Stage 1
   image decoding/normalization policies.
@@ -68,6 +68,11 @@ Future extraction into microservices should be possible without rewriting core b
   - `CACHE_URL`: required Redis-backed shared cache in deployed environments;
     local development and tests use LocMem. The manual ICS throttle uses this
     cache and is keyed by authenticated user.
+  - `GEOAPIFY_API_KEY`: server-only credential for the approved-host geocoding
+    proxy. It must never be exposed in a `NEXT_PUBLIC_*` variable.
+  - `GEOAPIFY_GEOCODING_TIMEOUT_SECONDS`,
+    `GEOAPIFY_PROVIDER_REQUESTS_PER_SECOND`: bounded provider request timeout
+    and shared per-second ceiling.
   - `APP_ENV`, `LOG_LEVEL`, `SENTRY_DSN`: JSON logging and backend/Celery crash reporting.
   - `MARKETPLACE_SUPPORT_CHANNEL`: monitored support route shown when protected
     marketplace history prevents physical account deletion.
@@ -382,6 +387,8 @@ REST APIs through Django REST Framework.
 | `GET /api/accounts/agency-invitations/` | List invitations |
 | `POST /api/accounts/agency-invitations/{id}/accept/` | Cleaner: accept invitation |
 | `GET /api/accounts/agency-memberships/` | List memberships |
+| `POST /api/locations/geocode/search/` | Approved host/admin only: private, no-store Sofia/Bulgaria address search. Returns only normalized address candidates; no provider key or raw response. |
+| `POST /api/locations/geocode/reverse/` | Approved host/admin only: private, no-store reverse-geocode for a Bulgaria-bounded coordinate. |
 | `GET/POST /api/properties/properties/` | Host properties CRUD |
 | `GET/POST /api/properties/calendar-connections/` | External calendar connections |
 | `GET/POST /api/properties/reservations/` | Reservation records |
@@ -477,6 +484,9 @@ The system is GDPR-conscious from the start. Store only necessary personal data,
 | `DATABASE_URL` | *(absent → SQLite)* | PostgreSQL connection string (Docker only) |
 | `CELERY_BROKER_URL` | `redis://localhost:6379/0` | Celery broker |
 | `CELERY_RESULT_BACKEND` | `redis://localhost:6379/1` | Celery results |
+| `GEOAPIFY_API_KEY` | *(empty)* | Server-only approved-host geocoding credential |
+| `GEOAPIFY_GEOCODING_TIMEOUT_SECONDS` | `5` | Provider request timeout in seconds |
+| `GEOAPIFY_PROVIDER_REQUESTS_PER_SECOND` | `4` | Shared provider ceiling, below the subscribed plan limit |
 | `DEFAULT_FROM_EMAIL` | `noreply@example.local` | Outbound email sender address |
 | `EMAIL_BACKEND` | `console.EmailBackend` | Django email backend class for non-signup emails |
 | `EMAIL_HOST` | *(empty)* | Optional SMTP hostname for non-signup emails |

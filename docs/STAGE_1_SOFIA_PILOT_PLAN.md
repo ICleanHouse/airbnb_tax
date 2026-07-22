@@ -418,7 +418,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E07 | Must-have | Engineering owner | S1-D05 | Not started |  |  |
 | S1-E08 | Must-have | Engineering owner | S1-D03/D04 | Not started |  |  |
 | S1-E09 | Must-have | Engineering owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
-| S1-E10 | Must-have | Engineering owner | S1-D04 and provider decision | Not started |  |  |
+| S1-E10 | Must-have | Engineering owner | S1-D04 and provider decision | In progress | 2026-07-22 | [Backend geocoding TDD evidence](testing/s1_e10_geocoding_backend.tdd.md) |
 | S1-UX01 | Must-have | Engineering owner | S1-D04/D05 | Not started |  |  |
 | S1-UX02 | Must-have | Engineering owner | S1-D02/D05 | Not started |  |  |
 | S1-UX03 | Must-have | Engineering owner | Pilot-critical Gate B flows | Not started |  |  |
@@ -1055,18 +1055,23 @@ Acceptance criteria:
 
 ### S1-E10 — Govern maps, geocoding, and exact-location disclosure
 
+**Implementation contract:** [S1-E10 map and geocoding capability](S1_E10_MAP_GEOCODING_CAPABILITY.md)
+records the owner direction to retain third-party capability behind the owned
+privacy boundary. Geoapify is configured as the server-side candidate; its
+privacy/terms approval remains required before production enablement.
+
 Choose an approved map/geocoding architecture before the public pilot:
 
 - [ ] Remove direct browser `fetch` calls to OSM/Nominatim or any other
       geocoder. Frontend calls to owned endpoints use `apiFetch`.
-- [ ] Either route searches through an owned backend proxy to an approved
-      provider, or disable client geocoding and exact-location maps and use
-      manual address plus canonical district selection.
+- [x] Route approved-host address search and reverse geocoding through owned,
+      authenticated, private/no-store backend endpoints. The frontend picker
+      migration remains to be completed.
 - [ ] Review the provider’s processing terms, data location, retention/logging,
       usage limits, attribution, caching, credentials, and production-service
       suitability; document the provider as a processor/recipient where
       required.
-- [ ] Minimize the query sent upstream, authenticate/rate-limit the owned proxy,
+- [x] Minimize the query sent upstream, authenticate/rate-limit the owned proxy,
       and prevent raw address/search/coordinate values from entering ordinary
       application logs, analytics, Sentry, or cache keys visible to users.
 - [ ] Ensure map tile requests cannot disclose an exact private property

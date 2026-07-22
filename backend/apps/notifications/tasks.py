@@ -30,6 +30,9 @@ except ImportError:  # pragma: no cover - runs without Celery in local dev / tes
         def apply(self, args=(), kwargs=None, **_options):
             return self(*(args or ()), **(kwargs or {}))
 
+        def apply_async(self, args=(), kwargs=None, **_options):
+            return self(*(args or ()), **(kwargs or {}))
+
     def shared_task(func=None, bind: bool = False, **_kwargs):  # type: ignore[misc]
         def decorator(f):
             return _FakeTask(f, bind=bind)
@@ -45,6 +48,12 @@ logger = logging.getLogger("apps.notifications")
 def dispatch_notification(notification_id: int) -> int:
     # Provider integration will be added when email/SMS vendors are selected.
     return notification_id
+
+
+@shared_task
+def deliver_notification(delivery_id: int) -> int:
+    """Canonical channel-delivery entry point; state machine added in the next slice."""
+    return delivery_id
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)

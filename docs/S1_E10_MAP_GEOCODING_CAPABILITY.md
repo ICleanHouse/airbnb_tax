@@ -63,11 +63,40 @@ and one `osm-bright` raster tile. All three returned HTTP 200. No key, private
 address, request URL, or response body was recorded.
 
 The owner must approve Geoapify's plan/budget and privacy terms before pilot
-release. The prepared [Geoapify provider review](S1_E10_GEOAPIFY_PROVIDER_REVIEW.md)
-records the DPA/privacy evidence, the EU-only endpoint correction, attribution,
-and the explicit decision checklist. The approval record must cover its
-DPA/privacy terms, data location, retention/logging, rate and usage limits,
-attribution, credential restrictions, and incident/support contact.
+release. The approval record must cover its DPA/privacy terms, data location,
+retention/logging, rate and usage limits, attribution, credential restrictions,
+and incident/support contact.
+
+### Provider review evidence
+
+This engineering record is not legal advice or acceptance of a provider
+agreement. The reviewed data flow is: approved host browser → authenticated
+Host Cleaner API → `api-eu.geoapify.com` → minimised result → private form.
+The browser has neither a provider key nor a direct provider request. The
+backend may send an address or precise coordinate, locale, key, and normal
+technical request metadata; this is personal data when it identifies or can be
+linked to a host or property.
+
+| Topic | Evidence and engineering treatment |
+|---|---|
+| Processor and DPA | Geoapify publishes an Article 28 GDPR [DPA](https://www.geoapify.com/data-processing-agreement/) (revision 2024-08-15) naming KEPTAGO LTD. The privacy lead must decide whether it is sufficient or a signed/custom DPA is required. |
+| EU processing | The DPA states processing is EU-bound when `api-eu.geoapify.com` is used. The backend is pinned to that host and regression-tested. |
+| Retention and infrastructure | Its [privacy policy](https://www.geoapify.com/privacy-policy/) describes normal successful-request retention of no longer than 24 hours and exceptional suspicious/fraud retention of up to two months; it identifies Cloudflare, Bunny CDN for `.eu` calls, and Hetzner. Record the approved assessment in the privacy register. |
+| Attribution and availability | Its [terms](https://www.geoapify.com/terms-and-conditions/) require OpenStreetMap and Geoapify attribution on the Free plan. The picker displays both. No Free-plan SLA is relied on; manual address/district entry remains available. |
+
+Implemented safeguards are server-only `GEOAPIFY_API_KEY`, approved-host/admin
+access, input bounds, no-store responses, throttles, no raw request data in
+application logs/audit metadata, owned `apiFetch` browser calls, no remote
+geocoding/tile calls, and visible attribution.
+
+Before production, the owner/privacy lead must: accept Geoapify as a precise
+location-data recipient; approve the subscription, budget alert, and rate
+ceiling; decide on any signed/custom DPA; update the customer privacy notice
+with recipient/purpose/data/retention; and retain the approved terms/DPA
+version, review date, owner, and re-review date in the privacy register. A
+real approved-host browser trace must also confirm that property create/edit
+only contacts the owned API and that anonymous demand makes no provider or
+exact-location request.
 
 The public `nominatim.openstreetmap.org` service is not a valid production
 processor for private property addresses: its current policy says not to submit

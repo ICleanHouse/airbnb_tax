@@ -30,9 +30,9 @@ enabled Stage 1 upload path is bounded and validated.
   double-booking, S1-B09 raw/private property-media exposure, and S1-B16
   unrestricted calendar URL fetching.
 - **Gate status:** Gate A and Gate B are in progress. Gates C–F have not started.
-- **Next critical work:** finish the Gate A owner decisions,
-  define and implement S1-E05 recovery workflows, and resolve S1-E10's
-  map/geocoding boundary.
+- **Next critical work:** finish the Gate A owner decisions, implement S1-E06
+  notification reliability, and complete S1-E10's provider approval, privacy
+  notice, and authenticated browser trace.
 
 ---
 
@@ -877,17 +877,17 @@ deferred:
 
 - [x] Cancel draft/open work without silently losing published history.
 - [x] Cancel assigned work with actor, timestamp, reason, and notifications.
-- [ ] Propose and accept/decline assigned-job rescheduling with conflict
+- [x] Propose and accept/decline assigned-job rescheduling with conflict
       revalidation.
-- [ ] Record a no-show/failed attendance incident without falsely completing or
+- [x] Record a no-show/failed attendance incident without falsely completing or
       deleting the job.
-- [ ] Open, review, resolve, and dismiss a private admin-visible dispute.
-- [ ] Request a linked replacement through an explicit host/support workflow;
+- [x] Open, review, resolve, and dismiss a private admin-visible dispute.
+- [x] Request a linked replacement through an explicit host/support workflow;
       never reopen or mutate the original into a new attempt.
-- [ ] Require host creation/acceptance or documented, time-bounded host
+- [x] Require host creation/acceptance or documented, time-bounded host
       pre-authorization before an operator creates a replacement. The operator
       never impersonates the host.
-- [ ] Preserve the original job and its single assignment; link any replacement
+- [x] Preserve the original job and its single assignment; link any replacement
       job back to that failed/cancelled record.
 - [ ] Preserve agency delegation immutability; support replacement creates a new
       historical event rather than overwriting the delegated member.
@@ -896,7 +896,7 @@ deferred:
 - [ ] Correct delegated-agency completion notifications and review links so they
       target the actual assigned member. Review authorization already treats the
       host and member as the review parties.
-- [ ] Make account deletion refuse or defer while active jobs, assignments,
+- [x] Make account deletion refuse or defer while active jobs, assignments,
       disputes, or required history exist.
 - [x] Make the linked job/audit chronology inspectable through the hardened
       Django admin or a minimal operator surface; a bespoke chronology UI is

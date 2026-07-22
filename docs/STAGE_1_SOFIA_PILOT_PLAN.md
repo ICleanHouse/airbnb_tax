@@ -30,9 +30,9 @@ enabled Stage 1 upload path is bounded and validated.
   double-booking, S1-B09 raw/private property-media exposure, and S1-B16
   unrestricted calendar URL fetching.
 - **Gate status:** Gate A and Gate B are in progress. Gates C–F have not started.
-- **Next critical work:** finish the Gate A owner decisions, implement S1-E06
-  notification reliability, and complete S1-E10's provider approval, privacy
-  notice, and authenticated browser trace.
+- **Next critical work:** finish the Gate A owner decisions, complete S1-E06's
+  PostgreSQL/Redis/provider runtime evidence, and complete S1-E10's provider
+  approval, privacy notice, and authenticated browser trace.
 
 ---
 

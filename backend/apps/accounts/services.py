@@ -11,8 +11,8 @@ from apps.accounts.models import CleanerProfile, PilotEvidenceExclusion, User
 from apps.connections.models import Connection
 from apps.core.services import write_audit_log
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob, Dispute, ReplacementRequest
-from apps.notifications.services import create_notification_once
-from apps.notifications.tasks import dispatch_notification
+from apps.core.logging import get_request_id
+from apps.notifications.services import NotificationEventRequest, emit_notification_event
 from config.verification import validate_runtime_verification_configuration
 
 
@@ -84,20 +84,23 @@ def _notify_once(
     body: str,
     deduplication_key: str,
 ) -> None:
-    notification, created = create_notification_once(
-        user=user,
-        notification_type=notification_type,
-        title=title,
-        body=body,
-        deduplication_key=deduplication_key,
-        metadata={"transition_version": TRANSITION_VERSION},
+    del title, body
+    event_type = (
+        "cleaner.marketplace_access_activated"
+        if notification_type == "cleaner.marketplace_eligible"
+        else notification_type
     )
-    if created:
-        transaction.on_commit(
-            lambda notification_id=notification.id: dispatch_notification.delay(
-                notification_id
-            )
+    emit_notification_event(
+        NotificationEventRequest(
+            event_type=event_type,
+            recipient_id=user.id,
+            occurrence_key=deduplication_key,
+            destination="/admin" if user.is_platform_admin else "/app",
+            source_entity_type="User",
+            source_entity_id=str(user.id),
+            request_id=get_request_id(),
         )
+    )
 
 
 def _transition_metadata(

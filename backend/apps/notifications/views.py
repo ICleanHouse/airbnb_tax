@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.notifications.models import Notification
+from apps.notifications.health import get_notification_health
 from apps.notifications.serializers import NotificationSerializer
 
 
@@ -31,3 +32,11 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     def unread_count(self, request):
         count = self.get_queryset().filter(read_at__isnull=True).count()
         return Response({"unread": count})
+
+    @action(detail=False, methods=["get"])
+    def health(self, request):
+        if not request.user.is_platform_admin:
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied("Only a platform operator can inspect notification health.")
+        return Response(get_notification_health())

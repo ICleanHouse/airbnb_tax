@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.services import write_audit_log
-from apps.notifications.services import create_notification
+from apps.notifications.services import NotificationEventRequest, emit_notification_event
 
 from apps.connections.models import Connection, Message
 from apps.accounts.models import User
@@ -17,6 +17,22 @@ class ConnectionError(ValueError):
 
 def _name(user) -> str:
     return user.get_full_name() or user.get_username()
+
+
+def _emit_connection_event(*, event_type, recipient, connection, source, request=None):
+    return emit_notification_event(
+        NotificationEventRequest(
+            event_type=event_type,
+            recipient_id=recipient.id,
+            occurrence_key=(
+                f"{event_type}:{source.id}:{source.updated_at.isoformat()}:{recipient.id}"
+            ),
+            destination=f"/app?connectionId={connection.id}",
+            source_entity_type=source.__class__.__name__,
+            source_entity_id=str(source.id),
+            request_id=getattr(request, "request_id", "") if request else "",
+        )
+    )
 
 
 def _is_worker(user) -> bool:
@@ -81,12 +97,9 @@ def request_connection(*, requester, addressee, request=None) -> Connection:
             requester=requester, addressee=addressee, status=Connection.Status.PENDING
         )
 
-    create_notification(
-        user=addressee,
-        notification_type="connection.request",
-        title="New connection request",
-        body=f"{_name(requester)} wants to connect.",
-        metadata={"connection_id": connection.id},
+    _emit_connection_event(
+        event_type="connection.requested", recipient=addressee,
+        connection=connection, source=connection, request=request,
     )
     write_audit_log(
         actor=requester,
@@ -116,12 +129,9 @@ def accept_connection(*, connection, user, request=None) -> Connection:
     connection.status = Connection.Status.ACCEPTED
     connection.save(update_fields=["status", "updated_at"])
 
-    create_notification(
-        user=connection.requester,
-        notification_type="connection.accepted",
-        title="Connection accepted",
-        body=f"{_name(user)} accepted your connection.",
-        metadata={"connection_id": connection.id},
+    _emit_connection_event(
+        event_type="connection.accepted", recipient=connection.requester,
+        connection=connection, source=connection, request=request,
     )
     write_audit_log(
         actor=user,
@@ -190,12 +200,9 @@ def send_message(*, connection, sender, body, request=None) -> Message:
 
     message = Message.objects.create(connection=connection, sender=sender, body=body)
     other = connection.other_user(sender)
-    create_notification(
-        user=other,
-        notification_type="message.received",
-        title=f"Message from {_name(sender)}",
-        body=body[:80],
-        metadata={"connection_id": connection.id, "message_id": message.id},
+    _emit_connection_event(
+        event_type="message.received", recipient=other,
+        connection=connection, source=message, request=request,
     )
     write_audit_log(
         actor=sender,

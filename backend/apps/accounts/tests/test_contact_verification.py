@@ -93,7 +93,7 @@ class ContactVerificationTruthTableTests(TestCase):
         CLEANER_VERIFICATION_REQUIRED=True,
         PHONE_VERIFICATION_REQUIRED=False,
     )
-    @mock.patch("apps.accounts.services.dispatch_notification.delay")
+    @mock.patch("apps.notifications.services.deliver_notification.apply_async")
     def test_reconciliation_is_idempotent_with_one_effect_per_transition(self, dispatch):
         user = self.create_cleaner("idempotent")
 
@@ -108,10 +108,7 @@ class ContactVerificationTruthTableTests(TestCase):
             AuditLog.objects.filter(entity_type="User", entity_id=str(user.id), action="account.approved").count(),
             1,
         )
-        self.assertEqual(
-            Notification.objects.filter(deduplication_key=f"account.approved:{user.id}:1").count(),
-            1,
-        )
+        self.assertEqual(Notification.objects.filter(user=user).count(), 2)
         self.assertEqual(dispatch.call_count, 2)  # account and cleaner effective transitions
 
     @override_settings(
@@ -142,7 +139,7 @@ class ContactVerificationTruthTableTests(TestCase):
         CLEANER_VERIFICATION_REQUIRED=True,
         PHONE_VERIFICATION_REQUIRED=False,
     )
-    @mock.patch("apps.accounts.services.dispatch_notification.delay")
+    @mock.patch("apps.notifications.services.deliver_notification.apply_async")
     def test_rollback_discards_state_audit_notification_and_on_commit(self, dispatch):
         user = self.create_cleaner("rollback")
 

@@ -33,7 +33,7 @@ class ReviewNotificationTests(ReviewScenarioMixin, TestCase):
 
         notification = Notification.objects.get(notification_type="review.requested")
         self.assertEqual(notification.user, self.cleaner)
-        self.assertEqual(notification.metadata, {"job_id": self.job.id, "reviewee_id": self.host.id})
+        self.assertEqual(notification.metadata, {"destination": f"/cleaner?reviewJob={self.job.id}"})
         self.assertNotIn(str(review.rating), str(notification.metadata))
         self.assertNotIn(review.comment, notification.body)
         self.assertNotIn(self.job.title, notification.body)
@@ -44,7 +44,7 @@ class ReviewNotificationTests(ReviewScenarioMixin, TestCase):
 
         second = submit_review(job=self.job, reviewer=self.cleaner, reviewee=self.host, rating=4)
 
-        unlocks = Notification.objects.filter(notification_type="review.submitted")
+        unlocks = Notification.objects.filter(notification_type="review.revealed")
         self.assertEqual(unlocks.count(), 2)
         self.assertEqual(set(unlocks.values_list("user_id", flat=True)), {self.host.id, self.cleaner.id})
         self.assertEqual(
@@ -52,7 +52,7 @@ class ReviewNotificationTests(ReviewScenarioMixin, TestCase):
             before_requested,
         )
         for notification in unlocks:
-            self.assertEqual(notification.metadata, {"job_id": self.job.id, "review_id": second.id})
+            self.assertEqual(set(notification.metadata), {"destination"})
             self.assertNotIn("Clean and punctual", notification.body)
             self.assertNotIn(self.job.title, notification.body)
 
@@ -95,10 +95,10 @@ class ReviewNotificationTests(ReviewScenarioMixin, TestCase):
     def test_duplicate_unlock_attempt_does_not_duplicate_unlock_notifications(self):
         submit_review(job=self.job, reviewer=self.host, reviewee=self.cleaner, rating=5)
         submit_review(job=self.job, reviewer=self.cleaner, reviewee=self.host, rating=4)
-        before = Notification.objects.filter(notification_type="review.submitted").count()
+        before = Notification.objects.filter(notification_type="review.revealed").count()
 
         response = self.api_post_review(self.cleaner, job=self.job, reviewee=self.host, rating=3)
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(Notification.objects.filter(notification_type="review.submitted").count(), before)
+        self.assertEqual(Notification.objects.filter(notification_type="review.revealed").count(), before)
         self.assertEqual(Review.objects.filter(job=self.job).count(), 2)

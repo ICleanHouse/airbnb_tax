@@ -30,7 +30,7 @@ logger = logging.getLogger("apps.notifications")
 
 ALLOWED_DESTINATION_PATHS = frozenset({"/admin", "/app", "/host", "/cleaner"})
 ALLOWED_DESTINATION_QUERY_KEYS = frozenset(
-    {"section", "appFilter", "reviewJob", "reviewId"}
+    {"section", "appFilter", "reviewJob", "reviewId", "connectionId"}
 )
 
 
@@ -71,7 +71,7 @@ def _validate_destination(destination: str) -> str:
     for key, value in parse_qsl(parsed.query, keep_blank_values=True):
         if key not in ALLOWED_DESTINATION_QUERY_KEYS or not value or len(value) > 64:
             raise NotificationEventValidationError("Notification destination query is not allowed.")
-        if key in {"reviewJob", "reviewId"} and not value.isdecimal():
+        if key in {"reviewJob", "reviewId", "connectionId"} and not value.isdecimal():
             raise NotificationEventValidationError("Notification destination identifier is invalid.")
     return destination
 

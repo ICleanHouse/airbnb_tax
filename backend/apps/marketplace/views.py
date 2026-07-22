@@ -41,6 +41,8 @@ from apps.marketplace.serializers import (
     MarketplaceCalendarItemSerializer,
     OfferJobSerializer,
     OfferToCleanerSerializer,
+    OperatorMatchingInvitationSerializer,
+    OperatorReminderSerializer,
     ReplacementRequestCreateSerializer,
     ReplacementResponseSerializer,
     RecoveryRequestSerializer,
@@ -91,6 +93,8 @@ from apps.marketplace.services import (
     submit_application,
     withdraw_application,
     respond_to_reschedule_proposal,
+    send_operator_matching_invitation,
+    send_upcoming_work_reminder,
     update_dispute,
 )
 from apps.marketplace.throttles import LifecycleWriteThrottle, RecoveryCaseWriteThrottle
@@ -696,6 +700,49 @@ class CleaningJobViewSet(
             if neighborhood:
                 queryset = queryset.filter(property__neighborhood__icontains=neighborhood)
         return queryset
+
+    @action(detail=True, methods=["post"], url_path="operator-match-invite")
+    def operator_match_invite(self, request, pk=None):
+        if not request.user.is_platform_admin:
+            raise PermissionDenied("Only a platform operator can send matching invitations.")
+        serializer = OperatorMatchingInvitationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        job = get_object_or_404(CleaningJob, id=pk)
+        cleaner = get_object_or_404(User, id=serializer.validated_data["cleaner_id"])
+        try:
+            result = send_operator_matching_invitation(
+                job=job,
+                cleaner=cleaner,
+                actor=request.user,
+                occurrence_token=serializer.validated_data["occurrence_token"],
+                request=request,
+            )
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response({"event_id": result.event.id, "created": result.created})
+
+    @action(detail=True, methods=["post"], url_path="operator-remind")
+    def operator_remind(self, request, pk=None):
+        if not request.user.is_platform_admin:
+            raise PermissionDenied("Only a platform operator can send work reminders.")
+        serializer = OperatorReminderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        job = get_object_or_404(CleaningJob, id=pk)
+        try:
+            results = send_upcoming_work_reminder(
+                job=job,
+                actor=request.user,
+                occurrence_at=serializer.validated_data["occurrence_at"],
+                request=request,
+            )
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response(
+            {
+                "events": [result.event.id for result in results],
+                "created": sum(1 for result in results if result.created),
+            }
+        )
 
     def create(self, request, *args, **kwargs):
         if not request.user.is_platform_admin and (

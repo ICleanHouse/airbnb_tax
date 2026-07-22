@@ -41,7 +41,9 @@ from apps.accounts.services import (
     suspend_account,
 )
 from apps.accounts.tokens import email_verification_token
+from apps.notifications.services import NotificationEventRequest, emit_notification_event
 from apps.notifications.tasks import send_admin_new_account_email, send_signup_email_code
+from apps.core.logging import get_request_id
 from apps.accounts.serializers import (
     AccountTransitionSerializer,
     AdminUserSerializer,
@@ -91,7 +93,20 @@ class SignupView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         login(request, user)
-        send_admin_new_account_email.delay(user.id)
+        for operator in User.objects.filter(is_active=True).filter(
+            Q(role=User.Role.ADMIN) | Q(is_staff=True)
+        ):
+            emit_notification_event(
+                NotificationEventRequest(
+                    event_type="account.created_operator_review",
+                    recipient_id=operator.id,
+                    occurrence_key=f"account:{user.id}:created:v1",
+                    destination="/admin",
+                    source_entity_type="User",
+                    source_entity_id=str(user.id),
+                    request_id=get_request_id(),
+                )
+            )
         write_audit_log(
             actor=user,
             action="account.created",
@@ -113,7 +128,7 @@ class SignupEmailCodeRequestView(APIView):
         verification, code = SignupEmailVerification.create_for_email(serializer.validated_data["email"])
         verification_required = getattr(settings, "EMAIL_VER_USER_SIGNUP", True)
         if verification_required:
-            send_signup_email_code.delay(verification.id, code)
+            send_signup_email_code.delay(verification.id)
         else:
             verification.verified_at = timezone.now()
             verification.save(update_fields=["verified_at", "updated_at"])

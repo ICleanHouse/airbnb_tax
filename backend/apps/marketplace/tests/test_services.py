@@ -107,7 +107,7 @@ class MarketplaceServiceTests(TestCase):
         self.assertEqual(Assignment.objects.count(), 1)
         notification = Notification.objects.get(
             user=self.cleaner,
-            notification_type="assignment.accepted",
+            notification_type="assignment.created",
         )
         self.assertNotIn(self.job.title, notification.body)
 

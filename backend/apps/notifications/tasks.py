@@ -667,12 +667,12 @@ def send_job_completed_email(self, job_id: int) -> None:
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def send_signup_email_code(self, verification_id: int, code: str) -> None:
+def send_signup_email_code(self, verification_id: int) -> None:
     from django.conf import settings
     from django.core.exceptions import ImproperlyConfigured
     from django.template.loader import render_to_string
 
-    from apps.accounts.models import SignupEmailVerification
+    from apps.accounts.models import SignupEmailVerification, signup_email_code_for_token
 
     if not getattr(settings, "EMAIL_VER_USER_SIGNUP", True):
         return
@@ -684,6 +684,8 @@ def send_signup_email_code(self, verification_id: int, code: str) -> None:
 
     if verification.is_expired or verification.is_verified:
         return
+
+    code = signup_email_code_for_token(verification.token)
 
     subject = "Your Host Cleaners confirmation code"
     text_body = (

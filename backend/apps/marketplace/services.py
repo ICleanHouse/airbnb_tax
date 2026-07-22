@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, timedelta
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
@@ -23,7 +23,7 @@ from apps.marketplace.models import (
     TurnoverLineage,
 )
 from apps.marketplace.selectors import valid_future_marketplace_jobs
-from apps.notifications.services import create_notification, create_notification_once
+from apps.notifications.services import NotificationEventRequest, emit_notification_event
 from apps.notifications.tasks import send_application_submitted_email, send_job_completed_email
 
 
@@ -89,6 +89,36 @@ def create_favourite_cleaner(*, host: User, cleaner: User) -> tuple[FavouriteCle
 
 def _request_id(request) -> str:
     return getattr(request, "request_id", "") if request is not None else ""
+
+
+def _notification_destination(user: User, *, section: str = "") -> str:
+    if user.is_platform_admin:
+        return "/admin"
+    if user.role == User.Role.HOST:
+        base = "/host"
+    elif user.role == User.Role.CLEANER:
+        base = "/cleaner"
+    else:
+        base = "/app"
+    return f"{base}?section={section}" if section else base
+
+
+def _emit_notification(
+    *, event_type: str, recipient: User, occurrence_key: str,
+    source_entity_type: str, source_entity_id: int, request=None, section: str = "",
+    destination: str = "",
+):
+    return emit_notification_event(
+        NotificationEventRequest(
+            event_type=event_type,
+            recipient_id=recipient.id,
+            occurrence_key=occurrence_key,
+            destination=destination or _notification_destination(recipient, section=section),
+            source_entity_type=source_entity_type,
+            source_entity_id=str(source_entity_id),
+            request_id=_request_id(request),
+        )
+    )
 
 
 def _record_lifecycle_event(
@@ -407,7 +437,7 @@ def cancel_job(
         job=job, status=CleanerApplication.Status.PENDING
     ).update(status=CleanerApplication.Status.REJECTED, updated_at=now)
 
-    _record_lifecycle_event(
+    cancellation_event = _record_lifecycle_event(
         job=job,
         actor=actor,
         event_type=JobLifecycleEvent.EventType.JOB_CANCELLED,
@@ -437,12 +467,14 @@ def cancel_job(
             recipients[assignment.assigned_member_id] = assignment.assigned_member
     recipients.pop(actor.id, None)
     for recipient in recipients.values():
-        create_notification(
-            user=recipient,
-            notification_type="job.cancelled",
-            title="Cleaning job cancelled",
-            body="A cleaning job involving you was cancelled. Open your dashboard for details.",
-            metadata={"job_id": job.id},
+        _emit_notification(
+            event_type="job.cancelled",
+            recipient=recipient,
+            occurrence_key=f"cancellation:{cancellation_event.id}:{recipient.id}",
+            source_entity_type="JobLifecycleEvent",
+            source_entity_id=cancellation_event.id,
+            request=request,
+            section="assignments",
         )
     return job
 
@@ -481,6 +513,15 @@ def _recovery_recipients(*, job: CleaningJob, assignment: Assignment | None, act
     return list(recipients.values())
 
 
+def _active_operators(*, exclude_id: int | None = None) -> list[User]:
+    queryset = User.objects.filter(is_active=True).filter(
+        Q(role=User.Role.ADMIN) | Q(is_staff=True)
+    )
+    if exclude_id is not None:
+        queryset = queryset.exclude(id=exclude_id)
+    return list(queryset)
+
+
 @transaction.atomic
 def propose_reschedule(*, job: CleaningJob, actor: User, scheduled_start, scheduled_end, request=None) -> RescheduleProposal:
     job = _lock_lineage_and_job(job.pk)
@@ -511,10 +552,11 @@ def propose_reschedule(*, job: CleaningJob, actor: User, scheduled_start, schedu
         metadata={"proposal_id": proposal.id}, request=request,
     )
     for recipient in _recovery_recipients(job=job, assignment=assignment, actor=actor):
-        create_notification_once(
-            user=recipient, notification_type="job.reschedule_proposed", title="Reschedule proposed",
-            body="A new time was proposed for an assigned cleaning job.", metadata={"job_id": job.id, "proposal_id": proposal.id},
-            deduplication_key=f"reschedule-proposed:{proposal.id}:{recipient.id}",
+        _emit_notification(
+            event_type="job.reschedule_proposed", recipient=recipient,
+            occurrence_key=f"reschedule:{proposal.id}:proposed:{recipient.id}",
+            source_entity_type="RescheduleProposal", source_entity_id=proposal.id,
+            request=request, section="assignments",
         )
     return proposal
 
@@ -551,6 +593,16 @@ def respond_to_reschedule_proposal(*, proposal: RescheduleProposal, actor: User,
         )
         write_audit_log(actor=actor, action="job.rescheduled", entity_type="CleaningJob", entity_id=job.id, request=request,
                         metadata={"proposal_id": proposal.id, "lineage_id": job.lineage_id})
+    proposer = User.objects.get(id=proposal.proposed_by_id)
+    _emit_notification(
+        event_type="job.reschedule_accepted" if accept else "job.reschedule_declined",
+        recipient=proposer,
+        occurrence_key=f"reschedule:{proposal.id}:{proposal.status}",
+        source_entity_type="RescheduleProposal",
+        source_entity_id=proposal.id,
+        request=request,
+        section="assignments",
+    )
     return proposal
 
 
@@ -577,6 +629,18 @@ def report_job_incident(*, job: CleaningJob, actor: User, incident_type: str, na
                             metadata={"incident_id": incident.id}, request=request)
     write_audit_log(actor=actor, action="job.incident_reported", entity_type="JobIncident", entity_id=incident.id,
                     request=request, metadata={"job_id": job.id, "incident_type": incident_type})
+    recipients = {
+        recipient.id: recipient
+        for recipient in _active_operators(exclude_id=actor.id)
+        + _recovery_recipients(job=job, assignment=assignment, actor=actor)
+    }
+    for recipient in recipients.values():
+        _emit_notification(
+            event_type="job.incident_reported", recipient=recipient,
+            occurrence_key=f"incident:{incident.id}:{recipient.id}",
+            source_entity_type="JobIncident", source_entity_id=incident.id,
+            request=request, section="assignments",
+        )
     return incident
 
 
@@ -618,6 +682,21 @@ def create_replacement_request(*, job: CleaningJob, incident: JobIncident | None
         replacement.save(update_fields=["successor", "updated_at"])
     _record_lifecycle_event(job=job, actor=actor, event_type=JobLifecycleEvent.EventType.REPLACEMENT_REQUESTED,
                             metadata={"replacement_request_id": replacement.id}, request=request)
+    if is_host:
+        for recipient in _recovery_recipients(job=job, assignment=assignment, actor=actor):
+            _emit_notification(
+                event_type="replacement.draft_created", recipient=recipient,
+                occurrence_key=f"replacement:{replacement.id}:draft:{recipient.id}",
+                source_entity_type="ReplacementRequest", source_entity_id=replacement.id,
+                request=request, section="assignments",
+            )
+    else:
+        _emit_notification(
+            event_type="replacement.authorization_requested", recipient=job.host,
+            occurrence_key=f"replacement:{replacement.id}:authorization",
+            source_entity_type="ReplacementRequest", source_entity_id=replacement.id,
+            request=request, section="applications",
+        )
     return replacement
 
 
@@ -644,6 +723,15 @@ def authorize_replacement_request(*, replacement: ReplacementRequest, actor: Use
     _record_lifecycle_event(job=job, actor=actor,
                             event_type=JobLifecycleEvent.EventType.REPLACEMENT_APPROVED if accept else JobLifecycleEvent.EventType.REPLACEMENT_DECLINED,
                             metadata={"replacement_request_id": replacement.id}, request=request)
+    requester = User.objects.get(id=replacement.requested_by_id)
+    if requester.id != actor.id:
+        _emit_notification(
+            event_type="replacement.draft_created" if accept else "replacement.declined",
+            recipient=requester,
+            occurrence_key=f"replacement:{replacement.id}:{replacement.status}:{requester.id}",
+            source_entity_type="ReplacementRequest", source_entity_id=replacement.id,
+            request=request, section="assignments",
+        )
     return replacement
 
 
@@ -665,6 +753,18 @@ def file_dispute(*, job: CleaningJob, actor: User, category: str, narrative: str
     _record_lifecycle_event(job=job, actor=actor, event_type=JobLifecycleEvent.EventType.DISPUTE_OPENED,
                             reason_code=category, audience=JobLifecycleEvent.Audience.ADMIN_ONLY,
                             metadata={"dispute_id": dispute.id}, request=request)
+    recipients = {
+        recipient.id: recipient
+        for recipient in _active_operators(exclude_id=actor.id)
+        + _recovery_recipients(job=job, assignment=assignment, actor=actor)
+    }
+    for recipient in recipients.values():
+        _emit_notification(
+            event_type="dispute.opened", recipient=recipient,
+            occurrence_key=f"dispute:{dispute.id}:opened:{recipient.id}",
+            source_entity_type="Dispute", source_entity_id=dispute.id,
+            request=request, section="assignments",
+        )
     return dispute
 
 
@@ -681,10 +781,23 @@ def update_dispute(*, dispute: Dispute, actor: User, note: str, status_after: st
     if status_after:
         dispute.status = status_after
         dispute.save(update_fields=["status", "updated_at"])
-    DisputeUpdate.objects.create(dispute=dispute, actor=actor, note=note, status_after=status_after)
+    dispute_update = DisputeUpdate.objects.create(dispute=dispute, actor=actor, note=note, status_after=status_after)
     _record_lifecycle_event(job=dispute.job, actor=actor,
                             event_type=JobLifecycleEvent.EventType.DISPUTE_RESOLVED if status_after == Dispute.Status.RESOLVED else JobLifecycleEvent.EventType.DISPUTE_UPDATED,
                             audience=JobLifecycleEvent.Audience.ADMIN_ONLY, metadata={"dispute_id": dispute.id}, request=request)
+    if status_after:
+        assignment = _recovery_assignment(dispute.job)
+        recipients = {dispute.job.host_id: dispute.job.host}
+        if assignment:
+            worker = assignment.assigned_member or assignment.cleaner
+            recipients[worker.id] = worker
+        for recipient in recipients.values():
+            _emit_notification(
+                event_type="dispute.status_changed", recipient=recipient,
+                occurrence_key=f"dispute-update:{dispute_update.id}:{status_after}:{recipient.id}",
+                source_entity_type="DisputeUpdate", source_entity_id=dispute_update.id,
+                request=request, section="assignments",
+            )
     return dispute
 
 
@@ -805,15 +918,12 @@ def submit_application(
     elif not created:
         raise MarketplaceError("Cleaner has already applied for this job.")
 
-    create_notification(
-        user=job.host,
-        notification_type="application.submitted",
-        title="New cleaner application",
-        body=f"{cleaner.get_username()} applied for {job.title}.",
-        metadata={"job_id": job.id, "application_id": application.id},
-    )
-    transaction.on_commit(
-        lambda application_id=application.id: send_application_submitted_email.delay(application_id)
+    _emit_notification(
+        event_type="application.submitted", recipient=job.host,
+        occurrence_key=f"application:{application.id}:submitted:{application.updated_at.isoformat()}",
+        source_entity_type="CleanerApplication", source_entity_id=application.id,
+        request=request,
+        destination="/host?section=applications&appFilter=pending",
     )
     write_audit_log(
         actor=cleaner,
@@ -868,9 +978,15 @@ def accept_application(
     application.status = CleanerApplication.Status.ACCEPTED
     application.save(update_fields=["status", "updated_at"])
 
-    CleanerApplication.objects.filter(job=job).exclude(id=application.id).update(
+    competing_applications = list(
+        CleanerApplication.objects.select_related("cleaner").filter(
+            job=job, status=CleanerApplication.Status.PENDING
+        ).exclude(id=application.id)
+    )
+    rejected_at = timezone.now()
+    CleanerApplication.objects.filter(id__in=[item.id for item in competing_applications]).update(
         status=CleanerApplication.Status.REJECTED,
-        updated_at=timezone.now(),
+        updated_at=rejected_at,
     )
 
     assignment = Assignment.objects.create(
@@ -894,13 +1010,19 @@ def accept_application(
         request=request,
     )
 
-    create_notification(
-        user=applicant,
-        notification_type="assignment.accepted",
-        title="Cleaning job assigned",
-        body="A cleaning job was assigned to you. Open your dashboard for details.",
-        metadata={"job_id": job.id, "assignment_id": assignment.id},
+    _emit_notification(
+        event_type="assignment.created", recipient=applicant,
+        occurrence_key=f"assignment:{assignment.id}:created",
+        source_entity_type="Assignment", source_entity_id=assignment.id,
+        request=request, section="assignments",
     )
+    for rejected in competing_applications:
+        _emit_notification(
+            event_type="application.rejected", recipient=rejected.cleaner,
+            occurrence_key=f"application:{rejected.id}:rejected:{rejected_at.isoformat()}",
+            source_entity_type="CleanerApplication", source_entity_id=rejected.id,
+            request=request, section="applications",
+        )
     write_audit_log(
         actor=accepted_by,
         action="application.accepted",
@@ -935,12 +1057,11 @@ def reject_application(
     application.status = CleanerApplication.Status.REJECTED
     application.save(update_fields=["status", "updated_at"])
 
-    create_notification(
-        user=application.cleaner,
-        notification_type="application.rejected",
-        title="Application declined",
-        body="One of your cleaning applications was not accepted.",
-        metadata={"job_id": application.job_id, "application_id": application.id},
+    _emit_notification(
+        event_type="application.rejected", recipient=application.cleaner,
+        occurrence_key=f"application:{application.id}:rejected:{application.updated_at.isoformat()}",
+        source_entity_type="CleanerApplication", source_entity_id=application.id,
+        request=request, section="applications",
     )
     write_audit_log(
         actor=rejected_by,
@@ -976,12 +1097,12 @@ def withdraw_application(
     application.status = CleanerApplication.Status.WITHDRAWN
     application.save(update_fields=["status", "updated_at"])
 
-    create_notification(
-        user=application.job.host,
-        notification_type="application.withdrawn",
-        title="Cleaner application cancelled",
-        body=f"{application.cleaner.get_username()} cancelled their application for {application.job.title}.",
-        metadata={"job_id": application.job_id, "application_id": application.id},
+    _emit_notification(
+        event_type="application.withdrawn", recipient=application.job.host,
+        occurrence_key=f"application:{application.id}:withdrawn:{application.updated_at.isoformat()}",
+        source_entity_type="CleanerApplication", source_entity_id=application.id,
+        request=request,
+        destination="/host?section=applications&appFilter=pending",
     )
     write_audit_log(
         actor=withdrawn_by,
@@ -1058,22 +1179,25 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
             request=request,
         )
 
-    # Both sides can now review each other (revealed double-blind / after window).
-    create_notification(
-        user=job.host,
-        notification_type="review.requested",
-        title="Leave a review",
-        body=f"{job.title} is complete — leave a review for your cleaner.",
-        metadata={"job_id": job.id, "reviewee_id": assignment.cleaner_id},
+    actual_worker = assignment.assigned_member or assignment.cleaner
+    _emit_notification(
+        event_type="job.completed", recipient=job.host,
+        occurrence_key=f"job-completed:{job.id}:{assignment.completed_at.isoformat()}",
+        source_entity_type="CleaningJob", source_entity_id=job.id,
+        request=request,
+        destination="/host?section=applications&appFilter=completed",
     )
-    create_notification(
-        user=assignment.cleaner,
-        notification_type="review.requested",
-        title="Leave a review",
-        body="A cleaning job is complete — leave a review for the host.",
-        metadata={"job_id": job.id, "reviewee_id": job.host_id},
-    )
-    transaction.on_commit(lambda job_id=job.id: send_job_completed_email.delay(job_id))
+    for recipient, reviewee_id in ((job.host, actual_worker.id), (actual_worker, job.host_id)):
+        _emit_notification(
+            event_type="review.requested", recipient=recipient,
+            occurrence_key=f"review-request:{job.id}:{reviewee_id}:{assignment.completed_at.isoformat()}",
+            source_entity_type="CleaningJob", source_entity_id=job.id,
+            request=request,
+            destination=(
+                f"/host?reviewJob={job.id}" if recipient.id == job.host_id
+                else f"/cleaner?reviewJob={job.id}"
+            ),
+        )
 
     write_audit_log(
         actor=completed_by,
@@ -1258,12 +1382,11 @@ def offer_job(
             update_fields=["status", "origin", "proposed_price", "message", "updated_at"]
         )
 
-    create_notification(
-        user=cleaner,
-        notification_type="offer.received",
-        title="New job offer",
-        body="You received a new cleaning job offer. Open your dashboard to review it.",
-        metadata={"job_id": job.id, "application_id": application.id},
+    _emit_notification(
+        event_type="offer.received", recipient=cleaner,
+        occurrence_key=f"offer:{application.id}:{application.updated_at.isoformat()}",
+        source_entity_type="CleanerApplication", source_entity_id=application.id,
+        request=request, section="jobs",
     )
     write_audit_log(
         actor=host,
@@ -1385,9 +1508,15 @@ def accept_offer(
     application.status = CleanerApplication.Status.ACCEPTED
     application.save(update_fields=["status", "updated_at"])
 
-    CleanerApplication.objects.filter(job=job).exclude(id=application.id).update(
+    competing_applications = list(
+        CleanerApplication.objects.select_related("cleaner").filter(
+            job=job, status=CleanerApplication.Status.PENDING
+        ).exclude(id=application.id)
+    )
+    rejected_at = timezone.now()
+    CleanerApplication.objects.filter(id__in=[item.id for item in competing_applications]).update(
         status=CleanerApplication.Status.REJECTED,
-        updated_at=timezone.now(),
+        updated_at=rejected_at,
     )
 
     assignment = Assignment.objects.create(
@@ -1411,13 +1540,26 @@ def accept_offer(
         request=request,
     )
 
-    create_notification(
-        user=job.host,
-        notification_type="offer.accepted",
-        title="Offer accepted",
-        body=f"{applicant.get_username()} accepted your offer for {job.title}.",
-        metadata={"job_id": job.id, "assignment_id": assignment.id},
+    _emit_notification(
+        event_type="offer.accepted", recipient=job.host,
+        occurrence_key=f"offer:{application.id}:accepted:{assignment.id}",
+        source_entity_type="CleanerApplication", source_entity_id=application.id,
+        request=request,
+        destination="/host?section=applications&appFilter=active",
     )
+    _emit_notification(
+        event_type="assignment.created", recipient=applicant,
+        occurrence_key=f"assignment:{assignment.id}:created",
+        source_entity_type="Assignment", source_entity_id=assignment.id,
+        request=request, section="assignments",
+    )
+    for rejected in competing_applications:
+        _emit_notification(
+            event_type="application.rejected", recipient=rejected.cleaner,
+            occurrence_key=f"application:{rejected.id}:rejected:{rejected_at.isoformat()}",
+            source_entity_type="CleanerApplication", source_entity_id=rejected.id,
+            request=request, section="applications",
+        )
     write_audit_log(
         actor=cleaner,
         action="offer.accepted",
@@ -1453,12 +1595,11 @@ def decline_offer(
     application.status = CleanerApplication.Status.REJECTED
     application.save(update_fields=["status", "updated_at"])
 
-    create_notification(
-        user=application.job.host,
-        notification_type="offer.declined",
-        title="Offer declined",
-        body=f"{application.cleaner.get_username()} declined your offer for {application.job.title}.",
-        metadata={"job_id": application.job_id, "application_id": application.id},
+    _emit_notification(
+        event_type="offer.declined", recipient=application.job.host,
+        occurrence_key=f"offer:{application.id}:declined:{application.updated_at.isoformat()}",
+        source_entity_type="CleanerApplication", source_entity_id=application.id,
+        request=request, section="applications",
     )
     write_audit_log(
         actor=cleaner,
@@ -1534,12 +1675,11 @@ def assign_member_to_assignment(
 
     assignment.assigned_member = member
     assignment.save(update_fields=["assigned_member", "updated_at"])
-    create_notification(
-        user=member,
-        notification_type="agency.assignment.created",
-        title="Agency cleaning assigned",
-        body="Your agency assigned you to a cleaning job. Open your dashboard for details.",
-        metadata={"job_id": assignment.job_id, "assignment_id": assignment.id},
+    _emit_notification(
+        event_type="assignment.member_delegated", recipient=member,
+        occurrence_key=f"assignment:{assignment.id}:member:{member.id}",
+        source_entity_type="Assignment", source_entity_id=assignment.id,
+        request=request, section="assignments",
     )
     write_audit_log(
         actor=agency_user,
@@ -1550,3 +1690,62 @@ def assign_member_to_assignment(
         metadata={"assigned_member_id": assignment.assigned_member_id, "job_id": assignment.job_id},
     )
     return assignment
+
+
+@transaction.atomic
+def send_operator_matching_invitation(
+    *, job: CleaningJob, cleaner: User, actor: User, occurrence_token: str, request=None
+):
+    if not actor.is_platform_admin:
+        raise MarketplaceError("Only a platform operator can send matching invitations.")
+    job = _lock_lineage_and_job(job.id)
+    if job.status != CleaningJob.Status.OPEN:
+        raise MarketplaceError("Matching invitations require an open job.")
+    _ensure_future_job_start(job)
+    cleaner = User.objects.select_for_update().get(id=cleaner.id)
+    _ensure_cleaner_workable(cleaner)
+    return _emit_notification(
+        event_type="matching.operator_invitation",
+        recipient=cleaner,
+        occurrence_key=f"matching:{job.id}:{cleaner.id}:{occurrence_token}",
+        source_entity_type="CleaningJob",
+        source_entity_id=job.id,
+        request=request,
+        section="jobs",
+    )
+
+
+@transaction.atomic
+def send_upcoming_work_reminder(
+    *, job: CleaningJob, actor: User, occurrence_at, request=None
+) -> tuple:
+    if not actor.is_platform_admin:
+        raise MarketplaceError("Only a platform operator can send work reminders.")
+    job = _lock_lineage_and_job(job.id)
+    assignment = _recovery_assignment(job)
+    if (
+        job.status != CleaningJob.Status.ASSIGNED
+        or assignment is None
+        or assignment.cancelled_at is not None
+        or assignment.completed_at is not None
+        or job.scheduled_start <= timezone.now()
+    ):
+        raise MarketplaceError("Reminders require an active upcoming assignment.")
+    normalized_occurrence = occurrence_at.astimezone(UTC).replace(
+        microsecond=0
+    ).isoformat()
+    recipients = (job.host, assignment.assigned_member or assignment.cleaner)
+    return tuple(
+        _emit_notification(
+            event_type="job.upcoming_reminder",
+            recipient=recipient,
+            occurrence_key=(
+                f"upcoming-reminder:{job.id}:{normalized_occurrence}:{recipient.id}"
+            ),
+            source_entity_type="CleaningJob",
+            source_entity_id=job.id,
+            request=request,
+            section="assignments",
+        )
+        for recipient in recipients
+    )

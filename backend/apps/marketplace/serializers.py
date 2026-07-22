@@ -324,6 +324,15 @@ class DisputeUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Dispute.Status.choices, required=False)
 
 
+class OperatorMatchingInvitationSerializer(serializers.Serializer):
+    cleaner_id = serializers.IntegerField(min_value=1)
+    occurrence_token = serializers.RegexField(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+class OperatorReminderSerializer(serializers.Serializer):
+    occurrence_at = serializers.DateTimeField()
+
+
 class RecoveryRequestSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     status = serializers.CharField(read_only=True)

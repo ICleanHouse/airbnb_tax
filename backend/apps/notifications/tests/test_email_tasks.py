@@ -32,6 +32,7 @@ def _make_user(**kwargs) -> User:
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     EMAIL_NOTIF_ADMIN_NEW_ACCOUNT=True,
+    NOTIFICATION_EMAIL_PROVIDER="django",
     SENTRY_DSN="",
 )
 class SendAdminNewAccountEmailTaskTests(TestCase):
@@ -178,6 +179,7 @@ class SendAdminNewAccountEmailTaskTests(TestCase):
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     EMAIL_RESEND_APIKEY="",
+    NOTIFICATION_EMAIL_PROVIDER="django",
     EMAIL_NOTIF_ADMIN_NEW_ACCOUNT=True,
     EMAIL_VER_USER_SIGNUP=True,
     EMAIL_VER_USER_CONFIRMATION=True,
@@ -203,24 +205,28 @@ class SignupEmailTriggerTests(TestCase):
         verification.verified_at = timezone.now()
         verification.save(update_fields=["verified_at"])
 
-        response = self.client.post(
-            reverse("account-signup"),
-            {
-                "first_name": "New",
-                "last_name": "Host",
-                "email": email,
-                "role": User.Role.HOST,
-                "password": "Password123!",
-                "password_confirm": "Password123!",
-                "email_verification_token": str(verification.token),
-            },
-            format="json",
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("account-signup"),
+                {
+                    "first_name": "New",
+                    "last_name": "Host",
+                    "email": email,
+                    "role": User.Role.HOST,
+                    "password": "Password123!",
+                    "password_confirm": "Password123!",
+                    "email_verification_token": str(verification.token),
+                },
+                format="json",
+            )
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn("admin@example.com", mail.outbox[0].recipients())
-        self.assertIn(email, mail.outbox[0].body)
+        self.assertEqual(len(mail.outbox), 2)
+        admin_message = next(
+            message for message in mail.outbox
+            if "admin@example.com" in message.recipients()
+        )
+        self.assertNotIn(email, admin_message.body)
 
     def test_signup_does_not_fail_when_no_admins(self):
         """Signup must succeed even if there are no admin emails to notify."""

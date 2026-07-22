@@ -1,6 +1,5 @@
 from datetime import timedelta
 import hashlib
-import secrets
 import uuid
 
 from django.conf import settings
@@ -8,6 +7,7 @@ from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 
 from apps.core.models import TimeStampedModel
 
@@ -22,6 +22,11 @@ def default_signup_code_expires_at():
 
 def hash_signup_email_code(code: str) -> str:
     return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+def signup_email_code_for_token(token: uuid.UUID) -> str:
+    digest = salted_hmac("signup-email-code-v1", str(token)).hexdigest()
+    return f"{int(digest[:16], 16) % 1_000_000:06d}"
 
 
 class PlatformUserManager(UserManager):
@@ -418,10 +423,12 @@ class SignupEmailVerification(TimeStampedModel):
 
     @classmethod
     def create_for_email(cls, email: str) -> tuple["SignupEmailVerification", str]:
-        code = f"{secrets.randbelow(1_000_000):06d}"
+        token = uuid.uuid4()
+        code = signup_email_code_for_token(token)
         verification = cls.objects.create(
             email=email.strip().lower(),
             code_hash=hash_signup_email_code(code),
+            token=token,
         )
         return verification, code
 

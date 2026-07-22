@@ -11,7 +11,7 @@ from apps.accounts.models import CleanerProfile
 from apps.core.services import write_audit_log
 from apps.feedback.models import Review
 from apps.marketplace.models import CleaningJob
-from apps.notifications.services import create_notification
+from apps.notifications.services import NotificationEventRequest, emit_notification_event
 
 
 User = get_user_model()
@@ -52,6 +52,7 @@ def _is_delegated_agency_assignment(assignment) -> bool:
     return bool(assignment.assigned_member_id and assignment.cleaner.is_agency)
 
 
+@transaction.atomic
 def submit_review(
     *,
     job: CleaningJob,
@@ -123,21 +124,36 @@ def submit_review(
     elif counterpart is not None:
         # Both reviews now exist — they become visible to each other.
         for recipient in (reviewer, reviewee):
-            create_notification(
-                user=recipient,
-                notification_type="review.submitted",
-                title="Reviews are now visible",
-                body="You and the other party have both submitted reviews. They are now visible.",
-                metadata={"job_id": job.id, "review_id": review.id},
+            emit_notification_event(
+                NotificationEventRequest(
+                    event_type="review.revealed",
+                    recipient_id=recipient.id,
+                    occurrence_key=f"review-revealed:{review.id}:{recipient.id}",
+                    destination=(
+                        f"/host?reviewJob={job.id}&reviewId={review.id}"
+                        if recipient.id == job.host_id
+                        else f"/cleaner?reviewJob={job.id}&reviewId={review.id}"
+                    ),
+                    source_entity_type="Review",
+                    source_entity_id=str(review.id),
+                    request_id=getattr(request, "request_id", "") if request else "",
+                )
             )
     else:
         # Prompt the other party to review so they can both see each other's.
-        create_notification(
-            user=reviewee,
-            notification_type="review.requested",
-            title="Leave a review",
-            body="You received a review. Leave your review to reveal both reviews.",
-            metadata={"job_id": job.id, "reviewee_id": reviewer.id},
+        emit_notification_event(
+            NotificationEventRequest(
+                event_type="review.requested",
+                recipient_id=reviewee.id,
+                occurrence_key=f"review-request:{review.id}:{reviewee.id}",
+                destination=(
+                    f"/host?reviewJob={job.id}" if reviewee.id == job.host_id
+                    else f"/cleaner?reviewJob={job.id}"
+                ),
+                source_entity_type="Review",
+                source_entity_id=str(review.id),
+                request_id=getattr(request, "request_id", "") if request else "",
+            )
         )
 
     write_audit_log(

@@ -1,9 +1,11 @@
+from unittest import skipUnless
 from unittest.mock import patch
+from concurrent.futures import ThreadPoolExecutor
 
 from django.contrib.auth import get_user_model
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, close_old_connections, connection, transaction
 from django.core import mail
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.notifications.models import (
@@ -21,6 +23,7 @@ from apps.notifications.services import (
 from apps.notifications.delivery import NotificationProviderError
 from apps.notifications.contracts import EVENT_SPECS
 from apps.notifications.tasks import deliver_notification
+from apps.notifications.tasks import _claim_delivery
 from apps.notifications.health import get_notification_health
 
 
@@ -461,3 +464,47 @@ class NotificationEmailDeliveryTests(TestCase):
         self.assertNotIn("1 Private Street", rendered)
         self.assertNotIn("1234", rendered)
         self.assertNotIn("private incident text", rendered)
+
+
+@skipUnless(connection.vendor == "postgresql", "requires PostgreSQL row-lock semantics")
+class PostgreSQLNotificationClaimTests(TransactionTestCase):
+    reset_sequences = True
+
+    def test_concurrent_workers_create_one_claim_attempt(self):
+        user = User.objects.create_user(
+            username="concurrent@example.test",
+            email="concurrent@example.test",
+            password="Password123!",
+            role=User.Role.HOST,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        event = NotificationEvent.objects.create(
+            event_type="account.approved",
+            recipient=user,
+            language="en",
+            occurrence_key="concurrent-claim",
+            deduplication_key="p" * 64,
+            destination="/app",
+        )
+        delivery = NotificationDelivery.objects.create(
+            event=event,
+            recipient=user,
+            channel=NotificationDelivery.Channel.EMAIL,
+            deduplication_key="q" * 64,
+        )
+
+        def claim():
+            close_old_connections()
+            try:
+                result = _claim_delivery(delivery.id)
+                return result.id if result else None
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _index: claim(), range(2)))
+
+        delivery.refresh_from_db()
+        self.assertEqual(results.count(delivery.id), 1)
+        self.assertEqual(delivery.attempt_count, 1)
+        self.assertEqual(delivery.attempts.count(), 1)

@@ -121,7 +121,7 @@ class AgencyDelegationContractTests(TestCase):
     def assignment_effect_counts(self):
         return {
             "notifications": Notification.objects.filter(
-                notification_type="agency.assignment.created",
+                notification_type="assignment.member_delegated",
                 metadata__assignment_id=self.assignment.id,
             ).count(),
             "audits": AuditLog.objects.filter(
@@ -153,7 +153,7 @@ class AgencyDelegationContractTests(TestCase):
         self.assertEqual(assigned.assigned_member_id, self.member.id)
         notification = Notification.objects.get(
             user=self.member,
-            notification_type="agency.assignment.created",
+            notification_type="assignment.member_delegated",
         )
         self.assertNotIn(self.agency.company_name, notification.body)
         self.assertNotIn(self.assignment.job.title, notification.body)

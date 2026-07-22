@@ -171,6 +171,21 @@ EVENT_SPECS: dict[str, NotificationEventSpec] = {
         "Upcoming cleaning reminder", "You have an upcoming cleaning assignment.",
         "Напомняне за предстоящо почистване", "Имате предстоящо възлагане за почистване.",
     ),
+    "connection.requested": _spec(
+        "New connection request", "A marketplace participant wants to connect with you.",
+        "Нова заявка за връзка", "Участник в платформата иска да се свърже с вас.",
+        channels=("in_app",),
+    ),
+    "connection.accepted": _spec(
+        "Connection accepted", "Your connection request was accepted.",
+        "Връзката е приета", "Вашата заявка за връзка беше приета.",
+        channels=("in_app",),
+    ),
+    "message.received": _spec(
+        "New message", "You received a new message in Host Cleaners.",
+        "Ново съобщение", "Получихте ново съобщение в Host Cleaners.",
+        channels=("in_app",),
+    ),
 }
 
 

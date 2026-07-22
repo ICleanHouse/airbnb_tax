@@ -1,6 +1,5 @@
 from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import patch
 
 from django.core.files.base import ContentFile
 from django.db import connection
@@ -34,12 +33,6 @@ PRIVATE_SENTINELS = {
 class MarketplacePrivacyBase(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.application_email_patcher = patch(
-            "apps.marketplace.services.send_application_submitted_email.delay",
-            return_value=None,
-        )
-        self.application_email_patcher.start()
-        self.addCleanup(self.application_email_patcher.stop)
         self.city = City.objects.get(slug="sofia")
         self.zone = ServiceZone.objects.get(city=self.city, slug="osm-66")
         self.host = User.objects.create_user(

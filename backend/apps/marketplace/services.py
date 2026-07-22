@@ -24,7 +24,6 @@ from apps.marketplace.models import (
 )
 from apps.marketplace.selectors import valid_future_marketplace_jobs
 from apps.notifications.services import NotificationEventRequest, emit_notification_event
-from apps.notifications.tasks import send_application_submitted_email, send_job_completed_email
 
 
 class MarketplaceError(ValueError):

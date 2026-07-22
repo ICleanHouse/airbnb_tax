@@ -292,7 +292,7 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.local")
 
-# Django email backend for non-signup emails. Signup confirmation uses Resend only.
+# Local/test adapter for canonical notification email. Signup codes use Resend.
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",
     "django.core.mail.backends.console.EmailBackend",
@@ -309,11 +309,6 @@ NOTIFICATION_EMAIL_PROVIDER = os.getenv(
     "NOTIFICATION_EMAIL_PROVIDER",
     "resend" if EMAIL_RESEND_APIKEY else "django",
 )
-EMAIL_VER_USER_CONFIRMATION = env_bool("EMAIL_VER_USER_CONFIRMATION", True)
-EMAIL_NOTIF_ADMIN_NEW_ACCOUNT = env_bool("EMAIL_NOTIF_ADMIN_NEW_ACCOUNT", True)
-EMAIL_NOTIF_HOST_APPLICATION_SUBMITTED = env_bool("EMAIL_NOTIF_HOST_APPLICATION_SUBMITTED", True)
-EMAIL_NOTIF_HOST_JOB_COMPLETED = env_bool("EMAIL_NOTIF_HOST_JOB_COMPLETED", True)
-
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

@@ -42,7 +42,7 @@ from apps.accounts.services import (
 )
 from apps.accounts.tokens import email_verification_token
 from apps.notifications.services import NotificationEventRequest, emit_notification_event
-from apps.notifications.tasks import send_admin_new_account_email, send_signup_email_code
+from apps.notifications.tasks import send_signup_email_code
 from apps.core.logging import get_request_id
 from apps.accounts.serializers import (
     AccountTransitionSerializer,

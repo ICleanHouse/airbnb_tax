@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.notifications.services import create_notification
+from apps.notifications.models import Notification
 
 
 User = get_user_model()
@@ -27,8 +27,11 @@ class NotificationApiTests(TestCase):
         )
 
     def _make(self, user, title="Hi"):
-        return create_notification(
-            user=user, notification_type="test.event", title=title, body="body"
+        return Notification.objects.create(
+            user=user,
+            notification_type="test.fixture",
+            title=title,
+            body="body",
         )
 
     def test_list_returns_only_own_notifications(self):

@@ -25,9 +25,14 @@ implementation proof in `docs/testing/`.
   phone OTP, manual evidence review, negative cleaner outcomes/restoration,
   re-review, retention, and agency-verification policy remain blocked by S1-D02.
   See [ADR-0002](docs/adr/0002-contact-based-verification.md).
-- **Next substantive coding item: S1-E06.** Build the reliability notification
-  loop: event/recipient/channel matrix, delivery records, post-commit dispatch,
-  retry safety, and recovery-event coverage. It depends on completed S1-D03.
+- **S1-E06 — Implemented; runtime evidence pending.** The versioned notification
+  contract, durable event/delivery/attempt records, post-commit dispatch,
+  retry-safe localized email, recovery wiring, operator reminders, final-failure
+  alerts, health API/admin views, and safe frontend routing are implemented.
+  SQLite/backend and frontend checks pass. PostgreSQL 16 concurrency and a live
+  Redis/Celery/provider smoke remain unverified because those local services are
+  unavailable; do not mark the item Done until those gates pass. Evidence:
+  [S1-E06 TDD record](docs/testing/s1_e06_notification_reliability.tdd.md).
 
 ## Owner decisions still needed
 

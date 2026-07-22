@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
-from unittest import mock, skipUnless
+from unittest import skipUnless
 
 from django.db import close_old_connections, connection
 from django.test import TransactionTestCase, override_settings
@@ -14,7 +14,7 @@ from apps.accounts.services import (
     suspend_account,
 )
 from apps.core.models import AuditLog
-from apps.notifications.models import Notification
+from apps.notifications.models import NotificationEvent
 
 
 @skipUnless(
@@ -67,8 +67,7 @@ class ContactVerificationPostgresConcurrencyTests(TransactionTestCase):
         with ThreadPoolExecutor(max_workers=2) as executor:
             return tuple(executor.map(run, (first, second)))
 
-    @mock.patch("apps.accounts.services.dispatch_notification.delay")
-    def test_two_simultaneous_reconciliations_have_one_effect(self, _dispatch):
+    def test_two_simultaneous_reconciliations_have_one_effect(self):
         user = self.make_cleaner("duplicate")
 
         results = self.race(
@@ -84,14 +83,15 @@ class ContactVerificationPostgresConcurrencyTests(TransactionTestCase):
             1,
         )
         self.assertEqual(
-            Notification.objects.filter(
-                deduplication_key=f"account.approved:{user.id}:1"
+            NotificationEvent.objects.filter(
+                recipient=user,
+                event_type="account.approved",
+                occurrence_key=f"account.approved:{user.id}:1",
             ).count(),
             1,
         )
 
-    @mock.patch("apps.accounts.services.dispatch_notification.delay")
-    def test_email_reconciliation_vs_rejection_serializes(self, _dispatch):
+    def test_email_reconciliation_vs_rejection_serializes(self):
         user = self.make_cleaner("email-reject", email_verified=False)
 
         def verify_then_reconcile():
@@ -122,8 +122,7 @@ class ContactVerificationPostgresConcurrencyTests(TransactionTestCase):
             sum(getattr(result, "changed", False) is True for result in results), 1
         )
 
-    @mock.patch("apps.accounts.services.dispatch_notification.delay")
-    def test_automatic_approval_vs_suspension_serializes(self, _dispatch):
+    def test_automatic_approval_vs_suspension_serializes(self):
         user = self.make_cleaner("approval-suspend")
 
         self.race(
@@ -147,8 +146,7 @@ class ContactVerificationPostgresConcurrencyTests(TransactionTestCase):
             1,
         )
 
-    @mock.patch("apps.accounts.services.dispatch_notification.delay")
-    def test_two_admins_with_same_expected_state_have_one_winner(self, _dispatch):
+    def test_two_admins_with_same_expected_state_have_one_winner(self):
         user = self.make_cleaner("two-admins", email_verified=False)
 
         results = self.race(
@@ -178,8 +176,7 @@ class ContactVerificationPostgresConcurrencyTests(TransactionTestCase):
             1,
         )
 
-    @mock.patch("apps.accounts.services.dispatch_notification.delay")
-    def test_cleaner_eligibility_vs_suspension_has_consistent_final_state(self, _dispatch):
+    def test_cleaner_eligibility_vs_suspension_has_consistent_final_state(self):
         user = self.make_cleaner("cleaner-suspend")
 
         self.race(

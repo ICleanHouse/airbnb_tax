@@ -1,11 +1,13 @@
 from unittest import skipUnless
 from unittest.mock import patch
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, close_old_connections, connection, transaction
 from django.core import mail
 from django.test import TestCase, TransactionTestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.notifications.models import (
@@ -382,6 +384,22 @@ class NotificationEmailDeliveryTests(TestCase):
         self.assertEqual(self.delivery.attempt_count, 1)
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(self.delivery.attempts.count(), 1)
+
+    def test_stale_ambiguous_smtp_claim_fails_closed_without_resending(self):
+        claimed = _claim_delivery(self.delivery.id)
+        self.assertIsNotNone(claimed)
+        NotificationDelivery.objects.filter(id=self.delivery.id).update(
+            processing_started_at=timezone.now() - timedelta(minutes=16)
+        )
+
+        with patch("apps.notifications.tasks.send_notification_email") as send_email:
+            deliver_notification.run(self.delivery.id)
+
+        self.delivery.refresh_from_db()
+        send_email.assert_not_called()
+        self.assertEqual(self.delivery.status, NotificationDelivery.Status.FINAL_FAILED)
+        self.assertEqual(self.delivery.error_code, "ambiguous_delivery_result")
+        self.assertEqual(OperatorNotificationAlert.objects.filter(delivery=self.delivery).count(), 1)
 
     @patch("apps.notifications.tasks.deliver_notification.apply_async")
     @patch("apps.notifications.tasks.send_notification_email")

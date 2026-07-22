@@ -1,6 +1,5 @@
 from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -20,19 +19,6 @@ class MarketplaceApiNegativeBase(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.job_counter = 0
-        self.application_email_patcher = patch(
-            "apps.marketplace.services.send_application_submitted_email.delay",
-            return_value=None,
-        )
-        self.completed_email_patcher = patch(
-            "apps.marketplace.services.send_job_completed_email.delay",
-            return_value=None,
-        )
-        self.application_email_patcher.start()
-        self.completed_email_patcher.start()
-        self.addCleanup(self.application_email_patcher.stop)
-        self.addCleanup(self.completed_email_patcher.stop)
-
         self.host = self.create_host("host-a")
         self.other_host = self.create_host("host-b")
         self.property = self.create_property(self.host, "Host A Flat")

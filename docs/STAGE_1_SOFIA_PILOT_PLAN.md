@@ -414,7 +414,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E03 | Must-have | Engineering owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E04 | Must-have | Engineering owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-E05 | Must-have | Repository owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
-| S1-E06 | Must-have; reminders may be operator-assisted | Engineering owner | S1-D03 | Not started |  |  |
+| S1-E06 | Must-have; reminders may be operator-assisted | Engineering owner | S1-D03 | In progress — runtime verification pending | 2026-07-22 | [Evidence](testing/s1_e06_notification_reliability.tdd.md) |
 | S1-E07 | Must-have | Engineering owner | S1-D05 | Not started |  |  |
 | S1-E08 | Must-have | Engineering owner | S1-D03/D04 | Not started |  |  |
 | S1-E09 | Must-have | Engineering owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
@@ -934,24 +934,31 @@ city-wide emergency broadcasting can wait until the pilot proves the need.
 Stage 1 channels are in-app plus email. SMS, Viber, WhatsApp, and native push
 remain research questions.
 
-- [ ] Define an event → recipient → channel matrix.
-- [ ] Cover account and verification outcomes.
-- [ ] Cover new eligible work or operator matching invitations.
-- [ ] Cover application/direct-offer acceptance, rejection, and withdrawal.
-- [ ] Cover assignment and agency delegation.
-- [ ] Cover cancellation, rescheduling, no-show, dispute status, and
+- [x] Define an event → recipient → channel matrix.
+- [x] Cover account and verification outcomes supported by the current policy.
+- [x] Cover explicit eligible-work and operator matching invitations.
+- [x] Cover application/direct-offer acceptance, rejection, and withdrawal.
+- [x] Cover assignment and immutable agency delegation.
+- [x] Cover cancellation, rescheduling, no-show, dispute status, and
       replacement.
-- [ ] Cover operator-recorded upcoming-work reminders. Automated scheduling is
+- [x] Cover operator-recorded upcoming-work reminders. Automated scheduling is
       optional during the concierge pilot.
-- [ ] Cover completion and review prompts.
-- [ ] Add a stable deduplication key and delivery status/attempt record.
-- [ ] Dispatch only after the domain transaction commits.
-- [ ] If reminders are automated, add an explicit scheduler and monitor it.
-- [ ] Make tasks retryable without duplicate messages.
-- [ ] Localize by recipient preference.
-- [ ] Keep exact address, access code, and sensitive dispute text out of email
+- [x] Cover completion and review prompts, including the delegated member.
+- [x] Add a stable deduplication key and delivery status/attempt record.
+- [x] Dispatch only after the domain transaction commits.
+- [x] Keep reminders operator-triggered; no scheduler is deployed, so scheduler
+      health is not applicable.
+- [x] Make tasks retryable without duplicate messages.
+- [x] Localize by recipient preference.
+- [x] Keep exact address, access code, and sensitive dispute text out of email
       subjects and lock-screen-style bodies.
-- [ ] Alert the operator after final delivery failure.
+- [x] Alert the operator exactly once after final delivery failure.
+
+Implementation evidence is complete in
+`docs/testing/s1_e06_notification_reliability.tdd.md`. The item remains **In
+progress**, not Done, until PostgreSQL 16 concurrency and the live
+Redis/Celery/provider smoke are run in an environment that provides those
+services.
 
 Acceptance criteria:
 

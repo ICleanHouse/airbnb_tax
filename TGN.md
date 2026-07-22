@@ -558,52 +558,43 @@ EVENT: signup.email_code_requested
               └──► SIDE EFFECT: verify endpoint returns email_verification_token
 
 EVENT: account.created (signup)
-  └──► TASK: send_admin_new_account_email          ✅ implemented
-              │  reads: User.objects.filter(role=admin OR is_staff=True)
-              │  sends: email with name, role, approve_link
-              │  approve_link = FRONTEND_URL/admin?filter=pending
-              │  retries: 3× with 60s delay on mail-backend failure
-              └──► SIDE EFFECT: admin receives a neutral /admin review link with stored account state
+  └──► EVENT: account.created_operator_review for each active operator
+              └──► durable in-app + email deliveries; safe /admin destination
 
 EVENT: account.approved                            ✅ implemented
   ├──► SIDE EFFECT: deterministic AuditLog transition row
-  └──► ON COMMIT: deduplicated in-app notification dispatch
+  └──► ON COMMIT: deduplicated localized in-app + email deliveries
 
 EVENT: cleaner.eligible                           ✅ implemented
   ├──► SIDE EFFECT: deterministic AuditLog transition row
-  └──► ON COMMIT: deduplicated in-app notification dispatch
+  └──► ON COMMIT: cleaner.marketplace_access_activated delivery event
 
 EVENT: application.submitted                       ✅ implemented
-  ├──► TASK: send_application_submitted_email      sends via Resend to job host
-  └──► SIDE EFFECT: in-app Notification created for host
+  └──► ON COMMIT: canonical host in-app + email deliveries
 
-EVENT: application.accepted                        ✅ partial
+EVENT: application.accepted                        ✅ implemented
   ├──► SIDE EFFECT: Assignment created
   ├──► SIDE EFFECT: competing applications → rejected
-  ├──► SIDE EFFECT: in-app Notification created for cleaner
-  └──► ⬜ planned: acceptance email to cleaner
+  └──► ON COMMIT: assignment.created for winner; application.rejected for each competitor
 
-EVENT: application.rejected                        ✅ partial
-  ├──► SIDE EFFECT: in-app Notification created for cleaner
-  └──► ⬜ planned: rejection email to cleaner
+EVENT: application.rejected                        ✅ implemented
+  └──► ON COMMIT: canonical applicant in-app + email deliveries
 
-EVENT: assignment.created                          ⬜ planned
-  └──► TASK: notify cleaner + calendar entry
+EVENT: assignment.member_delegated                 ✅ implemented
+  └──► ON COMMIT: concrete member receives assignment notification;
+      delegation stays immutable through the normal API
 
-EVENT: assignment.cancelled                        ⬜ planned
-  ├──► TASK: notify both parties
-  └──► SIDE EFFECT: AuditLog entry
+EVENTS: job.cancelled / reschedule / incident / dispute / replacement  ✅ implemented
+  └──► ON COMMIT: visibility-aware participant/operator deliveries;
+      no private narrative is copied into notification content or metadata
 
 EVENT: job.completed                               ✅ implemented
   │     trigger: assigned cleaner (or admin) marks done — single step, no host confirm
-  ├──► TASK: send_job_completed_email              sends via Resend to host
   ├──► SIDE EFFECT: assignment.completed_at set; cleaner_completed_at + host_completed_at stamped; job → completed
-  └──► SIDE EFFECT: review.requested in-app Notification to BOTH host and cleaner
-                   (metadata {job_id, reviewee_id}; deep-links to the review window)
+  └──► ON COMMIT: job.completed + review.requested for host and concrete assigned member
 
 EVENT: review.requested                            ✅ implemented
-  └──► SIDE EFFECT: NotificationBell deep-links to the review window
-                   (/host?...&reviewJob=ID for hosts, /cleaner?...&reviewJob=ID for cleaners)
+  └──► SIDE EFFECT: validated role-safe notification destination
 
 EVENT: review.submitted                            ✅ implemented
   ├──► SIDE EFFECT: CleanerProfile.rating recalculated from REVEALED reviews only
@@ -613,11 +604,20 @@ EVENT: review.submitted                            ✅ implemented
             reveal counterpart reviews, or contribute to public ratings.
 
 EVENT: connection.request / connection.accepted    ✅ implemented (apps.connections)
-  └──► SIDE EFFECT: create_notification to the other user; Connections badge polls unread-count
+  └──► SIDE EFFECT: canonical in-app delivery to the other user
 
 EVENT: connection.message_sent                     ✅ implemented
-  └──► SIDE EFFECT: create_notification (message.received) to the recipient; bumps Connection.updated_at;
+  └──► SIDE EFFECT: canonical message.received in-app delivery; bumps Connection.updated_at;
                    frontend thread groups messages with date separators
+
+OPERATOR ACTION: job.upcoming_reminder              ✅ implemented
+  └──► Explicit occurrence timestamp; host + concrete worker; replay is idempotent.
+      No Celery Beat scheduler is deployed for Stage 1.
+
+All implemented notification events use the versioned contract in
+`docs/S1_E06_NOTIFICATION_MATRIX.md`: one recipient-specific event, one unique
+delivery per channel, email dispatch via `transaction.on_commit()`, and one
+operator alert for a terminal failure.
 
 EVENT: calendar.sync_failed                        ⬜ planned
   └──► TASK: notify affected user + admins
@@ -632,12 +632,8 @@ SCHEDULED: google.calendar.sync                    ⬜ placeholder (OAuth not st
 
 | Task | Module | Status | Retry |
 |---|---|---|---|
-| `send_admin_new_account_email` | `apps.notifications.tasks` | ✅ | 3× / 60s |
 | `send_signup_email_code` | `apps.notifications.tasks` | ✅ | 3× / 60s |
-| `send_account_confirmation_email` | `apps.notifications.tasks` | Legacy | 3× / 60s |
-| `send_application_submitted_email` | `apps.notifications.tasks` | ✅ | 3× / 60s |
-| `send_job_completed_email` | `apps.notifications.tasks` | ✅ | 3× / 60s |
-| `dispatch_notification` | `apps.notifications.tasks` | ⬜ placeholder | — |
+| `deliver_notification` | `apps.notifications.tasks` | ✅ | transient only; max 4 attempts, exponential backoff + jitter |
 | `poll_ical_feed` | `apps.calendars.tasks` | ⬜ placeholder | — |
 | `sync_google_calendar` | `apps.calendars.tasks` | ⬜ placeholder | — |
 | `check_calendar_conflicts` | `apps.calendars.tasks` | ⬜ placeholder | — |
@@ -645,7 +641,9 @@ SCHEDULED: google.calendar.sync                    ⬜ placeholder (OAuth not st
 | `schedule_review_prompt` | `apps.notifications.tasks` | ⬜ placeholder | — |
 | `retry_failed_integrations` | `apps.notifications.tasks` | ⬜ placeholder | — |
 
-**Local fallback:** When `celery` is not installed, `_FakeTask` in `apps/notifications/tasks.py` wraps every task and executes it synchronously. `.delay()` and `.apply()` are both supported. `bind=True` tasks receive a `_FakeTaskSelf` stub with `.retry()`.
+**Local fallback:** When `celery` is not installed, `_FakeTask` executes the
+same durable claim/status/attempt state machine synchronously. It does not
+bypass idempotency.
 
 ---
 
@@ -799,9 +797,21 @@ Visibility (double-blind):
 
 ### Notification
 ```
-user (FK), channel: [in_app | email | sms],
-type, title, body,
-read_at, sent_at, created_at
+NotificationEvent: event_type, contract_version, recipient, language,
+occurrence_key, unique deduplication_key, safe destination/metadata,
+source entity type/id, request_id, timestamps
+
+NotificationDelivery: event, recipient, channel: [in_app | email],
+unique deduplication_key, status, attempt_count, processing/attempt/sent/final
+timestamps, provider-safe external ID, sanitized error category/code
+
+NotificationDeliveryAttempt: delivery, unique attempt number, status,
+safe timestamps/provider ID/error category+code
+
+Notification: user-visible localized in-app row linked one-to-one to its event
+and delivery; read/sent timestamps and safe destination metadata only
+
+OperatorNotificationAlert: one-to-one terminal-failure alert for admin review
 ```
 
 ### AuditLog

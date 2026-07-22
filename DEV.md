@@ -116,15 +116,16 @@ Key variables and their defaults:
 | `GEOAPIFY_API_KEY` | *(empty)* | Server-only key for approved-host address search/reverse-geocoding; never expose through `NEXT_PUBLIC_*` |
 | `GEOAPIFY_GEOCODING_TIMEOUT_SECONDS` | `5` | Timeout for the server-to-provider geocoding request |
 | `GEOAPIFY_PROVIDER_REQUESTS_PER_SECOND` | `4` | Shared backend ceiling; keep within the subscribed Geoapify plan limit |
-| `EMAIL_BACKEND` | `django.core.mail.backends.console.EmailBackend` | Django mail backend for non-signup emails only |
+| `EMAIL_BACKEND` | `django.core.mail.backends.console.EmailBackend` | Local/test adapter for canonical notification emails |
 | `EMAIL_HOST` | *(empty)* | Optional SMTP hostname for non-signup emails |
 | `EMAIL_PORT` | `587` | Optional SMTP port |
 | `EMAIL_USE_TLS` | `true` | Optional SMTP TLS setting |
 | `EMAIL_HOST_USER` | *(empty)* | Optional SMTP username |
 | `EMAIL_HOST_PASSWORD` | *(empty)* | Optional SMTP password |
 | `DEFAULT_FROM_EMAIL` | `noreply@example.local` | Sender address for outbound emails |
-| `EMAIL_RESEND_APIKEY` | *(empty)* | Required Resend API key for signup email-code delivery |
-| `EMAIL_RESEND_FROM_EMAIL` | *(empty)* | Required verified Resend sender address for signup codes |
+| `EMAIL_RESEND_APIKEY` | *(empty)* | Required Resend API key for signup codes and production notification email |
+| `EMAIL_RESEND_FROM_EMAIL` | *(empty)* | Required verified Resend sender address |
+| `NOTIFICATION_EMAIL_PROVIDER` | `resend` when a Resend key exists, otherwise `django` | Use `resend` in pilot/production; `django` is local/test only |
 | `EMAIL_VER_USER_SIGNUP` | `True` | Sends the 6-digit signup email verification code when enabled |
 | `ACCOUNT_APPROVAL_REQUIRED` | `True` | Require stored contact-policy satisfaction before normal account approval; false is a test/rehearsal shortcut |
 | `CLEANER_VERIFICATION_REQUIRED` | `True` | Require stored contact-policy satisfaction before normal cleaner marketplace activation; false is a test/rehearsal shortcut |
@@ -134,10 +135,6 @@ Key variables and their defaults:
 | `PILOT_VERIFICATION_BYPASS_REASON` | *(empty)* | Non-empty internal reason required for a guarded bypass; full value is not logged |
 | `PILOT_VERIFICATION_BYPASS_START_AT` / `PILOT_VERIFICATION_BYPASS_END_AT` | *(empty)* | Timezone-aware active window required for a guarded bypass |
 | `PILOT_GENUINE_JOB_INTAKE_PAUSED` | `False` | Must be true while a production-like bypass is active |
-| `EMAIL_VER_USER_CONFIRMATION` | `True` | Sends the legacy link-based account confirmation email when enabled |
-| `EMAIL_NOTIF_ADMIN_NEW_ACCOUNT` | `True` | Sends admin/staff new-account notification emails when enabled |
-| `EMAIL_NOTIF_HOST_APPLICATION_SUBMITTED` | `True` | Sends host emails when a cleaner applies to a job |
-| `EMAIL_NOTIF_HOST_JOB_COMPLETED` | `True` | Sends host emails when a cleaner marks a job complete |
 | `FRONTEND_URL` | `http://localhost:3000` | Base URL used to build links in outbound emails |
 | `BACKEND_URL` | `http://localhost:8000` | Base URL used by legacy email-confirmation links |
 | `FRONTEND_TRUSTED_ORIGINS` | `http://localhost:3000,...` | CSRF trusted origins |
@@ -161,11 +158,13 @@ Docker Compose can use the Docker hostname `db`, but manual PowerShell runs cann
 
 ### Email in local development
 
-`.env.example` includes Resend signup-code variables. Signup confirmation codes use Resend only:
+`.env.example` includes Resend variables. Signup codes always use Resend;
+canonical notification email uses Resend in pilot/production:
 
 ```dotenv
 EMAIL_RESEND_APIKEY=re_...
 EMAIL_RESEND_FROM_EMAIL=you@your-verified-domain.com
+NOTIFICATION_EMAIL_PROVIDER=resend
 FRONTEND_URL=http://localhost:3000
 ```
 
@@ -599,7 +598,14 @@ Implemented service-level behavior:
 - **Email-code confirmation before account creation** — `POST /api/accounts/signup/email-code/` creates a hashed 6-digit code record and `send_signup_email_code` sends it through Resend only. `POST /api/accounts/signup/verify-email-code/` returns the token required by final signup.
 - Cleaner signup persistence includes `birth_date`, `sex`, `native_language`, `experience_level`, `bio`, and optional `profile_image`.
 - Host and agency signup payloads create their role profiles from location/service-area data. Add fields only with corresponding migrations and serializer/test updates.
-- **Admin email notification on new account signup** — `send_admin_new_account_email` Celery task sends email to all `role=admin` or `is_staff=True` users with a direct link to the pending-tab admin panel. Retries up to 3 times on SMTP failure.
+- **Reliable notification outbox** — domain services emit versioned,
+  recipient-specific events. In-app delivery is reserved atomically; email is
+  queued only after commit. Durable attempts, bounded transient retries,
+  localized safe templates, and one terminal-failure operator alert cover all
+  implemented Stage 1 lifecycle events. See `docs/S1_E06_NOTIFICATION_MATRIX.md`.
+- **Operator reminders and health** — staff can record one idempotent reminder
+  occurrence per job/recipient and inspect worker/queue/failure health through
+  the admin-only notification health endpoint. No scheduler is deployed.
 - Agency profile, invitation, membership, and member assignment APIs.
 - Cookie consent records for essential, analytics, and marketing choices.
 - **ICS file parsing** — `POST /api/properties/parse-ics/` accepts only a
@@ -629,11 +635,21 @@ Placeholder integrations (not complete):
 
 ## Email Configuration
 
-Email dispatch uses Resend only for signup confirmation codes. Django's configurable mail backend remains available for non-signup emails.
+Signup codes use Resend. Canonical notification email uses
+`NOTIFICATION_EMAIL_PROVIDER`; production should use `resend`, while `django`
+is retained for local/test mail backends. `FRONTEND_URL` must be an HTTP(S)
+origin; the notification service appends only validated relative role routes.
+Resend receives the durable delivery key in `Idempotency-Key`.
 
-The `send_admin_new_account_email` task reads `settings.FRONTEND_URL` to build the approval link. The `send_signup_email_code` task reads `settings.EMAIL_RESEND_APIKEY` and `settings.EMAIL_RESEND_FROM_EMAIL`.
+The Celery task receives only the numeric delivery ID. It renders localized
+content from the versioned server contract at delivery time, never from task
+arguments or free-text domain fields. It retries transient failures at most
+four times with bounded exponential backoff and jitter. A stale ambiguous SMTP
+claim fails closed rather than resending; a Resend claim may replay only inside
+the provider idempotency window.
 
-When `celery` is not installed locally, the task runs synchronously via the `_FakeTask` fallback stub in `apps/notifications/tasks.py`.
+When `celery` is not installed locally, `_FakeTask` still executes the same
+delivery claim/status/attempt state machine synchronously.
 
 ## Git Setup Note
 
@@ -659,14 +675,18 @@ When code exists, test coverage should focus on:
 - Calendar conflict detection.
 - iCal parsing (blocked-date filtering, date normalization, sorting).
 - Google Calendar and iCal sync behavior.
-- Notification triggers, especially `send_signup_email_code` and `send_admin_new_account_email`.
+- Notification event recipients, commit boundaries, privacy, localization,
+  deduplication, retry/final-failure behavior, reminders, and health access.
 - Review eligibility and two-way review constraints.
 - Admin moderation actions.
-- Email task retry behavior on Resend/API failure.
+- Email task retry behavior on Resend/API failure and ambiguous provider state.
 
 Every change to business logic, data models, API permissions, migrations, or background tasks should include tests or a clear explanation for why tests were not added.
 
-Mock `_send_resend_email` in signup-code tests. Use `django.core.mail.backends.locmem.EmailBackend` only for Django mail-backend tests. Call Celery tasks via `.apply(args=[...])` for synchronous test execution without a broker.
+Mock `_send_resend_email` only in signup-code tests. Use
+`django.core.mail.backends.locmem.EmailBackend` for canonical local email tests
+and call `deliver_notification.run(delivery_id)` so the real durable state
+machine is exercised.
 
 ## Documentation Expectations
 

@@ -45,6 +45,7 @@ def _render_email(delivery: NotificationDelivery) -> tuple[str, str, str]:
             "title": template.title,
             "body": template.email_body,
             "destination_url": destination_url,
+            "language": event.language,
         },
     )
     return template.email_subject, text, html

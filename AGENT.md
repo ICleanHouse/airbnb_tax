@@ -135,11 +135,8 @@ This is a Windows dev machine. Commands and paths must match it.
 - Host, cleaner, agency, and admin role profiles.
 - Agency invitations and memberships.
 - Cookie consent records.
-- Admin email notification on new account signup — `send_admin_new_account_email` Celery task:
-  - Sends to all `role=admin` or `is_staff=True` users (excluding blank emails and inactive accounts).
-  - Email includes name, email, phone, role, and a direct link to the admin panel with `?filter=pending`.
-  - Retries up to 3 times with 60-second delays on mail-backend failure.
-  - Falls back to synchronous execution when Celery is not installed (via `_FakeTask` stub in `apps/notifications/tasks.py`).
+- New account/signup outcomes emit localized canonical events for the user and
+  each active operator. Operator previews contain no user contact details.
 - User email-code confirmation before signup — `send_signup_email_code` Celery task:
   - Sends a 6-digit code through Resend only.
   - The server stores only the code hash in `SignupEmailVerification`.
@@ -178,12 +175,15 @@ This is a Windows dev machine. Commands and paths must match it.
 
 **Notifications (`apps/notifications`)**
 
-- In-app notification records.
-- Email dispatch via Resend only for signup codes and Django's configurable mail backend (`EMAIL_BACKEND` in settings) for admin emails.
-- `send_admin_new_account_email` task: ✅ implemented and tested.
-- `send_signup_email_code` task: ✅ implemented and tested.
-- `send_account_confirmation_email` task: legacy link-based task retained.
-- Other notification triggers: placeholder — not yet wired.
+- Versioned recipient/event/channel contract with Bulgarian/English parity.
+- Durable events, unique in-app/email deliveries, immutable attempt history,
+  post-commit Celery dispatch, bounded retry, and one terminal-failure alert.
+- Resend provider idempotency for pilot/production; Django mail is local/test.
+- Account, matching/offers, applications, assignment/delegation, direct S1-E05
+  recovery, completion/reviews, connections/messages, and operator reminders
+  are wired. No automated reminder scheduler is deployed.
+- `send_signup_email_code` remains the separate pre-account authentication task
+  and receives only the stable verification-record ID.
 
 **Feedback (`apps/feedback`)**
 

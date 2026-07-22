@@ -1,6 +1,5 @@
 from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -25,13 +24,6 @@ from apps.properties.models import Property
 
 class MarketplaceServiceTests(TestCase):
     def setUp(self):
-        for task_path in (
-            "apps.marketplace.services.send_application_submitted_email.delay",
-            "apps.marketplace.services.send_job_completed_email.delay",
-        ):
-            task_patcher = patch(task_path, return_value=None)
-            task_patcher.start()
-            self.addCleanup(task_patcher.stop)
         self.api_client = APIClient()
         self.host = User.objects.create_user(
             username="host",

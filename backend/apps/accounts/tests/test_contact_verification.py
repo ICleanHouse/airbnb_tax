@@ -342,8 +342,7 @@ class AccountTransitionApiTests(TestCase):
                 internal_note="x" * 2001,
             )
 
-    @mock.patch("apps.accounts.views.send_admin_new_account_email.delay")
-    def test_signup_writes_safe_base_state_before_reconciliation(self, _admin_email):
+    def test_signup_writes_safe_base_state_before_reconciliation(self):
         email = "safe-base-cleaner@example.test"
         verification, _ = SignupEmailVerification.create_for_email(email)
         verification.verified_at = timezone.now()

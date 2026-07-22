@@ -48,7 +48,10 @@ Future extraction into microservices should be possible without rewriting core b
 - `apps.calendars`: conflict checks and deliberately network-inert placeholder
   background sync tasks.
 - `apps.feedback`: two-way reviews and cleaner reputation updates.
-- `apps.notifications`: in-app notification records, Resend-only signup-code email delivery, Django mail-backend admin emails, and Celery task for admin signup alerts.
+- `apps.notifications`: versioned notification-event contract, durable
+  per-channel delivery/attempt state, localized in-app and email rendering,
+  retry-safe Celery dispatch, final-failure operator alerts, health/admin
+  inspection, and the separate Resend signup-code task.
 - `apps.locations`: canonical cities, service zones, optional GeoJSON district geometry, public read-only location APIs for city/district selectors, and private approved-host Geoapify geocoding endpoints that return a minimized address candidate shape.
 - `apps.core`: timestamp base model, request-ID middleware, JSON logging helpers,
   read-only `AuditLog`, health check, CSRF failure view, and reusable Stage 1
@@ -287,26 +290,25 @@ Rules:
 
 Responsibilities:
 
-- In-app notifications.
-- Signup email confirmation through Resend only. Other notification email paths use Django's mail backend until they are migrated.
-- SMS notifications for urgent workflow events (placeholder).
+- Owner-scoped, localized in-app notifications.
+- Localized Stage 1 email delivery through the durable notification outbox.
+- Signup email-code delivery remains a separate pre-account authentication task.
+- No SMS, messaging-platform, native-push, WebSocket, or scheduled-reminder
+  channel is deployed in Stage 1.
 
-Implemented notification triggers:
+The complete implemented/reserved event and recipient contract is versioned in
+`docs/S1_E06_NOTIFICATION_MATRIX.md`. It covers account outcomes, explicit
+matching/offers, applications, assignment/delegation, direct S1-E05 recovery,
+completion/reviews, connections/messages, and operator-recorded reminders.
+Unsupported S1-D02 outcomes and agency recovery remain reserved, not inferred.
 
-- **Signup email-code request** → `send_signup_email_code` Celery task sends a 6-digit code through Resend only. The server stores only a hash of the code.
-- Signup email HTML is rendered from `backend/apps/notifications/templates/notifications/signup_code_email.html`.
-- **New account signup** → contact reconciliation records effective transitions;
-  admin notification remains an operational alert rather than a requirement
-  for normal email-only approval.
-
-Planned notification triggers:
-
-- Cleaner application submitted.
-- Host accepts or rejects an application.
-- Assignment created or cancelled.
-- Calendar sync failure.
-- Upcoming cleaning reminder.
-- Review prompt after completion.
+Domain services mutate their own state and emit a typed request. Event,
+delivery, attempt, and in-app rows are persisted atomically; only email delivery
+is queued, and only through `transaction.on_commit()`. Celery receives a
+delivery ID and a sanitized request ID header. The worker atomically claims the
+row, renders from the server-side contract, retries transient errors at most
+four times, and creates exactly one non-recursive operator alert on terminal
+failure. Resend receives the delivery key as its provider idempotency key.
 
 ### Feedback and Reputation
 
@@ -352,6 +354,8 @@ The implemented schema covers these concepts:
 - Assignment (accepted application, assigned cleaner or agency member).
 - Review (two-way, rating, comment, post-completion only).
 - Notification (channel, type, title, body, read/sent timestamps).
+- Notification event, per-channel delivery, immutable attempt history, and
+  one-to-one terminal-failure operator alert.
 - AuditLog (implemented in `apps.core`; append-only admin history for key account/marketplace actions).
 
 Use explicit audit logging for important marketplace decisions.
@@ -367,7 +371,7 @@ REST APIs through Django REST Framework.
 | `GET /api/health/` | Health check |
 | `POST /api/accounts/signup/email-code/` | Sends a 6-digit signup email confirmation code. |
 | `POST /api/accounts/signup/verify-email-code/` | Verifies the 6-digit code and returns `email_verification_token`. |
-| `POST /api/accounts/signup/` | Creates user + role profile + auto-login after email-code verification. Host/agency payloads include location/service-area data. Cleaner payloads include personal information, native language, other languages, driving-license/own-car details, experience, introduction, and profile photo. Fires admin email notification. |
+| `POST /api/accounts/signup/` | Creates user + role profile + auto-login after email-code verification, reconciles current contact policy, and emits canonical account/operator events. Host/agency payloads include location/service-area data. Cleaner payloads include personal information, native language, other languages, driving-license/own-car details, experience, introduction, and profile photo. |
 | `GET /api/accounts/confirm-email/{uidb64}/{token}/` | Confirms user email and redirects to frontend login. |
 | `POST /api/accounts/login/` | Session login |
 | `POST /api/accounts/logout/` | Session logout |
@@ -410,6 +414,7 @@ REST APIs through Django REST Framework.
 | `GET /api/connections/{id}/shared/` | Accepted connection; active/approved requester and worker-requester eligibility; no-store current-assignment safe projection |
 | `GET/POST /api/feedback/reviews/` | Two-way reviews (post-completion only) |
 | `GET /api/notifications/notifications/` | In-app notifications |
+| `GET /api/notifications/notifications/health/` | Admin-only worker/queue state and safe queued/failure counts |
 | `GET /api/calendars/conflicts/` | Calendar conflict check |
 | `/admin/` | Django admin interface |
 
@@ -419,18 +424,19 @@ Celery tasks for work that should not block HTTP requests:
 
 | Task | Status |
 |---|---|
-| `send_admin_new_account_email` | ✅ Implemented — emails all admins on signup with approval link |
 | `send_signup_email_code` | ✅ Implemented — emails new users a 6-digit signup code through Resend |
-| `send_account_confirmation_email` | Legacy — link-based confirmation task retained |
-| `dispatch_notification` | Placeholder — provider integration pending |
+| `deliver_notification` | ✅ Implemented — durable, retry-safe canonical email delivery |
 | iCal feed polling | Placeholder — provider/schedule pending |
 | Google Calendar sync | Placeholder — OAuth flow pending |
 | Calendar conflict checks | Placeholder |
 | SMS sending | Placeholder |
-| Review prompt scheduling | Placeholder |
-| Retry of failed integration jobs | Placeholder |
+| Automated reminder/review scheduling | Deferred; operator reminder endpoint is implemented |
 
-Background tasks are idempotent where possible and safe to retry. Signup email tasks retry up to 3 times with 60-second delays on Resend/API failure.
+Canonical notification delivery is database-idempotent and provider-idempotent
+with Resend. Transient failures use bounded exponential retry with jitter;
+permanent/exhausted/ambiguous failures are durable and operator-visible. A
+plain Django mail backend is intended for local/test only because SMTP cannot
+provide the same external idempotency guarantee.
 
 The Celery fallback stub in `apps/notifications/tasks.py` allows all tasks to run synchronously in local dev and tests when Celery is not installed.
 

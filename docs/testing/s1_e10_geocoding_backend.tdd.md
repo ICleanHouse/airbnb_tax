@@ -1,9 +1,8 @@
-# S1-E10 Private Geocoding Backend — TDD Evidence
+# S1-E10 Private Geocoding and Maps — TDD Evidence
 
 **Date:** 2026-07-22  
-**Scope:** approved-host/platform-admin Geoapify search and reverse-geocoding
-API foundation. The browser property-picker migration is deliberately outside
-this backend slice.
+**Scope:** approved-host/platform-admin Geoapify search and reverse-geocoding,
+plus the private property picker and local GeoJSON district map migrations.
 
 ## Behaviour under test
 
@@ -60,13 +59,47 @@ passed**. `python -m coverage --version` could not run because the local Python
 environment does not have the `coverage` module installed; this checkpoint does
 not add or alter project dependencies merely to produce a coverage figure.
 
-## Scope and remaining completion work
+## Frontend red/green
 
-- No frontend UI or browser tile implementation is included here, so browser
-  E2E testing is not applicable to this backend-only checkpoint.
-- The existing property picker must switch from direct browser Nominatim calls
-  to these owned endpoints through `apiFetch`, retain manual address/district
-  entry as its fallback, and use the committed Sofia GeoJSON zones.
+Added two browser-boundary test suites before changing the components:
+
+```powershell
+cd frontend
+npm.cmd test -- PropertyLocationPicker.test.tsx
+npm.cmd test -- DistrictMapSelector.test.tsx
+```
+
+Initial result: **RED** — the property picker made no owned API call and
+initialized `tile.openstreetmap.org`; the district selector also initialized an
+OpenStreetMap raster source. Checkpoints: `73fd577` and `3b8370e`.
+
+The green implementation:
+
+- replaces every private-picker Nominatim request with `apiFetch` calls to the
+  owned search/reverse endpoints;
+- uses the current locale for each request, validates the minimized response,
+  presents a localized manual-entry fallback, and labels the search input;
+- removes the private picker’s public raster layer, so clicking to pin remains
+  usable without a direct third-party location request; and
+- renders `DistrictMapSelector` from the committed canonical GeoJSON only, with
+  no remote map source. `OpenJobMap` already followed this pattern.
+
+```powershell
+npm.cmd test -- PropertyLocationPicker.test.tsx DistrictMapSelector.test.tsx OpenJobMap.test.tsx
+npm.cmd run typecheck
+npx.cmd eslint components/PropertyLocationPicker.tsx components/PropertyLocationPicker.test.tsx components/DistrictMapSelector.tsx components/DistrictMapSelector.test.tsx
+```
+
+Result: **8 focused frontend tests passed**, TypeScript passed, and focused
+ESLint passed. The repository-wide `npm.cmd run lint` remains blocked by
+generated `frontend/.next/dev` chunks with unavailable third-party rule
+definitions; it is unrelated to these source files and was not suppressed.
+
+## Remaining completion work
+
+- Perform the browser network trace through property create/edit, including
+  manual-entry fallback, against a running authenticated approved-host session.
 - Before production enablement, complete the provider privacy/terms,
   attribution, retention, and processor/recipient review recorded in the
   [S1-E10 capability contract](../S1_E10_MAP_GEOCODING_CAPABILITY.md).
+- Add the approved provider disclosure to the privacy notice before release.

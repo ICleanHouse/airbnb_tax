@@ -1062,8 +1062,9 @@ privacy/terms approval remains required before production enablement.
 
 Choose an approved map/geocoding architecture before the public pilot:
 
-- [ ] Remove direct browser `fetch` calls to OSM/Nominatim or any other
-      geocoder. Frontend calls to owned endpoints use `apiFetch`.
+- [x] Remove direct browser `fetch` calls to OSM/Nominatim or any other
+      geocoder. Private-picker frontend calls use `apiFetch`; district and
+      public-demand maps use owned canonical GeoJSON rather than remote tiles.
 - [x] Route approved-host address search and reverse geocoding through owned,
       authenticated, private/no-store backend endpoints. The frontend picker
       migration remains to be completed.
@@ -1074,9 +1075,10 @@ Choose an approved map/geocoding architecture before the public pilot:
 - [x] Minimize the query sent upstream, authenticate/rate-limit the owned proxy,
       and prevent raw address/search/coordinate values from entering ordinary
       application logs, analytics, Sentry, or cache keys visible to users.
-- [ ] Ensure map tile requests cannot disclose an exact private property
-      location to an unapproved third party. Use an approved proxy/provider or
-      disable the exact property map.
+- [x] Ensure map tile requests cannot disclose an exact private property
+      location to an unapproved third party. The private property picker and
+      district selector use no remote tile source; private lookup uses the
+      owned API only.
 - [ ] Keep the public demand map aggregated and technically separate from the
       private property-location workflow.
 - [ ] Provide BG/EN notice and a usable non-map fallback.

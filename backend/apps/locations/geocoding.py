@@ -48,7 +48,7 @@ def _lookup(*, path: str, params: dict[str, object], maximum_results: int) -> li
     _consume_provider_budget()
     request_params = {**params, "format": "geojson", "apiKey": api_key}
     request = Request(
-        f"https://api.geoapify.com/v1/geocode/{path}?{urlencode(request_params)}",
+        f"https://api-eu.geoapify.com/v1/geocode/{path}?{urlencode(request_params)}",
         headers={
             "Accept": "application/geo+json, application/json",
             "User-Agent": "HostCleanerMarketplace/1.0",

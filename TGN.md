@@ -151,13 +151,24 @@ AuditLog ──[references]────────► (any entity — polymorph
   live Stage 1 work.
 - `approved` → `suspended` by admin action. `pending` may also be suspended.
 - `rejected` is terminal for marketplace access.
+- Under approved S1-D02, the owner-admin may restore a suspended account only
+  after documented resolution. Restoration returns to `approved` only when the
+  current email, EEA phone, and private self-declared 18+ prerequisites remain
+  satisfied; otherwise it returns to `pending`. This restoration path is not
+  implemented yet.
+- S1-D02 adds no manual approval or identity/quality review. It requires a
+  private birth date and 18+ server validation for every human account holder,
+  one normalized EEA phone reserved across all retained non-admin accounts,
+  contact re-verification after changes, and day-six warning/day-seven safe
+  expiry for phone-incomplete accounts. These target behaviors remain S1-E02
+  work.
 - A 6-digit email confirmation code is sent before account creation; final signup requires the verified token.
 - Admin email is sent to all `role=admin` or `is_staff=True` users on account creation.
 - `email_verified`, `phone_verified`, `contact_verified`,
   `marketplace_eligible`, and `fully_verified` are distinct. The last always
   requires both timestamps; email-only access is not identity verification.
 - Public signup is a single React wizard at `/signup`; old signup step URLs redirect back to it.
-- Cleaner signup payloads must include birth date, sex, native language, experience level, work preference, and at least one preferred time slot.
+- Cleaner signup payloads must include birth date, sex, native language, experience level, work preference, and at least one preferred time slot. S1-E02 must add private birth date to host and agency-representative signup without public exposure.
 - Any changed signup field for Cleaner, Host, or Agency must be reflected in database fields, migrations, serializers, frontend payloads, and tests.
 
 ### 2b. Cleaner Verification Status
@@ -173,9 +184,12 @@ AuditLog ──[references]────────► (any entity — polymorph
   `verified` cleaner state before applying for any job. Under ADR-0002 that
   state means marketplace eligibility through the interim contact policy, not
   identity/reference/interview/trial-job review.
-- Only pending-to-eligible reconciliation is defined here. Cleaner rejection,
-  suspension, restoration, evidence review, re-review, and retention remain
-  blocked by S1-D02.
+- S1-D02 confirms there is no separate cleaner evidence decision. Account state
+  is authoritative for rejection, suspension, and restoration; the legacy
+  cleaner state remains only the stored contact-eligibility marker.
+- The implemented path currently covers pending-to-eligible reconciliation,
+  rejection, and suspension. Owner-admin restoration, contact-change recovery,
+  lifecycle-aligned cleanup, and the scoped badge remain S1-E02 work.
 
 ### 2c. Cleaning Job Lifecycle
 
@@ -380,7 +394,8 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
           POST /api/accounts/users/{id}/suspend/
   shows: separate email, phone, contact, account, cleaner-marketplace,
          full-contact, decision-history, and evidence-exclusion state
-  NOT YET: manual cleaner evidence verification (S1-D02)
+  NOT YET: S1-D02 phone OTP, restoration, phone transfer, pending expiry,
+           all-role age handling, and scoped contact badge
 
 /host                             [role: host only]
   auth: required
@@ -472,7 +487,7 @@ Full API surface with implementation state.
 | GET | `/api/accounts/agency-invitations/` | Required | ✅ |
 | POST | `/api/accounts/agency-invitations/{id}/accept/` | Cleaner | ✅ |
 | GET | `/api/accounts/agency-memberships/` | Required | ✅ |
-| POST | `/api/accounts/cleaners/{id}/verify/` | Admin | ⬜ Not built |
+| POST | `/api/accounts/cleaners/{id}/verify/` | Admin | Not required — S1-D02 selected automatic contact eligibility |
 
 ### Properties
 
@@ -901,7 +916,8 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Application-submitted email (Resend) | ✅ Complete |
 | Job-completed email (Resend) | ✅ Complete |
 | Contact reconciliation + restricted account decision history | ✅ Complete (S1-E02 interim policy) |
-| Manual cleaner evidence verification | ⬜ Blocked by S1-D02 |
+| Manual cleaner identity/quality verification | Not required by approved S1-D02 |
+| S1-D02 EEA phone/all-role age/recovery/expiry/badge completion | ⬜ Not built |
 | Notification triggers (acceptance, rejection, assignment emails) | ⬜ Placeholder |
 | iCal feed polling | ⬜ Network-inert placeholder |
 | Google Calendar sync | ⬜ Placeholder |
@@ -936,7 +952,8 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Agency dashboard `/agency` | ⬜ Not built |
 | Landing cleaner browser with city/district filtering | ✅ Complete |
 | Separate interim verification states and restricted review history in admin panel | ✅ Complete |
-| Manual cleaner evidence verification in admin panel | ⬜ Blocked by S1-D02 |
+| Manual cleaner identity/quality verification in admin panel | Not required by approved S1-D02 |
+| S1-D02 owner-admin restoration/phone transfer controls | ⬜ Not built |
 
 ---
 

@@ -111,8 +111,10 @@ Future extraction into microservices should be possible without rewriting core b
   blocker, including agency recovery rather than only the existing backend
   invitation/delegation primitives.
 - Applications review panel inside the host dashboard (host sees applications per job, accepts one).
-- Manual cleaner evidence verification (blocked by S1-D02; the interim contact
-  reconciliation status surface is part of S1-E02).
+- S1-D02 completion: EEA phone OTP, all-role private birth-date handling,
+  contact-change recovery, phone reservation/transfer, owner-admin restoration,
+  seven-day pending expiry, and the scoped contact badge. Manual identity or
+  quality evidence verification is not part of the approved architecture.
 - Real search connected to the backend cleaner/agency API.
 - Google Calendar sync (backend placeholder exists in `apps/calendars/`).
 
@@ -126,7 +128,8 @@ Responsibilities:
 - Property owner, cleaner, agency, and admin roles.
 - Django session-cookie authentication with CSRF protection for the v1 web app.
 - Account approval states: pending, approved, rejected, and suspended. Signup
-  stores pending first; ADR-0002 permits automatic contact reconciliation.
+  stores pending first; ADR-0002 and S1-D02 require automatic contact
+  reconciliation rather than manual approval.
 - Profile data.
 - Cleaner marketplace-eligibility status. The legacy internal value `verified`
   does not claim identity or quality evidence.
@@ -148,6 +151,14 @@ Rules:
 - The Stage 1 marketplace-launch target requires both verified email and phone
   for hosts, cleaners, agencies, and delegated agency members. The current
   email-only interim policy is not sufficient for live Stage 1 work.
+- Every human account holder must pass a private self-declared 18+ birth-date
+  check. Phone numbers are normalized E.164 EEA numbers and one verified number
+  is reserved across all retained non-admin accounts.
+- Account state owns exceptional rejection, suspension, and restoration for
+  every role. Cleaner profile status remains the stored contact-eligibility
+  marker and cannot bypass account state.
+- The visible “Verified” badge means both contacts are confirmed. Its help and
+  accessible text state that identity and service quality were not checked.
 - Normal signup stays on `/signup`; old signup step routes exist only as redirects.
 - Signup UI fields must map to backend serializer fields and persistent profile fields. When Cleaner, Host, or Agency onboarding changes, update models, migrations, serializer validation, profile serializers, frontend payloads, and tests in the same change.
 
@@ -300,13 +311,15 @@ Responsibilities:
 - Localized Stage 1 email delivery through the durable notification outbox.
 - Signup email-code delivery remains a separate pre-account authentication task.
 - No SMS, messaging-platform, native-push, WebSocket, or scheduled-reminder
-  channel is deployed in Stage 1.
+  channel is currently deployed. S1-E02 must add provider-backed phone OTP as a
+  dedicated contact-confirmation capability before live Stage 1 access.
 
 The complete implemented/reserved event and recipient contract is versioned in
 `docs/S1_E06_NOTIFICATION_MATRIX.md`. It covers account outcomes, explicit
 matching/offers, applications, assignment/delegation, direct S1-E05 recovery,
 completion/reviews, connections/messages, and operator-recorded reminders.
-Unsupported S1-D02 outcomes and agency recovery remain reserved, not inferred.
+Unimplemented S1-D02 phone/restoration/expiry outcomes and agency recovery
+remain reserved, not inferred.
 
 The approved Stage 1 evidence boundary also requires an admin-initiated survey
 invitation capability before the 90-day observation period: role/activation/
@@ -339,8 +352,9 @@ Reviews should only be created for completed jobs by parties involved in that jo
 
 Responsibilities:
 
-- Account exception/reconciliation review and suspension. Manual cleaner
-  evidence verification remains blocked by S1-D02.
+- Account exception/reconciliation review plus owner-admin rejection,
+  suspension, restoration, phone transfer, and protected pending-expiry
+  handling. There is no manual identity or quality-verification responsibility.
 - Review moderation.
 - Dispute inspection.
 - Job and application visibility.

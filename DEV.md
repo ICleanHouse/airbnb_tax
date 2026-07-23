@@ -24,14 +24,16 @@ The first production version should include:
 
 - Property owner (`host`), cleaner, agency, and admin user roles.
 - Session-cookie signup/login/logout/current-user APIs.
-- Manual admin approval before marketplace rights are enabled.
+- Automatic contact reconciliation before marketplace rights are enabled, with
+  owner-admin rejection/suspension/restoration reserved for exceptions.
 - Agency invitations and agency-cleaner memberships.
 - Consent-first cookie recording for optional analytics and marketing cookies.
 - Host property management.
 - Single cleaning job posting.
 - Monthly cleaning batch creation from reservations or manual dates.
 - Bulk cleaning job creation by importing an Airbnb `.ics` calendar file.
-- Cleaner verification before marketplace access.
+- Stored cleaner contact eligibility before marketplace access; S1-D02 adds no
+  manual identity or quality-verification step.
 - Cleaner applications to individual jobs or monthly batches.
 - Assignment workflow after host approval.
 - Agreed price tracking in EUR without in-app payments.
@@ -139,6 +141,11 @@ Key variables and their defaults:
 | `BACKEND_URL` | `http://localhost:8000` | Base URL used by legacy email-confirmation links |
 | `FRONTEND_TRUSTED_ORIGINS` | `http://localhost:3000,...` | CSRF trusted origins |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/api` | API base URL for the frontend |
+
+The Stage 1 target sets `PHONE_VERIFICATION_REQUIRED=True` only after the
+approved S1-D02 EEA phone flow passes release verification. The current false
+default documents the implemented email-only interim state and is not
+sufficient for live Stage 1 work.
 | `APP_ENV` | `local` | Environment label included in JSON logs |
 | `LOG_LEVEL` | `INFO` | Backend/Celery log verbosity |
 | `SENTRY_DSN` | *(empty)* | Enables Django/Celery crash reporting |
@@ -543,7 +550,8 @@ instructions, coordinates, host identity, and free text.
 ### Cleaner dashboard (`/cleaner`)
 
 - Calendar view with open jobs, applications, and assignments.
-- Open jobs list with apply action gated by account approval and cleaner verification.
+- Open jobs list with apply action gated by account approval and stored cleaner
+  contact eligibility.
 - Applications and assigned jobs views.
 - Profile forms with:
   - shared `Save changes` action and 5-second success message near the save button.
@@ -552,7 +560,11 @@ instructions, coordinates, host identity, and free text.
   - experience fields including driving-license and conditional own-car inputs.
   - other-languages dual-list overlay and selected-language tags.
   - extra-services-offered toggle switches.
-- Cleaner signup captures birth date, calculated age, sex, native language, experience level, introduction, optional profile photo, and any future verification fields added to the profile schema.
+- Cleaner signup captures private birth date, calculated age, sex, native
+  language, experience level, introduction, and optional profile photo. S1-E02
+  must apply private birth date and 18+ validation to every human account
+  holder; do not add identity-document, reference, interview, trial-job, or
+  manual quality-evidence fields.
 
 ### CSS conventions
 
@@ -670,7 +682,8 @@ git config --global --add safe.directory "C:/Users/35987/Desktop/airbnb_tax"
 When code exists, test coverage should focus on:
 
 - Job lifecycle transitions.
-- Cleaner verification and permissions.
+- Contact reconciliation, phone/age eligibility, exceptional account
+  transitions, and marketplace permissions.
 - Application and assignment rules.
 - Calendar conflict detection.
 - iCal parsing (blocked-date filtering, date normalization, sorting).

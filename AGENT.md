@@ -6,19 +6,21 @@ Before doing more deployment or signup-flow work, read `CURRENT_PROGRESS.md` for
 
 ## Mission
 
-Help build and maintain a Bulgarian-market marketplace that connects short-term rental hosts with verified cleaners.
+Help build and maintain a Bulgarian-market marketplace that connects short-term rental hosts with contact-eligible cleaners.
 
 The product direction for v1 is:
 
 - Responsive web/PWA.
 - Public landing page first, with marketplace operations behind authenticated app screens later.
-- Session-cookie authentication with manual admin approval for v1.
+- Session-cookie authentication with automatic contact eligibility and
+  owner-admin safety exceptions for v1.
 - Django REST Framework backend.
 - React/Next.js frontend.
 - PostgreSQL, Redis, and Celery.
 - Bulgarian and English UI.
 - EUR currency.
-- Verified cleaners.
+- Cleaners whose email and phone are confirmed; the Stage 1 “Verified” badge is
+  explicitly contact-scoped and is not an identity or quality claim.
 - Agency accounts that invite separate cleaner users into agency groups.
 - Consent-first cookie handling for optional analytics and marketing cookies.
 - Single cleaning and monthly batch posting.
@@ -39,7 +41,9 @@ The product direction for v1 is:
 - Do not add payment processing, payouts, wallets, invoices, or platform fees unless the user explicitly asks for that change.
 - Prefer explicit business services for workflows instead of burying state transitions in API views.
 - Keep calendar behavior centered on the internal app calendar as the source of truth.
-- Keep Bulgarian-market assumptions visible: BG/EN, EUR, `Europe/Sofia`, verified cleaners, no in-app payments, two-way reviews.
+- Keep Bulgarian-market assumptions visible: BG/EN, EUR, `Europe/Sofia`,
+  contact-eligible cleaners with an explicitly scoped badge, no in-app
+  payments, and two-way reviews.
 
 ## Documentation Rules
 
@@ -110,11 +114,16 @@ This is a Windows dev machine. Commands and paths must match it.
 
 ## Marketplace Rules To Preserve
 
-- Cleaners must be verified before applying for marketplace jobs.
-- Users must be approved before full marketplace rights are enabled.
+- Cleaners must be active, automatically contact-approved, and in the stored
+  contact-eligible cleaner state before applying for marketplace jobs.
+- Users must confirm email and a unique EEA phone and pass the private
+  self-declared 18+ signup rule before full marketplace rights are enabled.
 - Agencies must assign accepted agency jobs only to active member cleaners.
 - Agency member delegation is immutable through the normal agency API after the first member assignment; reassignment requires a separate explicit admin/support workflow.
-- Hosts can create favourites only for active, approved, verified cleaner accounts that are eligible for the public cleaner directory. Historical favourites are retained and serialized safely if eligibility later changes.
+- Hosts can create favourites only for active, approved, stored
+  contact-eligible cleaner accounts that are eligible for the public cleaner
+  directory. Historical favourites are retained and serialized safely if
+  eligibility later changes.
 - Hosts can post one cleaning or a monthly batch, or bulk-import from an Airbnb `.ics` file.
 - Cleaners apply; hosts accept or reject.
 - Price can be proposed or agreed in the app, but payment is handled outside the platform in v1.
@@ -131,7 +140,8 @@ This is a Windows dev machine. Commands and paths must match it.
 
 - Session-cookie auth with CSRF enforcement on all auth views.
 - Account approval states: pending, approved, rejected, suspended.
-- Admin approve / reject / suspend actions.
+- Automatic contact reconciliation plus owner-admin reject / suspend actions;
+  S1-D02 restoration remains to be implemented.
 - Host, cleaner, agency, and admin role profiles.
 - Agency invitations and memberships.
 - Cookie consent records.
@@ -284,8 +294,12 @@ This is a Windows dev machine. Commands and paths must match it.
 
 ### What is NOT built yet (next priorities)
 
-1. **`/agency` dashboard** — agency manages members, views assigned jobs. (Deferred per the active roadmap.)
-2. **Cleaner verification** — admin marks cleaner as verified before they can apply.
+1. **`/agency` dashboard** — full launch-critical agency parity, including
+   recovery, is required by S1-D01/S1-D05 before marketplace launch.
+2. **S1-D02 completion** — implement EEA phone OTP, all-role private birth
+   dates/18+ validation, contact-change recovery, number reservation/transfer,
+   owner-admin restoration, seven-day pending expiry, retention cleanup, and
+   the scoped “Verified” badge. Do not add manual identity or quality vetting.
 3. **Google Calendar sync** — OAuth flow and feed polling (backend placeholders exist).
 4. **iCal export** — generate `.ics` for host and cleaner calendars.
 5. **Additional notification triggers** — assignment created, upcoming reminder, review prompt.

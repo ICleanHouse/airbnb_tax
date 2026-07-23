@@ -4,7 +4,9 @@
 
 See `CURRENT_PROGRESS.md` for the current resume point, completed deployment work, and active signup-flow notes.
 
-Marketplace for Bulgarian short-term rental hosts, verified cleaners, and cleaning agencies.
+Marketplace for Bulgarian short-term rental hosts, contact-eligible cleaners,
+and cleaning agencies. The Stage 1 “Verified” badge means email and phone
+confirmed; it is not an identity or service-quality certification.
 
 The MVP focuses on job posting, monthly cleaning batches, Airbnb iCal imports, cleaner applications, assignment, shared calendar coordination, email notifications, and two-way feedback. Payments are intentionally out of scope for v1.
 

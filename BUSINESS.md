@@ -18,7 +18,10 @@ The public website should first explain the service and collect early host/clean
 
 The initial market is Bulgaria, with support for Bulgarian and English and pricing displayed in EUR.
 
-The app should be available across Bulgaria, but marketplace liquidity should be built city by city or region by region through verified local cleaner and agency clusters. National availability should not imply equal cleaner coverage everywhere from day one.
+The app should be available across Bulgaria, but marketplace liquidity should
+be built city by city or region by region through contact-eligible local
+cleaner and agency clusters. National availability should not imply equal
+cleaner coverage everywhere from day one.
 
 Important market contexts:
 
@@ -51,9 +54,9 @@ Agency segment:
 Admin segment:
 
 - Internal operators reconcile exceptional accounts, reject pending accounts,
-  suspend access, inspect marketplace activity, handle disputes, moderate
-  reviews, and support users. Manual cleaner evidence review remains undefined
-  under S1-D02.
+  suspend or restore access under the approved neutral reason policy, inspect
+  marketplace activity, handle disputes, moderate reviews, and support users.
+  S1-D02 adds no manual identity or quality-approval gate.
 
 ## Core Problems
 
@@ -157,7 +160,8 @@ Trust should come from:
 - Dispute visibility for internal operators.
 - Clear cleaner profiles and service areas.
 
-Signup and verification direction (owner-approved interim policy; see
+Signup and verification direction (owner-approved target policy; see
+`docs/S1_D02_CONTACT_ELIGIBILITY_POLICY.md` and
 `docs/adr/0002-contact-based-verification.md`):
 
 - The Stage 1 marketplace-launch target requires verified email and verified
@@ -170,14 +174,25 @@ Signup and verification direction (owner-approved interim policy; see
   Phone-required users remain pending until a phone timestamp exists.
 - Email confirmation is implemented through a 6-digit Resend code before account creation. SMS code verification remains a future step.
 - `fully_verified` always requires both email and phone timestamps. Public copy
-  uses “Email-confirmed marketplace profile” or “Marketplace access active,”
-  never “identity-verified cleaner.”
+  uses “Email-confirmed marketplace profile” or “Marketplace access active” for
+  the implemented email-only interim state. The Stage 1 “Verified” badge
+  appears only after both contacts are confirmed and must explain that identity
+  and service quality were not checked.
+- Every human account holder must submit a private self-declared birth date and
+  be 18+ before account creation. This applies to hosts, cleaners, agency
+  representatives, and delegated agency members. Birth date is never public.
+- Stage 1 accepts normalized EEA phone numbers. One verified number is reserved
+  across all retained non-admin accounts until documented owner-admin transfer
+  or deletion.
+- No identity document, interview, reference, trial job, company-registry,
+  insurance, or manual quality evidence is collected for eligibility.
 - Explicit account/cleaner requirement bypasses are test/rehearsal controls;
   their records are excluded from genuine Stage 1 evidence.
 - Signup is now designed as a single React wizard at `/signup`, not a full page reload between onboarding steps. Continue and Back should feel like one guided flow with Motion-based transitions.
 - Progress tracking starts after email confirmation, at account type selection.
 - Cleaner signup currently collects birth date for 18+ validation, sex, native language, cleaning experience, introduction, and an optional profile photo.
-- Host and agency signup should remain shorter than cleaner signup: after email confirmation and account type, they only need location/service-area data before account creation unless the business adds more required fields.
+- S1-E02 must extend the private birth-date/18+ rule to hosts and agency
+  representatives without exposing birth date to marketplace counterparts.
 - When the signup flow for Cleaner, Host, or Agency changes, the database profile fields, migrations, serializer validation, admin/profile visibility, and tests must be updated at the same time. Onboarding questions are not just UI; they define operational supply/demand data.
 - V1 web authentication uses secure Django session cookies with CSRF protection. JWT or OAuth can be revisited if native mobile apps, third-party API clients, or social sign-in become near-term requirements.
 - Google and Apple signup buttons may appear in the UI as placeholders, but OAuth is not connected yet.
@@ -211,8 +226,8 @@ Suggested launch approach:
 - Start with known hosts and cleaners from existing real operations.
 - Add marketplace-eligible cleaners and agencies in cities or regions where host demand exists.
 - Encourage hosts to import calendars and post real monthly cleaning demand.
-- Use admin review for exceptions, suspension, and research while S1-D02 defines
-  any future manual quality-evidence process.
+- Use owner-admin review only for exceptional rejection, suspension,
+  restoration, and research; do not add a manual quality-evidence process.
 - Track where jobs are posted but not filled, then recruit supply in those areas.
 
 Current public-site direction:
@@ -303,7 +318,10 @@ Marketplace liquidity:
 
 Trust and quality:
 
-- What should cleaner verification include: identity, references, interview, trial job, agency documents, or manual approval only?
+- S1-D02 resolves entry eligibility as confirmed email, confirmed unique EEA
+  phone, and a private self-declared 18+ birth date only. Identity, references,
+  interviews, trial jobs, agency documents, and manual approval are not part of
+  Stage 1 eligibility.
 - How should poor reviews, repeated cancellations, or disputes affect visibility?
 
 Host adoption:
@@ -362,8 +380,9 @@ Operations:
 - Signup questions for Cleaner, Host, and Agency must be backed by database fields, migrations, serializers, and tests when the flow is finalized or expanded.
 - Cookie consent is consent-first: only essential cookies are enabled before opt-in.
 - The marketplace should be available across Bulgaria while building practical local supply clusters.
-- The current trust promise is honestly labelled contact-confirmed marketplace
-  access plus reviews; broader cleaner/agency verification remains S1-D02.
+- The trust promise is contact-confirmed marketplace access plus reviews. The
+  visible “Verified” badge means email and phone confirmed only; identity and
+  service quality are not checked.
 - The primary MVP business success signal is registered users.
 - Secondary metrics should still track job posting, assignment, completion, repeat usage, and reviews.
 - Monetization is undecided.

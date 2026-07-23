@@ -16,6 +16,12 @@ implementation proof in `docs/testing/`.
   descriptive observation period. Candidate interviews and competitor desk
   research are deferred. See
   [S1-D01 Stage 1 charter](docs/S1_D01_STAGE_1_CHARTER.md).
+- **S1-D02 — Done.** The owner approved automatic contact eligibility for
+  every role: confirmed email, one unique verified EEA phone, and a private
+  self-declared birth date proving 18+. There is no manual identity, reference,
+  interview, trial-job, company-registry, or quality gate. The visible
+  “Verified” badge is scoped to email and phone confirmation. See the
+  [approved S1-D02 policy](docs/S1_D02_CONTACT_ELIGIBILITY_POLICY.md).
 - **S1-E05 — Partially complete by accepted ADR.** Direct host/cleaner recovery
   is implemented: counterpart-consented rescheduling, private attendance
   incidents, host-authorized draft replacements, private disputes, account
@@ -28,10 +34,13 @@ implementation proof in `docs/testing/`.
   owner/privacy approval, privacy-notice update, and an authenticated browser
   network trace. The complete contract and provider review are in
   [S1-E10 map and geocoding capability](docs/S1_E10_MAP_GEOCODING_CAPABILITY.md).
-- **S1-E02 — In progress.** Email-based interim contact access is implemented;
-  phone OTP, manual evidence review, negative cleaner outcomes/restoration,
-  re-review, retention, and agency-verification policy remain blocked by S1-D02.
-  See [ADR-0002](docs/adr/0002-contact-based-verification.md).
+- **S1-E02 — In progress.** Email-based interim contact access is implemented.
+  The approved target still needs an EEA SMS/provider decision, phone OTP,
+  normalized-number reservation/transfer, all-role private birth-date handling,
+  contact-change recovery, owner-admin restoration, seven-day pending expiry,
+  lifecycle-aligned cleanup, and the scoped badge. See
+  [S1-D02](docs/S1_D02_CONTACT_ELIGIBILITY_POLICY.md) and
+  [ADR-0002](docs/adr/0002-contact-based-verification.md).
 - **S1-E06 — Implemented; runtime evidence pending.** The versioned notification
   contract, durable event/delivery/attempt records, post-commit dispatch,
   retry-safe localized email, recovery wiring, operator reminders, final-failure
@@ -43,8 +52,9 @@ implementation proof in `docs/testing/`.
 
 ## Owner decisions still needed
 
-- Complete S1-D02's phone and role-verification policy and finish S1-D05's full
-  agency launch path before dependent live-marketplace work begins.
+- Select the EEA SMS provider and implement S1-E02 under the approved S1-D02
+  policy; finish S1-D05's full agency launch path before dependent live-
+  marketplace work begins.
 - Re-baseline Gate D, instrumentation, and the final readout around the approved
   product-led descriptive model before public launch.
 - Approve Geoapify as the precise-location processor/recipient and record the

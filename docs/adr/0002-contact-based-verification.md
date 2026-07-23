@@ -1,8 +1,9 @@
 # ADR-0002: Interim contact-based marketplace verification
 
-**Date:** 2026-07-21  
-**Status:** accepted  
+**Date:** 2026-07-21
+**Status:** accepted
 **Deciders:** Repository owner
+**Extended by:** [S1-D02 contact-eligibility policy](../S1_D02_CONTACT_ELIGIBILITY_POLICY.md), approved 2026-07-23
 
 ## Context
 
@@ -13,10 +14,13 @@ while the owner has now approved an interim contact-based policy so the Sofia
 pilot can exercise the real workflow without claiming that manual identity or
 quality checks exist.
 
-The broader cleaner and agency evidence standard remains unresolved in S1-D02.
-Phone OTP delivery, phone-change and recovery rules, negative cleaner outcomes,
-re-review, retention, and agency verification are therefore outside this
-decision.
+At acceptance time, the broader cleaner and agency standard remained unresolved
+in S1-D02. The owner resolved it on 2026-07-23 by selecting automatic
+contact-only eligibility for every role. The linked S1-D02 policy is normative
+for the EEA phone, private 18+ birth-date, contact-change/recovery,
+phone-reservation, owner-admin restoration, pending-expiry, badge, and retention
+target. This ADR remains the source for the implemented email-only interim
+capability and guarded bypass behavior.
 
 ## Decision
 
@@ -50,11 +54,11 @@ forward transitions from stored timestamps and the active configuration.
   as genuine Stage 1 evidence. Any signup using either disabled requirement is
   permanently marked in the restricted pilot-exclusion ledger and excluded
   from genuine Stage 1 evidence.
-- Phone verification is a future additional contact requirement. This ADR does
-  not implement an OTP provider.
-- Manual cleaner evidence checks are deferred to S1-D02. No negative cleaner
-  transition, restoration, evidence checklist, identity-document storage,
-  retention rule, re-review, or agency verification policy is invented here.
+- Phone verification is the approved Stage 1 additional contact requirement.
+  This ADR does not implement or select an OTP provider.
+- S1-D02 adds no manual cleaner or agency identity/quality evidence check.
+  Account state owns exceptional rejection, suspension, and restoration for
+  every role. The target details remain unimplemented S1-E02 work.
 
 ### Public and user-facing terminology
 
@@ -64,6 +68,12 @@ same limited claim. Public surfaces must not say “identity-verified cleaner”
 imply identity, reference, interview, or trial-job review. Internal database
 and code identifiers may retain `verified` for compatibility only when the UI
 explains the narrower meaning.
+
+The S1-D02 target additionally permits a visible English **“Verified”** badge
+(Bulgarian **“Потвърден”**) only after both contact timestamps exist. Its help,
+policy, and accessible description must say that email and phone are confirmed
+and identity and service quality were not checked. Email-only accounts never
+receive this badge.
 
 ### Configuration contract
 
@@ -143,8 +153,8 @@ Changing configuration never rewrites or unlocks existing records by itself.
 ### Retain manual-only approval
 
 - **Pros:** Delays access until a human can review each signup.
-- **Cons:** Contradicts the selected interim policy and suggests a review
-  standard that S1-D02 has not defined.
+- **Cons:** Contradicts the selected automatic contact policy and suggests
+  identity or quality evidence that S1-D02 explicitly excludes.
 - **Why not:** The owner explicitly selected contact-based automatic
   reconciliation for this stage.
 
@@ -170,10 +180,14 @@ Changing configuration never rewrites or unlocks existing records by itself.
 - The legacy internal cleaner state name `verified` is broader than its interim
   meaning and requires careful UI wording.
 - Existing interim users are not automatically downgraded when policy changes.
+- EEA phone delivery, private age expansion, contact recovery, number transfer,
+  restoration, pending expiry, and badge behavior add implementation and
+  provider dependencies before live Stage 1 access.
 
 ### Risks
 
 - Operators may overstate the trust claim unless BG/EN copy preserves the
   limited contact-confirmation wording.
-- Enabling a future phone requirement needs an approved OTP security and account
-  recovery design before users can satisfy it.
+- Enabling the approved phone requirement needs the S1-D02 OTP minimum,
+  provider/privacy approval, and account-recovery design before users can
+  satisfy it.

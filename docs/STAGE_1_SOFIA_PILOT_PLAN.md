@@ -2,17 +2,19 @@
 
 | Plan field | Value |
 |---|---|
-| Status | Active execution plan — S1-D01 complete; Gates A and B in progress |
+| Status | Active execution plan — S1-D01 and S1-D02 complete; Gates A and B in progress |
 | Created | 2026-07-13 |
 | Last updated | 2026-07-23 |
 | Scope | Product, engineering, research, operations, and release work required to complete Stage 1 |
 | Decision at exit | Proceed, extend once, pivot, or stop |
 
 **Start here:** Apply the approved
-[S1-D01 Stage 1 charter](S1_D01_STAGE_1_CHARTER.md): finish S1-D02's
-email-plus-phone and verification policy, deliver the full launch-critical
-agency path selected for S1-D05, and re-baseline the interview-led Gate D work
-to the approved 90-day product-led observation model. Exact anonymous
+[S1-D01 Stage 1 charter](S1_D01_STAGE_1_CHARTER.md) and
+[S1-D02 contact-eligibility policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md):
+implement the EEA email-plus-phone and all-role age contract, deliver the full
+launch-critical agency path selected for S1-D05, and re-baseline the
+interview-led Gate D work to the approved 90-day product-led observation model.
+Exact anonymous
 job/property disclosure and sensitive signup storage have been contained, and
 authoritative cleaner-overlap protection is implemented. Calendar URL fetching
 is disabled for the pilot, and every enabled Stage 1 upload path is bounded and
@@ -27,26 +29,32 @@ validated.
   occurs 90 days after full launch. Candidate interviews and competitor desk
   research are deferred. See the
   [signed charter decision](S1_D01_STAGE_1_CHARTER.md).
+- **Done:** S1-D02. Stage 1 uses automatic contact eligibility for every role:
+  confirmed email, confirmed unique EEA phone, and a private self-declared
+  birth date proving 18+. No identity, reference, interview, trial-job,
+  company-registry, or manual quality review is performed. The visible
+  “Verified” badge is explicitly scoped to confirmed email and phone. See the
+  [approved policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md).
 - **Done:** S1-D04, S1-E01, S1-E03, S1-E04, and S1-E09. Public
   disclosure/media, signup-secret persistence, cleaner schedule overlap, and
   calendar/upload protections are implemented and tested.
-- **In progress — contact policy implemented:** ADR-0002 records the
+- **In progress — interim contact policy implemented:** ADR-0002 records the
   owner-approved contact policy; signup now creates safe pending state before
   atomic reconciliation, guarded shortcuts are evidence-excluded, and the
-  admin/user surfaces describe the interim policy honestly. S1-E02 remains in
-  progress because phone OTP and the S1-D02 manual cleaner/agency policy are
-  unresolved.
+  admin/user surfaces describe the interim email-only policy honestly. S1-E02
+  remains in progress because EEA phone OTP, all-role age handling,
+  contact-change recovery, owner-admin restoration, seven-day pending expiry,
+  and the scoped badge are not implemented.
 - **Resolved launch blockers:** S1-B01 exact anonymous job/property disclosure,
   S1-B03 sensitive signup-browser persistence, S1-B04 cross-property cleaner
   double-booking, S1-B09 raw/private property-media exposure, and S1-B16
   unrestricted calendar URL fetching.
 - **Gate status:** Gate A and Gate B are in progress. Gates C–F have not started.
-- **Next critical work:** complete S1-D02, re-scope S1-D05 and Gate B for full
-  agency parity, implement phone verification before live access, and
-  re-baseline Gate D and the final readout for product-led descriptive
-  evidence. In parallel, complete S1-E06's PostgreSQL/Redis/provider runtime
-  evidence and S1-E10's provider approval, privacy notice, and authenticated
-  browser trace.
+- **Next critical work:** implement S1-E02 under the approved S1-D02 policy,
+  re-scope S1-D05 and Gate B for full agency parity, and re-baseline Gate D and
+  the final readout for product-led descriptive evidence. In parallel, complete
+  S1-E06's PostgreSQL/Redis/provider runtime evidence and S1-E10's provider
+  approval, privacy notice, and authenticated browser trace.
 
 ---
 
@@ -143,8 +151,8 @@ After Stage 1 passes:
 
 The narrow working position is:
 
-> Verified Sofia turnover cleaners, dependable backup coverage, and reliable
-> coordination when a regular cleaner cannot perform.
+> Contact-verified Sofia turnover cleaner profiles, dependable backup coverage,
+> and reliable coordination when a regular cleaner cannot perform.
 
 The product should not position itself as the cheapest cleaning option, a
 general residential cleaning marketplace, or merely another calendar tool.
@@ -166,9 +174,9 @@ general residential cleaning marketplace, or merely another calendar tool.
   [Domestina](https://www.domestina.bg/en/house-cleaning-services/sofia) and
   [Turno](https://turno.com/features/photo-checklists/).
 
-**Inference:** Stage 1 should test the narrower local wedge—verified turnover
-supply and backup recovery—rather than compete feature-for-feature with
-calendar software or general cleaning marketplaces.
+**Inference:** Stage 1 should test the narrower local wedge—contact-eligible
+turnover supply and backup recovery—rather than compete feature-for-feature
+with calendar software or general cleaning marketplaces.
 
 ### North Star
 
@@ -228,7 +236,7 @@ The following are not optional Stage 1 design choices:
 | Approved host | Host dashboard | Create properties/jobs, review eligible applicants, assign one cleaner, coordinate, cancel/reschedule through policy, and review |
 | Approved marketplace-eligible cleaner | Cleaner dashboard | Manage availability, discover eligible work, apply/accept, coordinate, complete, report failure, and review |
 | Role-ready agency | Full agency workspace | Manage profile, members, eligible jobs, applications/offers, assignments, immutable member delegation, notifications, and history-preserving recovery |
-| Platform admin/operator | Admin and support surfaces | Reconcile exceptional accounts, reject/suspend access, inspect history, support recovery, resolve disputes, and measure the pilot; manual supply vetting remains S1-D02 |
+| Platform admin/operator | Admin and support surfaces | Reconcile exceptional accounts, reject/suspend/restore access under S1-D02, inspect history, support recovery, resolve disputes, and measure the pilot; there is no manual identity or quality-vetting gate |
 | Research participant | External consented research process | Provide evidence without being silently added to marketing or pilot cohorts |
 
 ### Required lifecycle transitions
@@ -236,7 +244,7 @@ The following are not optional Stage 1 design choices:
 | Domain | Required Stage 1 transitions |
 |---|---|
 | Account | pending → approved by contact reconciliation, or pending → rejected/suspended; approved → suspended |
-| Cleaner marketplace eligibility | pending → stored eligible state by contact reconciliation; negative outcomes/restoration remain blocked by S1-D02 |
+| Cleaner marketplace eligibility | pending → stored eligible state by automatic contact reconciliation; account rejection/suspension/restoration is authoritative for negative outcomes |
 | Job | draft → open → assigned → completed; open/assigned → cancelled. A linked dispute may exist while work is assigned or after it is completed without replacing the job status |
 | Application | pending → accepted, rejected, or withdrawn |
 | Assignment | created → completed or cancelled; exactly one assignment belongs to one cleaning job |
@@ -319,7 +327,7 @@ dashboard.
 | ID | Blocker | Stage 1 disposition |
 |---|---|---|
 | S1-B01 | Resolved 2026-07-14: anonymous job/property disclosure was replaced by canonical city/zone aggregates | Retain recursive privacy tests and compatibility-alias sunset controls; see [privacy evidence](testing/release_blocking_privacy_fix.tdd.md) |
-| S1-B02 | In progress: interim contact reconciliation, protected transitions, guarded shortcuts, evidence exclusion, honest UI, and PostgreSQL concurrency coverage are implemented; phone/manual vetting remains incomplete | Resolve the S1-D02 phone/manual cleaner/agency policy without claiming identity/quality review |
+| S1-B02 | In progress: interim email contact reconciliation, protected transitions, guarded shortcuts, evidence exclusion, honest UI, and PostgreSQL concurrency coverage are implemented; the S1-D02 policy is approved but its phone/age/recovery/expiry/badge contract is not implemented | Implement S1-D02 without adding or claiming identity, reference, interview, trial-job, registry, or quality review |
 | S1-B03 | Resolved 2026-07-14: signup recovery now persists only a non-sensitive allowlist | Retain storage/telemetry regression tests; see [privacy evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-B04 | Resolved 2026-07-15: concrete cleaners are protected at every implemented assignment-producing transition | Retain PostgreSQL concurrency coverage; see [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-B05 | Assigned cancellation, rescheduling, no-show, dispute, and replacement recovery are not operational | Minimum history-preserving operator-supported workflows required |
@@ -419,12 +427,12 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | ID | Classification | Accountable role/name | Dependency | Status | Target | Evidence |
 |---|---|---|---|---|---|---|
 | S1-D01 | Must-have | Project owner | None | Done | 2026-07-23 | [Approved Stage 1 charter](S1_D01_STAGE_1_CHARTER.md) |
-| S1-D02 | Must-have | Project owner | S1-D01 | Not started |  |  |
+| S1-D02 | Must-have | Project owner | S1-D01 | Done | 2026-07-23 | [Approved contact-eligibility policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md) |
 | S1-D03 | Must-have | Project owner | S1-D01 | Done | 2026-07-20 | [Approved lifecycle/support policy contract](S1_D03_LIFECYCLE_SUPPORT_POLICY.md) |
 | S1-D04 | Must-have | Project owner | S1-D01 | Done | 2026-07-14 | [Recorded disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
 | S1-D05 | Must-have | Project owner | S1-D01 | In progress |  | [Full-agency launch decision](S1_D01_STAGE_1_CHARTER.md) |
 | S1-E01 | Must-have | Project owner | S1-D04 | Done | 2026-07-14 | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md) |
-| S1-E02 | Must-have | Project owner | ADR-0002; remaining S1-D02 items | In progress |  | [Owner policy](adr/0002-contact-based-verification.md); [maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [TDD evidence](testing/s1_e02_account_verification.tdd.md) |
+| S1-E02 | Must-have | Project owner | ADR-0002 and S1-D02 | In progress |  | [Approved target policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md); [interim ADR](adr/0002-contact-based-verification.md); [maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [TDD evidence](testing/s1_e02_account_verification.tdd.md) |
 | S1-E03 | Must-have | Project owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E04 | Must-have | Project owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-E05 | Must-have | Project owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
@@ -452,7 +460,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-M04 | Deferred by signed decision | Project owner | S1-M01 | Deferred by signed decision | 2026-07-23 | [Product-led validation decision](S1_D01_STAGE_1_CHARTER.md) |
 | S1-M05 | Deferred by signed decision | Project owner | S1-M02–M04 | Deferred by signed decision | 2026-07-23 | [Product-led validation decision](S1_D01_STAGE_1_CHARTER.md) |
 | S1-O01 | Must-have before live jobs | Project owner | S1-D02 and selected cluster | Not started |  |  |
-| S1-O02 | Must-have before live agency jobs | Project owner | S1-D05 | Not started |  |  |
+| S1-O02 | Must-have before live agency jobs | Project owner | S1-D02/D05 | Not started |  |  |
 | S1-O03 | Must-have before live jobs | Project owner | S1-O01/O02 | Not started |  |  |
 | S1-P01 | Required if Gate E runs | Project owner | Gates A–C, product-led evidence readiness, supply activation | Not started |  |  |
 | S1-P02 | Required if Gate E runs | Project owner | S1-P01 | Not started |  |  |
@@ -517,35 +525,45 @@ the evidence, create unsafe manual work, or block a participant.
 **Done 2026-07-23:** The project owner approved the
 [S1-D01 Stage 1 charter](S1_D01_STAGE_1_CHARTER.md), including a disposition for
 every M0/M1 entry item. Candidate recruitment and interview-led M1 execution are
-deferred by that decision. The decision does not complete Gate A: S1-D02,
-S1-D05 delivery, and the remaining privacy/retention decisions are still open.
+deferred by that decision. S1-D02 is now complete. Gate A still requires S1-D05
+delivery and the remaining privacy/retention decisions.
 
 ### S1-D02 — Define cleaner and agency verification
 
-The exact verification standard is currently an open business decision.
+**Owner decision recorded 2026-07-23 — automatic contact eligibility.**
 
-ADR-0002 resolves only the interim contact-access policy: confirmed email may
-activate marketplace access while phone is not required, without claiming any
-identity or quality evidence. The checklist below remains open and continues to
-block broader cleaner and agency vetting, negative outcomes, restoration,
-re-review, and retention.
+- [x] Require confirmed email, confirmed unique EEA phone, and a private
+      self-declared birth date proving 18+ for every human account holder.
+- [x] Use the same standard for hosts, individual cleaners, agency
+      representatives, and every separately registered delegated member.
+- [x] Perform no identity-document, interview, reference, trial-job,
+      company-registry, insurance, or manual quality review.
+- [x] Collect no ID copy, document number, reference contact, interview note,
+      trial evidence, or separate verification registry.
+- [x] Persist the safe pending base and automatically reconcile to approved
+      contact eligibility after both contact timestamps exist.
+- [x] Use account state as the single rejection/suspension/restoration control
+      for every role; the cleaner legacy `verified` value remains only the
+      persisted contact-eligibility marker.
+- [x] Restrict exceptional decisions to the repository owner acting as admin,
+      using the approved neutral reason taxonomy and restricted notes.
+- [x] Require contact re-verification after email or phone change; perform no
+      calendar-based periodic re-review.
+- [x] Reserve one normalized phone number across all retained non-admin
+      accounts until documented owner-admin transfer or deletion.
+- [x] Warn phone-incomplete accounts at day six and delete eligible,
+      history-free pending accounts at day seven.
+- [x] Keep birth date private to the account holder and owner-admin; align
+      contact data and transition history with the approved retention contract.
+- [x] Scope the visible “Verified” badge to confirmed email and phone and state
+      explicitly that identity and service quality were not checked.
 
-- [ ] Choose the cleaner evidence required: identity review, interview,
-      references, trial job, or a documented combination.
-- [ ] Decide whether identity documents are copied or only checked. The
-      recommended Stage 1 default is to record the check outcome, not retain an
-      unnecessary copy.
-- [ ] Define verification result states and neutral rejection reasons.
-- [ ] Define who can verify, suspend, restore, and reject.
-- [ ] Define re-review triggers and dates.
-- [ ] Define verification data access, storage, retention, and deletion.
-- [ ] Define an agency verification checklist if controlled agencies enter the
-      pilot.
-- [ ] Require every delegated agency member to be separately active, approved,
-      and verified.
+The complete result, state, OTP-minimum, recovery, data, retention, badge, and
+agency/member contract is the
+[approved S1-D02 policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md).
 
-**Done when:** A reviewer can apply the same written checklist to two applicants
-and reach a traceable decision without inventing criteria.
+**Done 2026-07-23:** The product decision is complete and traceable. S1-E02
+remains in progress until the approved policy is implemented and verified.
 
 ### S1-D03 — Define lifecycle and support policy
 
@@ -657,8 +675,8 @@ Gate B/C checks pass.
 | Public demand presentation | District aggregates; no exact pins |  |  |  |
 | Public cleaner/review publication | Minimal consented profile allowlist; non-identifying review references; moderated/redactable public text |  |  |  |
 | Map/geocoder boundary | Approved backend-proxied provider or disable exact third-party location features |  |  |  |
-| Cleaner verification evidence | Identity check + behavior interview + reference or trial |  |  |  |
-| Verification document copies | Do not retain unless qualified review requires it |  |  |  |
+| Cleaner/agency eligibility evidence | Email + unique EEA phone + private self-declared 18+ birth date; no manual identity/quality evidence | Project owner | Accept contact-only S1-D02 policy for every role | 2026-07-23 |
+| Verification document copies | Do not collect or retain identity documents or a separate evidence registry | Project owner | Accept no-copy/no-registry policy | 2026-07-23 |
 | Stage 1 agency participation | Research only; disable public signup and every live agency assignment route | Project owner | Full launch-critical agency parity before launch | 2026-07-23 |
 | Reminder timing | Approximately T−24h and T−2h for tight turnovers |  |  |  |
 | Pilot incentives | Pay only for participant time, never positive answers | Project owner | No incentives approved | 2026-07-23 |
@@ -696,7 +714,8 @@ Required work:
       is safer.
 - [x] Keep exact/open job detail behind role, status, verification, ownership,
       and assignment checks.
-- [x] Restrict approved-but-unverified cleaners from full private job data.
+- [x] Restrict approved-but-contact-ineligible cleaners from full private job
+      data.
 - [x] Scope the calendar conflict API to authorized owners/participants.
 - [x] Remove property media from public responses. For Stage 1, either serve
       pilot property media through authorization or disable it; do not build a
@@ -736,12 +755,17 @@ Acceptance criteria:
 ### S1-E02 — Implement contact-based verification completion
 
 **Status: In progress.** The owner-approved policy is recorded in
+[S1-D02](S1_D02_CONTACT_ELIGIBILITY_POLICY.md), extends
 [ADR-0002](adr/0002-contact-based-verification.md), and the required pre-code
 [maturity audit](testing/s1_e02_account_verification_maturity_audit.md) is
-complete. The owner-approved interim contact capability is implemented and may
-be enabled or stopped through its guarded configuration contract. Phone OTP,
-manual cleaner evidence, negative cleaner outcomes, re-review, retention, and
-agency verification remain incomplete, so the epic is not Done.
+complete for the interim slice. Refresh that audit against the approved S1-D02
+target before implementing the remaining slice. The owner-approved interim
+contact capability is implemented and may be enabled or stopped through its
+guarded configuration contract. EEA phone
+OTP, all-role private birth-date handling, contact-change recovery, phone
+uniqueness/transfer, owner-admin restoration, seven-day pending expiry, scoped
+badge behavior, and the approved data-retention controls remain incomplete, so
+the epic is not Done.
 
 #### Policy and configuration contract
 
@@ -752,6 +776,9 @@ agency verification remain incomplete, so the epic is not Done.
   automatically approves the account and activates cleaner marketplace access.
 - Email-only confirmation is not identity, reference, interview, or trial-job
   verification. `fully_verified` means both email and phone timestamps exist.
+- The Stage 1 target adds no manual identity or quality gate. Automatic
+  eligibility requires email, unique EEA phone, and the private 18+ signup
+  rule for every role.
 - Normal enabled-requirement users are genuine Stage 1 evidence. Any disabled
   account/cleaner requirement creates a permanent restricted evidence exclusion.
 
@@ -791,6 +818,23 @@ Required work:
 - [x] Add configuration, transition, authorization, frontend, rollback, and
       PostgreSQL concurrency evidence.
 - [x] Document deploy configuration and operator rollback.
+- [ ] Refresh the maturity audit for the approved S1-D02 target and record the
+      implementation batches before changing the signup/account contract.
+- [ ] Select and approve an EEA-capable SMS provider, privacy terms, delivery
+      limits, and exact per-number/account/IP daily caps.
+- [ ] Implement the S1-D02 phone OTP, normalized-number uniqueness,
+      contact-change/recovery, and transfer contract.
+- [ ] Apply the private self-declared birth-date and server-side 18+ signup gate
+      to hosts, cleaners, and agency representatives.
+- [ ] Add owner-admin restoration and the approved neutral reason categories,
+      keeping account state authoritative for every role.
+- [ ] Add the localized day-six warning and safe day-seven expiry/deletion
+      workflow for phone-incomplete accounts.
+- [ ] Add the scoped BG/EN “Verified” badge, explanation, and accessible text
+      only after both contact timestamps exist.
+- [ ] Implement OTP cleanup and lifecycle-aligned retention/access controls.
+- [ ] Extend automated, PostgreSQL, accessibility, and authenticated-browser
+      evidence for the complete target policy.
 
 Acceptance criteria:
 
@@ -807,9 +851,9 @@ Acceptance criteria:
   invitations, delegation, property/job creation, and current calendar data.
 - Admin/user BG/EN UI states are honest and never expose internal notes or
   bypass metadata.
-- Phone OTP, manual evidence vetting, negative cleaner outcomes/restoration,
-  re-review, retention, and agency verification remain explicitly blocked by
-  S1-D02, so S1-E02 stays **In progress**.
+- The full S1-D02 target passes for hosts, cleaners, agency representatives,
+  and delegated members without creating or implying identity or quality
+  evidence. Until those checks pass, S1-E02 stays **In progress**.
 
 ### S1-E03 — Remove sensitive signup persistence
 
@@ -1629,7 +1673,7 @@ analytics, and admin-initiated actual-user survey evidence contract in the
 - [ ] Identify repeated pain and explicit counter-evidence.
 - [ ] Map actual alternatives and current spending categories.
 - [ ] Select or reject a narrow Sofia district cluster based on both demand and
-      verified supply potential.
+      contact-eligible supply potential.
 - [ ] Decide whether portfolio hosts remain primary.
 - [ ] Decide whether agencies remain secondary.
 - [ ] Document cleaner sensitivity to platform rules and fees.
@@ -1644,50 +1688,39 @@ existing M1 plan are satisfied.
 
 ## 13. Gate D, part 2 — Supply verification and activation
 
-### S1-O01 — Cleaner verification checklist
+### S1-O01 — Cleaner contact-eligibility checklist
 
 Apply the owner-approved policy from S1-D02.
 
-- [ ] Confirm email and account identity.
-- [ ] Confirm the applicant is at least 18.
-- [ ] Conduct the approved secure identity-review step.
-- [ ] Confirm a working contact method.
-- [ ] Record Sofia service districts and travel limits.
-- [ ] Record availability, notice window, and practical capacity.
-- [ ] Review a recent STR turnover example.
-- [ ] Complete the approved reference or trial requirement.
-- [ ] Confirm understanding of punctuality, keys/access codes, guest privacy,
-      lost property, damage reporting, cancellation, issue escalation, and
-      property instructions.
-- [ ] Confirm the code of conduct, reviews, and off-platform payment model.
-- [ ] Record reviewer, result, rationale category, timestamp, and next review
-      date.
-- [ ] Keep account approval separate from cleaner verification.
-- [ ] Use secure storage; do not receive identity documents in ordinary email,
-      WhatsApp, source control, or the pilot tracker.
-
-If a trial is used for verification, it is a controlled assessment—not a live
-pilot turnover. Obtain consent, compensate the applicant for their time,
-supervise it in a non-guest-sensitive setting, provide no production access
-code or guest information, and do not treat the applicant as eligible supply
-until the reviewer records a passed verification decision. A reference-based
-provisional route is acceptable only if the owner-approved policy defines the
-extra monitoring and the person is fully verified before any live assignment.
+- [ ] Confirm stored email and EEA phone timestamps exist.
+- [ ] Confirm the private self-declared birth date passes the server-side 18+
+      rule.
+- [ ] Confirm the account is active and approved and the cleaner is in the
+      stored legacy contact-eligible state.
+- [ ] Confirm no guarded requirement bypass excluded the account from genuine
+      Stage 1 evidence.
+- [ ] Confirm the badge and participant wording describe contact verification
+      only.
+- [ ] Confirm no identity document, reference, interview, trial-job, or quality
+      evidence was requested or stored.
 
 ### S1-O02 — Agency verification checklist
 
-Only required if a controlled agency enters the pilot.
+Required before an agency enters the pilot.
 
-- [ ] Confirm legal/business name and authorized operating contact.
-- [ ] Confirm Sofia service area, team size, capacity, and STR experience.
-- [ ] Confirm substitution and quality-reporting procedure.
-- [ ] Confirm every delegated member is separately active, approved, and
-      verified.
+- [ ] Confirm the agency representative's stored email and EEA phone
+      timestamps and private 18+ birth-date result.
+- [ ] Confirm the agency account is active and approved under automatic contact
+      reconciliation.
+- [ ] Confirm every delegated member is separately active, approved,
+      email-and-phone confirmed, 18+, and in the stored cleaner-eligible state.
+- [ ] Confirm no company-registry, representative-authority, insurance,
+      reference, interview, trial-job, or quality evidence was requested or
+      stored.
 - [ ] Confirm member-delegation immutability and the support replacement path.
 - [ ] Confirm access-code, communication, incident, and review responsibilities.
-- [ ] Record reviewer, result, rationale, and recheck date.
 
-### S1-O03 — Activate verified supply
+### S1-O03 — Activate contact-eligible supply
 
 Before a cleaner enters the active pilot pool:
 
@@ -2074,8 +2107,9 @@ Only anonymized templates, aggregates, and conclusions belong in the repo.
 - [ ] Assumption and contradiction registers.
 - [ ] Competitor table and source register.
 - [ ] Selected Sofia cluster rationale.
-- [ ] Verification policy and reviewer checklist.
-- [ ] Restricted verification register; anonymized aggregates in repo only.
+- [ ] Approved contact-eligibility policy and automated activation checklist.
+- [ ] Restricted contact-transition audit and anonymized activation aggregates;
+      no separate identity/quality verification register.
 - [ ] Cleaner capacity/coverage map without home addresses.
 - [ ] Pilot participant acknowledgements.
 - [ ] Per-job pilot ledger.
@@ -2149,9 +2183,9 @@ Recommended engineering order:
    turnover-lineage model, and the map/geocoder boundary, plus required ADRs.
 2. ✅ Maintain S1-E01 public-data/profile/review and property-media containment
    regression coverage.
-3. 🟨 S1-E02 interim contact verification and PostgreSQL concurrency coverage
-   are implemented; phone/manual cleaner/agency verification remains governed
-   by S1-D02.
+3. 🟨 S1-E02 interim email contact verification and PostgreSQL concurrency
+   coverage are implemented; implement the approved S1-D02 EEA phone, all-role
+   age, recovery, expiry, owner-action, retention, and scoped-badge contract.
 4. ✅ Remove sensitive signup persistence; retain the allowlist and telemetry
    regression suite.
 5. Repair anonymous conversion and contain agency routing.

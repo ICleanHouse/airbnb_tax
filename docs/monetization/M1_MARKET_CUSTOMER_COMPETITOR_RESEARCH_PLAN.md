@@ -1,8 +1,15 @@
 # M1 Market, Customer, and Competitor Research Plan
 
-Status: Phase M1 research plan.  
+Status: Deferred by the 2026-07-23 S1-D01 owner decision.
 Date: 2026-07-02.  
 Scope: documentation and research planning only.
+
+> **Stage 1 amendment:** This interview-led and desk-research plan is not the
+> active Stage 1 validation method. The owner selected a 90-day product-led
+> observation period with optional admin-initiated surveys of actual users and
+> deferred candidate interviews and competitor desk research. Preserve this
+> document for a later research or monetization phase. See
+> [S1-D01 Stage 1 charter](../S1_D01_STAGE_1_CHARTER.md).
 
 This document executes Phase M1 planning. It does not implement application
 code, migrations, APIs, frontend changes, dependencies, billing, entitlements,

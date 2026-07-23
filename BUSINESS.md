@@ -160,6 +160,10 @@ Trust should come from:
 Signup and verification direction (owner-approved interim policy; see
 `docs/adr/0002-contact-based-verification.md`):
 
+- The Stage 1 marketplace-launch target requires verified email and verified
+  phone for hosts, cleaners, agency accounts, and delegated agency members
+  before live marketplace access. Phone OTP is not implemented yet, so real
+  work remains locked until S1-E02 proves that target end to end.
 - V1 persists a safe pending state, then confirmed email automatically approves
   the account and activates cleaner marketplace access while
   `PHONE_VERIFICATION_REQUIRED=False` and normal requirements are enabled.
@@ -190,6 +194,17 @@ Avoid positioning the product mainly as the cheapest cleaning option. For this m
 ## Launch Strategy
 
 The product should support all Bulgaria from the beginning, but growth should focus on areas where there is enough host demand and marketplace-eligible cleaner supply.
+
+Stage 1 launch and observation are Sofia-only. Public account creation may open
+after pre-launch privacy review, but live marketplace work stays locked until
+Gates A–C, email-plus-phone verification, and supply readiness pass. At full
+launch, all eligible Sofia jobs are available under the normal privacy,
+authorization, status, and timing rules; there is no invite-only job cohort.
+
+Agencies are a first-class Stage 1 launch role. Launch-critical agency account,
+membership, job, immutable delegation, notification, verification, and
+history-preserving recovery workflows must be complete before the marketplace
+launches. Advanced agency tooling remains evidence-gated after launch.
 
 Suggested launch approach:
 
@@ -232,10 +247,15 @@ Do not treat any monetization model as final until validated with users and mark
 
 ## Success Metrics
 
-Primary MVP success signal:
+Primary Stage 1 success signal:
 
-- Registered users, separated by hosts, cleaners, agencies, and admins.
-- Account approval funnel: pending, approved, rejected, and suspended users by role.
+- Role-ready activated users, separated by hosts, cleaners, and agencies.
+- A role-ready account has verified email and phone, an active approved account,
+  and complete role-specific onboarding. Hosts additionally need a complete
+  Sofia property; cleaners need service area and availability; agencies need a
+  complete service profile and at least one separately role-ready active member.
+- Registered users and the pending/approved/rejected/suspended funnel remain
+  acquisition and diagnostics measures, not the North Star.
 
 Secondary signals:
 
@@ -261,6 +281,18 @@ Secondary signals:
 - Jobs posted in areas with no available supply.
 
 The business should be careful not to overvalue registrations if users do not post jobs, apply, or complete cleanings.
+
+The first formal Stage 1 readout occurs after 90 complete days of full
+marketplace operation. Metrics are reported descriptively with raw counts,
+denominators, exclusions, unknown outcomes, role splits, and limitations rather
+than numeric pass/fail thresholds.
+
+Stage 1 does not recruit candidate interview cohorts or run competitor desk
+research. It uses necessary first-party operational records plus optional
+consented analytics. Admins may select actual users for localized in-app/email
+survey invitations linking to an approved external survey; audience filters,
+manual recipient confirmation, privacy notice, processor review, and retention
+rules are required before use.
 
 ## Risks and Open Questions
 
@@ -300,6 +332,18 @@ Operations:
 
 ## Business Decisions Locked So Far
 
+- The 2026-07-23 Stage 1 charter is recorded in
+  `docs/S1_D01_STAGE_1_CHARTER.md`.
+- The project owner holds all Stage 1 accountability roles.
+- Stage 1 is Sofia-only and treats hosts managing approximately 1–20 properties
+  as one primary segment.
+- Agencies require full launch-critical parity before marketplace launch.
+- Live marketplace access requires verified email plus verified phone for every
+  participating role.
+- Role-ready activated users are the Stage 1 North Star.
+- Stage 1 uses a 90-day product-led observation period, descriptive metrics, and
+  optional admin-initiated surveys of actual users; candidate interviews and
+  competitor desk research are deferred.
 - Filename is `BUSINESS.md`.
 - Initial market is Bulgaria.
 - Currency is EUR.

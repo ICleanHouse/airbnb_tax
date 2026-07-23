@@ -2,20 +2,31 @@
 
 | Plan field | Value |
 |---|---|
-| Status | Active execution plan — Gates A and B in progress |
+| Status | Active execution plan — S1-D01 complete; Gates A and B in progress |
 | Created | 2026-07-13 |
-| Last updated | 2026-07-21 |
+| Last updated | 2026-07-23 |
 | Scope | Product, engineering, research, operations, and release work required to complete Stage 1 |
 | Decision at exit | Proceed, extend once, pivot, or stop |
 
-**Start here:** Hold the Gate A owner-decision session and sign every M0/M1
-entry criterion. Exact anonymous job/property disclosure and sensitive signup
-storage have been contained, and authoritative cleaner-overlap protection is
-implemented. Calendar URL fetching is disabled for the pilot, and every
-enabled Stage 1 upload path is bounded and validated.
+**Start here:** Apply the approved
+[S1-D01 Stage 1 charter](S1_D01_STAGE_1_CHARTER.md): finish S1-D02's
+email-plus-phone and verification policy, deliver the full launch-critical
+agency path selected for S1-D05, and re-baseline the interview-led Gate D work
+to the approved 90-day product-led observation model. Exact anonymous
+job/property disclosure and sensitive signup storage have been contained, and
+authoritative cleaner-overlap protection is implemented. Calendar URL fetching
+is disabled for the pilot, and every enabled Stage 1 upload path is bounded and
+validated.
 
-### Current progress snapshot — 2026-07-21
+### Current progress snapshot — 2026-07-23
 
+- **Done:** S1-D01. The owner approved the Stage 1 charter on 2026-07-23.
+  Hosts with 1–20 properties are one primary segment; agencies require full
+  launch-critical parity; live access requires verified email plus phone; the
+  North Star is role-ready activated users; and the first descriptive readout
+  occurs 90 days after full launch. Candidate interviews and competitor desk
+  research are deferred. See the
+  [signed charter decision](S1_D01_STAGE_1_CHARTER.md).
 - **Done:** S1-D04, S1-E01, S1-E03, S1-E04, and S1-E09. Public
   disclosure/media, signup-secret persistence, cleaner schedule overlap, and
   calendar/upload protections are implemented and tested.
@@ -30,9 +41,12 @@ enabled Stage 1 upload path is bounded and validated.
   double-booking, S1-B09 raw/private property-media exposure, and S1-B16
   unrestricted calendar URL fetching.
 - **Gate status:** Gate A and Gate B are in progress. Gates C–F have not started.
-- **Next critical work:** finish the Gate A owner decisions, complete S1-E06's
-  PostgreSQL/Redis/provider runtime evidence, and complete S1-E10's provider
-  approval, privacy notice, and authenticated browser trace.
+- **Next critical work:** complete S1-D02, re-scope S1-D05 and Gate B for full
+  agency parity, implement phone verification before live access, and
+  re-baseline Gate D and the final readout for product-led descriptive
+  evidence. In parallel, complete S1-E06's PostgreSQL/Redis/provider runtime
+  evidence and S1-E10's provider approval, privacy notice, and authenticated
+  browser trace.
 
 ---
 
@@ -49,9 +63,9 @@ enabled Stage 1 upload path is bounded and validated.
 - [9. Gate B, part 2 — Landing, onboarding, mobile, and accessibility](#9-gate-b-part-2--landing-onboarding-mobile-and-accessibility)
 - [10. Gate C, part 1 — Support, policy, release, and operations](#10-gate-c-part-1--support-policy-release-and-operations)
 - [11. Gate C, part 2 — Instrumentation and verification](#11-gate-c-part-2--instrumentation-and-verification)
-- [12. Gate D, part 1 — Execute M1 research](#12-gate-d-part-1--execute-m1-research)
+- [12. Gate D, part 1 — Interview-led M1 deferred](#12-gate-d-part-1--interview-led-m1-deferred)
 - [13. Gate D, part 2 — Supply verification and activation](#13-gate-d-part-2--supply-verification-and-activation)
-- [14. Gate E — Free Sofia concierge fulfillment pilot](#14-gate-e--free-sofia-concierge-fulfillment-pilot)
+- [14. Gate E — Free Sofia marketplace observation](#14-gate-e--free-sofia-marketplace-observation)
 - [15. Metrics and Stage 1 decision gates](#15-metrics-and-stage-1-decision-gates)
 - [16. Gate F — Final readout and owner decision](#16-gate-f--final-readout-and-owner-decision)
 - [17. Required evidence artifacts](#17-required-evidence-artifacts)
@@ -64,19 +78,21 @@ enabled Stage 1 upload path is bounded and validated.
 
 This document turns the current product review into one executable Stage 1 plan.
 It is the canonical checklist for making the marketplace safe enough for real
-users, executing the already-approved M1 research cycle, running a free Sofia
-concierge fulfillment pilot, and making an evidence-based next-stage decision.
+users, running a free Sofia marketplace observation period, and making an
+evidence-based next-stage decision.
 
-Stage 1 is broader than monetization Phase M1:
+The 2026-07-23 owner charter changed the Stage 1 validation method:
 
-- **M1** is the existing two-week market, customer, and competitor research
-  phase. It does not validate final willingness to pay.
-- **Stage 1** includes M1, launch-readiness work, real supply verification, a
-  free fulfillment pilot, and the final go/extend/pivot/stop readout.
+- The interview-led two-week **M1** market/customer/competitor plan is deferred,
+  not completed.
+- **Stage 1** includes launch-readiness work, real supply verification, full
+  launch-critical agency parity, a 90-day product-led observation period, and
+  the final go/extend/pivot/stop readout.
 - The free pilot in this plan is **not** the later paid M4 pilot from the
   monetization roadmap.
-- Engineering work in this plan belongs to the broader Stage 1 milestone. It
-  does not change the M1 document’s research-only scope.
+- Interest or registrations observed in Stage 1 do not approve pricing,
+  billing, or a paid experiment. The deferred research gate must be reopened
+  before a later monetization phase relies on willingness-to-pay claims.
 
 Stage 1 can be completed with a no-go or pivot decision. “Completed” means the
 evidence pack and owner decision exist. “Passed” means the Stage 2 entry gates
@@ -115,11 +131,11 @@ After Stage 1 passes:
 
 ### Primary users
 
-- **Primary:** Sofia short-term-rental hosts managing approximately 4–20
-  properties.
-- **Secondary research segment:** Sofia cleaning agencies.
-- **Supply-risk segment:** Individual cleaners with Sofia short-term-rental
-  turnover experience.
+- **Primary demand segment:** Sofia short-term-rental hosts managing
+  approximately 1–20 properties, without automatic priority for portfolio
+  hosts.
+- **Launch supply segments:** Individual cleaners and full-parity agencies
+  serving Sofia short-term-rental turnovers.
 - **Operator:** The person approving accounts, verifying supply, supporting
   live jobs, and maintaining the incident record.
 
@@ -156,9 +172,12 @@ calendar software or general cleaning marketplaces.
 
 ### North Star
 
-**Operationally successful Sofia turnover jobs per week.**
+**Role-ready activated Sofia users, reported separately for hosts, cleaners,
+and agencies.**
 
-Registrations remain a funnel measure, not proof of marketplace value.
+Registrations remain a funnel measure. Operationally successful jobs,
+assignment, completion, reliability, repeat use, incidents, and operator effort
+remain required supporting measures.
 
 ---
 
@@ -208,7 +227,7 @@ The following are not optional Stage 1 design choices:
 | Pending user | Role dashboard activation/status surface | Complete onboarding and understand what remains locked |
 | Approved host | Host dashboard | Create properties/jobs, review eligible applicants, assign one cleaner, coordinate, cancel/reschedule through policy, and review |
 | Approved marketplace-eligible cleaner | Cleaner dashboard | Manage availability, discover eligible work, apply/accept, coordinate, complete, report failure, and review |
-| Controlled agency | Generic status surface for research-only agencies, or a minimum agency workspace for live participation, depending on Gate A | Never receive live work through the generic status surface |
+| Role-ready agency | Full agency workspace | Manage profile, members, eligible jobs, applications/offers, assignments, immutable member delegation, notifications, and history-preserving recovery |
 | Platform admin/operator | Admin and support surfaces | Reconcile exceptional accounts, reject/suspend access, inspect history, support recovery, resolve disputes, and measure the pilot; manual supply vetting remains S1-D02 |
 | Research participant | External consented research process | Provide evidence without being silently added to marketing or pilot cohorts |
 
@@ -312,7 +331,7 @@ dashboard.
 | S1-B11 | Critical lifecycle notifications and reminder scheduling are incomplete | In-app and email reliability loop required |
 | S1-B12 | No password-reset flow exists | Recovery flow required before public pilot |
 | S1-B13 | Current deployment handoff uses raw-IP HTTP, insecure cookies, and a placeholder secret | Real domain, HTTPS, secure settings, backup/restore, and rollback required |
-| S1-B14 | Product funnel evidence is not available from real usage | M1 research and a measured pilot are required |
+| S1-B14 | Product funnel evidence is not available from real usage | A measured 90-day product-led observation period is required |
 | S1-B15 | Mobile, localization, and accessibility issues affect critical flows | Pilot-critical WCAG/mobile fixes and real-device verification required |
 | S1-B16 | Resolved 2026-07-20: the ICS URL-import endpoint, server fetcher, URL UI, and telemetry references were removed | Retain the no-route/no-network regression coverage and manual-upload controls; see [S1-E09 evidence](testing/s1_e09_upload_security.tdd.md) |
 | S1-B17 | The property location picker sends searches/exact coordinates directly from the browser to third-party OSM/Nominatim services | Approve and proxy a compliant provider with privacy controls, or disable third-party exact-location search/maps |
@@ -332,14 +351,14 @@ reported as traction.
 
 Assign names before Stage 1 execution begins.
 
-| Role | Accountable for |
-|---|---|
-| Stage 1 owner | Scope, priorities, decisions, and final sign-off |
-| Engineering owner | Architecture decisions, implementation, tests, and release |
-| Pilot operator | Approvals, verification, matching follow-up, support, and incident handling |
-| Interview lead | Recruitment, consent, interviews, scoring, and synthesis |
-| Backup operator | Coverage when the primary operator is unavailable |
-| Privacy/legal reviewer | Pilot notices, terms, research consent, retention, and deletion policy |
+| Role | Assigned owner | Accountable for |
+|---|---|---|
+| Stage 1 owner | Project owner | Scope, priorities, decisions, and final sign-off |
+| Engineering owner | Project owner | Architecture decisions, implementation, tests, and release |
+| Marketplace operator | Project owner | Approvals, verification, matching follow-up, support, and incident handling |
+| Evidence/survey lead | Project owner | Evidence governance, survey outreach, analysis, and synthesis |
+| Backup operator | Project owner | Coverage when the primary operator is unavailable; no independent backup exists |
+| Privacy/legal reviewer | Project owner | Notices, consent, retention, and deletion policy; no independent qualification is claimed |
 
 One person may hold several roles, but every responsibility needs a named owner
 and backup.
@@ -353,33 +372,28 @@ The work is arranged as gates, not as independent feature tickets.
 1. **Gate A — Decisions and operating policy**
 2. **Gate B — Launch-safety and workflow implementation**
 3. **Gate C — Release, support, and operator rehearsal**
-4. **Gate D — M1 research and supply preparation**
-5. **Gate E — Free Sofia concierge pilot**
+4. **Gate D — Product-led evidence readiness and supply preparation**
+5. **Gate E — Free Sofia marketplace observation**
 6. **Gate F — Evidence readout and owner decision**
 
-M1 recruitment and interviews may begin as soon as Gate A research/privacy
-decisions pass. They do not wait for engineering. Engineering and supply
-discovery may run in parallel. Real pilot jobs must not begin before Gates A–C,
-an M1 decision supporting the target segment/cluster, and supply activation all
-pass. If M1 rejects the segment or cluster, Gate E is not run merely to complete
-a checklist.
+Engineering, privacy preparation, and supply discovery may run in parallel.
+Real jobs must not begin before Gates A–C, full launch-critical agency parity,
+email-plus-phone verification, and supply activation pass.
 
-A practical target is eight to ten weeks if engineering and recruitment meet
-their gates on schedule:
+The sequence is milestone-based:
 
-- Week 0: decisions, owners, and preparation.
-- Weeks 1–2: launch blockers and M1 interviews in parallel.
-- Week 3: production-like verification, supply activation, and release rehearsal.
-- Weeks 3–5: frozen-cohort activation and live pilot, beginning only after all
-  Gate E entry conditions above pass.
-- Weeks 3–9: per-host 30-day repeat-use observation as hosts activate.
-- Weeks 8–10: final evidence readout when the last qualifying host matures, then
-  owner decision.
+- Pre-launch: finish decisions, safety/workflow implementation, privacy review,
+  evidence instrumentation, agency parity, release rehearsal, and supply
+  activation.
+- Launch day: make all eligible Sofia jobs available under the normal
+  authorization and privacy rules.
+- Launch days 1–90: collect operational records, consented analytics, incidents,
+  support evidence, and optional admin-initiated actual-user surveys.
+- Day 91 or later: close the evidence pack and record the owner decision.
 
-These are planning timeboxes, not engineering commitments. The final date is
-controlled by cohort maturity, not a nominal week number: every host counted in
-the repeat-use gate needs a full 30-day observation window after that host’s
-first operationally successful job.
+The pre-launch duration is controlled by readiness evidence, not a nominal
+engineering deadline. The observation window begins only at full marketplace
+launch.
 
 ### Gate tracker
 
@@ -388,12 +402,12 @@ acceptance evidence is linked, not when work merely starts.
 
 | Gate | Owner | Status | Target date | Evidence/readout |
 |---|---|---|---|---|
-| A — Decisions and policy |  | In progress |  | [S1-D04 disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
-| B — Product and workflow readiness |  | In progress |  | [S1-E02 policy](adr/0002-contact-based-verification.md); [S1-E02 maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md); [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md); [S1-E09 evidence](testing/s1_e09_upload_security.tdd.md) |
-| C — Release, support, and verification |  | Not started |  |  |
-| D — M1 research and supply activation |  | Not started |  |  |
-| E — Free Sofia pilot |  | Not started |  |  |
-| F — Final decision |  | Not started |  |  |
+| A — Decisions and policy | Project owner | In progress |  | [S1-D01 charter](S1_D01_STAGE_1_CHARTER.md); [S1-D04 disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
+| B — Product and workflow readiness | Project owner | In progress |  | [S1-E02 policy](adr/0002-contact-based-verification.md); [S1-E02 maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md); [S1-E04 evidence](testing/s1_e04_overlap_prevention.tdd.md); [S1-E09 evidence](testing/s1_e09_upload_security.tdd.md) |
+| C — Release, support, and verification | Project owner | Not started |  |  |
+| D — Product-led evidence and supply activation | Project owner | Not started |  | [Approved evidence model](S1_D01_STAGE_1_CHARTER.md) |
+| E — Free Sofia marketplace observation | Project owner | Not started |  |  |
+| F — Final decision | Project owner | Not started |  |  |
 
 ### Work-item tracker and severity rules
 
@@ -404,48 +418,48 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 
 | ID | Classification | Accountable role/name | Dependency | Status | Target | Evidence |
 |---|---|---|---|---|---|---|
-| S1-D01 | Must-have | Stage 1 owner | None | Not started |  |  |
-| S1-D02 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
-| S1-D03 | Must-have | Repository owner | S1-D01 | Done | 2026-07-20 | [Approved lifecycle/support policy contract](S1_D03_LIFECYCLE_SUPPORT_POLICY.md) |
-| S1-D04 | Must-have | Stage 1 owner | S1-D01 | Done | 2026-07-14 | [Recorded disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
-| S1-D05 | Must-have | Stage 1 owner | S1-D01 | Not started |  |  |
-| S1-E01 | Must-have | Engineering owner | S1-D04 | Done | 2026-07-14 | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md) |
-| S1-E02 | Must-have | Engineering owner | ADR-0002; remaining S1-D02 items | In progress |  | [Owner policy](adr/0002-contact-based-verification.md); [maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [TDD evidence](testing/s1_e02_account_verification.tdd.md) |
-| S1-E03 | Must-have | Engineering owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
-| S1-E04 | Must-have | Engineering owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
-| S1-E05 | Must-have | Repository owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
-| S1-E06 | Must-have; reminders may be operator-assisted | Engineering owner | S1-D03 | In progress — runtime verification pending | 2026-07-22 | [Evidence](testing/s1_e06_notification_reliability.tdd.md) |
-| S1-E07 | Must-have | Engineering owner | S1-D05 | Not started |  |  |
-| S1-E08 | Must-have | Engineering owner | S1-D03/D04 | Not started |  |  |
-| S1-E09 | Must-have | Engineering owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
-| S1-E10 | Must-have | Engineering owner | S1-D04 and provider decision | In progress | 2026-07-22 | [Backend geocoding TDD evidence](testing/s1_e10_geocoding_backend.tdd.md) |
-| S1-UX01 | Must-have | Engineering owner | S1-D04/D05 | Not started |  |  |
-| S1-UX02 | Must-have | Engineering owner | S1-D02/D05 | Not started |  |  |
-| S1-UX03 | Must-have | Engineering owner | Pilot-critical Gate B flows | Not started |  |  |
-| S1-UX04 | Must-have | Engineering owner | Pilot-critical Gate B flows | Not started |  |  |
-| S1-R01 | Must-have | Stage 1 owner | S1-D03/D04 | Not started |  |  |
-| S1-R02 | Must-have | Pilot operator | S1-D03 | Not started |  |  |
-| S1-R03 | Must-have | Engineering owner | Domain/TLS/hosting decisions | Not started |  |  |
-| S1-R04 | Must-have | Engineering owner | S1-R03 | Not started |  |  |
-| S1-R05 | Must-have | Engineering owner | S1-R03 | Not started |  |  |
-| S1-Q01 | Must-have | Stage 1 owner | S1-D01 metric approval | Not started |  |  |
-| S1-Q02 | Must-have | Engineering owner | Implemented backend scope | Not started |  |  |
-| S1-Q03 | Must-have | Engineering owner | Implemented frontend scope | Not started |  |  |
-| S1-Q04 | Must-have | Engineering owner | S1-Q02/Q03 and S1-R03–R05 | Not started |  |  |
-| S1-M01 | Must-have for M1 | Interview lead | Gate A research/privacy decisions | Not started |  |  |
-| S1-M02 | Must-have for M1 | Interview lead | S1-M01 | Not started |  |  |
-| S1-M03 | Must-have for M1 | Interview lead | S1-M01/M02 | Not started |  |  |
-| S1-M04 | Must-have for M1 | Interview lead | S1-M01 | Not started |  |  |
-| S1-M05 | Must-have for M1 | Stage 1 owner | S1-M02–M04 | Not started |  |  |
-| S1-O01 | Must-have before live jobs | Pilot operator | S1-D02 and selected cluster | Not started |  |  |
-| S1-O02 | Must-have only if an agency enters the pilot; otherwise deferred | Pilot operator | S1-D05 | Not started |  |  |
-| S1-O03 | Must-have before live jobs | Pilot operator | S1-O01/O02 as applicable | Not started |  |  |
-| S1-P01 | Operator-assisted; required if Gate E runs | Pilot operator | Gates A–C, M1 supports the segment/cluster, supply activation | Not started |  |  |
-| S1-P02 | Operator-assisted; required if Gate E runs | Pilot operator | S1-P01 | Not started |  |  |
-| S1-P03 | Operator-assisted; required if Gate E runs | Pilot operator | S1-P01/P02 | Not started |  |  |
-| S1-P04 | Operator-assisted; required if Gate E runs | Pilot operator | S1-P01 | Not started |  |  |
-| S1-P05 | Operator-assisted; required if Gate E runs | Pilot operator | Completed pilot jobs | Not started |  |  |
-| S1-F01 | Must-have to complete Stage 1 | Stage 1 owner | Applicable gate evidence | Not started |  |  |
+| S1-D01 | Must-have | Project owner | None | Done | 2026-07-23 | [Approved Stage 1 charter](S1_D01_STAGE_1_CHARTER.md) |
+| S1-D02 | Must-have | Project owner | S1-D01 | Not started |  |  |
+| S1-D03 | Must-have | Project owner | S1-D01 | Done | 2026-07-20 | [Approved lifecycle/support policy contract](S1_D03_LIFECYCLE_SUPPORT_POLICY.md) |
+| S1-D04 | Must-have | Project owner | S1-D01 | Done | 2026-07-14 | [Recorded disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
+| S1-D05 | Must-have | Project owner | S1-D01 | In progress |  | [Full-agency launch decision](S1_D01_STAGE_1_CHARTER.md) |
+| S1-E01 | Must-have | Project owner | S1-D04 | Done | 2026-07-14 | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md) |
+| S1-E02 | Must-have | Project owner | ADR-0002; remaining S1-D02 items | In progress |  | [Owner policy](adr/0002-contact-based-verification.md); [maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [TDD evidence](testing/s1_e02_account_verification.tdd.md) |
+| S1-E03 | Must-have | Project owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
+| S1-E04 | Must-have | Project owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
+| S1-E05 | Must-have | Project owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
+| S1-E06 | Must-have; reminders may be operator-assisted | Project owner | S1-D03 | In progress — runtime verification pending | 2026-07-22 | [Evidence](testing/s1_e06_notification_reliability.tdd.md) |
+| S1-E07 | Must-have | Project owner | S1-D05 | Not started |  |  |
+| S1-E08 | Must-have | Project owner | S1-D03/D04 | Not started |  |  |
+| S1-E09 | Must-have | Project owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
+| S1-E10 | Must-have | Project owner | S1-D04 and provider decision | In progress | 2026-07-22 | [Backend geocoding TDD evidence](testing/s1_e10_geocoding_backend.tdd.md) |
+| S1-UX01 | Must-have | Project owner | S1-D04/D05 | Not started |  |  |
+| S1-UX02 | Must-have | Project owner | S1-D02/D05 | Not started |  |  |
+| S1-UX03 | Must-have | Project owner | Pilot-critical Gate B flows | Not started |  |  |
+| S1-UX04 | Must-have | Project owner | Pilot-critical Gate B flows | Not started |  |  |
+| S1-R01 | Must-have | Project owner | S1-D03/D04 | Not started |  |  |
+| S1-R02 | Must-have | Project owner | S1-D03 | Not started |  |  |
+| S1-R03 | Must-have | Project owner | Domain/TLS/hosting decisions | Not started |  |  |
+| S1-R04 | Must-have | Project owner | S1-R03 | Not started |  |  |
+| S1-R05 | Must-have | Project owner | S1-R03 | Not started |  |  |
+| S1-Q01 | Must-have | Project owner | S1-D01 metric approval | Not started |  |  |
+| S1-Q02 | Must-have | Project owner | Implemented backend scope | Not started |  |  |
+| S1-Q03 | Must-have | Project owner | Implemented frontend scope | Not started |  |  |
+| S1-Q04 | Must-have | Project owner | S1-Q02/Q03 and S1-R03–R05 | Not started |  |  |
+| S1-M01 | Deferred by signed decision | Project owner | S1-D01 | Deferred by signed decision | 2026-07-23 | [Product-led validation decision](S1_D01_STAGE_1_CHARTER.md) |
+| S1-M02 | Deferred by signed decision | Project owner | S1-M01 | Deferred by signed decision | 2026-07-23 | [Product-led validation decision](S1_D01_STAGE_1_CHARTER.md) |
+| S1-M03 | Deferred by signed decision | Project owner | S1-M01/M02 | Deferred by signed decision | 2026-07-23 | [Product-led validation decision](S1_D01_STAGE_1_CHARTER.md) |
+| S1-M04 | Deferred by signed decision | Project owner | S1-M01 | Deferred by signed decision | 2026-07-23 | [Product-led validation decision](S1_D01_STAGE_1_CHARTER.md) |
+| S1-M05 | Deferred by signed decision | Project owner | S1-M02–M04 | Deferred by signed decision | 2026-07-23 | [Product-led validation decision](S1_D01_STAGE_1_CHARTER.md) |
+| S1-O01 | Must-have before live jobs | Project owner | S1-D02 and selected cluster | Not started |  |  |
+| S1-O02 | Must-have before live agency jobs | Project owner | S1-D05 | Not started |  |  |
+| S1-O03 | Must-have before live jobs | Project owner | S1-O01/O02 | Not started |  |  |
+| S1-P01 | Required if Gate E runs | Project owner | Gates A–C, product-led evidence readiness, supply activation | Not started |  |  |
+| S1-P02 | Required if Gate E runs | Project owner | S1-P01 | Not started |  |  |
+| S1-P03 | Required if Gate E runs | Project owner | S1-P01/P02 | Not started |  |  |
+| S1-P04 | Required if Gate E runs | Project owner | S1-P01 | Not started |  |  |
+| S1-P05 | Required if Gate E runs | Project owner | Actual activated users | Not started |  |  |
+| S1-F01 | Must-have to complete Stage 1 | Project owner | Applicable gate evidence | Not started |  |  |
 
 Severity means:
 
@@ -465,44 +479,46 @@ the evidence, create unsafe manual work, or block a participant.
 
 ### S1-D01 — Confirm the Stage 1 charter
 
-- [ ] Name the Stage 1 owner and all delivery roles.
-- [ ] Accept or revise the M0 monetization-priority order: liquidity,
+- [x] Name the Stage 1 owner and all delivery roles.
+- [x] Accept or revise the M0 monetization-priority order: liquidity,
       trust/retention, learning speed, operational simplicity, business-plan
       readiness, then early recurring revenue.
-- [ ] Sign off that the M0 free-core boundary remains free through validation
+- [x] Sign off that the M0 free-core boundary remains free through validation
       and that M0–M5 will not select a payment provider, commission rate, final
       subscription price, or billing implementation.
-- [ ] Confirm Sofia as the only launch cluster.
-- [ ] Confirm portfolio hosts as primary.
-- [ ] Confirm agencies as a research segment, not automatically a public launch
-      role.
-- [ ] Identify the current user/lead list and permitted read-only source, or
+- [x] Confirm Sofia as the only launch cluster.
+- [x] Select hosts managing approximately 1–20 properties as one primary
+      segment without automatic portfolio-host priority.
+- [x] Confirm agencies as a full launch role whose launch-critical workflow
+      must be complete before marketplace launch.
+- [x] Identify the current user/lead list and permitted read-only source, or
       record that no usable list exists.
-- [ ] Accept the M1 competitor categories: direct turnover workflow, adjacent
+- [x] Accept the future competitor categories: direct turnover workflow, adjacent
       operations SaaS, home-services marketplace, travel marketplace, and
-      payment providers as context only.
-- [ ] Approve the M1 timebox, budget, incentives, and evidence-labeling standard
-      from the M0/M1 documents.
-- [ ] Treat `action_plan.docx` as background unless individual assumptions are
+      payment providers as context only, plus explicit substitutes; defer the
+      desk research during this Stage 1 cycle.
+- [x] Replace the interview-led M1 cycle with a 90-day product-led observation
+      window, no candidate-interview budget or incentives, and the simplified
+      fact/assumption/recommendation/decision evidence labels.
+- [x] Treat `action_plan.docx` as background unless individual assumptions are
       explicitly approved.
-- [ ] Acknowledge that the signup-approval mismatch prevents approval-funnel
-      metrics from being treated as valid evidence until S1-E02 ships, while
-      consented interviews may still proceed.
-- [ ] Name the privacy/legal reviewer, or record that paid experiments remain
+- [x] Acknowledge that live-access and activation evidence are invalid until
+      S1-E02 implements and proves the approved email-plus-phone requirement.
+- [x] Name the privacy/legal reviewer, or record that paid experiments remain
       deferred until qualified reviewers are identified.
-- [ ] Confirm the platform remains free during this stage.
-- [ ] Confirm cleaning payment remains outside the platform between the
+- [x] Confirm the platform remains free during this stage.
+- [x] Confirm cleaning payment remains outside the platform between the
       contracting parties: host and cleaner or agency.
-- [ ] Approve the metric definitions and decision thresholds in this plan before
-      the first live job.
-- [ ] Approve completed/operationally successful jobs as the Stage 1 North Star
-      and update BUSINESS.md, which currently documents registrations as the
-      primary MVP signal.
+- [x] Approve descriptive reporting without numeric pass/fail thresholds; raw
+      counts, denominators, exclusions, and limitations remain mandatory.
+- [x] Approve role-ready activated users as the Stage 1 North Star and retain
+      operationally successful jobs as a supporting outcome measure.
 
-**Done when:** The decision register below has an owner, date, and final value
-for every blocking decision and every M1 entry criterion in the
-[M0 brief](monetization/M0_MONETIZATION_CONSTRAINTS_BRIEF.md) is signed or has a
-linked owner decision. Only then may M1 recruitment begin.
+**Done 2026-07-23:** The project owner approved the
+[S1-D01 Stage 1 charter](S1_D01_STAGE_1_CHARTER.md), including a disposition for
+every M0/M1 entry item. Candidate recruitment and interview-led M1 execution are
+deferred by that decision. The decision does not complete Gate A: S1-D02,
+S1-D05 delivery, and the remaining privacy/retention decisions are still open.
 
 ### S1-D02 — Define cleaner and agency verification
 
@@ -606,46 +622,47 @@ field/access allowlist for each audience.
 
 ### S1-D05 — Resolve agency participation and routing
 
-Choose exactly one live-participation model:
+**Owner decision recorded 2026-07-23 — full agency launch role.**
 
-- **Recommended — research only:** Disable public agency registration for Stage
-  1, hide it in signup, reject it server-side, and route existing agency
-  accounts to the generic status workspace. Prevent agency applications,
-  offers, assignments, and member delegation in live pilot data.
-- **Alternative — controlled live agency:** Public registration may remain
-  disabled, but the minimum agency workspace becomes mandatory before the first
-  agency job: membership/invitations, accepted jobs, assignments, immutable
-  eligible-member delegation, notifications, role guards, and end-to-end tests.
+- Enable the complete agency signup/onboarding path under the same
+  email-plus-phone and approval requirements as hosts and cleaners.
+- Deliver the agency workspace before full marketplace launch: profile and
+  service area, member invitations/membership, eligible jobs,
+  applications/offers, accepted jobs, assignments, immutable eligible-member
+  delegation, notifications, role guards, and end-to-end tests.
+- Add history-preserving agency cancellation, reschedule, incident, dispute,
+  and replacement recovery parity. The current safe `409` for unsupported
+  agency recovery remains correct until that explicit workflow ships.
+- Defer only advanced agency reporting, automation, and team-management
+  features that are not required for safe parity. Observe actual agency
+  behavior before selecting those additions.
 
-Agency interviews and manual agency recruitment can continue while public signup
-is disabled. A generic status page is never sufficient for an agency to handle
-a live assignment.
-
-**Done when:** No user role reaches a missing or misleading route, and no agency
-can receive live work unless the controlled-live option and its workspace have
-passed Gate B/C verification.
+**Done when:** No agency reaches a missing or misleading route; a role-ready
+agency can complete the full safe workflow with a separately role-ready member;
+agency recovery preserves history and delegation invariants; and all agency
+Gate B/C checks pass.
 
 ### Blocking decision register
 
 | Decision | Recommended default | Owner | Final decision | Date |
 |---|---|---|---|---|
-| Monetization priority order | Liquidity → trust/retention → learning → simplicity → plan readiness → recurring revenue |  |  |  |
-| Free-core/payment boundary | Preserve M0 free core through M0–M5; no provider, commission, final price, or billing build |  |  |  |
-| Current user/lead data | Name a permitted read-only source or record none |  |  |  |
-| M1 competitor categories | Accept the five M0 categories; payment providers are context only |  |  |  |
-| M1 budget/timebox/incentives | Two-week research timebox; owner supplies budget and incentive ceiling |  |  |  |
-| Evidence labeling | Use the M0 verified fact/internal planning input/estimate/assumption/hypothesis/recommendation/review/final decision labels |  |  |  |
-| `action_plan.docx` status | Background only unless an assumption is separately approved |  |  |  |
-| Qualified review | Name privacy/legal reviewer; defer paid experiments if unavailable |  |  |  |
+| Monetization priority order | Liquidity → trust/retention → learning → simplicity → plan readiness → recurring revenue | Project owner | Accept recommended order | 2026-07-23 |
+| Free-core/payment boundary | Preserve M0 free core through M0–M5; no provider, commission, final price, or billing build | Project owner | Accept unchanged | 2026-07-23 |
+| Current user/lead data | Name a permitted read-only source or record none | Project owner | No usable compliant list | 2026-07-23 |
+| M1 competitor categories | Accept the five M0 categories; payment providers are context only | Project owner | Add explicit substitutes; defer research | 2026-07-23 |
+| M1 budget/timebox/incentives | Two-week research timebox; owner supplies budget and incentive ceiling | Project owner | Replace with 90-day product-led observation; no candidate incentives | 2026-07-23 |
+| Evidence labeling | Use the M0 verified fact/internal planning input/estimate/assumption/hypothesis/recommendation/review/final decision labels | Project owner | Use fact, assumption, recommendation, decision | 2026-07-23 |
+| `action_plan.docx` status | Background only unless an assumption is separately approved | Project owner | Background only | 2026-07-23 |
+| Qualified review | Name privacy/legal reviewer; defer paid experiments if unavailable | Project owner | Owner-led pre-launch review; no independent qualification claimed; paid experiments deferred | 2026-07-23 |
 | Public demand presentation | District aggregates; no exact pins |  |  |  |
 | Public cleaner/review publication | Minimal consented profile allowlist; non-identifying review references; moderated/redactable public text |  |  |  |
 | Map/geocoder boundary | Approved backend-proxied provider or disable exact third-party location features |  |  |  |
 | Cleaner verification evidence | Identity check + behavior interview + reference or trial |  |  |  |
 | Verification document copies | Do not retain unless qualified review requires it |  |  |  |
-| Stage 1 agency participation | Research only; disable public signup and every live agency assignment route |  |  |  |
+| Stage 1 agency participation | Research only; disable public signup and every live agency assignment route | Project owner | Full launch-critical agency parity before launch | 2026-07-23 |
 | Reminder timing | Approximately T−24h and T−2h for tight turnovers |  |  |  |
-| Pilot incentives | Pay only for participant time, never positive answers |  |  |  |
-| Research recording | Separate opt-in from notes, quotes, and follow-up |  |  |  |
+| Pilot incentives | Pay only for participant time, never positive answers | Project owner | No incentives approved | 2026-07-23 |
+| Research recording | Separate opt-in from notes, quotes, and follow-up | Project owner | No candidate interviews; optional actual-user surveys only | 2026-07-23 |
 | Support channel and hours | One monitored channel with published limitations |  |  |  |
 | Pilot district cluster | Select from M1 demand/supply evidence |  |  |  |
 | Standard-turnover notice threshold | First supply exposure at least 48 hours before required start; shorter turnovers form a separate urgent cohort |  |  |  |
@@ -657,8 +674,8 @@ passed Gate B/C verification.
 | Operator-time formula | Total recurring minutes across every evaluable standard turnover lineage / operationally successful lineages; 15-minute maximum recommended |  |  |  |
 | Host cancellation after exposure | Retain as an exposed attempt and classify outcome/reason; never silently exclude |  |  |  |
 | Replacement/R17 model | Owner-approved turnover lineage; immutable cancelled attempts; only one actionable same-slot job; host acceptance/pre-authorization |  |  |  |
-| Stage 1 thresholds | Approve Section 15 before first job |  |  |  |
-| Stage 1 North Star | Operationally successful Sofia jobs per week; registrations are a funnel metric |  |  |  |
+| Stage 1 thresholds | Approve Section 15 before first job | Project owner | Descriptive reporting; no numeric pass/fail thresholds | 2026-07-23 |
+| Stage 1 North Star | Operationally successful Sofia jobs per week; registrations are a funnel metric | Project owner | Role-ready activated users by role | 2026-07-23 |
 
 ---
 
@@ -1524,10 +1541,14 @@ Acceptance criteria:
 
 ---
 
-## 12. Gate D, part 1 — Execute M1 research
+## 12. Gate D, part 1 — Interview-led M1 deferred
 
-The detailed interview guides and templates remain in the
-[M1 plan](monetization/M1_MARKET_CUSTOMER_COMPETITOR_RESEARCH_PLAN.md).
+**Deferred by signed owner decision on 2026-07-23.** Do not execute or report
+the interview, recruitment, or competitor-research items below as Stage 1 work.
+They are retained for a later research or monetization phase. Before public
+launch, replace this gate with the approved operational-data, consented
+analytics, and admin-initiated actual-user survey evidence contract in the
+[S1-D01 charter](S1_D01_STAGE_1_CHARTER.md).
 
 ### S1-M01 — Research setup
 
@@ -1690,37 +1711,31 @@ available for every job.
 
 ---
 
-## 14. Gate E — Free Sofia concierge fulfillment pilot
+## 14. Gate E — Free Sofia marketplace observation
 
-### S1-P01 — Pilot charter
+### S1-P01 — Observation charter
 
 Record before launch:
 
-- [ ] Selected Sofia micro-cluster.
-- [ ] Five to eight qualified hosts in a designated evaluation cohort. A
-      qualified cohort host is an approved target-segment host with an active
-      Sofia STR property and at least one genuine standard turnover expected
-      inside the activation window.
-- [ ] Activated marketplace-eligible cleaner pool; any stronger manual-evidence
-      cohort label depends on S1-D02.
-- [ ] Controlled agencies, if any.
-- [ ] Cohort-freeze rule: designate five to eight qualified hosts and freeze
-      membership before the first measured pilot job.
-- [ ] Activation-window rule: approve a fixed activation window before launch
-      (recommended: 14 days). At least five frozen-cohort hosts must reach a
-      first operationally successful job inside it. Retain non-activating hosts
-      as failed-activation evidence.
-- [ ] Closeout rule: wait until every host who qualifies inside that activation
-      window has 30 complete days after their own first operationally
-      successful job. Analyze late hosts separately; never add them to the
-      frozen repeat-use denominator.
+- [ ] Confirm Sofia as the launch boundary.
+- [ ] Record the exact full-marketplace launch timestamp; the 90-day observation
+      clock begins only then.
+- [ ] Prove role-ready activation for hosts, cleaners, agencies, and delegated
+      members under the email-plus-phone rule.
+- [ ] Prove full launch-critical agency parity.
+- [ ] Confirm that every eligible Sofia job is available under the normal
+      privacy, authorization, status, and timing rules without an invite-only
+      cohort or operator-release gate.
+- [ ] Version the operational metric dictionary, consented analytics events,
+      survey processor/notice, exclusion reasons, and retention/deletion rules.
+- [ ] Confirm the day-91 evidence-pack and owner-decision process.
 - [ ] Free platform participation; cleaning payment remains off-platform.
 - [ ] Operator hours and emergency channel.
 - [ ] Manual actions the operator will perform.
 - [ ] Honest limitations and no guarantee of coverage.
 - [ ] Privacy and property-access rules.
 - [ ] Incident/cancellation escalation.
-- [ ] Approved thresholds in Section 15.
+- [ ] Confirm descriptive reporting with no numeric pass/fail thresholds.
 
 ### S1-P02 — Per-host onboarding
 
@@ -1738,17 +1753,18 @@ Record before launch:
 ### S1-P03 — Per-job operating runbook
 
 1. Host posts a genuine, complete job.
-2. Operator verifies scope, removes unnecessary guest data, and freezes the
-   job’s metric eligibility at publication. Record whether it is a standard or
-   urgent job, the notice band, in-cluster status, and any exclusion reason.
-   Before supply exposure, a materially changed record may be superseded and
-   excluded with a reason. After exposure, the original attempt remains in its
-   denominator with its outcome and the changed request creates a linked
-   measurement attempt. Never reset or double-count an exposed attempt.
+2. The system determines eligibility and makes the job available at
+   publication without waiting for operator release. The operator may audit
+   scope and remove prohibited guest data asynchronously under the approved
+   moderation policy. Record whether it is a standard or urgent job, the notice
+   band, Sofia status, and any exclusion reason. After exposure, the original
+   attempt remains in reporting with its outcome and any materially changed
+   request creates a linked attempt. Never reset or double-count an exposed
+   attempt.
 3. Eligible supply is determined at that time by approval, verification,
    district, availability, notice, and travel limits.
-4. The job is surfaced through the platform; consented manual outreach may
-   supplement it.
+4. The job is surfaced through the platform to every eligible participant;
+   consented manual outreach may supplement but never delay availability.
 5. Record publish time, every targeted outreach event, first qualified response,
    first qualified application, `first_qualified_response_mode`, and
    `assignment_source`: `organic_application`, `host_direct_offer`, or
@@ -1797,9 +1813,11 @@ standard review flow.
   overwrite normal member delegation.
 - Critical safety/privacy incident: pause the affected workflow and escalate.
 
-### S1-P05 — Post-job debrief
+### S1-P05 — Optional actual-user survey
 
-Ask both parties:
+An admin may select actual users through the approved audience filters and send
+a localized in-app/email invitation to the approved external survey. Questions
+may cover:
 
 - What happened versus what was expected?
 - Which step needed a call/message outside the product?
@@ -1814,6 +1832,13 @@ Ask both parties:
 
 ## 15. Metrics and Stage 1 decision gates
 
+**Owner amendment — 2026-07-23:** Stage 1 uses descriptive reporting and has no
+numeric pass/fail thresholds. The formulas and recommended values below remain
+useful reporting definitions and historical recommendations, but they do not
+restrict eligible job availability and must not be presented as owner-approved
+success cutoffs. The 90-day readout must show raw counts, denominators,
+exclusions, unknowns, role splits, limitations, and counter-evidence.
+
 These are recommended planning thresholds, not market facts. Approve them before
 the first live job and do not move them after seeing results.
 
@@ -1823,7 +1848,9 @@ the first live job and do not move them after seeing results.
 |---|---|
 | Genuine job | A real booked-property turnover requested by an approved target host; excludes seed/demo/test, duplicate, invalid, fabricated, and research-only records |
 | Turnover lineage | One genuine turnover need plus its original, superseded, and linked replacement job/measurement attempts. Count the lineage once in volume, fill, completion, and operational-outcome metrics; retain attempt-level response, cancellation, recovery, and operator-work evidence |
-| Frozen evaluation cohort | The five to eight qualified hosts designated before the first measured pilot job; membership does not change after launch |
+| Observation population | All non-test Sofia hosts, cleaners, agencies, and delegated members eligible to enter onboarding or marketplace activity during the 90-day window; report pre-launch and post-launch registrations separately |
+| Role-ready activated user | An email-and-phone-verified, active approved account with complete role-specific onboarding under the S1-D01 charter; report raw counts separately for hosts, cleaners, and agencies |
+| Role activation rate | Role-ready activated users / non-test accounts in the same role that were eligible to activate during the observation window; show pre-launch and post-launch account cohorts separately |
 | Evaluable standard turnover | A genuine turnover lineage in the selected cluster whose first exposed attempt is frozen as eligible at least the owner-approved minimum notice before start (recommended: 48 hours). A withdrawal/material change before supply exposure may be excluded/superseded with reason; after exposure the original attempt remains recorded and a changed request becomes a linked attempt without creating a second volume denominator |
 | Urgent turnover | A genuine turnover whose first exposed attempt is below the minimum-notice threshold; report it as a separate cohort and never use it to lower the standard-turnover denominator |
 | Qualified response | A response from an active marketplace-eligible in-area cleaner whose recorded availability/travel limits fit the job, through one recorded match mode |
@@ -1837,23 +1864,22 @@ the first live job and do not move them after seeing results.
 | Cancellation/no-show rate | Assigned evaluable standard turnover lineages with at least one cleaner cancellation or no-show / assigned evaluable standard turnover lineages |
 | At-risk turnover | An assigned turnover lineage affected by cleaner cancellation, no-show, or another documented material delivery risk that activates the recovery runbook |
 | Recovery rate | At-risk turnover lineages covered by a linked replacement job before required start / at-risk turnover lineages. With zero at-risk lineages, the result is `Not observed`, never 100% |
-| Cohort activation rate | Frozen-cohort hosts reaching a first operationally successful job inside the approved activation window / all frozen-cohort hosts |
-| Matured host | A frozen-cohort host who reached a first operationally successful job inside the activation window and has since received 30 complete observation days |
+| Matured host | A role-ready host who reached a first operationally successful job early enough to receive 30 complete observation days before the Stage 1 readout |
 | Repeat-host rate | Matured hosts who intentionally publish a new genuine job after their first operational-success timestamp and within the following 30 days / all matured hosts. Pre-existing drafts, monthly-batch jobs, imports, or other jobs created before first success do not count as repeat behavior |
-| Active eligible supply | Marketplace-eligible cleaners with current availability who respond during the pilot; email-only status is not an identity-verification claim |
+| Active eligible supply | Email-and-phone-verified marketplace-eligible cleaners and role-ready agency members with current availability who respond during the observation window |
 | District coverage | Active district/time bands with at least two total eligible activated cleaners (one potential assignee plus one distinct potential backup) / all active district/time bands |
 | Recurring operator effort per success | Total recurring operator minutes across all evaluable standard turnover lineages—including unfilled, cancelled, failed, and recovery work—/ operationally successful lineages |
 | Per-turnover operator effort | Median and maximum recurring operator minutes across all evaluable standard turnover lineages |
-| Host activation effort | Total and median onboarding/activation minutes per activated frozen-cohort host |
+| Host activation effort | Total and median onboarding/activation minutes per role-ready activated host |
 | Supply activation effort | Total and median verification/activation minutes per active cleaner or agency member |
 | Material incident | Approved severity definition covering safety, privacy, damage, access, or unresolved quality |
 
 Freeze eligibility and match mode at the events defined above. Retain and
-report excluded turnover lineages with reason counts, but do not move lineages
-between cohorts after viewing results. Segment urgent turnovers, direct offers,
+report excluded turnover lineages with reason counts, and keep pre-launch and
+post-launch account cohorts separate. Segment urgent turnovers, direct offers,
 and operator-assisted matches; never combine them into an “organic” claim.
 
-### Evidence gate
+### Historical evidence recommendations — not pass/fail
 
 - At least 5 qualified portfolio-host interviews.
 - At least 3 qualified agency interviews.
@@ -1867,7 +1893,7 @@ and operator-assisted matches; never combine them into an “organic” claim.
   host-cleaner introduction.
 - The Sofia cluster and target segment are explicitly supported or rejected.
 
-### Pilot volume gate
+### Historical pilot-volume recommendations — not pass/fail
 
 - Five to eight qualified hosts are frozen before the first measured job, and
   at least 5 of them reach a first operationally successful job inside the
@@ -1884,7 +1910,7 @@ and operator-assisted matches; never combine them into an “organic” claim.
 - Every launched district/time band has at least two total active verified
   cleaners: one potential assignee and one distinct potential backup.
 
-### Reliability gate
+### Historical reliability recommendations — not pass/fail
 
 - At least 70% of evaluable standard turnover lineages receive a qualified
   response within 24 hours of first supply exposure across the recorded match
@@ -1927,8 +1953,12 @@ statistically representative.
   geocoding third party.
 - Calendar URL import is disabled or passes the SSRF/redirect/size/content gate.
 - Real signup creates a safe pending base and then applies automatic contact
-  reconciliation; manual cleaner evidence verification remains blocked by S1-D02.
+  reconciliation. Verified email plus verified phone are required before live
+  host, cleaner, agency, or delegated-member access; the remaining verification
+  policy is governed by S1-D02.
 - No enabled role has a dead route/action.
+- Full launch-critical agency parity, including history-preserving recovery,
+  passes end to end.
 - No overlapping active cleaner assignments survive concurrency.
 - Minimum cancellation, reschedule, no-show, dispute, and replacement recovery
   work end to end and preserve history.
@@ -1946,18 +1976,22 @@ statistically representative.
 
 #### Proceed to Stage 2
 
-Proceed only when the evidence, volume, reliability, repeat-use, trust,
-operator-effort, and release gates pass. The final readout must identify only
-the next one to three product changes, each tied to observed failure evidence.
+Proceed only when all safety and release gates pass and the 90-day descriptive
+evidence supports continued investment. The owner must state why the observed
+activation, job, reliability, repeat-use, agency, trust, and operator-effort
+evidence is sufficient despite having no numeric success cutoff. The final
+readout must identify only the next one to three product changes, each tied to
+observed evidence.
 
-Stage 2 monetization/WTP work remains governed by the M2 entry gate; Stage 1 does
-not approve prices or billing.
+Stage 1 does not approve prices or billing. Any monetization/WTP phase must
+reopen the deferred research gate and receive a separate owner decision.
 
 #### Extend once
 
 Extend for no more than 14 days when:
 
-- sample or job volume is below threshold but recruitment is credible;
+- observed activation or job volume is too low to support a decision but
+  continued acquisition is credible;
 - a temporary disruption distorted results; or
 - one specific district/segment adjustment can resolve the uncertainty.
 
@@ -2004,8 +2038,9 @@ Pause or stop when:
 
 Closure rules:
 
-- **Proceed** requires every applicable Gate A–E entry/exit condition and the
-  product, evidence, volume, reliability, and repeat-use gates to pass.
+- **Proceed** requires every applicable safety, product, release, privacy,
+  agency, verification, and evidence-readiness condition to pass, plus a signed
+  owner rationale based on the complete 90-day descriptive record.
 - **Extend once** is temporary, lasts no more than 14 days, and requires a
   single written uncertainty, owner, target sample/job count, and final decision
   date. It does not complete Stage 1 until the follow-up readout selects
@@ -2014,9 +2049,9 @@ Closure rules:
   a live pilot when evidence already rejects the segment or makes continuation
   unsafe. Failed and not-run gates, saved evidence, sunk work, and the reason
   for stopping must still be recorded.
-- If M1 rejects the target segment/cluster, mark Gate E **Not run — rejected by
-  M1 evidence**. Do not manufacture pilot activity to make the tracker look
-  complete.
+- If pre-launch evidence makes continuation unsafe or infeasible, mark Gate E
+  **Not run** with the exact reason. Do not manufacture launch activity to make
+  the tracker look complete.
 
 **Done when:** One signed, dated decision and its traceable evidence pack exist;
 there are no competing or provisional final decisions.

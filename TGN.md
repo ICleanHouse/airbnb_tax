@@ -145,6 +145,10 @@ AuditLog ──[references]────────► (any entity — polymorph
 - If phone is required, normal reconciliation waits for both contact
   timestamps. An explicit disabled account requirement is a guarded
   test/rehearsal shortcut and marks the user as excluded from genuine evidence.
+- The approved Stage 1 marketplace-launch target sets phone as required for
+  hosts, cleaners, agencies, and delegated agency members. Until phone OTP and
+  role guards pass release verification, public onboarding does not authorize
+  live Stage 1 work.
 - `approved` → `suspended` by admin action. `pending` may also be suspended.
 - `rejected` is terminal for marketplace access.
 - A 6-digit email confirmation code is sent before account creation; final signup requires the verified token.
@@ -423,13 +427,18 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
     - Cleaner marking done completes the job outright (no host confirm); a review.requested
       notification deep-links via ?reviewJob=<id> into the ReviewModal double-blind window
 
-/agency   [NOT BUILT]             [role: agency only]
+/agency   [NOT BUILT — STAGE 1 LAUNCH BLOCKER]   [role: agency only]
   planned reads: GET /api/accounts/me/
                  GET /api/accounts/agency-memberships/
                  GET /api/marketplace/assignments/
   planned writes: POST /api/marketplace/assignments/{id}/assign-member/
                   POST /api/accounts/agencies/{id}/invite-cleaner/
 ```
+
+The 2026-07-23 S1-D01 charter requires the launch-critical agency path to add
+profile/member management, eligible work, applications/offers, assignments,
+immutable delegation, notifications, verification state, and
+history-preserving recovery before full marketplace launch.
 
 ---
 

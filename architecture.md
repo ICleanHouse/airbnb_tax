@@ -106,7 +106,10 @@ Future extraction into microservices should be possible without rewriting core b
 
 ### Not yet built
 
-- `/agency` — agency dashboard (manage members, view jobs).
+- `/agency` — agency dashboard (manage members, view jobs). The 2026-07-23
+  S1-D01 charter makes full launch-critical agency parity a marketplace-launch
+  blocker, including agency recovery rather than only the existing backend
+  invitation/delegation primitives.
 - Applications review panel inside the host dashboard (host sees applications per job, accepts one).
 - Manual cleaner evidence verification (blocked by S1-D02; the interim contact
   reconciliation status surface is part of S1-E02).
@@ -142,6 +145,9 @@ Rules:
 - Email-code confirmation is implemented for signup and satisfies the interim
   contact policy while phone is not required. SMS/phone OTP remains planned;
   full verification requires both email and phone timestamps.
+- The Stage 1 marketplace-launch target requires both verified email and phone
+  for hosts, cleaners, agencies, and delegated agency members. The current
+  email-only interim policy is not sufficient for live Stage 1 work.
 - Normal signup stays on `/signup`; old signup step routes exist only as redirects.
 - Signup UI fields must map to backend serializer fields and persistent profile fields. When Cleaner, Host, or Agency onboarding changes, update models, migrations, serializer validation, profile serializers, frontend payloads, and tests in the same change.
 
@@ -301,6 +307,13 @@ The complete implemented/reserved event and recipient contract is versioned in
 matching/offers, applications, assignment/delegation, direct S1-E05 recovery,
 completion/reviews, connections/messages, and operator-recorded reminders.
 Unsupported S1-D02 outcomes and agency recovery remain reserved, not inferred.
+
+The approved Stage 1 evidence boundary also requires an admin-initiated survey
+invitation capability before the 90-day observation period: role/activation/
+city/activity filters, explicit recipient selection and preview, localized
+in-app/email delivery through the durable notification contract, and an
+approved external survey link. Native survey authoring and response storage are
+out of scope.
 
 Domain services mutate their own state and emit a typed request. Event,
 delivery, attempt, and in-app rows are persisted atomically; only email delivery

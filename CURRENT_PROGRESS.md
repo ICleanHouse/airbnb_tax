@@ -1,6 +1,6 @@
 # Current Progress Handoff
 
-Updated: 2026-07-22.
+Updated: 2026-07-23.
 
 This is a concise resume point, not a historical changelog. Detailed domain
 state belongs in [TGN.md](TGN.md), Stage 1 work in
@@ -9,6 +9,13 @@ implementation proof in `docs/testing/`.
 
 ## Current Stage 1 state
 
+- **S1-D01 — Done.** The project owner approved the Stage 1 charter: Sofia-only
+  launch; hosts with 1–20 properties as one primary segment; full
+  launch-critical agency parity; verified email plus phone before live access;
+  role-ready activated users as North Star; and a 90-day product-led,
+  descriptive observation period. Candidate interviews and competitor desk
+  research are deferred. See
+  [S1-D01 Stage 1 charter](docs/S1_D01_STAGE_1_CHARTER.md).
 - **S1-E05 — Partially complete by accepted ADR.** Direct host/cleaner recovery
   is implemented: counterpart-consented rescheduling, private attendance
   incidents, host-authorized draft replacements, private disputes, account
@@ -36,7 +43,10 @@ implementation proof in `docs/testing/`.
 
 ## Owner decisions still needed
 
-- Complete S1-D01, S1-D02, and S1-D05 before dependent Stage 1 work begins.
+- Complete S1-D02's phone and role-verification policy and finish S1-D05's full
+  agency launch path before dependent live-marketplace work begins.
+- Re-baseline Gate D, instrumentation, and the final readout around the approved
+  product-led descriptive model before public launch.
 - Approve Geoapify as the precise-location processor/recipient and record the
   privacy and budget decisions before production use.
 - Keep the v1 no-payments boundary unchanged unless the business owner opens a

@@ -272,6 +272,15 @@ review.
 
 ## 10. M1 entry criteria
 
+**Owner disposition — 2026-07-23:** Interview-led M1 is deferred and is not the
+active Stage 1 validation method. The owner approved the free-core boundary,
+priority order, Sofia cluster, 1–20-property host segment, full agency launch
+role, absence of a usable lead list, future competitor categories plus
+substitutes, a 90-day product-led observation window with no candidate
+incentives, and a simplified four-label evidence scheme. See
+[S1-D01 Stage 1 charter](../S1_D01_STAGE_1_CHARTER.md). The criteria below remain
+the entry gate if interview-led M1 is reopened.
+
 M1 should begin only when each criterion is met:
 
 | Criterion | Required evidence |
@@ -286,9 +295,9 @@ M1 should begin only when each criterion is met:
 | Evidence-labelling standard accepted | Owner accepts verified fact/internal input/estimate/assumption/hypothesis/recommendation/review/final decision labels. |
 | Approval-status mismatch acknowledged | Owner accepts that signup approval mismatch must be resolved before approval-funnel metrics drive monetization decisions. |
 
-Current readiness: **not ready for M1** until owner priorities, target cities,
-segments, data availability, research budget/timebox, and approval-status
-mismatch handling are confirmed.
+Current readiness: **M1 deferred by owner decision.** The owner-entry decisions
+are recorded, but candidate interviews and competitor desk research must not be
+reported as completed or active Stage 1 evidence.
 
 ## 11. Owner decision checklist
 

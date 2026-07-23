@@ -35,10 +35,13 @@ implementation proof in `docs/testing/`.
   network trace. The complete contract and provider review are in
   [S1-E10 map and geocoding capability](docs/S1_E10_MAP_GEOCODING_CAPABILITY.md).
 - **S1-E02 — In progress.** Email-based interim contact access is implemented.
-  The approved target still needs an EEA SMS/provider decision, phone OTP,
+  The approved-target maturity audit was refreshed on 2026-07-23 with the
+  implementation contract, gap matrix, external blockers, and six delivery
+  batches. The target still needs an EEA SMS/provider decision, phone OTP,
   normalized-number reservation/transfer, all-role private birth-date handling,
   contact-change recovery, owner-admin restoration, seven-day pending expiry,
-  lifecycle-aligned cleanup, and the scoped badge. See
+  lifecycle-aligned cleanup, and the scoped badge. See the
+  [refreshed S1-E02 maturity audit](docs/testing/s1_e02_account_verification_maturity_audit.md),
   [S1-D02](docs/S1_D02_CONTACT_ELIGIBILITY_POLICY.md) and
   [ADR-0002](docs/adr/0002-contact-based-verification.md).
 - **S1-E06 — Implemented; runtime evidence pending.** The versioned notification

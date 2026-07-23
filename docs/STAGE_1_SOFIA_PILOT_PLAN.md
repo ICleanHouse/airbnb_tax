@@ -8,6 +8,127 @@
 | Scope | Product, engineering, research, operations, and release work required to complete Stage 1 |
 | Decision at exit | Proceed, extend once, pivot, or stop |
 
+## Stage 1 execution dashboard — 2026-07-23
+
+This is the top-level resume view for every named work item in the original
+plan. The detailed checklists and acceptance criteria remain authoritative in
+their sections below. Update this dashboard, the Gate tracker, and the
+work-item tracker together whenever status changes.
+
+Status meanings:
+
+- **Done:** the scoped item has linked evidence; any stated follow-up is
+  maintenance or a separately tracked dependency.
+- **In progress:** implementation or a required decision has started.
+- **Partially complete:** a safe subset is implemented, but the item cannot
+  pass its full acceptance criteria.
+- **Not started:** no execution has begun; a dependency may still prevent
+  starting it.
+- **Deferred by signed decision:** intentionally paused and not current Stage 1
+  execution work.
+
+### Gate status and next gate action
+
+| Gate | Status | Next gate action |
+|---|---|---|
+| A — Decisions and operating policy | In progress | Finish S1-D05 agency delivery scope and close the remaining incident/measurement, public-publication, map-provider, and retention decisions. |
+| B — Product and workflow readiness | In progress | Complete S1-E02 and full agency parity; close recovery, routing, geocoding approval, onboarding, mobile, and accessibility work. |
+| C — Release, support, and verification | Not started | Start policy/support preparation, then secure deployment, restore/rollback, observability, instrumentation, and the release evidence matrix. |
+| D — Product-led evidence and supply activation | Not started | Replace the deferred interview gate with the approved operational-data/survey contract, select the Sofia operating cluster, and activate eligible cleaner/agency capacity. |
+| E — Free Sofia marketplace observation | Not started; blocked by Gates A–D | Start only after release and supply gates pass; record the full-launch timestamp and run the 90-day observation. |
+| F — Final decision | Not started | After the observation/evidence pack, select exactly one signed outcome: Proceed, Extend once, Pivot, or Stop. |
+
+### Ordered engineering and launch steps
+
+This preserves the implementation order from Section 19 while making current
+state and the next action visible.
+
+| Order | Plan step | Status | Next action |
+|---:|---|---|---|
+| 1 | Record policy/architecture decisions | In progress | Finish S1-D05 delivery framing, S1-D03 measurement addendum, S1-D04 public-publication/retention decisions, and map/SMS provider approvals. |
+| 2 | Maintain public-data/profile/review and property-media containment | Done; ongoing regression duty | Keep S1-E01 privacy tests in every release gate. |
+| 3 | Complete contact verification under S1-D02 | In progress | The target maturity audit and batches are refreshed; select the EEA SMS provider/privacy/rate-limit contract, then execute Batches 1–6. |
+| 4 | Remove sensitive signup persistence | Done; ongoing regression duty | Keep the browser-storage and telemetry allowlist tests. |
+| 5 | Repair anonymous conversion and role routing | Not started | Implement S1-E07, including safe return targets, usable status errors, agency routing, and removal of dead OAuth controls. |
+| 6 | Enforce authoritative assignment-overlap protection | Done for implemented assignment paths | Resolve the separate availability/work-preference documentation drift and reuse the overlap service in future reschedule/replacement assignment paths. |
+| 7 | Add history-preserving lifecycle/recovery | Partially complete | Deliver agency recovery parity and correct delegated-member completion/review notifications. |
+| 8 | Disable calendar URL import and validate enabled uploads | Done | Keep URL fetching absent and preserve upload-security regression coverage. |
+| 9 | Govern exact maps/geocoding through the owned API boundary | In progress | Approve Geoapify/privacy/budget terms, update the privacy notice, and capture an authenticated browser network trace. |
+| 10 | Complete reliable critical notifications and reminders | In progress; implementation complete, runtime evidence pending | Run PostgreSQL 16, Redis/Celery, and real-provider smoke evidence before marking S1-E06 Done. |
+| 11 | Complete landing, onboarding, mobile, accessibility, and recovery UX | Not started | Start S1-UX01/02 after S1-D05/S1-E02 contracts are stable, then run mobile and WCAG gates. |
+| 12 | Complete instrumentation and the backend/frontend/browser test matrix | Not started as a consolidated gate | Re-baseline S1-Q01 for product-led evidence, then close S1-Q02–Q04 against the final implemented scope. |
+| 13 | Deploy securely and prove restore/rollback/support | Not started | Complete S1-R01–R05, including domain/TLS, production PostgreSQL/Redis, support runbooks, point-in-time restore, rollback, and alerts. |
+| 14 | Start genuine Sofia observation | Not started; blocked by prior gates | Select/activate the operating cluster and backup capacity, sign release readiness, then start the 90-day clock at full marketplace launch. |
+
+### Complete work-item status and next actions
+
+#### Gate A — decisions and policy
+
+| ID | Work item | Status | Next action |
+|---|---|---|---|
+| S1-D01 | Confirm the Stage 1 charter | Done | Maintain the signed charter as the scope boundary. |
+| S1-D02 | Define cleaner and agency verification | Done | Execute the approved policy through S1-E02; do not reopen identity/quality vetting. |
+| S1-D03 | Define lifecycle and support policy | Done for transition contract; six measurement decisions open | Approve the incident matrix/adjudicator, operational-success tolerance, activation window, match-mode/organic threshold, operator-time formula, and exposed-host-cancellation denominator rule. |
+| S1-D04 | Define privacy and disclosure tiers | Done for disclosure tiers; three decisions open | Finalize public cleaner/review publication, Geoapify or no-provider handling, and cross-domain retention. |
+| S1-D05 | Resolve agency participation and routing | In progress | Deliver complete signup/onboarding, workspace, member eligibility, job/application/assignment, notification, and history-preserving recovery parity. |
+
+#### Gate B — product and workflow readiness
+
+| ID | Work item | Status | Next action |
+|---|---|---|---|
+| S1-E01 | Minimize public marketplace data and remove leakage | Done | Maintain serializer/media allowlists and recursive privacy tests. |
+| S1-E02 | Implement contact-based verification completion | In progress; target audit refreshed | Select/approve the EEA SMS provider and exact caps, then implement the six batches in the refreshed maturity audit. |
+| S1-E03 | Remove sensitive signup persistence | Done | Maintain storage, browser-history, logging, telemetry, and refresh-recovery regression tests. |
+| S1-E04 | Prevent overlapping cleaner assignments | Done for hard-overlap contract; availability follow-up open | Resolve the work-preference/availability documentation drift and keep operator-confirmed availability for the concierge cohort. |
+| S1-E05 | Add history-preserving failure and recovery workflows | Partially complete | Add agency-backed recovery without mutating delegation and fix delegated-member completion/review recipients. |
+| S1-E06 | Complete the reliability notification loop | In progress; runtime evidence pending | Prove PostgreSQL concurrency plus live Redis/Celery and provider delivery/failure behavior. |
+| S1-E07 | Repair conversion and role routing | Not started | Fix guest Connect/returns, status explanations, dead actions/OAuth controls, agency routes, notification links, and role redirects. |
+| S1-E08 | Add account recovery and safe account deletion | Not started | Implement localized password reset, throttling/enumeration resistance, operator fallback, blocked-deletion support flow, and retention/anonymization. |
+| S1-E09 | Secure or disable calendar URL import and uploads | Done with URL import disabled | Keep URL fetch absent; retain bounded ICS/image validation and privacy tests. |
+| S1-E10 | Govern maps, geocoding, and exact location | In progress | Approve provider/privacy/budget decisions, update policy disclosure, and capture the authenticated browser trace/fallback evidence. |
+| S1-UX01 | Build a safe conversion-complete landing page | Not started | Implement Sofia-specific value/actions, honest verification/coverage, privacy-safe lead capture, text alternative, and policy/support links. |
+| S1-UX02 | Make onboarding and activation honest | Not started | Reframe the email-code action and show the complete email/phone/age/profile/activation journey with locked-state explanations. |
+| S1-UX03 | Mobile-responsive pilot workflow | Not started | Test/fix the full pilot flow at 320/360/390/430 CSS pixels on Android Chrome and iOS Safari. |
+| S1-UX04 | WCAG 2.2 AA pilot gate | Not started | Implement the listed language, contrast, focus, error, target-size, reflow, map-alternative, axe, keyboard, and screen-reader checks. |
+
+#### Gate C — policy, support, release, operations, and verification
+
+| ID | Work item | Status | Next action |
+|---|---|---|---|
+| S1-R01 | Publish pilot policy surfaces | Not started | Produce reviewed BG/EN privacy, terms, cookie, verification, processor, research/pilot, retention, deletion, support, and incident disclosures. |
+| S1-R02 | Establish the Stage 1 support operation | Not started | Publish the monitored channel/hours, create the restricted tracker/runbooks, and rehearse every critical runbook. |
+| S1-R03 | Deploy a secure pilot environment | Not started | Provision domain/TLS, production secrets, PostgreSQL/Redis/private networking, admin protection, throttles/headers/scans, persistent media, and deployment documentation. |
+| S1-R04 | Add backup, restore, and rollback | Not started | Configure encrypted point-in-time database recovery and media backups, then prove clean-environment restore and release rollback. |
+| S1-R05 | Make observability active | Not started | Enable sanitized browser/Django/Celery errors, readiness/worker signals, external alerts, TLS/backup/notification monitoring, and request-ID tracing. |
+| S1-Q01 | Define the Stage 1 event and metric contract | Not started | Re-baseline events and the metric dictionary for the approved 90-day product-led model, including lineage, match mode, exclusions, operator time, consent, and raw counts. |
+| S1-Q02 | Backend test matrix | Not started as a consolidated gate; existing criteria partially covered | Map current evidence to every row, then add missing authorization, lifecycle, concurrency, reset/throttle, time, audit, and isolation tests. |
+| S1-Q03 | Frontend and browser test matrix | Not started | Add status/role/locale/mobile/accessibility cases and all twelve browser golden/recovery paths. |
+| S1-Q04 | Release commands and evidence | Not started | Add frontend/browser tests to CI and collect reproducible build, deploy, delivery, security, alert, restore, rollback, and sign-off evidence. |
+
+#### Gate D — deferred research and supply activation
+
+| ID | Work item | Status | Next action |
+|---|---|---|---|
+| S1-M01 | Research setup | Deferred by signed decision | Do not execute in Stage 1; reopen only in a later research/monetization phase. |
+| S1-M02 | Recruitment targets | Deferred by signed decision | Do not recruit the interview cohort during this Stage 1 cycle. |
+| S1-M03 | Interview procedure | Deferred by signed decision | Retain the procedure for a later approved research phase. |
+| S1-M04 | Competitor and current-state research | Deferred by signed decision | Retain the source plan; do not report deferred desk research as completed evidence. |
+| S1-M05 | M1 closeout | Deferred by signed decision | Replace this Stage 1 gate with the approved operational-data, consented-analytics, and optional actual-user-survey evidence contract. |
+| S1-O01 | Cleaner contact-eligibility checklist | Not started; blocked by S1-E02 and cluster selection | After the target ships, verify contact timestamps, private 18+ result, active/stored eligibility, evidence inclusion, honest badge, and no prohibited vetting data. |
+| S1-O02 | Agency verification checklist | Not started; blocked by S1-D05/S1-E02 | Verify the representative and every delegated member, immutable delegation/support recovery, and operational responsibilities. |
+| S1-O03 | Activate contact-eligible supply | Not started; blocked by S1-O01/O02 | Complete profiles, zones, two-week availability, capacity/travel/notice limits, product walkthrough, test message, and incident/cancellation training; maintain two cleaners per launched band. |
+
+#### Gates E and F — observation and decision
+
+| ID | Work item | Status | Next action |
+|---|---|---|---|
+| S1-P01 | Observation charter | Not started; blocked by Gates A–D | Sign the launch boundary, timestamp, full-role readiness, evidence/consent/retention contract, operator limits, and day-91 decision process. |
+| S1-P02 | Per-host onboarding | Not started; blocked by S1-P01 | Qualify each real Sofia host/property need, explain workflow/payment/cancellation, collect a genuine job, and record acknowledgement without guest data. |
+| S1-P03 | Per-job operating runbook | Not started operationally; runbook drafted | Execute and record all fourteen steps for each genuine turnover lineage once Gate E starts. |
+| S1-P04 | Failure runbook | Not started operationally; runbook drafted | Rehearse before launch, then use it for cancellation, no-response, no-show, safety/quality/privacy, and agency-substitution events. |
+| S1-P05 | Optional actual-user survey | Not started; optional | After real users exist and processor/notice/retention are approved, send only admin-selected localized invitations through the approved external survey. |
+| S1-F01 | Close Stage 1 explicitly | Not started | Audit every artifact/gate after the complete observation, record limitations/incidents/raw evidence, and sign exactly one final outcome. |
+
 **Start here:** Apply the approved
 [S1-D01 Stage 1 charter](S1_D01_STAGE_1_CHARTER.md) and
 [S1-D02 contact-eligibility policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md):
@@ -757,10 +878,11 @@ Acceptance criteria:
 **Status: In progress.** The owner-approved policy is recorded in
 [S1-D02](S1_D02_CONTACT_ELIGIBILITY_POLICY.md), extends
 [ADR-0002](adr/0002-contact-based-verification.md), and the required pre-code
-[maturity audit](testing/s1_e02_account_verification_maturity_audit.md) is
-complete for the interim slice. Refresh that audit against the approved S1-D02
-target before implementing the remaining slice. The owner-approved interim
-contact capability is implemented and may be enabled or stopped through its
+[maturity audit](testing/s1_e02_account_verification_maturity_audit.md) was
+refreshed against the approved S1-D02 target on 2026-07-23 and records the
+implementation-facing contract, current gaps, external blockers, and six
+delivery batches. The owner-approved interim contact capability is implemented
+and may be enabled or stopped through its
 guarded configuration contract. EEA phone
 OTP, all-role private birth-date handling, contact-change recovery, phone
 uniqueness/transfer, owner-admin restoration, seven-day pending expiry, scoped
@@ -818,7 +940,7 @@ Required work:
 - [x] Add configuration, transition, authorization, frontend, rollback, and
       PostgreSQL concurrency evidence.
 - [x] Document deploy configuration and operator rollback.
-- [ ] Refresh the maturity audit for the approved S1-D02 target and record the
+- [x] Refresh the maturity audit for the approved S1-D02 target and record the
       implementation batches before changing the signup/account contract.
 - [ ] Select and approve an EEA-capable SMS provider, privacy terms, delivery
       limits, and exact per-number/account/IP daily caps.

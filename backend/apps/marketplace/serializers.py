@@ -58,8 +58,9 @@ class AssignmentSerializer(serializers.ModelSerializer):
     job_property_city = serializers.CharField(source="job.property.city", read_only=True)
     job_property_neighborhood = serializers.CharField(source="job.property.neighborhood", read_only=True)
     cleaner_name = serializers.SerializerMethodField()
-    cleaner_email = serializers.EmailField(source="cleaner.email", read_only=True)
     cleaner_profile_image = serializers.SerializerMethodField()
+    responsible_agency_name = serializers.SerializerMethodField()
+    assigned_member_name = serializers.SerializerMethodField()
     available_actions = serializers.SerializerMethodField()
 
     class Meta:
@@ -76,9 +77,10 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "job_property_neighborhood",
             "cleaner",
             "cleaner_name",
-            "cleaner_email",
             "cleaner_profile_image",
             "assigned_member",
+            "assigned_member_name",
+            "responsible_agency_name",
             "application",
             "agreed_price",
             "assigned_at",
@@ -99,6 +101,14 @@ class AssignmentSerializer(serializers.ModelSerializer):
         profile = getattr(obj.cleaner, "cleaner_profile", None)
         return (getattr(profile, "profile_image", "") or "") or None
 
+    def get_responsible_agency_name(self, obj):
+        profile = getattr(obj.cleaner, "agency_profile", None)
+        return profile.company_name if profile else ""
+
+    def get_assigned_member_name(self, obj):
+        profile = getattr(obj.assigned_member, "cleaner_profile", None)
+        return profile.display_name if profile else ""
+
 
     def get_available_actions(self, obj):
         request = self.context.get("request")
@@ -109,6 +119,10 @@ class AssignmentSerializer(serializers.ModelSerializer):
 
 class AssignMemberSerializer(serializers.Serializer):
     assigned_member_id = serializers.IntegerField()
+
+
+class ApplicationMemberSelectionSerializer(serializers.Serializer):
+    member_id = serializers.IntegerField(min_value=1)
 
 
 class MarketplaceCalendarItemSerializer(serializers.Serializer):
@@ -609,8 +623,8 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
     )
     cleaner = serializers.PrimaryKeyRelatedField(read_only=True)
     cleaner_name = serializers.SerializerMethodField()
-    cleaner_email = serializers.EmailField(source="cleaner.email", read_only=True)
     cleaner_profile_id = serializers.SerializerMethodField()
+    agency_member_selected = serializers.SerializerMethodField()
     job_title = serializers.CharField(source="job.title", read_only=True)
     job_scheduled_start = serializers.DateTimeField(source="job.scheduled_start", read_only=True)
     job_scheduled_end = serializers.DateTimeField(source="job.scheduled_end", read_only=True)
@@ -638,8 +652,8 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
             "job_proposed_price",
             "cleaner",
             "cleaner_name",
-            "cleaner_email",
             "cleaner_profile_id",
+            "agency_member_selected",
             "status",
             "origin",
             "proposed_price",
@@ -652,7 +666,6 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
             "job",
             "cleaner",
             "cleaner_name",
-            "cleaner_email",
             "status",
             "origin",
             "created_at",
@@ -665,6 +678,9 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
     def get_cleaner_profile_id(self, obj):
         profile = getattr(obj.cleaner, "cleaner_profile", None)
         return profile.id if profile else None
+
+    def get_agency_member_selected(self, obj):
+        return bool(obj.cleaner.is_agency and obj.proposed_member_id)
 
 
 class CleanerApplicationCreateSerializer(serializers.Serializer):
@@ -689,6 +705,7 @@ class WorkerCleanerApplicationSerializer(serializers.ModelSerializer):
             "job_summary",
             "status",
             "origin",
+            "proposed_member",
             "proposed_price",
             "created_at",
             "updated_at",

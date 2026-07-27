@@ -28,7 +28,7 @@ from apps.notifications.tasks import deliver_notification
 User = get_user_model()
 logger = logging.getLogger("apps.notifications")
 
-ALLOWED_DESTINATION_PATHS = frozenset({"/admin", "/app", "/host", "/cleaner"})
+ALLOWED_DESTINATION_PATHS = frozenset({"/admin", "/app", "/host", "/cleaner", "/agency"})
 ALLOWED_DESTINATION_QUERY_KEYS = frozenset(
     {"section", "appFilter", "reviewJob", "reviewId", "connectionId"}
 )

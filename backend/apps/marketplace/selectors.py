@@ -5,6 +5,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.accounts.models import AgencyProfile, CleanerProfile, User
+from apps.accounts.services import agency_readiness
 from apps.locations.models import City, ServiceZone
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
 
@@ -44,7 +45,7 @@ def user_is_eligible_evaluator(user: User) -> bool:
             user.agency_profile
         except AgencyProfile.DoesNotExist:
             return False
-        return True
+        return agency_readiness(agency_user=user).marketplace_eligible
     return False
 
 

@@ -65,6 +65,30 @@ EVENT_SPECS: dict[str, NotificationEventSpec] = {
         "Marketplace access active", "Your email-confirmed marketplace profile can now use cleaner actions.",
         "Достъпът до платформата е активен", "Профилът ви с потвърден имейл вече може да използва действията за изпълнители.",
     ),
+    "agency.invitation_received": _spec(
+        "Agency invitation received", "An agency invited you to join its roster.",
+        "Получена покана от агенция", "Агенция ви покани да се присъедините към екипа ѝ.",
+    ),
+    "agency.invitation_accepted": _spec(
+        "Agency invitation accepted", "A cleaner accepted your agency invitation.",
+        "Поканата от агенцията е приета", "Изпълнител прие поканата ви за агенция.",
+    ),
+    "agency.invitation_declined": _spec(
+        "Agency invitation declined", "A cleaner declined your agency invitation.",
+        "Поканата от агенцията е отказана", "Изпълнител отказа поканата ви за агенция.",
+    ),
+    "agency.membership_revoked": _spec(
+        "Agency membership updated", "Your agency membership is no longer active for new work.",
+        "Членството в агенция е променено", "Членството ви в агенция вече не е активно за нова работа.",
+    ),
+    "agency.membership_left": _spec(
+        "Agency member left", "A cleaner left your agency roster.",
+        "Член напусна агенцията", "Изпълнител напусна екипа на агенцията ви.",
+    ),
+    "agency.marketplace_access_activated": _spec(
+        "Agency marketplace access active", "Your agency can now take on new marketplace work.",
+        "Достъпът на агенцията е активен", "Агенцията ви вече може да приема нова работа в платформата.",
+    ),
     "matching.operator_invitation": _spec(
         "Work invitation", "An operator invited you to consider eligible work.",
         "Покана за работа", "Оператор ви покани да разгледате подходяща работа.",

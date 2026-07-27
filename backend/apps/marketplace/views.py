@@ -14,6 +14,7 @@ from rest_framework.exceptions import PermissionDenied, Throttled, ValidationErr
 from rest_framework.response import Response
 
 from apps.core.services import write_audit_log
+from apps.accounts.services import agency_readiness
 from apps.marketplace.models import (
     Assignment,
     CleanerApplication,
@@ -28,6 +29,7 @@ from apps.marketplace.models import (
 )
 from apps.marketplace.serializers import (
     AssignMemberSerializer,
+    ApplicationMemberSelectionSerializer,
     AssignedWorkerAssignmentSerializer,
     AssignmentSerializer,
     CleanerApplicationSerializer,
@@ -95,6 +97,7 @@ from apps.marketplace.services import (
     respond_to_reschedule_proposal,
     send_operator_matching_invitation,
     send_upcoming_work_reminder,
+    select_member_for_application,
     update_dispute,
 )
 from apps.marketplace.throttles import LifecycleWriteThrottle, RecoveryCaseWriteThrottle
@@ -839,17 +842,6 @@ class CleaningJobViewSet(
     )
     def cancel(self, request, pk=None):
         job = lifecycle_job_for_actor(job_id=pk, actor=request.user)
-        assignment = get_job_assignment(job)
-        if (
-            assignment is not None
-            and assignment.cleaner.is_agency
-            and not (request.user.is_platform_admin or request.user.id == job.host_id)
-        ):
-            return lifecycle_error_response(
-                "agency_recovery_not_supported",
-                "Agency recovery is not supported in the Stage 1 pilot. Contact support.",
-                status_code=status.HTTP_409_CONFLICT,
-            )
         if not lifecycle_actor_is_eligible(request.user):
             return lifecycle_error_response(
                 "account_not_eligible",
@@ -1014,7 +1006,7 @@ class CleaningJobViewSet(
                 "Job publish blocked",
                 extra={"event": "host.publish_job_denied", "metadata": {"reason": str(exc)}},
             )
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return marketplace_error_response(exc)
         return Response(self.get_serializer(job).data)
 
     @action(detail=True, methods=["post"])
@@ -1034,7 +1026,7 @@ class CleaningJobViewSet(
                 "Job completion blocked",
                 extra={"event": "job.complete_blocked", "metadata": {"reason": str(exc)}},
             )
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return marketplace_error_response(exc)
         return Response(self.get_serializer(job).data)
 
     @action(detail=True, methods=["post"])
@@ -1058,7 +1050,7 @@ class CleaningJobViewSet(
                 "Job offer blocked",
                 extra={"event": "job.offer_blocked", "metadata": {"reason": str(exc)}},
             )
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return marketplace_error_response(exc)
         return Response(
             CleanerApplicationSerializer(application, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
@@ -1092,7 +1084,7 @@ class CleaningJobViewSet(
                 "Job offer blocked",
                 extra={"event": "job.offer_blocked", "metadata": {"reason": str(exc)}},
             )
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return marketplace_error_response(exc)
         return Response(
             CleanerApplicationSerializer(application, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
@@ -1129,6 +1121,8 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
     def get_serializer_class(self):
         if self.action == "create":
             return CleanerApplicationCreateSerializer
+        if self.action == "select_member":
+            return ApplicationMemberSelectionSerializer
         if self.request.user.is_cleaner or self.request.user.is_agency:
             return WorkerCleanerApplicationSerializer
         return CleanerApplicationSerializer
@@ -1138,6 +1132,7 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
         queryset = CleanerApplication.objects.select_related(
             "job",
             "cleaner",
+            "proposed_member",
             "job__host",
             "job__property",
             "job__property__service_zone__city",
@@ -1149,7 +1144,7 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
         if user.is_host:
             return queryset.filter(job__host=user)
         if user.is_cleaner or user.is_agency:
-            if not user_is_eligible_evaluator(user):
+            if user.is_cleaner and not user_is_eligible_evaluator(user):
                 return queryset.none()
             return queryset.filter(cleaner=user)
         return queryset.none()
@@ -1157,6 +1152,17 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        if request.user.is_agency:
+            readiness = agency_readiness(agency_user=request.user)
+            if not readiness.marketplace_eligible:
+                return Response(
+                    {
+                        "code": "agency_marketplace_ineligible",
+                        "detail": "Agency marketplace access is not ready for new work.",
+                        "fields": {"blockers": list(readiness.blockers)},
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
         if not user_is_eligible_evaluator(request.user):
             visible_owned_job = (
                 request.user.is_host
@@ -1195,10 +1201,10 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
                 "Application submission blocked",
                 extra={"event": "cleaner.apply_blocked_not_verified", "metadata": {"reason": str(exc)}},
             )
-            return Response(
-                {"detail": str(exc), "code": "application_not_allowed"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            response = marketplace_error_response(exc)
+            if not isinstance(exc, LifecycleError):
+                response.data["code"] = "application_not_allowed"
+            return response
         response_serializer = WorkerCleanerApplicationSerializer(
             application,
             context={"request": request, "force_can_apply": False},
@@ -1225,6 +1231,24 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
             return marketplace_error_response(exc)
         return Response(AssignmentSerializer(assignment).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["post"], url_path="select-member")
+    def select_member(self, request, pk=None):
+        application = self.get_object()
+        if not request.user.is_platform_admin and application.cleaner_id != request.user.id:
+            raise PermissionDenied("Only the applicant agency can select a member.")
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            application = select_member_for_application(
+                application=application,
+                agency_user=request.user,
+                member_id=serializer.validated_data["member_id"],
+                request=request,
+            )
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response(WorkerCleanerApplicationSerializer(application, context={"request": request}).data)
+
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         application = self.get_object()
@@ -1241,7 +1265,7 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
                 "Application reject blocked",
                 extra={"event": "application.reject_blocked", "metadata": {"reason": str(exc)}},
             )
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return marketplace_error_response(exc)
         return Response(self.get_serializer(application).data)
 
     @action(detail=True, methods=["post"])
@@ -1260,7 +1284,7 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
                 "Application withdrawal blocked",
                 extra={"event": "application.withdraw_blocked", "metadata": {"reason": str(exc)}},
             )
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return marketplace_error_response(exc)
         return Response(self.get_serializer(application).data)
 
     @action(detail=True, methods=["post"], url_path="accept-offer")
@@ -1301,7 +1325,7 @@ class CleanerApplicationViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewS
                 "Offer decline blocked",
                 extra={"event": "offer.decline_blocked", "metadata": {"reason": str(exc)}},
             )
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return marketplace_error_response(exc)
         return Response(self.get_serializer(application).data)
 
 
@@ -1336,8 +1360,6 @@ class AssignmentViewSet(PrivateNoStoreResponseMixin, viewsets.ReadOnlyModelViewS
                 return queryset.none()
             return queryset.filter(Q(cleaner=user) | Q(assigned_member=user))
         if user.is_agency:
-            if not user_is_eligible_evaluator(user):
-                return queryset.none()
             return queryset.filter(cleaner=user)
         return queryset.none()
 

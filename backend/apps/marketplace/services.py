@@ -8,6 +8,11 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, User
+from apps.accounts.services import (
+    AccountTransitionError,
+    cleaner_is_agency_member_eligible,
+    ensure_agency_marketplace_eligible,
+)
 from apps.core.services import write_audit_log
 from apps.marketplace.models import (
     Assignment,
@@ -62,6 +67,17 @@ class CleanerScheduleConflictError(MarketplaceError):
         super().__init__(self.detail)
 
 
+class AgencyMemberSelectionRequired(LifecycleConflict):
+    code = "agency_member_selection_required"
+    detail = "The agency must select an eligible member before this work can be accepted."
+
+
+def _agency_conflict(code: str, detail: str) -> LifecycleConflict:
+    error = LifecycleConflict(detail)
+    error.code = code
+    return error
+
+
 FAVOURITE_TARGET_INELIGIBLE = (
     "Only cleaners with active marketplace access can be favourited."
 )
@@ -97,6 +113,8 @@ def _notification_destination(user: User, *, section: str = "") -> str:
         base = "/host"
     elif user.role == User.Role.CLEANER:
         base = "/cleaner"
+    elif user.role == User.Role.AGENCY:
+        base = "/agency"
     else:
         base = "/app"
     return f"{base}?section={section}" if section else base
@@ -329,6 +347,12 @@ def derive_available_job_actions(*, job: CleaningJob, actor: User) -> list[str]:
         agency_backed = bool(assignment and assignment.cleaner.is_agency)
         if actor.is_platform_admin or actor.id == job.host_id:
             actions.append("cancel")
+            if agency_backed:
+                actions.extend(["reschedule", "report_incident", "file_dispute"])
+        elif agency_backed and assignment and actor.id == assignment.cleaner_id:
+            actions.extend(["cancel", "reschedule", "report_incident", "file_dispute"])
+        elif agency_backed and assignment and actor.id == assignment.assigned_member_id:
+            actions.append("report_incident")
         elif (
             assignment
             and not agency_backed
@@ -339,10 +363,18 @@ def derive_available_job_actions(*, job: CleaningJob, actor: User) -> list[str]:
         if not agency_backed:
             actions.extend(["reschedule", "report_incident", "file_dispute"])
     elif job.status == CleaningJob.Status.CANCELLED:
-        if not (assignment and assignment.cleaner.is_agency):
+        if assignment and assignment.cleaner.is_agency:
+            if actor.is_platform_admin or actor.id in {job.host_id, assignment.cleaner_id}:
+                actions.extend(["report_incident", "file_dispute", "request_replacement"])
+            elif actor.id == assignment.assigned_member_id:
+                actions.append("report_incident")
+        else:
             actions.extend(["report_incident", "file_dispute", "request_replacement"])
     elif job.status == CleaningJob.Status.COMPLETED:
-        if not (assignment and assignment.cleaner.is_agency):
+        if assignment and assignment.cleaner.is_agency:
+            if actor.is_platform_admin or actor.id in {job.host_id, assignment.cleaner_id}:
+                actions.append("file_dispute")
+        else:
             actions.append("file_dispute")
     return actions
 
@@ -367,14 +399,6 @@ def cancel_job(
 
     if not _actor_is_job_participant(actor, job, assignment):
         raise LifecycleConflict("This lifecycle action is not available.")
-
-    agency_backed = bool(assignment and assignment.cleaner.is_agency)
-    if agency_backed and not (actor.is_platform_admin or actor.id == job.host_id):
-        error = LifecycleConflict(
-            "Agency recovery is not supported in the Stage 1 pilot. Contact support."
-        )
-        error.code = "agency_recovery_not_supported"
-        raise error
 
     if not lifecycle_actor_is_eligible(actor):
         error = LifecycleConflict("This account is not eligible for lifecycle actions.")
@@ -487,19 +511,27 @@ def _recovery_assignment(job: CleaningJob) -> Assignment | None:
     )
 
 
-def _ensure_direct_recovery(*, job: CleaningJob, actor: User, assignment: Assignment | None) -> None:
-    if assignment and assignment.cleaner.is_agency:
-        error = LifecycleConflict(
-            "Agency recovery is not supported in the Stage 1 pilot. Contact support."
-        )
-        error.code = "agency_recovery_not_supported"
-        raise error
+def _ensure_recovery_authority(
+    *, job: CleaningJob, actor: User, assignment: Assignment | None, action: str
+) -> None:
+    """Apply the agency accountability matrix while preserving worker history."""
     if not _actor_is_job_participant(actor, job, assignment):
         raise LifecycleConflict("This lifecycle action is not available.")
     if not lifecycle_actor_is_eligible(actor):
         error = LifecycleConflict("This account is not eligible for lifecycle actions.")
         error.code = "account_not_eligible"
         raise error
+    if not assignment or not assignment.cleaner.is_agency or actor.is_platform_admin:
+        return
+    if action in {"cancel", "reschedule", "replacement", "dispute"}:
+        if actor.id not in {job.host_id, assignment.cleaner_id}:
+            raise LifecycleConflict("This lifecycle action is not available.")
+    elif action == "incident" and actor.id not in {
+        job.host_id,
+        assignment.cleaner_id,
+        assignment.assigned_member_id,
+    }:
+        raise LifecycleConflict("This lifecycle action is not available.")
 
 
 def _recovery_recipients(*, job: CleaningJob, assignment: Assignment | None, actor: User) -> list[User]:
@@ -526,7 +558,7 @@ def propose_reschedule(*, job: CleaningJob, actor: User, scheduled_start, schedu
     job = _lock_lineage_and_job(job.pk)
     assignment = _recovery_assignment(job)
     actor = User.objects.select_for_update().get(pk=actor.pk)
-    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    _ensure_recovery_authority(job=job, actor=actor, assignment=assignment, action="reschedule")
     if job.status != CleaningJob.Status.ASSIGNED or assignment is None or assignment.cancelled_at:
         raise LifecycleConflict("Only an active direct assignment can be rescheduled.")
     if scheduled_end <= scheduled_start:
@@ -566,7 +598,7 @@ def respond_to_reschedule_proposal(*, proposal: RescheduleProposal, actor: User,
     job = _lock_lineage_and_job(proposal.job_id)
     assignment = _recovery_assignment(job)
     actor = User.objects.select_for_update().get(pk=actor.pk)
-    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    _ensure_recovery_authority(job=job, actor=actor, assignment=assignment, action="reschedule")
     if actor.id == proposal.proposed_by_id and not actor.is_platform_admin:
         raise LifecycleConflict("The counterpart must respond to this proposal.")
     if proposal.status != RescheduleProposal.Status.PENDING:
@@ -580,7 +612,7 @@ def respond_to_reschedule_proposal(*, proposal: RescheduleProposal, actor: User,
     proposal.save(update_fields=["responded_by", "status", "updated_at"])
     if accept:
         _ensure_no_cleaner_schedule_conflict_for_range(
-            worker=assignment.cleaner, job=job,
+            worker=assignment.assigned_member or assignment.cleaner, job=job,
             scheduled_start=proposal.proposed_start, scheduled_end=proposal.proposed_end,
         )
         previous_start, previous_end = job.scheduled_start, job.scheduled_end
@@ -614,7 +646,7 @@ def report_job_incident(*, job: CleaningJob, actor: User, incident_type: str, na
     job = _lock_lineage_and_job(job.pk)
     assignment = _recovery_assignment(job)
     actor = User.objects.select_for_update().get(pk=actor.pk)
-    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    _ensure_recovery_authority(job=job, actor=actor, assignment=assignment, action="incident")
     if incident_type not in JobIncident.IncidentType.values:
         raise LifecycleInputError(fields={"incident_type": ["Choose a valid incident type."]})
     narrative = narrative.strip()
@@ -662,7 +694,7 @@ def create_replacement_request(*, job: CleaningJob, incident: JobIncident | None
     job = _lock_lineage_and_job(job.pk)
     assignment = _recovery_assignment(job)
     actor = User.objects.select_for_update().get(pk=actor.pk)
-    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    _ensure_recovery_authority(job=job, actor=actor, assignment=assignment, action="replacement")
     if job.status != CleaningJob.Status.CANCELLED:
         raise LifecycleConflict("Only a cancelled incomplete job can be replaced.")
     if incident is None or incident.job_id != job.id:
@@ -705,7 +737,7 @@ def authorize_replacement_request(*, replacement: ReplacementRequest, actor: Use
     job = _lock_lineage_and_job(replacement.source_job_id)
     assignment = _recovery_assignment(job)
     actor = User.objects.select_for_update().get(pk=actor.pk)
-    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    _ensure_recovery_authority(job=job, actor=actor, assignment=assignment, action="replacement")
     if actor.id != job.host_id and not actor.is_platform_admin:
         raise LifecycleConflict("Only the host can authorize this replacement.")
     if replacement.status != ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION:
@@ -739,7 +771,7 @@ def file_dispute(*, job: CleaningJob, actor: User, category: str, narrative: str
     job = _lock_lineage_and_job(job.pk)
     assignment = _recovery_assignment(job)
     actor = User.objects.select_for_update().get(pk=actor.pk)
-    _ensure_direct_recovery(job=job, actor=actor, assignment=assignment)
+    _ensure_recovery_authority(job=job, actor=actor, assignment=assignment, action="dispute")
     if category not in Dispute.Category.values:
         raise LifecycleInputError(fields={"category": ["Choose a valid dispute category."]})
     narrative = narrative.strip()
@@ -866,6 +898,86 @@ def lineage_chronology(*, lineage: TurnoverLineage, actor: User) -> dict:
     return {"id": lineage.id, "attempts": attempt_payloads, "events": events}
 
 
+def _ensure_agency_workable(agency: User) -> AgencyProfile:
+    try:
+        ensure_agency_marketplace_eligible(agency_user=agency)
+    except AccountTransitionError as exc:
+        raise _agency_conflict(exc.code, exc.detail) from exc
+    return AgencyProfile.objects.select_for_update().get(user_id=agency.id)
+
+
+def _lock_eligible_agency_member(*, agency: AgencyProfile, member_id: int) -> User:
+    member = (
+        User.objects.select_for_update()
+        .select_related("cleaner_profile")
+        .filter(id=member_id)
+        .first()
+    )
+    if member is None or not cleaner_is_agency_member_eligible(member):
+        raise _agency_conflict(
+            "agency_member_ineligible",
+            "The selected agency member is not eligible for new work.",
+        )
+    membership = AgencyMembership.objects.select_for_update().filter(
+        agency=agency,
+        cleaner=member,
+        status=AgencyMembership.Status.ACTIVE,
+    ).first()
+    if membership is None:
+        raise _agency_conflict(
+            "agency_membership_inactive",
+            "The selected cleaner is not an active member of this agency.",
+        )
+    return member
+
+
+@transaction.atomic
+def select_member_for_application(
+    *, application: CleanerApplication, agency_user: User, member_id: int, request=None
+) -> CleanerApplication:
+    initial = CleanerApplication.objects.only("id", "job_id").get(id=application.id)
+    job = _lock_lineage_and_job(initial.job_id)
+    application = (
+        CleanerApplication.objects.select_for_update()
+        .select_related("cleaner")
+        .get(id=initial.id)
+    )
+    agency_user = User.objects.select_for_update().get(id=agency_user.id)
+    if not agency_user.is_platform_admin and application.cleaner_id != agency_user.id:
+        raise _agency_conflict("agency_member_selection_forbidden", "This application is not available.")
+    if not application.cleaner.is_agency:
+        raise _agency_conflict(
+            "agency_member_selection_not_applicable",
+            "Only agency applications require a member selection.",
+        )
+    if application.status != CleanerApplication.Status.PENDING or job.status not in {
+        CleaningJob.Status.DRAFT,
+        CleaningJob.Status.OPEN,
+    }:
+        raise _agency_conflict("agency_member_selection_closed", "This application is no longer pending.")
+    agency = _ensure_agency_workable(application.cleaner)
+    member = _lock_eligible_agency_member(agency=agency, member_id=member_id)
+    _ensure_no_cleaner_schedule_conflict(worker=member, job=job)
+    if application.proposed_member_id == member.id:
+        return application
+    previous_member_id = application.proposed_member_id
+    application.proposed_member = member
+    application.save(update_fields=["proposed_member", "updated_at"])
+    write_audit_log(
+        actor=agency_user,
+        action="application.agency_member_selected",
+        entity_type="CleanerApplication",
+        entity_id=application.id,
+        request=request,
+        metadata={
+            "job_id": job.id,
+            "previous_member_id": previous_member_id,
+            "member_id": member.id,
+        },
+    )
+    return application
+
+
 @transaction.atomic
 def submit_application(
     *,
@@ -891,10 +1003,7 @@ def submit_application(
                 "Cleaner marketplace access must be active before applying."
             )
     elif cleaner.is_agency:
-        try:
-            cleaner.agency_profile
-        except AgencyProfile.DoesNotExist as exc:
-            raise MarketplaceError("Agency profile is required before applying.") from exc
+        _ensure_agency_workable(cleaner)
     else:
         raise MarketplaceError("Only cleaners and agencies can apply for cleaning jobs.")
 
@@ -971,7 +1080,16 @@ def accept_application(
         raise MarketplaceError("This job already has an assignment.")
 
     _ensure_cleaner_workable(applicant)
-    if applicant.is_cleaner:
+    assigned_member = None
+    if applicant.is_agency:
+        if application.proposed_member_id is None:
+            raise AgencyMemberSelectionRequired()
+        agency = _ensure_agency_workable(applicant)
+        assigned_member = _lock_eligible_agency_member(
+            agency=agency, member_id=application.proposed_member_id
+        )
+        _ensure_no_cleaner_schedule_conflict(worker=assigned_member, job=job)
+    else:
         _ensure_no_cleaner_schedule_conflict(worker=applicant, job=job)
 
     application.status = CleanerApplication.Status.ACCEPTED
@@ -991,6 +1109,7 @@ def accept_application(
     assignment = Assignment.objects.create(
         job=job,
         cleaner=applicant,
+        assigned_member=assigned_member,
         application=application,
         agreed_price=agreed_price if agreed_price is not None else application.proposed_price,
     )
@@ -1015,6 +1134,13 @@ def accept_application(
         source_entity_type="Assignment", source_entity_id=assignment.id,
         request=request, section="assignments",
     )
+    if assigned_member is not None:
+        _emit_notification(
+            event_type="assignment.member_delegated", recipient=assigned_member,
+            occurrence_key=f"assignment:{assignment.id}:member:{assigned_member.id}",
+            source_entity_type="Assignment", source_entity_id=assignment.id,
+            request=request, section="assignments",
+        )
     for rejected in competing_applications:
         _emit_notification(
             event_type="application.rejected", recipient=rejected.cleaner,
@@ -1139,10 +1265,8 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
         raise MarketplaceError("Only an involved user can complete this job.")
 
     now = timezone.now()
-    is_cleaner_completion = (
-        completed_by.id == assignment.cleaner_id
-        or completed_by.id == assignment.assigned_member_id
-    )
+    actual_worker_id = assignment.assigned_member_id or assignment.cleaner_id
+    is_cleaner_completion = completed_by.id == actual_worker_id
 
     # The cleaner (or an admin) marks the cleaning done — there is no separate
     # host confirmation step. The host's role after completion is to review.
@@ -1186,6 +1310,13 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
         request=request,
         destination="/host?section=applications&appFilter=completed",
     )
+    if assignment.assigned_member_id:
+        _emit_notification(
+            event_type="job.completed", recipient=assignment.cleaner,
+            occurrence_key=f"job-completed:{job.id}:{assignment.completed_at.isoformat()}:{assignment.cleaner_id}",
+            source_entity_type="CleaningJob", source_entity_id=job.id,
+            request=request, section="assignments",
+        )
     for recipient, reviewee_id in ((job.host, actual_worker.id), (actual_worker, job.host_id)):
         _emit_notification(
             event_type="review.requested", recipient=recipient,
@@ -1314,10 +1445,7 @@ def _ensure_cleaner_workable(cleaner: User) -> None:
         if not cleaner_profile.is_verified:
             raise MarketplaceError("Cleaner marketplace access must be active.")
     elif cleaner.is_agency:
-        try:
-            AgencyProfile.objects.select_for_update().get(user_id=cleaner.pk)
-        except AgencyProfile.DoesNotExist as exc:
-            raise MarketplaceError("Agency profile is required.") from exc
+        _ensure_agency_workable(cleaner)
     else:
         raise MarketplaceError("Only cleaners and agencies can be offered cleaning jobs.")
 
@@ -1501,7 +1629,16 @@ def accept_offer(
     if hasattr(job, "assignment"):
         raise MarketplaceError("This job already has an assignment.")
 
-    if applicant.is_cleaner:
+    assigned_member = None
+    if applicant.is_agency:
+        if application.proposed_member_id is None:
+            raise AgencyMemberSelectionRequired()
+        agency = _ensure_agency_workable(applicant)
+        assigned_member = _lock_eligible_agency_member(
+            agency=agency, member_id=application.proposed_member_id
+        )
+        _ensure_no_cleaner_schedule_conflict(worker=assigned_member, job=job)
+    else:
         _ensure_no_cleaner_schedule_conflict(worker=applicant, job=job)
 
     application.status = CleanerApplication.Status.ACCEPTED
@@ -1521,6 +1658,7 @@ def accept_offer(
     assignment = Assignment.objects.create(
         job=job,
         cleaner=applicant,
+        assigned_member=assigned_member,
         application=application,
         agreed_price=application.proposed_price,
     )
@@ -1552,6 +1690,13 @@ def accept_offer(
         source_entity_type="Assignment", source_entity_id=assignment.id,
         request=request, section="assignments",
     )
+    if assigned_member is not None:
+        _emit_notification(
+            event_type="assignment.member_delegated", recipient=assigned_member,
+            occurrence_key=f"assignment:{assignment.id}:member:{assigned_member.id}",
+            source_entity_type="Assignment", source_entity_id=assignment.id,
+            request=request, section="assignments",
+        )
     for rejected in competing_applications:
         _emit_notification(
             event_type="application.rejected", recipient=rejected.cleaner,
@@ -1629,46 +1774,20 @@ def assign_member_to_assignment(
         raise MarketplaceError("Only agency assignments can be delegated to a member cleaner.")
 
     if agency_user.is_platform_admin:
-        agency_profile = assignment.cleaner.agency_profile
+        agency_profile = AgencyProfile.objects.select_for_update().get(user_id=assignment.cleaner_id)
     else:
         if agency_user.id != assignment.cleaner_id or not agency_user.is_agency:
             raise MarketplaceError("Only the assigned agency can delegate this cleaning.")
         if not agency_user.is_active or not agency_user.is_approved:
             raise MarketplaceError("Agency account must be approved before assigning work.")
-        agency_profile = agency_user.agency_profile
+        agency_profile = AgencyProfile.objects.select_for_update().get(user_id=agency_user.id)
 
     if assignment.assigned_member_id:
         if assignment.assigned_member_id == member.id:
             return assignment
         raise MarketplaceError("Assignment has already been delegated to a cleaner member.")
 
-    member = User.objects.select_for_update().get(pk=member.pk)
-
-    if not member.is_cleaner:
-        raise MarketplaceError("Assigned member must be a cleaner account.")
-
-    if not member.is_active:
-        raise MarketplaceError("Assigned cleaner account must be active.")
-
-    if not member.is_approved:
-        raise MarketplaceError("Assigned cleaner must have an approved account.")
-
-    try:
-        cleaner_profile = CleanerProfile.objects.select_for_update().get(user_id=member.pk)
-    except CleanerProfile.DoesNotExist as exc:
-        raise MarketplaceError("Assigned cleaner profile is required.") from exc
-
-    if not cleaner_profile.is_verified:
-        raise MarketplaceError("Assigned cleaner marketplace access must be active.")
-
-    try:
-        AgencyMembership.objects.select_for_update().get(
-            agency=agency_profile,
-            cleaner=member,
-            status=AgencyMembership.Status.ACTIVE,
-        )
-    except AgencyMembership.DoesNotExist as exc:
-        raise MarketplaceError("Cleaner must be an active member of this agency.") from exc
+    member = _lock_eligible_agency_member(agency=agency_profile, member_id=member.id)
 
     _ensure_no_cleaner_schedule_conflict(worker=member, job=assignment.job)
 
@@ -1733,7 +1852,13 @@ def send_upcoming_work_reminder(
     normalized_occurrence = occurrence_at.astimezone(UTC).replace(
         microsecond=0
     ).isoformat()
-    recipients = (job.host, assignment.assigned_member or assignment.cleaner)
+    recipients_by_id = {
+        job.host_id: job.host,
+        assignment.cleaner_id: assignment.cleaner,
+    }
+    if assignment.assigned_member_id and assignment.assigned_member:
+        recipients_by_id[assignment.assigned_member_id] = assignment.assigned_member
+    recipients = tuple(recipients_by_id.values())
     return tuple(
         _emit_notification(
             event_type="job.upcoming_reminder",

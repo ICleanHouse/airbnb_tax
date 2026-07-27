@@ -221,6 +221,13 @@ class CleanerApplication(TimeStampedModel):
         on_delete=models.PROTECT,
         related_name="cleaning_applications",
     )
+    proposed_member = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="proposed_agency_assignments",
+        null=True,
+        blank=True,
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     origin = models.CharField(
         max_length=20, choices=Origin.choices, default=Origin.CLEANER_APPLIED
@@ -232,6 +239,9 @@ class CleanerApplication(TimeStampedModel):
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(fields=["job", "cleaner"], name="unique_cleaner_application_per_job")
+        ]
+        indexes = [
+            models.Index(fields=["proposed_member"], name="app_proposed_member_idx"),
         ]
 
     def __str__(self) -> str:

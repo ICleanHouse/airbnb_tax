@@ -129,6 +129,22 @@ class User(AbstractUser):
             return True
         if not self.is_active or self.account_status != self.AccountStatus.APPROVED:
             return False
+        if self.is_agency:
+            profile = getattr(self, "agency_profile", None)
+            if not profile or not profile.is_complete or not self.is_contact_verified:
+                return False
+            active_members = AgencyMembership.objects.filter(
+                agency=profile,
+                status=AgencyMembership.Status.ACTIVE,
+                cleaner__is_active=True,
+                cleaner__role=self.Role.CLEANER,
+                cleaner__account_status=self.AccountStatus.APPROVED,
+                cleaner__email_verified_at__isnull=False,
+                cleaner__cleaner_profile__verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+            )
+            if settings.PHONE_VERIFICATION_REQUIRED:
+                active_members = active_members.filter(cleaner__phone_verified_at__isnull=False)
+            return active_members.exists()
         if not self.is_cleaner:
             return True
         profile = getattr(self, "cleaner_profile", None)
@@ -303,6 +319,19 @@ class AgencyProfile(TimeStampedModel):
     service_areas = models.JSONField(default=list, blank=True)
     description = models.TextField(blank=True)
 
+    @property
+    def is_complete(self) -> bool:
+        """Whether the public fields required for Sofia marketplace work exist.
+
+        This deliberately is not a company-verification check.  Legal entity
+        evidence is outside the Stage 1 pilot boundary.
+        """
+        return bool(
+            self.company_name.strip()
+            and self.city.strip().casefold() == "sofia"
+            and any(str(area).strip() for area in self.service_areas)
+        )
+
     def __str__(self) -> str:
         return self.company_name or self.user.get_username()
 
@@ -314,6 +343,7 @@ class AgencyInvitation(TimeStampedModel):
         DECLINED = "declined", "Declined"
         REVOKED = "revoked", "Revoked"
         EXPIRED = "expired", "Expired"
+        SUPERSEDED = "superseded", "Superseded"
 
     agency = models.ForeignKey(
         AgencyProfile,
@@ -329,10 +359,17 @@ class AgencyInvitation(TimeStampedModel):
         null=True,
         blank=True,
     )
-    cleaner = models.ForeignKey(
+    target_cleaner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="agency_invitation_targets",
+        null=True,
+        blank=True,
+    )
+    reissued_from = models.OneToOneField(
+        "self",
         on_delete=models.SET_NULL,
-        related_name="accepted_agency_invitations",
+        related_name="reissued_invitation",
         null=True,
         blank=True,
     )
@@ -346,9 +383,23 @@ class AgencyInvitation(TimeStampedModel):
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
-                condition=~models.Q(email="") | ~models.Q(phone_number=""),
-                name="agency_invitation_has_contact",
-            )
+                condition=(
+                    ~models.Q(status="pending")
+                    | models.Q(target_cleaner__isnull=False)
+                ),
+                name="agency_invitation_pending_has_target",
+            ),
+            models.UniqueConstraint(
+                fields=["agency", "target_cleaner"],
+                condition=models.Q(
+                    status="pending",
+                    target_cleaner__isnull=False,
+                ),
+                name="unique_pending_agency_invitation_target",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["target_cleaner", "status"], name="agency_inv_target_status_idx"),
         ]
 
     @property
@@ -356,8 +407,8 @@ class AgencyInvitation(TimeStampedModel):
         return self.expires_at <= timezone.now()
 
     def __str__(self) -> str:
-        contact = self.email or self.phone_number
-        return f"{contact} invited to {self.agency}"
+        target = self.target_cleaner_id or self.email or self.phone_number
+        return f"{target} invited to {self.agency}"
 
 
 class AgencyMembership(TimeStampedModel):

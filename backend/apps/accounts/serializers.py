@@ -17,7 +17,7 @@ from apps.accounts.models import (
     SignupEmailVerification,
     hash_signup_email_code,
 )
-from apps.accounts.services import reconcile_contact_verification
+from apps.accounts.services import agency_readiness, cleaner_is_agency_member_eligible, reconcile_contact_verification
 from apps.core.models import AuditLog
 from apps.core.image_uploads import (
     ImageUploadValidationError,
@@ -45,7 +45,8 @@ class UserSerializer(serializers.ModelSerializer):
     phone_verified = serializers.BooleanField(source="is_phone_verified", read_only=True)
     contact_verified = serializers.BooleanField(source="is_contact_verified", read_only=True)
     fully_verified = serializers.BooleanField(source="is_fully_verified", read_only=True)
-    marketplace_eligible = serializers.BooleanField(source="is_marketplace_eligible", read_only=True)
+    marketplace_eligible = serializers.SerializerMethodField()
+    agency_readiness = serializers.SerializerMethodField()
     phone_verification_required = serializers.SerializerMethodField()
 
     class Meta:
@@ -71,6 +72,7 @@ class UserSerializer(serializers.ModelSerializer):
             "contact_verified",
             "fully_verified",
             "marketplace_eligible",
+            "agency_readiness",
             "phone_verification_required",
             "password",
         ]
@@ -87,11 +89,28 @@ class UserSerializer(serializers.ModelSerializer):
             "contact_verified",
             "fully_verified",
             "marketplace_eligible",
+            "agency_readiness",
             "phone_verification_required",
         ]
 
     def get_phone_verification_required(self, _obj):
         return settings.PHONE_VERIFICATION_REQUIRED
+
+    def get_marketplace_eligible(self, obj):
+        if obj.is_agency:
+            return agency_readiness(agency_user=obj).marketplace_eligible
+        return obj.is_marketplace_eligible
+
+    def get_agency_readiness(self, obj):
+        if not obj.is_agency:
+            return None
+        readiness = agency_readiness(agency_user=obj)
+        return {
+            "marketplace_eligible": readiness.marketplace_eligible,
+            "profile_complete": readiness.profile_complete,
+            "eligible_active_members_count": readiness.eligible_active_members_count,
+            "blockers": list(readiness.blockers),
+        }
 
     def validate_dashboard_prefs(self, value):
         if not isinstance(value, dict):
@@ -264,6 +283,14 @@ class SignupSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"sex": "Sex is required."})
             if not attrs.get("native_language", "").strip():
                 raise serializers.ValidationError({"native_language": "Native language is required."})
+
+        if attrs.get("role") == User.Role.AGENCY:
+            if not attrs.get("company_name", "").strip():
+                raise serializers.ValidationError({"company_name": "Public agency name is required."})
+            if attrs.get("city", "").strip().casefold() != "sofia":
+                raise serializers.ValidationError({"city": "Agency service is currently available in Sofia only."})
+            if not any(str(area).strip() for area in attrs.get("service_areas", [])):
+                raise serializers.ValidationError({"service_areas": "Select at least one Sofia service area."})
 
         return attrs
 
@@ -535,6 +562,7 @@ class PublicCleanerDetailSerializer(PublicCleanerSerializer):
 class AgencyProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     members_count = serializers.IntegerField(read_only=True)
+    readiness = serializers.SerializerMethodField()
 
     class Meta:
         model = AgencyProfile
@@ -546,29 +574,47 @@ class AgencyProfileSerializer(serializers.ModelSerializer):
             "service_areas",
             "description",
             "members_count",
+            "readiness",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "user", "members_count", "created_at", "updated_at"]
+        read_only_fields = ["id", "user", "members_count", "readiness", "created_at", "updated_at"]
+
+    def validate_city(self, value):
+        value = value.strip()
+        if value and value.casefold() != "sofia":
+            raise serializers.ValidationError("Agency service is currently available in Sofia only.")
+        return value
+
+    def validate_service_areas(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Service areas must be a list.")
+        return [str(area).strip() for area in value if str(area).strip()]
+
+    def validate_description(self, value):
+        if len(value) > 1500:
+            raise serializers.ValidationError("Description must be at most 1500 characters.")
+        return value
+
+    def get_readiness(self, obj):
+        readiness = agency_readiness(agency_user=obj.user)
+        return {
+            "marketplace_eligible": readiness.marketplace_eligible,
+            "profile_complete": readiness.profile_complete,
+            "eligible_active_members_count": readiness.eligible_active_members_count,
+            "blockers": list(readiness.blockers),
+        }
 
 
 class AgencyInviteSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=False, allow_blank=True)
-    phone_number = serializers.CharField(max_length=32, required=False, allow_blank=True)
+    cleaner_id = serializers.IntegerField(min_value=1)
     message = serializers.CharField(required=False, allow_blank=True)
-
-    def validate(self, attrs):
-        email = attrs.get("email", "").strip().lower()
-        phone_number = attrs.get("phone_number", "").strip()
-        if not email and not phone_number:
-            raise serializers.ValidationError("Provide an email or phone number for the cleaner invitation.")
-        attrs["email"] = email
-        attrs["phone_number"] = phone_number
-        return attrs
 
 
 class AgencyInvitationSerializer(serializers.ModelSerializer):
     agency_name = serializers.CharField(source="agency.company_name", read_only=True)
+    target_cleaner = serializers.IntegerField(source="target_cleaner_id", read_only=True)
+    target_cleaner_name = serializers.SerializerMethodField()
 
     class Meta:
         model = AgencyInvitation
@@ -576,10 +622,9 @@ class AgencyInvitationSerializer(serializers.ModelSerializer):
             "id",
             "agency",
             "agency_name",
-            "email",
-            "phone_number",
             "status",
-            "cleaner",
+            "target_cleaner",
+            "target_cleaner_name",
             "message",
             "expires_at",
             "accepted_at",
@@ -591,17 +636,22 @@ class AgencyInvitationSerializer(serializers.ModelSerializer):
             "agency",
             "agency_name",
             "status",
-            "cleaner",
+            "target_cleaner",
+            "target_cleaner_name",
             "accepted_at",
             "created_at",
             "updated_at",
         ]
 
+    def get_target_cleaner_name(self, obj):
+        profile = getattr(obj.target_cleaner, "cleaner_profile", None)
+        return profile.display_name if profile else ""
+
 
 class AgencyMembershipSerializer(serializers.ModelSerializer):
     agency_name = serializers.CharField(source="agency.company_name", read_only=True)
-    cleaner_email = serializers.EmailField(source="cleaner.email", read_only=True)
     cleaner_name = serializers.SerializerMethodField()
+    cleaner_marketplace_eligible = serializers.SerializerMethodField()
 
     class Meta:
         model = AgencyMembership
@@ -610,8 +660,8 @@ class AgencyMembershipSerializer(serializers.ModelSerializer):
             "agency",
             "agency_name",
             "cleaner",
-            "cleaner_email",
             "cleaner_name",
+            "cleaner_marketplace_eligible",
             "invited_by",
             "invitation",
             "status",
@@ -623,7 +673,11 @@ class AgencyMembershipSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_cleaner_name(self, obj):
-        return obj.cleaner.get_full_name() or obj.cleaner.username
+        profile = getattr(obj.cleaner, "cleaner_profile", None)
+        return profile.display_name if profile else ""
+
+    def get_cleaner_marketplace_eligible(self, obj):
+        return cleaner_is_agency_member_eligible(obj.cleaner)
 
 
 class CookieConsentSerializer(serializers.ModelSerializer):

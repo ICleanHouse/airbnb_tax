@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 
 from django.db import transaction
@@ -7,7 +8,14 @@ from django.db.models import Q
 from django.conf import settings
 from django.utils import timezone
 
-from apps.accounts.models import CleanerProfile, PilotEvidenceExclusion, User
+from apps.accounts.models import (
+    AgencyInvitation,
+    AgencyMembership,
+    AgencyProfile,
+    CleanerProfile,
+    PilotEvidenceExclusion,
+    User,
+)
 from apps.connections.models import Connection
 from apps.core.services import write_audit_log
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob, Dispute, ReplacementRequest
@@ -54,6 +62,77 @@ class VerificationReconciliationResult:
 class AccountTransitionResult:
     user: User
     changed: bool
+
+
+@dataclass(frozen=True)
+class AgencyReadiness:
+    """A single, non-sensitive source of truth for agency marketplace gates."""
+
+    marketplace_eligible: bool
+    profile_complete: bool
+    eligible_active_members_count: int
+    blockers: tuple[str, ...]
+
+
+def cleaner_is_agency_member_eligible(cleaner: User) -> bool:
+    """The member predicate intentionally reuses the cleaner pilot gate."""
+    profile = getattr(cleaner, "cleaner_profile", None)
+    return bool(
+        cleaner.is_active
+        and cleaner.is_cleaner
+        and cleaner.is_approved
+        and cleaner.is_contact_verified
+        and profile
+        and profile.is_verified
+    )
+
+
+def agency_readiness(*, agency_user: User) -> AgencyReadiness:
+    """Return stable blockers without leaking roster contacts or account data."""
+    current = User.objects.select_related("agency_profile").get(id=agency_user.id)
+    profile = getattr(current, "agency_profile", None)
+    blockers: list[str] = []
+    if not current.is_active or not current.is_agency or not current.is_approved:
+        blockers.append("account_not_eligible")
+    if not current.is_contact_verified:
+        blockers.append("contact_not_verified")
+    profile_complete = bool(profile and profile.is_complete)
+    if not profile_complete:
+        blockers.append("profile_incomplete")
+
+    eligible_members = 0
+    if profile is not None:
+        memberships = AgencyMembership.objects.filter(
+            agency=profile,
+            status=AgencyMembership.Status.ACTIVE,
+            cleaner__is_active=True,
+            cleaner__role=User.Role.CLEANER,
+            cleaner__account_status=User.AccountStatus.APPROVED,
+            cleaner__email_verified_at__isnull=False,
+            cleaner__cleaner_profile__verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+        )
+        if settings.PHONE_VERIFICATION_REQUIRED:
+            memberships = memberships.filter(cleaner__phone_verified_at__isnull=False)
+        eligible_members = memberships.count()
+    if eligible_members == 0:
+        blockers.append("no_eligible_active_member")
+    return AgencyReadiness(
+        marketplace_eligible=not blockers,
+        profile_complete=profile_complete,
+        eligible_active_members_count=eligible_members,
+        blockers=tuple(blockers),
+    )
+
+
+def ensure_agency_marketplace_eligible(*, agency_user: User) -> AgencyReadiness:
+    readiness = agency_readiness(agency_user=agency_user)
+    if not readiness.marketplace_eligible:
+        raise AccountTransitionError(
+            code="agency_marketplace_ineligible",
+            detail="Agency marketplace access is not ready for new work.",
+            fields={"blockers": list(readiness.blockers)},
+        )
+    return readiness
 
 
 def _validate_transition_input(
@@ -383,24 +462,285 @@ def ensure_agency_can_invite(*, agency_user: User) -> None:
     current = User.objects.get(id=agency_user.id)
     if not current.is_active or not current.is_agency or not current.is_approved:
         raise AccountTransitionError(
-            code="agency_marketplace_ineligible",
-            detail="Agency marketplace access must be active before inviting cleaners.",
+            code="agency_account_not_eligible",
+            detail="An active approved agency account is required to invite cleaners.",
         )
 
 
 def ensure_invitation_can_be_accepted(*, agency_user: User, cleaner: User) -> None:
     ensure_agency_can_invite(agency_user=agency_user)
     current_cleaner = User.objects.get(id=cleaner.id)
-    if (
-        not current_cleaner.is_active
-        or not current_cleaner.is_cleaner
-        or current_cleaner.account_status
-        in {User.AccountStatus.REJECTED, User.AccountStatus.SUSPENDED}
-    ):
+    if not cleaner_is_agency_member_eligible(current_cleaner):
         raise AccountTransitionError(
             code="cleaner_membership_ineligible",
-            detail="This cleaner account cannot accept agency membership.",
+            detail="This cleaner is not currently eligible for agency membership.",
         )
+
+
+def _write_agency_audit(*, actor: User | None, action: str, entity_id: int, metadata: dict | None = None) -> None:
+    write_audit_log(
+        actor=actor,
+        action=action,
+        entity_type="AgencyInvitation" if action.startswith("agency_invitation") else "AgencyMembership",
+        entity_id=entity_id,
+        metadata=metadata or {},
+    )
+
+
+@transaction.atomic
+def create_agency_invitation(
+    *, agency_user: User, target_cleaner_id: int, actor: User, message: str = ""
+) -> AgencyInvitation:
+    agency_user = User.objects.select_for_update().get(id=agency_user.id)
+    ensure_agency_can_invite(agency_user=agency_user)
+    agency = AgencyProfile.objects.select_for_update().get(user=agency_user)
+    target = User.objects.select_for_update().select_related("cleaner_profile").filter(id=target_cleaner_id).first()
+    if target is None or not target.is_cleaner:
+        raise AccountTransitionError(code="cleaner_not_found", detail="The selected cleaner is not available.")
+    ensure_invitation_can_be_accepted(agency_user=agency_user, cleaner=target)
+    membership = AgencyMembership.objects.select_for_update().filter(agency=agency, cleaner=target).first()
+    if membership and membership.is_active:
+        raise AccountTransitionError(
+            code="agency_membership_already_active",
+            detail="This cleaner is already an active agency member.",
+        )
+    pending = AgencyInvitation.objects.select_for_update().filter(
+        agency=agency,
+        target_cleaner=target,
+        status=AgencyInvitation.Status.PENDING,
+    ).first()
+    if pending is not None:
+        if pending.is_expired:
+            pending.status = AgencyInvitation.Status.EXPIRED
+            pending.save(update_fields=["status", "updated_at"])
+        else:
+            raise AccountTransitionError(
+                code="agency_invitation_pending",
+                detail="A pending invitation already exists for this cleaner.",
+            )
+    invitation = AgencyInvitation.objects.create(
+        agency=agency,
+        target_cleaner=target,
+        invited_by=actor,
+        token=uuid.uuid4().hex,
+        message=message.strip(),
+    )
+    _write_agency_audit(
+        actor=actor,
+        action="agency_invitation.created",
+        entity_id=invitation.id,
+        metadata={"agency_id": agency.id, "target_cleaner_id": target.id},
+    )
+    emit_notification_event(
+        NotificationEventRequest(
+            event_type="agency.invitation_received",
+            recipient_id=target.id,
+            occurrence_key=f"agency.invitation_received:{invitation.id}",
+            destination="/cleaner",
+            source_entity_type="AgencyInvitation",
+            source_entity_id=str(invitation.id),
+        )
+    )
+    return invitation
+
+
+def _locked_pending_invitation(*, invitation_id: int) -> AgencyInvitation:
+    invitation = (
+        AgencyInvitation.objects.select_for_update()
+        .select_related("agency", "agency__user", "target_cleaner")
+        .get(id=invitation_id)
+    )
+    if invitation.status != AgencyInvitation.Status.PENDING:
+        raise AccountTransitionError(
+            code="agency_invitation_not_pending",
+            detail="This invitation is no longer pending.",
+        )
+    if invitation.is_expired:
+        invitation.status = AgencyInvitation.Status.EXPIRED
+        invitation.save(update_fields=["status", "updated_at"])
+        raise AccountTransitionError(
+            code="agency_invitation_expired", detail="This invitation has expired."
+        )
+    return invitation
+
+
+@transaction.atomic
+def accept_agency_invitation(*, invitation_id: int, cleaner: User) -> AgencyMembership:
+    invitation = _locked_pending_invitation(invitation_id=invitation_id)
+    if invitation.target_cleaner_id != cleaner.id:
+        raise AccountTransitionError(code="agency_invitation_forbidden", detail="This invitation is not available.")
+    cleaner = User.objects.select_for_update().select_related("cleaner_profile").get(id=cleaner.id)
+    ensure_invitation_can_be_accepted(agency_user=invitation.agency.user, cleaner=cleaner)
+    was_ready = agency_readiness(agency_user=invitation.agency.user).marketplace_eligible
+    membership = AgencyMembership.objects.select_for_update().filter(
+        agency=invitation.agency, cleaner=cleaner
+    ).first()
+    if membership is None:
+        membership = AgencyMembership.objects.create(
+            agency=invitation.agency,
+            cleaner=cleaner,
+            invited_by=invitation.invited_by,
+            invitation=invitation,
+            status=AgencyMembership.Status.ACTIVE,
+        )
+    elif membership.status != AgencyMembership.Status.ACTIVE:
+        membership.status = AgencyMembership.Status.ACTIVE
+        membership.revoked_at = None
+        membership.invited_by = invitation.invited_by
+        membership.invitation = invitation
+        membership.save(update_fields=["status", "revoked_at", "invited_by", "invitation", "updated_at"])
+    invitation.status = AgencyInvitation.Status.ACCEPTED
+    invitation.accepted_at = timezone.now()
+    invitation.save(update_fields=["status", "accepted_at", "updated_at"])
+    _write_agency_audit(
+        actor=cleaner,
+        action="agency_invitation.accepted",
+        entity_id=invitation.id,
+        metadata={"agency_id": invitation.agency_id, "target_cleaner_id": cleaner.id},
+    )
+    emit_notification_event(
+        NotificationEventRequest(
+            event_type="agency.invitation_accepted",
+            recipient_id=invitation.agency.user_id,
+            occurrence_key=f"agency.invitation_accepted:{invitation.id}",
+            destination="/agency",
+            source_entity_type="AgencyInvitation",
+            source_entity_id=str(invitation.id),
+        )
+    )
+    is_ready = agency_readiness(agency_user=invitation.agency.user).marketplace_eligible
+    if is_ready and not was_ready:
+        emit_notification_event(
+            NotificationEventRequest(
+                event_type="agency.marketplace_access_activated",
+                recipient_id=invitation.agency.user_id,
+                occurrence_key=f"agency.marketplace_access_activated:{invitation.agency_id}",
+                destination="/agency",
+                source_entity_type="AgencyProfile",
+                source_entity_id=str(invitation.agency_id),
+            )
+        )
+    return membership
+
+
+@transaction.atomic
+def decline_agency_invitation(*, invitation_id: int, cleaner: User) -> AgencyInvitation:
+    invitation = _locked_pending_invitation(invitation_id=invitation_id)
+    if invitation.target_cleaner_id != cleaner.id:
+        raise AccountTransitionError(code="agency_invitation_forbidden", detail="This invitation is not available.")
+    invitation.status = AgencyInvitation.Status.DECLINED
+    invitation.save(update_fields=["status", "updated_at"])
+    _write_agency_audit(actor=cleaner, action="agency_invitation.declined", entity_id=invitation.id)
+    emit_notification_event(
+        NotificationEventRequest(
+            event_type="agency.invitation_declined",
+            recipient_id=invitation.agency.user_id,
+            occurrence_key=f"agency.invitation_declined:{invitation.id}",
+            destination="/agency",
+            source_entity_type="AgencyInvitation",
+            source_entity_id=str(invitation.id),
+        )
+    )
+    return invitation
+
+
+@transaction.atomic
+def revoke_agency_invitation(*, invitation_id: int, actor: User) -> AgencyInvitation:
+    invitation = _locked_pending_invitation(invitation_id=invitation_id)
+    if not actor.is_platform_admin and invitation.agency.user_id != actor.id:
+        raise AccountTransitionError(code="agency_invitation_forbidden", detail="This invitation is not available.")
+    invitation.status = AgencyInvitation.Status.REVOKED
+    invitation.save(update_fields=["status", "updated_at"])
+    _write_agency_audit(actor=actor, action="agency_invitation.revoked", entity_id=invitation.id)
+    return invitation
+
+
+@transaction.atomic
+def resend_agency_invitation(*, invitation_id: int, actor: User) -> AgencyInvitation:
+    invitation = (
+        AgencyInvitation.objects.select_for_update()
+        .select_related("agency", "agency__user", "target_cleaner")
+        .get(id=invitation_id)
+    )
+    if not actor.is_platform_admin and invitation.agency.user_id != actor.id:
+        raise AccountTransitionError(code="agency_invitation_forbidden", detail="This invitation is not available.")
+    if invitation.target_cleaner_id is None:
+        raise AccountTransitionError(code="agency_invitation_not_reissuable", detail="This historical invitation cannot be reissued.")
+    if invitation.status == AgencyInvitation.Status.PENDING:
+        invitation.status = AgencyInvitation.Status.SUPERSEDED
+        invitation.save(update_fields=["status", "updated_at"])
+    elif invitation.status not in {
+        AgencyInvitation.Status.DECLINED,
+        AgencyInvitation.Status.REVOKED,
+        AgencyInvitation.Status.EXPIRED,
+        AgencyInvitation.Status.SUPERSEDED,
+    }:
+        raise AccountTransitionError(code="agency_invitation_not_reissuable", detail="This invitation cannot be reissued.")
+    target = User.objects.select_for_update().select_related("cleaner_profile").get(id=invitation.target_cleaner_id)
+    ensure_invitation_can_be_accepted(agency_user=invitation.agency.user, cleaner=target)
+    successor = AgencyInvitation.objects.create(
+        agency=invitation.agency,
+        target_cleaner=target,
+        invited_by=actor,
+        token=uuid.uuid4().hex,
+        message=invitation.message,
+        reissued_from=invitation,
+    )
+    _write_agency_audit(
+        actor=actor,
+        action="agency_invitation.reissued",
+        entity_id=successor.id,
+        metadata={"source_invitation_id": invitation.id},
+    )
+    emit_notification_event(
+        NotificationEventRequest(
+            event_type="agency.invitation_received",
+            recipient_id=target.id,
+            occurrence_key=f"agency.invitation_received:{successor.id}",
+            destination="/cleaner",
+            source_entity_type="AgencyInvitation",
+            source_entity_id=str(successor.id),
+        )
+    )
+    return successor
+
+
+@transaction.atomic
+def revoke_agency_membership(*, membership_id: int, actor: User, by_member: bool = False) -> AgencyMembership:
+    membership = (
+        AgencyMembership.objects.select_for_update()
+        .select_related("agency", "agency__user", "cleaner")
+        .get(id=membership_id)
+    )
+    permitted = actor.is_platform_admin or (
+        membership.cleaner_id == actor.id if by_member else membership.agency.user_id == actor.id
+    )
+    if not permitted:
+        raise AccountTransitionError(code="agency_membership_forbidden", detail="This membership is not available.")
+    if membership.status == AgencyMembership.Status.REVOKED:
+        return membership
+    membership.status = AgencyMembership.Status.REVOKED
+    membership.revoked_at = timezone.now()
+    membership.save(update_fields=["status", "revoked_at", "updated_at"])
+    _write_agency_audit(
+        actor=actor,
+        action="agency_membership.left" if by_member else "agency_membership.revoked",
+        entity_id=membership.id,
+        metadata={"agency_id": membership.agency_id, "cleaner_id": membership.cleaner_id},
+    )
+    event_type = "agency.membership_left" if by_member else "agency.membership_revoked"
+    recipient_id = membership.agency.user_id if by_member else membership.cleaner_id
+    emit_notification_event(
+        NotificationEventRequest(
+            event_type=event_type,
+            recipient_id=recipient_id,
+            occurrence_key=f"{event_type}:{membership.id}:{membership.revoked_at.isoformat()}",
+            destination="/agency" if by_member else "/cleaner",
+            source_entity_type="AgencyMembership",
+            source_entity_id=str(membership.id),
+        )
+    )
+    return membership
 
 
 def account_deletion_blocker(*, user: User) -> AccountDeletionBlocked | None:

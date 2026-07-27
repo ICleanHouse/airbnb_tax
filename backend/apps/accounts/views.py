@@ -1,5 +1,4 @@
 import logging
-import uuid
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login, logout
@@ -34,10 +33,16 @@ from apps.accounts.services import (
     AccountDeletionBlocked,
     AccountTransitionError,
     delete_account_permanently,
+    accept_agency_invitation,
+    agency_readiness,
+    create_agency_invitation,
+    decline_agency_invitation,
     ensure_agency_can_invite,
-    ensure_invitation_can_be_accepted,
+    resend_agency_invitation,
     reconcile_contact_verification,
     reject_account,
+    revoke_agency_invitation,
+    revoke_agency_membership,
     suspend_account,
 )
 from apps.accounts.tokens import email_verification_token
@@ -68,6 +73,19 @@ from config.verification import validate_runtime_verification_configuration
 
 User = get_user_model()
 logger = logging.getLogger("apps.accounts")
+
+
+def agency_transition_error_response(error: AccountTransitionError) -> Response:
+    """Agency workflow conflicts are explicit and do not enumerate contacts."""
+    status_code = (
+        status.HTTP_403_FORBIDDEN
+        if error.code.endswith("forbidden")
+        else status.HTTP_409_CONFLICT
+    )
+    payload = {"code": error.code, "detail": error.detail}
+    if error.fields:
+        payload["fields"] = error.fields
+    return Response(payload, status=status_code)
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -506,8 +524,11 @@ class CleanerProfileViewSet(viewsets.ModelViewSet):
         queryset = CleanerProfile.objects.select_related("user").all().order_by("id")
         if user.is_platform_admin:
             return queryset
-        if user.is_agency and user.is_active and user.is_approved:
-            return queryset.filter(user__agency_memberships__agency__user=user, user__agency_memberships__status=AgencyMembership.Status.ACTIVE)
+        # Agencies use the deliberately narrow agency-memberships projection.
+        # Returning CleanerProfileSerializer here would leak member contact and
+        # account fields through its nested UserSerializer.
+        if user.is_agency:
+            return queryset.none()
         return queryset.filter(user=user)
 
     def update(self, request, *args, **kwargs):
@@ -597,6 +618,7 @@ class PublicCleanerViewSet(viewsets.ReadOnlyModelViewSet):
 
 class AgencyProfileViewSet(viewsets.ModelViewSet):
     serializer_class = AgencyProfileSerializer
+    http_method_names = ["get", "post", "put", "patch", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
@@ -621,34 +643,31 @@ class AgencyProfileViewSet(viewsets.ModelViewSet):
         agency = self.get_object()
         if not (request.user.is_platform_admin or agency.user_id == request.user.id):
             raise PermissionDenied("You can invite cleaners only for your own agency.")
-        try:
-            ensure_agency_can_invite(agency_user=agency.user)
-        except AccountTransitionError as error:
-            raise PermissionDenied(detail=error.detail, code=error.code) from error
-
         serializer = AgencyInviteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data.get("email", "")
-        phone_number = serializer.validated_data.get("phone_number", "")
-
-        duplicate_filter = Q(status=AgencyInvitation.Status.PENDING)
-        if email:
-            duplicate_filter &= Q(email__iexact=email)
-        else:
-            duplicate_filter &= Q(phone_number=phone_number)
-
-        if agency.invitations.filter(duplicate_filter).exists():
-            raise ValidationError("A pending invitation already exists for this cleaner.")
-
-        invitation = AgencyInvitation.objects.create(
-            agency=agency,
-            email=email,
-            phone_number=phone_number,
-            message=serializer.validated_data.get("message", ""),
-            invited_by=request.user,
-            token=uuid.uuid4().hex,
-        )
+        try:
+            invitation = create_agency_invitation(
+                agency_user=agency.user,
+                target_cleaner_id=serializer.validated_data["cleaner_id"],
+                actor=request.user,
+                message=serializer.validated_data.get("message", ""),
+            )
+        except AccountTransitionError as error:
+            return agency_transition_error_response(error)
         return Response(AgencyInvitationSerializer(invitation).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get"])
+    def readiness(self, request, pk=None):
+        agency = self.get_object()
+        readiness = agency_readiness(agency_user=agency.user)
+        return Response(
+            {
+                "marketplace_eligible": readiness.marketplace_eligible,
+                "profile_complete": readiness.profile_complete,
+                "eligible_active_members_count": readiness.eligible_active_members_count,
+                "blockers": list(readiness.blockers),
+            }
+        )
 
 
 class AgencyInvitationViewSet(viewsets.ReadOnlyModelViewSet):
@@ -656,21 +675,15 @@ class AgencyInvitationViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = AgencyInvitation.objects.select_related("agency", "agency__user", "cleaner")
+        queryset = AgencyInvitation.objects.select_related(
+            "agency", "agency__user", "target_cleaner", "target_cleaner__cleaner_profile"
+        )
         if user.is_platform_admin:
             return queryset
         if user.is_agency:
             return queryset.filter(agency__user=user)
         if user.is_cleaner:
-            contact_filter = Q(cleaner=user)
-            if user.email:
-                contact_filter |= Q(status=AgencyInvitation.Status.PENDING, email__iexact=user.email)
-            if user.phone_number:
-                contact_filter |= Q(
-                    status=AgencyInvitation.Status.PENDING,
-                    phone_number=user.phone_number,
-                )
-            return queryset.filter(contact_filter)
+            return queryset.filter(target_cleaner=user)
         return queryset.none()
 
     @action(detail=True, methods=["post"])
@@ -680,44 +693,39 @@ class AgencyInvitationViewSet(viewsets.ReadOnlyModelViewSet):
         if not user.is_cleaner:
             raise PermissionDenied("Only cleaner accounts can accept agency invitations.")
         try:
-            ensure_invitation_can_be_accepted(
-                agency_user=invitation.agency.user,
-                cleaner=user,
-            )
+            membership = accept_agency_invitation(invitation_id=invitation.id, cleaner=user)
         except AccountTransitionError as error:
-            raise PermissionDenied(detail=error.detail, code=error.code) from error
-        if invitation.status != AgencyInvitation.Status.PENDING:
-            raise ValidationError("Only pending invitations can be accepted.")
-        if invitation.is_expired:
-            invitation.status = AgencyInvitation.Status.EXPIRED
-            invitation.save(update_fields=["status", "updated_at"])
-            raise ValidationError("This invitation has expired.")
-
-        email_matches = bool(invitation.email and user.email and invitation.email.lower() == user.email.lower())
-        phone_matches = bool(invitation.phone_number and invitation.phone_number == user.phone_number)
-        if not (email_matches or phone_matches):
-            raise PermissionDenied("This invitation does not match your account email or phone number.")
-
-        membership, created = AgencyMembership.objects.get_or_create(
-            agency=invitation.agency,
-            cleaner=user,
-            defaults={
-                "invited_by": invitation.invited_by,
-                "invitation": invitation,
-                "status": AgencyMembership.Status.ACTIVE,
-            },
-        )
-        if not created and membership.status != AgencyMembership.Status.ACTIVE:
-            membership.status = AgencyMembership.Status.ACTIVE
-            membership.revoked_at = None
-            membership.invitation = invitation
-            membership.save(update_fields=["status", "revoked_at", "invitation", "updated_at"])
-
-        invitation.status = AgencyInvitation.Status.ACCEPTED
-        invitation.cleaner = user
-        invitation.accepted_at = timezone.now()
-        invitation.save(update_fields=["status", "cleaner", "accepted_at", "updated_at"])
+            return agency_transition_error_response(error)
         return Response(AgencyMembershipSerializer(membership).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def decline(self, request, pk=None):
+        invitation = self.get_object()
+        if not request.user.is_cleaner:
+            raise PermissionDenied("Only the invited cleaner can decline an invitation.")
+        try:
+            invitation = decline_agency_invitation(invitation_id=invitation.id, cleaner=request.user)
+        except AccountTransitionError as error:
+            return agency_transition_error_response(error)
+        return Response(AgencyInvitationSerializer(invitation).data)
+
+    @action(detail=True, methods=["post"])
+    def revoke(self, request, pk=None):
+        invitation = self.get_object()
+        try:
+            invitation = revoke_agency_invitation(invitation_id=invitation.id, actor=request.user)
+        except AccountTransitionError as error:
+            return agency_transition_error_response(error)
+        return Response(AgencyInvitationSerializer(invitation).data)
+
+    @action(detail=True, methods=["post"])
+    def resend(self, request, pk=None):
+        invitation = self.get_object()
+        try:
+            invitation = resend_agency_invitation(invitation_id=invitation.id, actor=request.user)
+        except AccountTransitionError as error:
+            return agency_transition_error_response(error)
+        return Response(AgencyInvitationSerializer(invitation).data, status=status.HTTP_201_CREATED)
 
 
 class AgencyMembershipViewSet(viewsets.ReadOnlyModelViewSet):
@@ -725,7 +733,9 @@ class AgencyMembershipViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = AgencyMembership.objects.select_related("agency", "cleaner", "invited_by", "invitation")
+        queryset = AgencyMembership.objects.select_related(
+            "agency", "cleaner", "cleaner__cleaner_profile", "invited_by", "invitation"
+        )
         if user.is_platform_admin:
             return queryset
         if user.is_agency:
@@ -733,3 +743,23 @@ class AgencyMembershipViewSet(viewsets.ReadOnlyModelViewSet):
         if user.is_cleaner:
             return queryset.filter(cleaner=user)
         return queryset.none()
+
+    @action(detail=True, methods=["post"])
+    def revoke(self, request, pk=None):
+        membership = self.get_object()
+        try:
+            membership = revoke_agency_membership(membership_id=membership.id, actor=request.user)
+        except AccountTransitionError as error:
+            return agency_transition_error_response(error)
+        return Response(AgencyMembershipSerializer(membership).data)
+
+    @action(detail=True, methods=["post"])
+    def leave(self, request, pk=None):
+        membership = self.get_object()
+        try:
+            membership = revoke_agency_membership(
+                membership_id=membership.id, actor=request.user, by_member=True
+            )
+        except AccountTransitionError as error:
+            return agency_transition_error_response(error)
+        return Response(AgencyMembershipSerializer(membership).data)

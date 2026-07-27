@@ -106,7 +106,8 @@ Future extraction into microservices should be possible without rewriting core b
 
 ### Not yet built
 
-- `/agency` — agency dashboard (manage members, view jobs). The 2026-07-23
+- `/agency` — agency dashboard (readiness, profile, target-bound invitations,
+  roster, member selection, assignments/recovery and history). The 2026-07-23
   S1-D01 charter makes full launch-critical agency parity a marketplace-launch
   blocker, including agency recovery rather than only the existing backend
   invitation/delegation primitives.
@@ -245,7 +246,9 @@ Rules:
 - Lifecycle APIs are explicit actions. Ordinary updates cannot change an
   assigned schedule or lifecycle status; lifecycle reads are object-authorized
   and lineage chronology is disclosure-tiered.
-- Agency-backed reschedule/replacement remains unsupported and must fail before
+- S1-D05 supersedes the old agency-recovery deferral: host and agency manage
+  recovery while the immutable assigned member owns incident/completion/review;
+  replacement is lineage-linked and must never overwrite the source assignment.
   mutation. Normal delegated-member immutability is unchanged.
 - Assigned jobs use the existing single-step completion rule: the assigned
   concrete cleaner may complete after `scheduled_start`; platform admins may

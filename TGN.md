@@ -263,7 +263,7 @@ AuditLog ──[references]────────► (any entity — polymorph
 
 ```
 Agency Invitation:
-  pending ──► accepted ──► [AgencyMembership: pending → active]
+  pending ──► accepted | declined | revoked | expired | superseded
            └► expired / declined
 
 Agency Membership:
@@ -281,8 +281,9 @@ Agency Membership:
   `Assignment.cleaner`; delegated agency work uses
   `Assignment.assigned_member`. Completed assignments still participate by
   their scheduled interval, while `Assignment.cancelled_at` releases it.
-- Agency application acceptance creates the one assignment for the job without
-  treating the agency account as an occupied cleaner. The schedule check begins
+- A pending agency application/offer must select an active eligible member
+  before acceptance. Acceptance atomically creates the one member-bound
+  assignment and checks the concrete member schedule. The schedule check begins
   only when a concrete member is delegated.
 - Future assigned-job reschedule and emergency-replacement acceptance services
   must acquire the same concrete-worker lock and invoke the same overlap check

@@ -2,6 +2,14 @@
 
 Updated: 2026-07-23.
 
+Implementation note (2026-07-27): S1-D05 now has a target-bound invitation
+contract, agency readiness projection, member-bound new assignments,
+agency-accountable recovery, `/agency` workspace/routing, and agency-safe
+notifications. It is not a live-release completion: S1-E02 phone verification,
+cleaner availability, PostgreSQL concurrency evidence, browser E2E, and
+Redis/Celery/provider smoke still gate launch. See
+[S1-D05 full agency parity](docs/S1_D05_FULL_AGENCY_PARITY.md).
+
 This is a concise resume point, not a historical changelog. Detailed domain
 state belongs in [TGN.md](TGN.md), Stage 1 work in
 [docs/STAGE_1_SOFIA_PILOT_PLAN.md](docs/STAGE_1_SOFIA_PILOT_PLAN.md), and

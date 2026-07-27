@@ -22,7 +22,9 @@ in a later signed update.
 - Disputes remain orthogonal to job, completion, review, and rating state.
 - Replace physical job deletion with an explicit lifecycle transition.
 - Never overwrite agency member delegation.
-- Agency recovery parity is deferred and S1-E05 remains Partially complete.
+- Agency recovery deferral is superseded by S1-D05: host and agency are
+  recovery-accountable while the immutable assigned member reports incidents,
+  completes work, and reviews.
 - Account de-identification is separate; S1-E05 owns only deletion blocking and
   support routing.
 - Stage 1 uses operator-assisted workflows and minimal participant request or

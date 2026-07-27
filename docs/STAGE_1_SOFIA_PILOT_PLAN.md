@@ -761,6 +761,13 @@ field/access allowlist for each audience.
 
 ### S1-D05 — Resolve agency participation and routing
 
+**Implementation update 2026-07-27:** The target-bound invitation, readiness,
+member-selection, immutable member-bound assignment, agency recovery,
+notification-routing, signup and `/agency` workspace slices are implemented.
+Do not mark this launch gate complete until S1-E02, availability, PostgreSQL
+concurrency, notification runtime and E2E/accessibility evidence pass; see
+[S1-D05 full agency parity](S1_D05_FULL_AGENCY_PARITY.md).
+
 **Owner decision recorded 2026-07-23 — full agency launch role.**
 
 - Enable the complete agency signup/onboarding path under the same

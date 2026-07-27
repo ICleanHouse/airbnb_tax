@@ -19,8 +19,8 @@
    and ID live on the restricted event/delivery record, not in user-visible
    metadata, task arguments, provider payload metadata, audit metadata, or
    logs.
-5. Destinations are validated relative URLs under `/admin`, `/app`, `/host`, or
-   `/cleaner`; schemes, hosts, credentials, fragments, protocol-relative URLs,
+5. Destinations are validated relative URLs under `/admin`, `/app`, `/host`,
+   `/cleaner`, or `/agency`; schemes, hosts, credentials, fragments, protocol-relative URLs,
    and unapproved query keys are rejected. Role-specific generic fallbacks are
    used when a detailed authorized screen is unavailable.
 6. Subjects and preview bodies are generic. They never contain property/address
@@ -56,6 +56,10 @@ email delivery is required for that event.
 | Account rejected | `account.rejected` | `reject_account` | Rejected user | Both | `/app` | user ID + transition version | Once under current terminal policy | Operator contacts user through approved support route if needed |
 | Account suspended | `account.suspended` | `suspend_account` | Suspended user | Both | `/app` | user ID + transition version | Once under current transition contract | Operator inspects suspension and delivery state |
 | Cleaner marketplace access activated | `cleaner.marketplace_access_activated` | `reconcile_contact_verification` | Cleaner whose persisted legacy state moved pending → eligible | Both | `/cleaner` | cleaner-profile ID + transition version | Once per effective transition version | Operator verifies saved state; no identity claim |
+| Agency invitation received | `agency.invitation_received` | target-bound invitation service | The selected eligible cleaner only | Both | `/cleaner` | invitation ID | Once | Operator checks invitation state only |
+| Agency invitation accepted/declined | `agency.invitation_accepted`, `agency.invitation_declined` | invitation transition service | Inviting agency representative only | Both | `/agency` | invitation ID + transition | Once per effective transition | Operator checks persisted invitation state |
+| Agency membership revoked/left | `agency.membership_revoked`, `agency.membership_left` | membership transition service | Counterpart only | Both | cleaner or `/agency` | membership ID + revoked timestamp | Once per effective transition | Operator checks roster state |
+| Agency readiness activated | `agency.marketplace_access_activated` | invitation acceptance / readiness transition | Agency representative only | Both | `/agency` | agency profile ID | Once per readiness activation | Operator checks persisted readiness |
 | Future phone/manual verification outcome | reserved; not emitted | Future S1-D02 service only | None until S1-D02 defines states/actors/retention | — | — | — | — | Do not invent outcomes |
 | Host-targeted eligible work | `offer.received` | Existing `offer_job` direct offer | Explicit persisted cleaner/agency that passes current workable checks | Both | cleaner: `/cleaner?section=jobs`; agency: `/app` | application ID + pending `updated_at` | Permitted after a prior terminal offer; each occurrence has a new timestamp key | Operator inspects offer/delivery; no job broadcast |
 | Operator matching invitation | `matching.operator_invitation` | New explicit operator service/API | One active approved marketplace-eligible cleaner; source job must remain eligible | Both | `/cleaner?section=jobs` | job ID + cleaner ID + operator-provided occurrence token | Repeat only with a new explicit occurrence token | Operator follows up manually |
@@ -66,7 +70,7 @@ email delivery is required for that event.
 | Direct offer accepted | `offer.accepted` | `accept_offer` | Owning host; assignee separately receives `assignment.created` | Both | `/host?section=applications&appFilter=active` | application ID + assignment ID | Once | Operator checks assignment/delivery |
 | Direct offer declined | `offer.declined` | `decline_offer` | Owning host | Both | `/host?section=applications` | application ID + rejected `updated_at` | Once per decline occurrence | Operator may assist matching |
 | Direct offer withdrawn by host | reserved; not emitted | No current lifecycle service/API | None | — | — | — | — | Deferred; do not infer from application withdrawal |
-| Agency member delegated | `assignment.member_delegated` | `assign_member_to_assignment` | Concrete eligible member; agency is the actor and gets no duplicate | Both | `/cleaner?section=assignments` | assignment ID + immutable member ID | Once; identical delegation replay returns existing assignment | Operator checks immutable delegation |
+| Agency member delegated | `assignment.member_delegated` | Atomic agency application/offer acceptance (or legacy initial selection) | Concrete eligible member; agency is the actor and gets no duplicate | Both | `/cleaner?section=assignments` | assignment ID + immutable member ID | Once; identical legacy replay returns existing assignment | Operator checks immutable delegation |
 | Other assignment participant change | reserved; not emitted | No supported normal reassignment path | None | — | — | — | — | Agency replacement parity remains unsupported |
 | Job cancelled | `job.cancelled` | `cancel_job` | Host and direct cleaner/delegated member except the actor; platform-admin action notifies both | Both | role dashboard generic job/assignment section | cancellation lifecycle-event ID + recipient ID | Once per terminal cancellation | Operator runs cancellation/recovery follow-up |
 | Reschedule proposed | `job.reschedule_proposed` | `propose_reschedule` | Direct counterpart only | Both | role dashboard generic job/assignment section | proposal ID + recipient ID | Once per proposal | Operator assists before expiry |

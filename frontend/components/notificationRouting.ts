@@ -1,6 +1,6 @@
 import type { AppNotification } from "../types/notification";
 
-const ALLOWED_PATHS = new Set(["/admin", "/app", "/host", "/cleaner"]);
+const ALLOWED_PATHS = new Set(["/admin", "/app", "/host", "/cleaner", "/agency"]);
 const ALLOWED_QUERY_KEYS = new Set([
   "section",
   "appFilter",
@@ -48,6 +48,7 @@ function numericMetadata(notification: AppNotification, key: string): number | n
 function roleFallback(pathname: string): string {
   if (pathname.startsWith("/host")) return "/host";
   if (pathname.startsWith("/cleaner")) return "/cleaner";
+  if (pathname.startsWith("/agency")) return "/agency";
   if (pathname.startsWith("/admin")) return "/admin";
   return "/app";
 }

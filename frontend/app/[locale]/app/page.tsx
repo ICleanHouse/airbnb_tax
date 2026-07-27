@@ -45,6 +45,10 @@ export default function AppEntryPage() {
           window.location.replace("/cleaner");
           return;
         }
+        if (data.role === "agency") {
+          window.location.replace("/agency");
+          return;
+        }
         setUser(data);
       }
       setLoading(false);

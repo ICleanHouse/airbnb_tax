@@ -29,5 +29,11 @@ export interface CurrentUser {
   contact_verified?: boolean;
   fully_verified?: boolean;
   marketplace_eligible?: boolean;
+  agency_readiness?: {
+    marketplace_eligible: boolean;
+    profile_complete: boolean;
+    eligible_active_members_count: number;
+    blockers: string[];
+  } | null;
   phone_verification_required?: boolean;
 }

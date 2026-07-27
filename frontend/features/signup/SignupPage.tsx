@@ -374,7 +374,11 @@ export default function SignupPage() {
     if (!query) return availableZones;
     return availableZones.filter((zone) => zone.toLocaleLowerCase().includes(query));
   }, [availableZones, districtSearch]);
-  const canContinueLocation = Boolean(selectedCity && selectedZones.size > 0);
+  const canContinueLocation = Boolean(
+    selectedCity
+      && selectedZones.size > 0
+      && (role !== "agency" || (selectedCity.value === "sofia" && companyName.trim()))
+  );
   const totalSteps = role === "cleaner" ? 7 : 2;
   const progressPercent = Math.round(((stepIndex(step, role) + 1) / totalSteps) * 100);
 
@@ -694,7 +698,9 @@ export default function SignupPage() {
       email_verification_token: emailVerificationToken,
       city: selectedCity.label,
       service_areas: Array.from(selectedZones),
-      ...(role === "host" && companyName.trim() ? { company_name: companyName.trim() } : {}),
+      ...((role === "host" && companyName.trim()) || role === "agency"
+        ? { company_name: companyName.trim() }
+        : {}),
     });
   }
 
@@ -1115,9 +1121,12 @@ export default function SignupPage() {
           <div className="auth-heading">
             <h1>{tS("location.heading")}</h1>
           </div>
-          {role === "host" ? (
+          {role === "host" || role === "agency" ? (
             <label className="signup-city-picker">
-              <span>{tS("location.companyNameLabel")} <small className="signup-optional">{tS("location.optional")}</small></span>
+              <span>
+                {tS("location.companyNameLabel")}
+                {role === "host" ? <small className="signup-optional">{tS("location.optional")}</small> : null}
+              </span>
               <input
                 type="text"
                 value={companyName}
@@ -1131,7 +1140,9 @@ export default function SignupPage() {
             <span>{tS("location.cityLabel")}</span>
             <select value={city} onChange={(event) => { setCity(event.target.value); setSelectedZones(new Set()); setAvailableChoice(""); setSelectedChoice(""); setDistrictSearch(""); }}>
               <option value="">{tS("location.cityPlaceholder")}</option>
-              {cities.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              {cities
+                .filter((item) => role !== "agency" || item.value === "sofia")
+                .map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </label>
           {selectedCity ? (

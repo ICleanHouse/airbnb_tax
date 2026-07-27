@@ -8,7 +8,7 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.accounts.models import AgencyProfile, CleanerProfile, HostProfile, User
+from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, HostProfile, User
 from apps.locations.models import City, ServiceZone
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
 from apps.marketplace.tests.factories import create_cleaning_job_record
@@ -70,8 +70,15 @@ class MarketplacePrivacyBase(TestCase):
             username="approved-agency",
             role=User.Role.AGENCY,
             account_status=User.AccountStatus.APPROVED,
+            email_verified_at=timezone.now(),
         )
-        AgencyProfile.objects.create(user=self.agency, company_name="Approved Agency")
+        agency_profile = AgencyProfile.objects.create(
+            user=self.agency,
+            company_name="Approved Agency",
+            city="Sofia",
+            service_areas=[self.zone.name_en],
+        )
+        AgencyMembership.objects.create(agency=agency_profile, cleaner=self.cleaner)
 
     def create_cleaner(
         self,
@@ -84,6 +91,7 @@ class MarketplacePrivacyBase(TestCase):
             username=username,
             role=User.Role.CLEANER,
             account_status=account_status,
+            email_verified_at=timezone.now(),
         )
         CleanerProfile.objects.create(
             user=user,
@@ -743,6 +751,7 @@ class ApplicationStatusMatrixTests(MarketplacePrivacyBase):
         "status",
         "origin",
         "proposed_price",
+        "proposed_member",
         "created_at",
         "updated_at",
     }

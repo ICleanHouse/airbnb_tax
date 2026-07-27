@@ -20,7 +20,7 @@ from apps.accounts.models import (
 from apps.connections.models import Connection, Message
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
 from apps.marketplace.tests.factories import create_cleaning_job_record
-from apps.marketplace.services import accept_application, publish_job, submit_application
+from apps.marketplace.services import accept_application, publish_job, select_member_for_application, submit_application
 from apps.notifications.models import Notification
 from apps.properties.models import Property
 
@@ -581,11 +581,13 @@ class AgencyWorkflowTests(TestCase):
             password="password123",
             role=User.Role.AGENCY,
             account_status=User.AccountStatus.APPROVED,
+            email_verified_at=timezone.now(),
         )
         self.agency = AgencyProfile.objects.create(
             user=self.agency_user,
             company_name="Agency One",
             city="Sofia",
+            service_areas=["Center"],
         )
         self.cleaner = User.objects.create_user(
             username="cleaner@example.com",
@@ -593,6 +595,7 @@ class AgencyWorkflowTests(TestCase):
             password="password123",
             role=User.Role.CLEANER,
             account_status=User.AccountStatus.APPROVED,
+            email_verified_at=timezone.now(),
         )
         CleanerProfile.objects.create(
             user=self.cleaner,
@@ -604,17 +607,17 @@ class AgencyWorkflowTests(TestCase):
         self.client.force_authenticate(self.agency_user)
         invite_response = self.client.post(
             f"/api/accounts/agencies/{self.agency.id}/invite-cleaner/",
-            {"email": "cleaner@example.com"},
+            {"cleaner_id": self.cleaner.id},
             format="json",
         )
         duplicate_response = self.client.post(
             f"/api/accounts/agencies/{self.agency.id}/invite-cleaner/",
-            {"email": "cleaner@example.com"},
+            {"cleaner_id": self.cleaner.id},
             format="json",
         )
 
         self.assertEqual(invite_response.status_code, 201)
-        self.assertEqual(duplicate_response.status_code, 400)
+        self.assertEqual(duplicate_response.status_code, 409)
 
         invitation = AgencyInvitation.objects.get()
         self.client.force_authenticate(self.cleaner)
@@ -650,16 +653,14 @@ class AgencyWorkflowTests(TestCase):
 
         publish_job(job)
         application = submit_application(job=job, cleaner=self.agency_user)
+        select_member_for_application(
+            application=application,
+            agency_user=self.agency_user,
+            member_id=self.cleaner.id,
+        )
         assignment = accept_application(application=application, accepted_by=host)
 
         self.client.force_authenticate(self.agency_user)
-        response = self.client.post(
-            f"/api/marketplace/assignments/{assignment.id}/assign-member/",
-            {"assigned_member_id": self.cleaner.id},
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, 200)
         assignment.refresh_from_db()
         self.assertEqual(assignment.assigned_member, self.cleaner)
         self.assertEqual(Assignment.objects.filter(assigned_member=self.cleaner).count(), 1)

@@ -62,6 +62,7 @@ class ScheduleConflictFactoryMixin:
             password="Password123!",
             role=User.Role.CLEANER,
             account_status=User.AccountStatus.APPROVED,
+            email_verified_at=timezone.now(),
         )
         CleanerProfile.objects.create(
             user=cleaner,
@@ -78,11 +79,13 @@ class ScheduleConflictFactoryMixin:
             password="Password123!",
             role=User.Role.AGENCY,
             account_status=User.AccountStatus.APPROVED,
+            email_verified_at=timezone.now(),
         )
         agency = AgencyProfile.objects.create(
             user=agency_user,
             company_name=f"{username} private company",
             city="Sofia",
+            service_areas=["Sofia"],
         )
         return agency_user, agency
 
@@ -115,13 +118,21 @@ class ScheduleConflictFactoryMixin:
             status=status,
         )
 
-    def create_application(self, *, job, worker, origin=CleanerApplication.Origin.CLEANER_APPLIED):
+    def create_application(
+        self,
+        *,
+        job,
+        worker,
+        origin=CleanerApplication.Origin.CLEANER_APPLIED,
+        proposed_member=None,
+    ):
         return CleanerApplication.objects.create(
             job=job,
             cleaner=worker,
             origin=origin,
             status=CleanerApplication.Status.PENDING,
             proposed_price=Decimal("50.00"),
+            proposed_member=proposed_member,
         )
 
     def create_occupied_assignment(
@@ -182,7 +193,16 @@ class CleanerScheduleConflictTests(ScheduleConflictFactoryMixin, TestCase):
         self.cleaner = self.create_cleaner()
         self.base = timezone.now().replace(microsecond=0) + dt.timedelta(days=30)
 
-    def candidate_application(self, *, worker=None, start=None, end=None, property=None, origin=None):
+    def candidate_application(
+        self,
+        *,
+        worker=None,
+        start=None,
+        end=None,
+        property=None,
+        origin=None,
+        proposed_member=None,
+    ):
         job = self.create_job(
             property=property or self.other_property,
             scheduled_start=start or self.base,
@@ -192,6 +212,7 @@ class CleanerScheduleConflictTests(ScheduleConflictFactoryMixin, TestCase):
             job=job,
             worker=worker or self.cleaner,
             origin=origin or CleanerApplication.Origin.CLEANER_APPLIED,
+            proposed_member=proposed_member,
         )
 
     def occupy_default_interval(self, *, worker=None, agency=None, **kwargs):
@@ -245,7 +266,14 @@ class CleanerScheduleConflictTests(ScheduleConflictFactoryMixin, TestCase):
         self.assertEqual(offer.status, CleanerApplication.Status.PENDING)
 
     def test_agency_application_acceptance_does_not_check_agency_account_schedule(self):
-        agency_user, _ = self.create_agency()
+        agency_user, agency = self.create_agency()
+        member = self.create_cleaner("agency-member")
+        AgencyMembership.objects.create(
+            agency=agency,
+            cleaner=member,
+            invited_by=agency_user,
+            status=AgencyMembership.Status.ACTIVE,
+        )
         existing_property = self.create_property(host=self.host, prefix="agency-existing-property")
         self.create_occupied_assignment(
             worker=agency_user,
@@ -253,15 +281,15 @@ class CleanerScheduleConflictTests(ScheduleConflictFactoryMixin, TestCase):
             scheduled_start=self.base + dt.timedelta(minutes=30),
             scheduled_end=self.base + dt.timedelta(hours=2, minutes=30),
         )
-        application = self.candidate_application(worker=agency_user)
+        application = self.candidate_application(worker=agency_user, proposed_member=member)
 
         assignment = accept_application(application=application, accepted_by=self.other_host)
 
         self.assertEqual(assignment.cleaner_id, agency_user.id)
-        self.assertIsNone(assignment.assigned_member_id)
+        self.assertEqual(assignment.assigned_member_id, member.id)
         self.assertEqual(Assignment.objects.filter(job=application.job).count(), 1)
 
-    def test_agency_delegation_revalidates_member_schedule(self):
+    def test_agency_acceptance_revalidates_selected_member_schedule(self):
         agency_user, agency = self.create_agency()
         member = self.create_cleaner("member")
         AgencyMembership.objects.create(
@@ -271,18 +299,12 @@ class CleanerScheduleConflictTests(ScheduleConflictFactoryMixin, TestCase):
             status=AgencyMembership.Status.ACTIVE,
         )
         self.occupy_default_interval(worker=member)
-        application = self.candidate_application(worker=agency_user)
-        assignment = accept_application(application=application, accepted_by=self.other_host)
+        application = self.candidate_application(worker=agency_user, proposed_member=member)
 
         self.assert_schedule_conflict(
-            lambda: assign_member_to_assignment(
-                assignment=assignment,
-                agency_user=agency_user,
-                member=member,
-            )
+            lambda: accept_application(application=application, accepted_by=self.other_host)
         )
-        assignment.refresh_from_db()
-        self.assertIsNone(assignment.assigned_member_id)
+        self.assertFalse(Assignment.objects.filter(job=application.job).exists())
 
     def test_non_overlapping_boundaries_are_allowed(self):
         existing_start = self.base + dt.timedelta(hours=4)
@@ -459,7 +481,7 @@ class CleanerScheduleConflictTests(ScheduleConflictFactoryMixin, TestCase):
             ),
         )
 
-    def test_agency_delegation_api_returns_stable_private_conflict(self):
+    def test_agency_acceptance_api_returns_stable_private_conflict(self):
         agency_user, agency = self.create_agency()
         member = self.create_cleaner("api-member")
         AgencyMembership.objects.create(
@@ -469,14 +491,11 @@ class CleanerScheduleConflictTests(ScheduleConflictFactoryMixin, TestCase):
             status=AgencyMembership.Status.ACTIVE,
         )
         occupied = self.occupy_default_interval(worker=member)
-        application = self.candidate_application(worker=agency_user)
-        assignment = accept_application(application=application, accepted_by=self.other_host)
-        self.client.force_authenticate(agency_user)
+        application = self.candidate_application(worker=agency_user, proposed_member=member)
+        self.client.force_authenticate(self.other_host)
 
         response = self.client.post(
-            f"/api/marketplace/assignments/{assignment.id}/assign-member/",
-            {"assigned_member_id": member.id},
-            format="json",
+            f"/api/marketplace/applications/{application.id}/accept/",
         )
 
         self.assert_private_conflict_response(

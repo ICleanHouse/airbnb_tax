@@ -585,7 +585,8 @@ class CleanerApplicationApiNegativeTests(MarketplaceApiNegativeBase):
         self.client.force_authenticate(self.host)
         host_detail = self.client.get(f"/api/marketplace/applications/{application.id}/")
         self.assertEqual(host_detail.status_code, 200)
-        self.assertEqual(host_detail.data["cleaner_email"], self.cleaner.email)
+        self.assertNotIn("cleaner_email", host_detail.data)
+        self.assert_response_safe(host_detail)
 
         self.client.force_authenticate(self.other_host)
         other_host_list = self.client.get("/api/marketplace/applications/")
@@ -823,7 +824,7 @@ class AssignmentApiNegativeTests(MarketplaceApiNegativeBase):
                     format="json",
                 )
 
-                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.status_code, 409)
                 assignment.refresh_from_db()
                 self.assertIsNone(assignment.assigned_member)
 

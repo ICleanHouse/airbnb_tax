@@ -148,7 +148,7 @@ class VerificationAuthorizationTests(TestCase):
         self.assertEqual(public.status_code, 200)
         self.assertNotIn("birth_date", public.data)
 
-    def test_only_eligible_active_agency_membership_can_read_private_profile(self):
+    def test_agency_cannot_read_broad_cleaner_profile(self):
         agency_user, agency = self.make_agency()
         AgencyMembership.objects.create(agency=agency, cleaner=self.cleaner)
         self.client.force_authenticate(agency_user)
@@ -156,7 +156,7 @@ class VerificationAuthorizationTests(TestCase):
         allowed = self.client.get(
             f"/api/accounts/cleaners/{self.cleaner.cleaner_profile.id}/"
         )
-        self.assertEqual(allowed.status_code, 200)
+        self.assertEqual(allowed.status_code, 404)
 
         agency_user.account_status = User.AccountStatus.SUSPENDED
         agency_user.save(update_fields=["account_status"])
@@ -173,14 +173,14 @@ class VerificationAuthorizationTests(TestCase):
 
         create_response = self.client.post(
             f"/api/accounts/agencies/{agency.id}/invite-cleaner/",
-            {"email": self.cleaner.email},
+            {"cleaner_id": self.cleaner.id},
             format="json",
         )
-        self.assertEqual(create_response.status_code, 403)
+        self.assertEqual(create_response.status_code, 409)
 
         invitation = AgencyInvitation.objects.create(
             agency=agency,
-            email=self.cleaner.email,
+            target_cleaner=self.cleaner,
             token="verification-authorization-invite",
             expires_at=timezone.now() + timedelta(days=1),
         )
@@ -188,10 +188,10 @@ class VerificationAuthorizationTests(TestCase):
         accept_response = self.client.post(
             f"/api/accounts/agency-invitations/{invitation.id}/accept/"
         )
-        self.assertEqual(accept_response.status_code, 403)
+        self.assertEqual(accept_response.status_code, 409)
         self.assertFalse(AgencyMembership.objects.filter(agency=agency).exists())
 
-    def test_pending_cleaner_may_accept_membership_onboarding(self):
+    def test_pending_cleaner_cannot_accept_membership(self):
         agency_user, agency = self.make_agency("onboarding-agency")
         pending_cleaner = self.make_cleaner(
             "onboarding-cleaner",
@@ -200,7 +200,7 @@ class VerificationAuthorizationTests(TestCase):
         )
         invitation = AgencyInvitation.objects.create(
             agency=agency,
-            email=pending_cleaner.email,
+            target_cleaner=pending_cleaner,
             token="pending-cleaner-onboarding",
             expires_at=timezone.now() + timedelta(days=1),
         )
@@ -210,12 +210,8 @@ class VerificationAuthorizationTests(TestCase):
             f"/api/accounts/agency-invitations/{invitation.id}/accept/"
         )
 
-        self.assertEqual(response.status_code, 201)
-        self.assertTrue(
-            AgencyMembership.objects.filter(
-                agency=agency, cleaner=pending_cleaner
-            ).exists()
-        )
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(AgencyMembership.objects.filter(agency=agency, cleaner=pending_cleaner).exists())
 
     def test_inactive_agency_cannot_delegate(self):
         agency_user, agency = self.make_agency("delegate-agency")

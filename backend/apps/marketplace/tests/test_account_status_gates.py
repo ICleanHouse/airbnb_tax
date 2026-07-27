@@ -61,6 +61,7 @@ class MarketplaceAccountStatusGateTests(TestCase):
             role=User.Role.CLEANER,
             account_status=status,
             is_active=is_active,
+            email_verified_at=timezone.now(),
         )
         CleanerProfile.objects.create(
             user=cleaner,
@@ -76,11 +77,13 @@ class MarketplaceAccountStatusGateTests(TestCase):
             password="Password123!",
             role=User.Role.AGENCY,
             account_status=status,
+            email_verified_at=timezone.now(),
         )
         agency = AgencyProfile.objects.create(
             user=agency_user,
             company_name="Agency One",
             city="Sofia",
+            service_areas=["Sofia"],
         )
         return agency_user, agency
 
@@ -328,9 +331,18 @@ class MarketplaceAccountStatusGateTests(TestCase):
         agency_application = CleanerApplication.objects.create(
             job=job,
             cleaner=agency_user,
-            status=CleanerApplication.Status.PENDING,
+            status=CleanerApplication.Status.ACCEPTED,
         )
-        assignment = accept_application(application=agency_application, accepted_by=self.host)
+        # Older agency assignments can be empty. The controlled legacy route is
+        # retained only to bind that historical work once; newly accepted agency
+        # applications are member-bound before their assignment is created.
+        assignment = Assignment.objects.create(
+            job=job,
+            cleaner=agency_user,
+            application=agency_application,
+        )
+        job.status = CleaningJob.Status.ASSIGNED
+        job.save(update_fields=["status", "updated_at"])
 
         cases = [
             (

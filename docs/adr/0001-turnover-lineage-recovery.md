@@ -57,9 +57,11 @@ each `CleaningJob` as one historical attempt.
     check while holding the worker lock.
 14. PostgreSQL partial unique indexes are the final concurrency guard. Expected
     constraint races become stable HTTP 409 responses.
-15. Agency-backed reschedule and replacement remain unsupported. No S1-E05 API
-    overwrites an agency member. Unsupported operations fail before mutation
-    with `agency_recovery_not_supported`.
+15. **S1-D05 addendum (2026-07-27):** agency-backed recovery is supported with
+    an explicit authority matrix. Host and agency may manage cancellation,
+    rescheduling, replacement and disputes; the immutable assigned member may
+    report incidents, complete work and review. No recovery operation overwrites
+    the original assignment or member; replacement remains a new lineage draft.
 16. S1-E05 account deletion is limited to active-obligation blocking and
     support routing. De-identification, tombstone identities, and privacy erasure
     are separate work.

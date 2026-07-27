@@ -59,6 +59,7 @@ class AgencyDelegationContractTests(TestCase):
             password="Password123!",
             role=User.Role.HOST,
             account_status=status,
+            email_verified_at=timezone.now(),
         )
         HostProfile.objects.create(user=host, city="Sofia")
         return host
@@ -79,6 +80,7 @@ class AgencyDelegationContractTests(TestCase):
             role=User.Role.CLEANER,
             account_status=status,
             is_active=is_active,
+            email_verified_at=timezone.now(),
         )
         if with_profile:
             CleanerProfile.objects.create(
@@ -95,8 +97,11 @@ class AgencyDelegationContractTests(TestCase):
             password="Password123!",
             role=User.Role.AGENCY,
             account_status=status,
+            email_verified_at=timezone.now(),
         )
-        agency = AgencyProfile.objects.create(user=agency_user, company_name=username, city="Sofia")
+        agency = AgencyProfile.objects.create(
+            user=agency_user, company_name=username, city="Sofia", service_areas=["Center"]
+        )
         return agency_user, agency
 
     def create_accepted_agency_assignment(self):
@@ -115,6 +120,7 @@ class AgencyDelegationContractTests(TestCase):
             job=job,
             cleaner=self.agency_user,
             status=CleanerApplication.Status.PENDING,
+            proposed_member=self.member,
         )
         return accept_application(application=application, accepted_by=self.host)
 

@@ -274,18 +274,16 @@ class CancellationServiceTests(LifecycleFoundationBase):
         job.refresh_from_db()
         self.assertEqual(job.status, CleaningJob.Status.CANCELLED)
 
-    def test_agency_recovery_write_fails_before_mutation(self):
+    def test_agency_can_cancel_without_mutating_assignment_history(self):
         job = self.create_job(status=CleaningJob.Status.ASSIGNED)
-        Assignment.objects.create(job=job, cleaner=self.agency)
-        before = (JobLifecycleEvent.objects.count(), Notification.objects.count())
+        assignment = Assignment.objects.create(job=job, cleaner=self.agency, assigned_member=self.cleaner)
 
-        with self.assertRaises(LifecycleConflict) as raised:
-            cancel_job(job=job, actor=self.agency, reason_code="cleaner_unavailable")
+        cancel_job(job=job, actor=self.agency, reason_code="cleaner_unavailable")
 
         job.refresh_from_db()
-        self.assertEqual(raised.exception.code, "agency_recovery_not_supported")
-        self.assertEqual(job.status, CleaningJob.Status.ASSIGNED)
-        self.assertEqual(before, (JobLifecycleEvent.objects.count(), Notification.objects.count()))
+        assignment.refresh_from_db()
+        self.assertEqual(job.status, CleaningJob.Status.CANCELLED)
+        self.assertEqual(assignment.assigned_member_id, self.cleaner.id)
 
     def test_available_actions_are_server_derived(self):
         job = self.create_job(status=CleaningJob.Status.ASSIGNED)
@@ -443,23 +441,22 @@ class LifecycleApiTests(LifecycleFoundationBase):
             },
         )
 
-    def test_agency_cancel_endpoint_is_explicit_and_has_no_partial_mutation(self):
+    def test_agency_cancel_endpoint_preserves_member_history(self):
         job = self.create_job(status=CleaningJob.Status.ASSIGNED)
-        Assignment.objects.create(job=job, cleaner=self.agency)
+        assignment = Assignment.objects.create(job=job, cleaner=self.agency, assigned_member=self.cleaner)
         self.client.force_authenticate(self.agency)
-        before = (JobLifecycleEvent.objects.count(), Notification.objects.count())
 
         response = self.client.post(
             f"/api/marketplace/jobs/{job.id}/cancel/",
-            {"reason_code": "invalid-on-purpose"},
+            {"reason_code": "cleaner_unavailable"},
             format="json",
         )
 
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json()["code"], "agency_recovery_not_supported")
+        self.assertEqual(response.status_code, 200)
         job.refresh_from_db()
-        self.assertEqual(job.status, CleaningJob.Status.ASSIGNED)
-        self.assertEqual(before, (JobLifecycleEvent.objects.count(), Notification.objects.count()))
+        assignment.refresh_from_db()
+        self.assertEqual(job.status, CleaningJob.Status.CANCELLED)
+        self.assertEqual(assignment.assigned_member_id, self.cleaner.id)
 
     def test_ineligible_assigned_cleaner_receives_stable_conflict(self):
         job = self.create_job(status=CleaningJob.Status.ASSIGNED)

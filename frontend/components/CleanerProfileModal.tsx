@@ -35,11 +35,11 @@ function formatDate(iso: string): string {
  * footer (e.g. "Offer a job" / favourite) supplied by the caller.
  */
 export default function CleanerProfileModal({
-  cleanerId,
+  cleanerPublicId,
   onClose,
   footer,
 }: {
-  cleanerId: number;
+  cleanerPublicId: string;
   onClose: () => void;
   footer?: React.ReactNode;
 }) {
@@ -65,7 +65,7 @@ export default function CleanerProfileModal({
     setLoading(true);
     setError("");
     setShowAllAreas(false);
-    apiFetch(`/api/accounts/public-cleaners/${cleanerId}/`)
+    apiFetch(`/api/accounts/public-cleaners/${cleanerPublicId}/`)
       .then(async (res) => {
         if (!res.ok) throw new Error(t("loadError"));
         return (await res.json()) as PublicCleanerDetail;
@@ -82,7 +82,7 @@ export default function CleanerProfileModal({
     return () => {
       active = false;
     };
-  }, [cleanerId, t]);
+  }, [cleanerPublicId, t]);
 
   const name = detail?.display_name || tCard("defaultName");
   const serviceAreas = detail?.service_areas || [];
@@ -158,7 +158,7 @@ export default function CleanerProfileModal({
                     </p>
                   )}
                   <div className="cleaner-profile-connect">
-                    <ConnectButton targetUserId={detail.user_id} returnTo={`/?cleaner=${cleanerId}`} />
+                    <ConnectButton cleanerPublicId={detail.public_id} returnTo={`/?cleaner=${cleanerPublicId}`} />
                   </div>
                 </div>
               </div>

@@ -69,7 +69,7 @@ state and the next action visible.
 | S1-D01 | Confirm the Stage 1 charter | Done | Maintain the signed charter as the scope boundary. |
 | S1-D02 | Define cleaner and agency verification | Done | Execute the approved policy through S1-E02; do not reopen identity/quality vetting. |
 | S1-D03 | Define lifecycle and support policy | Done for transition contract; six measurement decisions open | Approve the incident matrix/adjudicator, operational-success tolerance, activation window, match-mode/organic threshold, operator-time formula, and exposed-host-cancellation denominator rule. |
-| S1-D04 | Define privacy and disclosure tiers | Done for disclosure tiers; three decisions open | Finalize public cleaner/review publication, Geoapify or no-provider handling, and cross-domain retention. |
+| S1-D04 | Define privacy and disclosure tiers | In progress; owner decisions implemented | Complete PostgreSQL, Redis/Celery, provider and browser evidence; publish required policy surfaces. |
 | S1-D05 | Resolve agency participation and routing | In progress | Deliver complete signup/onboarding, workspace, member eligibility, job/application/assignment, notification, and history-preserving recovery parity. |
 
 #### Gate B — product and workflow readiness
@@ -83,7 +83,7 @@ state and the next action visible.
 | S1-E05 | Add history-preserving failure and recovery workflows | Partially complete | Add agency-backed recovery without mutating delegation and fix delegated-member completion/review recipients. |
 | S1-E06 | Complete the reliability notification loop | In progress; runtime evidence pending | Prove PostgreSQL concurrency plus live Redis/Celery and provider delivery/failure behavior. |
 | S1-E07 | Repair conversion and role routing | Done | Full Django (472 tests) and seeded Playwright (10 tests, no skips) evidence passed. See `docs/testing/s1_e07_conversion_routing.tdd.md`. |
-| S1-E08 | Add account recovery and safe account deletion | Partially complete | Password recovery and support-routed deletion blockers are implemented; S1-D04 retention/anonymization and complete runtime evidence remain blockers. See `docs/testing/s1_e08_account_recovery.tdd.md`. |
+| S1-E08 | Add account recovery and safe account deletion | Partially complete | Password recovery and S1-D04 closure/anonymization foundations are implemented; complete runtime evidence remains required. See `docs/testing/s1_e08_account_recovery.tdd.md`. |
 | S1-E09 | Secure or disable calendar URL import and uploads | Done with URL import disabled | Keep URL fetch absent; retain bounded ICS/image validation and privacy tests. |
 | S1-E10 | Govern maps, geocoding, and exact location | In progress | Approve provider/privacy/budget decisions, update policy disclosure, and capture the authenticated browser trace/fallback evidence. |
 | S1-UX01 | Build a safe conversion-complete landing page | Not started | Implement Sofia-specific value/actions, honest verification/coverage, privacy-safe lead capture, text alternative, and policy/support links. |

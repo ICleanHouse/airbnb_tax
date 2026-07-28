@@ -58,7 +58,7 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
     };
   }, [confirmOpen]);
 
-  async function deleteAccount() {
+  async function closeAccount() {
     setDeleting(true);
     setError("");
     setSupportDestination("");
@@ -71,7 +71,13 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
         } | null;
         if (data?.code === "account_deletion_blocked_active_obligations") {
           setError(t("errors.activeObligations"));
-        } else if (data?.code === "account_deletion_requires_support") {
+        } else if (
+          data?.code === "account_closure_blocked_retention_hold"
+          // Preserve the earlier support-required contract for an in-flight
+          // backend rollout. Both codes intentionally expose only the safe
+          // monitored support destination.
+          || data?.code === "account_deletion_requires_support"
+        ) {
           setError(t("errors.requiresSupport", {
             channel: data.fields?.support_channel || t("errors.supportFallback"),
             hours: data.fields?.support_hours || t("errors.supportHoursFallback"),
@@ -172,7 +178,7 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
                 <button
                   className="account-delete-button account-delete-button--confirm"
                   type="button"
-                  onClick={() => void deleteAccount()}
+                  onClick={() => void closeAccount()}
                   disabled={deleting}
                 >
                   <Trash2 size={16} aria-hidden />

@@ -14,11 +14,11 @@ type State = "loading" | "idle" | "pending" | "connected";
  * Connected accordingly. Sending a request flips it to Pending.
  */
 export default function ConnectButton({
-  targetUserId,
+  cleanerPublicId,
   returnTo,
   className = "",
 }: {
-  targetUserId: number;
+  cleanerPublicId: string;
   returnTo: string;
   className?: string;
 }) {
@@ -34,7 +34,7 @@ export default function ConnectButton({
         const list = Array.isArray(d)
           ? (d as Connection[])
           : ((d as { results?: Connection[] } | null)?.results ?? []);
-        const found = list.find((c) => c.other_user_id === targetUserId);
+        const found = list.find((c) => c.other_user_public_id === cleanerPublicId);
         setState(found ? (found.status === "accepted" ? "connected" : "pending") : "idle");
       })
       .catch(() => {
@@ -43,13 +43,13 @@ export default function ConnectButton({
     return () => {
       cancelled = true;
     };
-  }, [targetUserId]);
+  }, [cleanerPublicId]);
 
   async function connect() {
     setState("pending");
     const res = await apiFetch("/api/connections/", {
       method: "POST",
-      body: JSON.stringify({ user_id: targetUserId }),
+      body: JSON.stringify({ cleaner_public_id: cleanerPublicId }),
     });
     if (res.ok) {
       const c = (await res.json()) as Connection;

@@ -193,6 +193,15 @@ class AccountTransitionSerializer(serializers.Serializer):
     )
 
 
+class RetentionHoldCreateSerializer(serializers.Serializer):
+    category = serializers.ChoiceField(choices=("legal", "dispute", "support"))
+    reason_code = serializers.RegexField(r"^[a-z0-9_]{3,64}$")
+
+
+class RetentionHoldReleaseSerializer(serializers.Serializer):
+    reason_code = serializers.RegexField(r"^[a-z0-9_]{3,64}$")
+
+
 class SignupSerializer(serializers.Serializer):
     ROLE_CHOICES = [
         (User.Role.HOST, "Property owner"),
@@ -516,15 +525,12 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
 class PublicCleanerSerializer(serializers.ModelSerializer):
     """Safe, browsable cleaner card — no PII (no email/phone/birth_date)."""
 
-    user_id = serializers.IntegerField(source="user.id", read_only=True)
     public_id = serializers.UUIDField(read_only=True)
     marketplace_eligible = serializers.SerializerMethodField()
 
     class Meta:
         model = CleanerProfile
         fields = [
-            "id",
-            "user_id",
             "public_id",
             "kind",
             "display_name",
@@ -622,7 +628,7 @@ class AgencyProfileSerializer(serializers.ModelSerializer):
 
 
 class AgencyInviteSerializer(serializers.Serializer):
-    cleaner_id = serializers.IntegerField(min_value=1)
+    cleaner_public_id = serializers.UUIDField()
     message = serializers.CharField(required=False, allow_blank=True)
 
 

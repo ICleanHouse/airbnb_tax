@@ -32,6 +32,7 @@ def make_cleaner(username="cleaner"):
         user=user,
         verification_status=CleanerProfile.VerificationStatus.VERIFIED,
         display_name=username.title(),
+        publication_enabled=True,
     )
     return user
 
@@ -98,7 +99,7 @@ class ConnectionApiTests(TestCase):
     def test_full_request_accept_message_flow(self):
         self.client.force_authenticate(self.host)
         res = self.client.post(
-            "/api/connections/", {"user_id": self.cleaner.id}, format="json"
+            "/api/connections/", {"cleaner_public_id": str(self.cleaner.cleaner_profile.public_id)}, format="json"
         )
         self.assertEqual(res.status_code, 201)
         conn_id = res.data["id"]

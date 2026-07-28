@@ -349,9 +349,12 @@ class AccountAuthTests(TestCase):
 
                 response = client.delete(reverse("account-me"))
 
-                self.assertEqual(response.status_code, 204)
-                self.assertFalse(User.objects.filter(id=user.id).exists())
-                self.assertFalse(profile_exists(user.id))
+                self.assertEqual(response.status_code, 202)
+                user.refresh_from_db()
+                self.assertFalse(user.is_active)
+                self.assertIsNotNone(user.closed_at)
+                if role != User.Role.ADMIN:
+                    self.assertTrue(profile_exists(user.id))
                 self.assertEqual(client.get(reverse("account-me")).status_code, 403)
 
     def test_host_account_deletion_is_blocked_without_partial_mutation(self):
@@ -601,18 +604,19 @@ class AgencyWorkflowTests(TestCase):
             user=self.cleaner,
             display_name="Cleaner One",
             verification_status=CleanerProfile.VerificationStatus.VERIFIED,
+            publication_enabled=True,
         )
 
     def test_agency_invites_and_cleaner_accepts_membership(self):
         self.client.force_authenticate(self.agency_user)
         invite_response = self.client.post(
             f"/api/accounts/agencies/{self.agency.id}/invite-cleaner/",
-            {"cleaner_id": self.cleaner.id},
+            {"cleaner_public_id": str(self.cleaner.cleaner_profile.public_id)},
             format="json",
         )
         duplicate_response = self.client.post(
             f"/api/accounts/agencies/{self.agency.id}/invite-cleaner/",
-            {"cleaner_id": self.cleaner.id},
+            {"cleaner_public_id": str(self.cleaner.cleaner_profile.public_id)},
             format="json",
         )
 

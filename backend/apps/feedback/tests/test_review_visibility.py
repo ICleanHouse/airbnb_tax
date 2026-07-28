@@ -110,6 +110,8 @@ class PrivateIssueVisibilityTests(ReviewScenarioMixin, TestCase):
         self.admin.is_staff = True
         self.admin.is_superuser = True
         self.admin.save()
+        self.cleaner.cleaner_profile.publication_enabled = True
+        self.cleaner.cleaner_profile.save(update_fields=["publication_enabled", "updated_at"])
         self.property = self.create_property(self.host)
         self.job, self.assignment = self.create_job()
 
@@ -134,7 +136,7 @@ class PrivateIssueVisibilityTests(ReviewScenarioMixin, TestCase):
         self.assertNotIn(private.id, [row["id"] for row in list_response.data])
 
         public_response = APIClient().get(
-            f"/api/accounts/public-cleaners/{self.cleaner.cleaner_profile.id}/"
+            f"/api/accounts/public-cleaners/{self.cleaner.cleaner_profile.public_id}/"
         )
         self.assertEqual(public_response.status_code, 200)
         rendered_public = str(public_response.data)

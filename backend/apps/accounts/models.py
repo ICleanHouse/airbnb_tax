@@ -229,6 +229,55 @@ class PilotEvidenceExclusion(models.Model):
         return f"Pilot evidence exclusion for user {self.user_id}"
 
 
+class AccountRetentionHold(TimeStampedModel):
+    """An operator-controlled, append-only hold on account closure cleanup."""
+
+    class Category(models.TextChoices):
+        LEGAL = "legal", "Legal"
+        DISPUTE = "dispute", "Dispute"
+        SUPPORT = "support", "Support"
+
+    user = models.ForeignKey(
+        User,
+        # A released hold remains immutable operator evidence even if a
+        # history-free account reaches its approved hard-deletion date. Keep
+        # that evidence without retaining a direct account relationship.
+        on_delete=models.SET_NULL,
+        related_name="retention_holds",
+        null=True,
+        blank=True,
+    )
+    category = models.CharField(max_length=16, choices=Category.choices)
+    reason_code = models.CharField(max_length=64)
+    placed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="placed_retention_holds",
+        null=True,
+        blank=True,
+    )
+    released_at = models.DateTimeField(null=True, blank=True)
+    released_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="released_retention_holds",
+        null=True,
+        blank=True,
+    )
+    release_reason_code = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["user", "released_at"], name="retention_hold_active_idx")]
+
+    @property
+    def is_active(self) -> bool:
+        return self.released_at is None
+
+    def __str__(self) -> str:
+        return f"{self.category} retention hold for user {self.user_id}"
+
+
 class CleanerProfile(TimeStampedModel):
     class Kind(models.TextChoices):
         INDIVIDUAL = "individual", "Individual"

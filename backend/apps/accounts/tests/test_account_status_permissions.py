@@ -250,8 +250,10 @@ class AccountStatusPermissionTests(TestCase):
         )
         cleaner.phone_number = "+359888000000"
         cleaner.save(update_fields=["phone_number"])
+        cleaner.cleaner_profile.publication_enabled = True
+        cleaner.cleaner_profile.save(update_fields=["publication_enabled", "updated_at"])
 
-        response = self.client.get(f"/api/accounts/public-cleaners/{cleaner.cleaner_profile.id}/")
+        response = self.client.get(f"/api/accounts/public-cleaners/{cleaner.cleaner_profile.public_id}/")
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("email", response.data)

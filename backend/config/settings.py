@@ -189,6 +189,9 @@ REST_FRAMEWORK = {
 }
 
 GEOAPIFY_API_KEY = os.getenv("GEOAPIFY_API_KEY", "")
+GEOAPIFY_PRODUCTION_APPROVED = env_bool("GEOAPIFY_PRODUCTION_APPROVED", False)
+GEOAPIFY_ATTRIBUTION = os.getenv("GEOAPIFY_ATTRIBUTION", "")
+GEOAPIFY_MONTHLY_BUDGET_EUR = max(0, int(os.getenv("GEOAPIFY_MONTHLY_BUDGET_EUR", "0")))
 GEOAPIFY_GEOCODING_TIMEOUT_SECONDS = float(
     os.getenv("GEOAPIFY_GEOCODING_TIMEOUT_SECONDS", "5")
 )
@@ -292,7 +295,14 @@ if VERIFICATION_CONFIGURATION.uses_requirement_bypass:
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
-CELERY_IMPORTS = ("apps.notifications.tasks",)
+CELERY_IMPORTS = ("apps.notifications.tasks", "apps.accounts.tasks")
+CELERY_BEAT_SCHEDULE = {
+    "s1-d04-retention-cleanup": {
+        "task": "apps.accounts.tasks.run_retention_cleanup",
+        "schedule": 24 * 60 * 60,
+        "kwargs": {"batch_size": 100},
+    },
+}
 
 # Base URL of the frontend — used to build links in outbound emails.
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")

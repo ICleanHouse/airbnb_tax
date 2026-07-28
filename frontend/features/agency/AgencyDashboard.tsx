@@ -37,7 +37,7 @@ type Invitation = {
   status: string;
   expires_at: string;
 };
-type PublicCleaner = { user_id: number; display_name: string; city: string; marketplace_eligible: boolean };
+type PublicCleaner = { public_id: string; display_name: string; city: string; marketplace_eligible: boolean };
 type Application = {
   id: number;
   job: number;
@@ -127,8 +127,8 @@ export default function AgencyDashboard() {
     [members],
   );
   const availableCleaners = useMemo(
-    () => cleaners.filter((cleaner) => cleaner.marketplace_eligible && !members.some((member) => member.cleaner === cleaner.user_id && member.status === "active")),
-    [cleaners, members],
+    () => cleaners.filter((cleaner) => cleaner.marketplace_eligible),
+    [cleaners],
   );
 
   async function action(path: string, body?: object) {
@@ -205,7 +205,7 @@ export default function AgencyDashboard() {
 
       {tab === "members" && <section className="agency-panel" role="tabpanel"><h1>{t("members.title")}</h1>{members.length === 0 ? <p>{t("members.empty")}</p> : <ul className="agency-list">{members.map((member) => <li key={member.id}><span>{member.cleaner_name || t("members.unnamed")}</span><small>{member.status === "active" && member.cleaner_marketplace_eligible ? t("members.eligible") : t("members.inactive")}</small>{member.status === "active" ? <button disabled={saving} type="button" onClick={() => void action(`/api/accounts/agency-memberships/${member.id}/revoke/`)}>{t("members.revoke")}</button> : null}</li>)}</ul>}</section>}
 
-      {tab === "invitations" && <section className="agency-panel" role="tabpanel"><h1>{t("invitations.title")}</h1><p>{t("invitations.safeDirectory")}</p><div className="agency-cards">{availableCleaners.map((cleaner) => <article key={cleaner.user_id}><strong>{cleaner.display_name}</strong><span>{cleaner.city}</span><button disabled={saving} type="button" onClick={() => void action(`/api/accounts/agencies/${profile.id}/invite-cleaner/`, { cleaner_id: cleaner.user_id })}>{t("invitations.invite")}</button></article>)}</div><ul className="agency-list">{invitations.map((invitation) => <li key={invitation.id}><span>{invitation.target_cleaner_name || t("members.unnamed")}</span><small>{invitation.status}</small>{invitation.status === "pending" ? <button disabled={saving} type="button" onClick={() => void action(`/api/accounts/agency-invitations/${invitation.id}/revoke/`)}>{t("invitations.revoke")}</button> : <button disabled={saving} type="button" onClick={() => void action(`/api/accounts/agency-invitations/${invitation.id}/resend/`)}>{t("invitations.resend")}</button>}</li>)}</ul></section>}
+      {tab === "invitations" && <section className="agency-panel" role="tabpanel"><h1>{t("invitations.title")}</h1><p>{t("invitations.safeDirectory")}</p><div className="agency-cards">{availableCleaners.map((cleaner) => <article key={cleaner.public_id}><strong>{cleaner.display_name}</strong><span>{cleaner.city}</span><button disabled={saving} type="button" onClick={() => void action(`/api/accounts/agencies/${profile.id}/invite-cleaner/`, { cleaner_public_id: cleaner.public_id })}>{t("invitations.invite")}</button></article>)}</div><ul className="agency-list">{invitations.map((invitation) => <li key={invitation.id}><span>{invitation.target_cleaner_name || t("members.unnamed")}</span><small>{invitation.status}</small>{invitation.status === "pending" ? <button disabled={saving} type="button" onClick={() => void action(`/api/accounts/agency-invitations/${invitation.id}/revoke/`)}>{t("invitations.revoke")}</button> : <button disabled={saving} type="button" onClick={() => void action(`/api/accounts/agency-invitations/${invitation.id}/resend/`)}>{t("invitations.resend")}</button>}</li>)}</ul></section>}
 
       {tab === "work" && <section className="agency-panel" role="tabpanel"><h1>{t("work.title")}</h1>{!readiness?.marketplace_eligible ? <p>{t("work.gated")}</p> : <>{applications.length === 0 ? <p>{t("work.empty")}</p> : <ul className="agency-list">{applications.filter((application) => application.status === "pending").map((application) => <li key={application.id}><span>{t("work.application", { id: application.id, job: application.job })}</span><select aria-label={t("work.memberChoice")} value={memberChoice[application.id] || String(application.proposed_member || "")} onChange={(event) => setMemberChoice((choices) => ({ ...choices, [application.id]: event.target.value }))}><option value="">{t("work.chooseMember")}</option>{activeMembers.map((member) => <option key={member.id} value={member.cleaner}>{member.cleaner_name}</option>)}</select><button type="button" disabled={saving || !(memberChoice[application.id] || application.proposed_member)} onClick={() => void action(`/api/marketplace/applications/${application.id}/select-member/`, { member_id: Number(memberChoice[application.id] || application.proposed_member) })}>{t("work.select")}</button></li>)}</ul>}</>}</section>}
 

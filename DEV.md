@@ -127,6 +127,9 @@ Key variables and their defaults:
 | `CELERY_RESULT_BACKEND` | `redis://localhost:6379/1` | |
 | `CACHE_URL` | *(absent → LocMem)* | Required in deployed environments; use a dedicated Redis database (example: `redis://redis:6379/2`) for user-keyed throttles/cache |
 | `GEOAPIFY_API_KEY` | *(empty)* | Server-only key for approved-host address search/reverse-geocoding; never expose through `NEXT_PUBLIC_*` |
+| `GEOAPIFY_PRODUCTION_APPROVED` | `false` | Keep false until the selected plan, DPA/terms, privacy notice, attribution, budget, and authenticated browser trace are recorded |
+| `GEOAPIFY_ATTRIBUTION` | *(empty)* | Required non-empty attribution text when production provider calls are enabled |
+| `GEOAPIFY_MONTHLY_BUDGET_EUR` | `0` | Required positive approved monthly ceiling when production provider calls are enabled |
 | `GEOAPIFY_GEOCODING_TIMEOUT_SECONDS` | `5` | Timeout for the server-to-provider geocoding request |
 | `GEOAPIFY_PROVIDER_REQUESTS_PER_SECOND` | `4` | Shared backend ceiling; keep within the subscribed Geoapify plan limit |
 | `EMAIL_BACKEND` | `django.core.mail.backends.console.EmailBackend` | Local/test adapter for canonical notification emails |

@@ -381,6 +381,16 @@
       "notes": "Notes",
       "notesPlaceholder": "Anything cleaners should know about working with you…",
       "saveChanges": "Save changes",
+      "publication": {
+        "title": "Public profile",
+        "description": "Publishing is optional. Only the approved public profile fields are shown in the cleaner directory.",
+        "grace": "Your profile remains visible for a fixed 14-day pause period. You can resume it now; formal account closure removes it immediately.",
+        "pause": "Pause public profile",
+        "resume": "Resume public profile",
+        "paused": "Your 14-day public-profile pause has started.",
+        "published": "Your public profile is active.",
+        "error": "Your publication setting could not be updated."
+      },
       "saved": "Profile saved."
     },
     "propForm": {
@@ -1156,21 +1166,21 @@
       }
     },
     "accountDeletionPanel": {
-      "heading": "Delete account",
-      "description": "Permanently delete your account and related profile data. This action cannot be undone.",
-      "deleteBtn": "Delete account",
-      "confirmHeading": "Delete account permanently?",
-      "confirmSubtitle": "This will delete {email} and sign you out immediately.",
+      "heading": "Close account",
+      "description": "Closing immediately removes your access and public profile. Protected marketplace history is retained with a neutral former-user label.",
+      "deleteBtn": "Close account",
+      "confirmHeading": "Close your account?",
+      "confirmSubtitle": "This will sign {email} out immediately and remove direct profile details.",
       "closeAriaLabel": "Close",
-      "confirmBody": "Accounts with active obligations cannot be deleted. Accounts with retained marketplace history are routed to support; that history is not removed by this action.",
+      "confirmBody": "Accounts with active obligations or a legal, dispute, or support hold cannot be closed. Protected marketplace history is preserved but no longer identifies you publicly.",
       "cancelBtn": "Cancel",
-      "deleting": "Deleting...",
-      "confirmBtn": "Delete permanently",
-      "contactSupport": "Contact support about account deletion",
+      "deleting": "Closing...",
+      "confirmBtn": "Close account",
+      "contactSupport": "Contact support about account closure",
       "errors": {
-        "deleteFailed": "Could not delete your account.",
-        "activeObligations": "Finish or cancel your active marketplace obligations before deleting your account.",
-        "requiresSupport": "Your marketplace history must be reviewed by support. Contact {channel} during {hours}. This is not an emergency service.",
+        "deleteFailed": "Could not close your account.",
+        "activeObligations": "Finish or cancel your active marketplace obligations before closing your account.",
+        "requiresSupport": "A retention hold prevents closure right now. Contact {channel} during {hours}. This is not an emergency service.",
         "supportFallback": "support",
         "supportHoursFallback": "08:00–20:00 Europe/Sofia daily"
       }

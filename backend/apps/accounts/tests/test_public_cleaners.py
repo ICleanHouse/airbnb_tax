@@ -62,8 +62,8 @@ class PublicCleanerDirectoryTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         results = response.data["results"] if isinstance(response.data, dict) else response.data
-        ids = [row["id"] for row in results]
-        self.assertEqual(ids, [approved.id])
+        ids = [row["public_id"] for row in results]
+        self.assertEqual(ids, [str(approved.public_id)])
 
     def test_requires_explicit_publication_opt_in(self):
         cleaner = make_cleaner(email="private@example.com", display_name="Private")
@@ -92,8 +92,6 @@ class PublicCleanerDirectoryTests(TestCase):
         self.assertEqual(
             set(row),
             {
-                "id",
-                "user_id",
                 "public_id",
                 "kind",
                 "display_name",
@@ -136,9 +134,9 @@ class PublicCleanerDirectoryTests(TestCase):
         response = self.client.get(self.list_url, {"min_rating": "4"})
 
         results = response.data["results"] if isinstance(response.data, dict) else response.data
-        ids = [row["id"] for row in results]
-        self.assertIn(high.id, ids)
-        self.assertNotIn(low.id, ids)
+        ids = [row["public_id"] for row in results]
+        self.assertIn(str(high.public_id), ids)
+        self.assertNotIn(str(low.public_id), ids)
 
     def test_filters_by_service_area(self):
         sofia = make_cleaner(
@@ -151,9 +149,9 @@ class PublicCleanerDirectoryTests(TestCase):
         response = self.client.get(self.list_url, {"service_area": "sofia"})
 
         results = response.data["results"] if isinstance(response.data, dict) else response.data
-        ids = [row["id"] for row in results]
-        self.assertEqual(ids, [sofia.id])
-        self.assertNotIn(plovdiv.id, ids)
+        ids = [row["public_id"] for row in results]
+        self.assertEqual(ids, [str(sofia.public_id)])
+        self.assertNotIn(str(plovdiv.public_id), ids)
 
     def test_filters_by_city_uses_profile_city(self):
         sofia = make_cleaner(
@@ -172,8 +170,8 @@ class PublicCleanerDirectoryTests(TestCase):
         response = self.client.get(self.list_url, {"city": "Sofia"})
 
         results = response.data["results"] if isinstance(response.data, dict) else response.data
-        ids = [row["id"] for row in results]
-        self.assertEqual(ids, [sofia.id])
+        ids = [row["public_id"] for row in results]
+        self.assertEqual(ids, [str(sofia.public_id)])
 
     def test_detail_embeds_received_reviews_without_pii(self):
         cleaner = make_cleaner(email="reviewed@example.com", display_name="Reviewed")
@@ -229,7 +227,7 @@ class PublicCleanerDirectoryTests(TestCase):
             comment="Clear instructions",
         )
 
-        detail_url = reverse("public-cleaner-detail", args=[cleaner.id])
+        detail_url = reverse("public-cleaner-detail", args=[cleaner.public_id])
         response = self.client.get(detail_url)
 
         self.assertEqual(response.status_code, 200)

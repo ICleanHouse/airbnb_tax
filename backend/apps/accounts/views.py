@@ -7,6 +7,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.db.models import Count, Q
+from django.http import Http404
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -22,6 +23,7 @@ from apps.core.services import write_audit_log
 from apps.core.middleware import get_endpoint_template
 from apps.accounts.models import (
     AgencyInvitation,
+    AccountRetentionHold,
     AgencyMembership,
     AgencyProfile,
     CleanerProfile,
@@ -69,6 +71,8 @@ from apps.accounts.serializers import (
     PasswordResetConfirmSerializer,
     PublicCleanerDetailSerializer,
     PublicCleanerSerializer,
+    RetentionHoldCreateSerializer,
+    RetentionHoldReleaseSerializer,
     SignupEmailCodeRequestSerializer,
     SignupEmailCodeVerifySerializer,
     SignupSerializer,
@@ -357,14 +361,14 @@ class MeView(APIView):
     def delete(self, request):
         user = request.user
         try:
-            delete_account_permanently(user=user, request=request)
+            result = delete_account_permanently(user=user, request=request)
         except AccountDeletionBlocked as exc:
             return Response(
                 {"code": exc.code, "detail": exc.detail, "fields": exc.fields},
                 status=status.HTTP_409_CONFLICT,
             )
         logout(request)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({"result": result}, status=status.HTTP_202_ACCEPTED)
 
 
 class CookieConsentView(APIView):
@@ -415,6 +419,8 @@ class UserViewSet(viewsets.ModelViewSet):
             "reject",
             "suspend",
             "review_history",
+            "place_retention_hold",
+            "release_retention_hold",
         }:
             return [IsPlatformAdmin()]
         return [permissions.IsAuthenticated()]
@@ -635,6 +641,8 @@ class PublicCleanerViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     permission_classes = [permissions.AllowAny]
+    lookup_field = "public_id"
+    lookup_url_kwarg = "public_id"
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -721,10 +729,17 @@ class AgencyProfileViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can invite cleaners only for your own agency.")
         serializer = AgencyInviteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        cleaner = CleanerProfile.objects.select_related("user").filter(
+            public_id=serializer.validated_data["cleaner_public_id"],
+            **CleanerProfile.public_marketplace_eligible_filter(),
+        ).first()
+        if cleaner is None or not cleaner.is_publicly_published():
+            # Keep unknown and non-public directory targets indistinguishable.
+            raise Http404
         try:
             invitation = create_agency_invitation(
                 agency_user=agency.user,
-                target_cleaner_id=serializer.validated_data["cleaner_id"],
+                target_cleaner_id=cleaner.user_id,
                 actor=request.user,
                 message=serializer.validated_data.get("message", ""),
             )
@@ -744,6 +759,51 @@ class AgencyProfileViewSet(viewsets.ModelViewSet):
                 "blockers": list(readiness.blockers),
             }
         )
+
+    @action(detail=True, methods=["post"], url_path="retention-holds")
+    def place_retention_hold(self, request, pk=None):
+        user = self.get_object()
+        serializer = RetentionHoldCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        hold = AccountRetentionHold.objects.create(
+            user=user,
+            placed_by=request.user,
+            **serializer.validated_data,
+        )
+        write_audit_log(
+            actor=request.user,
+            action="account.retention_hold_placed",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+            metadata={"category": hold.category, "reason_code": hold.reason_code},
+        )
+        return Response({"id": hold.id, "active": True}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="retention-holds/(?P<hold_id>[^/.]+)/release")
+    def release_retention_hold(self, request, pk=None, hold_id=None):
+        user = self.get_object()
+        serializer = RetentionHoldReleaseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            hold = AccountRetentionHold.objects.select_for_update().filter(
+                id=hold_id, user=user, released_at__isnull=True
+            ).first()
+            if hold is None:
+                raise Http404
+            hold.released_at = timezone.now()
+            hold.released_by = request.user
+            hold.release_reason_code = serializer.validated_data["reason_code"]
+            hold.save(update_fields=["released_at", "released_by", "release_reason_code", "updated_at"])
+        write_audit_log(
+            actor=request.user,
+            action="account.retention_hold_released",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+            metadata={"category": hold.category, "reason_code": hold.release_reason_code},
+        )
+        return Response({"id": hold.id, "active": False})
 
 
 class AgencyInvitationViewSet(viewsets.ReadOnlyModelViewSet):

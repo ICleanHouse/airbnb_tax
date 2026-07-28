@@ -6,7 +6,7 @@
 | Owner | Project owner / accountable privacy reviewer |
 | Prepared | 2026-07-28 |
 | Authority | `docs/STAGE_1_SOFIA_PILOT_PLAN.md` S1-D04; it supersedes implementation assumptions and older operational proposals |
-| Current implementation | Disclosure-tier controls are implemented; publication, provider approval, and cross-domain retention/anonymization are not approved |
+| Current implementation | Publication opt-in/grace, opaque public identifiers, closure/anonymization, holds, dry-run cleanup and a fail-closed Geoapify production guard are implemented; production/provider and runtime evidence remain open |
 
 This is a repository-grounded engineering and product decision package, not legal
 advice. It separates current code, documented policy, recommendations, and
@@ -145,7 +145,7 @@ and qualified legal review where indicated**, not asserted legal requirements.
 | Request logs/Sentry | 90 days recommended | TTL/delete | Sentry plan/config and incident hold need review |
 | Geoapify raw/cached data | no persistence; cache only bounded TTL | Expire cache | Provider contract governs processor-side retention |
 | Analytics/surveys | 12 months only with separate approved consent/processor | Delete/anonymize | No collection without approval |
-| Database/media backups | 35 days recommended | Immutable backup expiry, not immediate erasure | Restore must reapply closure queue; legal review required |
+| Database/media backups | 90 days approved | Immutable backup expiry, not immediate erasure | Restore must reapply closure queue; legal review required |
 
 **Approved:** Recommended retention matrix and periods; anonymization for
 protected-history accounts; legal/dispute/support holds overriding normal expiry;
@@ -169,3 +169,18 @@ tests, provider boundary/fallback trace, retention dry-run, atomic/idempotent
 closure tests, PostgreSQL concurrency, Redis/Celery cleanup, media/provider
 cleanup, and seeded browser journeys. S1-D04 and policy-dependent S1-E08 work
 remain incomplete until that evidence is recorded.
+
+## 6. Implementation status — 2026-07-28
+
+The approved contract is represented by `AccountRetentionHold`, the atomic
+account-closure service, and a bounded cleanup task/preview command. Closure
+immediately disables authentication, removes direct account/profile identifiers
+and public projection, and retains protected relationships under a neutral
+former-user identity. History-free closed accounts are eligible for physical
+deletion only after 30 days and never while an active hold exists.
+
+The Geoapify endpoint remains backend-only and fails closed in production unless
+its explicit approval flag, attribution and budget configuration are all
+present. This code guard does **not** prove a DPA/terms review, privacy notice,
+budget approval, Redis/Celery delivery, provider smoke test, or authenticated
+browser trace; those remain release evidence.

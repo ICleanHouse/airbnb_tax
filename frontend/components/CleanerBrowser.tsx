@@ -61,11 +61,11 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
   const [districtZoneId, setDistrictZoneId] = useState("");
   const [districtZones, setDistrictZones] = useState<ServiceZone[]>([]);
   const [loadingDistricts, setLoadingDistricts] = useState(false);
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
-    const cleanerId = Number(new URLSearchParams(window.location.search).get("cleaner"));
-    if (Number.isSafeInteger(cleanerId) && cleanerId > 0) setOpenId(cleanerId);
+    const cleanerId = new URLSearchParams(window.location.search).get("cleaner");
+    if (cleanerId && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(cleanerId)) setOpenId(cleanerId);
   }, []);
 
   async function loadCleaners(silent = false) {
@@ -92,7 +92,7 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
   }
   // Offer flow -- only used when offerEnabled=true
   const [properties, setProperties] = useState<OfferProperty[]>([]);
-  const [offerCleaner, setOfferCleaner] = useState<{ id: number; name: string } | null>(null);
+  const [offerCleaner, setOfferCleaner] = useState<{ publicId: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!offerEnabled) return;
@@ -236,9 +236,9 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
         <div className="cleaners-grid">
           {filtered.map((cleaner) => (
             <CleanerProfileCard
-              key={cleaner.id}
+              key={cleaner.public_id}
               cleaner={cleaner}
-              onOpen={(c) => setOpenId(c.id)}
+              onOpen={(c) => setOpenId(c.public_id)}
             />
           ))}
         </div>
@@ -246,7 +246,7 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
 
       {openId !== null && (
         <CleanerProfileModal
-          cleanerId={openId}
+          cleanerPublicId={openId}
           onClose={() => setOpenId(null)}
           footer={
             offerEnabled ? (
@@ -254,9 +254,9 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
                 type="button"
                 className="host-offer-trigger"
                 onClick={() => {
-                  const cleaner = cleaners.find((c) => c.id === openId);
+                  const cleaner = cleaners.find((c) => c.public_id === openId);
                   if (cleaner) {
-                    setOfferCleaner({ id: cleaner.user_id, name: cleaner.display_name });
+                    setOfferCleaner({ publicId: cleaner.public_id, name: cleaner.display_name });
                     setOpenId(null);
                   }
                 }}
@@ -270,7 +270,7 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
 
       {offerCleaner && (
         <JobOfferModal
-          cleanerUserId={offerCleaner.id}
+          cleanerPublicId={offerCleaner.publicId}
           cleanerName={offerCleaner.name}
           properties={properties}
           onClose={() => setOfferCleaner(null)}

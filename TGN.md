@@ -17,7 +17,7 @@ normalized email and direct client IP; confirmation uses Django's expiring,
 single-use password-reset token and never changes account status, role, or
 marketplace eligibility. Self-service deletion stops at protected marketplace,
 counterpart, agency, or notification history and routes to monitored support
-until S1-D04 defines retention/anonymization.
+until S1-D04's approved closure/anonymization workflow is fully runtime-verified.
 
 ---
 

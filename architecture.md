@@ -261,10 +261,12 @@ Rules:
   complete after `scheduled_end`. Completion remains independent of future
   dispute records.
 
-S1-E05 account deletion currently blocks active obligations and sends accounts
-with protected marketplace history to operator support. De-identification and
-retention execution are separate privacy work; hard deletion remains available
-only for accounts with no protected marketplace history.
+S1-D04 defines the closure boundary: active obligations and admin legal,
+dispute, or support holds block closure. Closure immediately disables access
+and removes public publication. Accounts with protected marketplace history are
+anonymized behind a neutral tombstone; history-free closed accounts are eligible
+for bounded hard deletion after the approved 30-day period. Cleanup retains
+immutable hold evidence without retaining closed-account contact data.
 
 ### Favourite Cleaners
 
@@ -514,14 +516,17 @@ Target EU managed cloud infrastructure:
 - Sentry error tracking when DSNs are configured.
 - Basic metrics and uptime monitoring.
 
-The system is GDPR-conscious from the start. Store only necessary personal data, avoid secrets in source control, and document retention/deletion decisions when they are implemented.
+The system applies the owner-approved S1-D04 product retention baseline (not a
+claim of legal compliance): five years for structured marketplace/audit/review
+history, 24 months for cases and notification delivery evidence, 12 months for
+messages, short technical TTLs, and 90-day backup expiry. Legal review remains
+required for production operation and jurisdiction-specific periods.
 
 Password recovery uses Django's password-reset token generator and the existing
 notification outbox: tokens are generated only for delivery, never persisted in
-events or frontend storage. Self-service deletion is deliberately conservative:
-protected marketplace, counterpart, agency, and notification history is routed
-to monitored support until S1-D04 establishes the cross-domain retention and
-anonymization contract.
+events or frontend storage. Self-service closure remains deliberately
+conservative: active obligations and retention holds are routed to monitored
+support; protected history is anonymized rather than physically deleted.
 
 ### Environment Variables Reference
 
@@ -534,6 +539,9 @@ anonymization contract.
 | `CELERY_BROKER_URL` | `redis://localhost:6379/0` | Celery broker |
 | `CELERY_RESULT_BACKEND` | `redis://localhost:6379/1` | Celery results |
 | `GEOAPIFY_API_KEY` | *(empty)* | Server-only approved-host geocoding credential |
+| `GEOAPIFY_PRODUCTION_APPROVED` | `false` | Must be explicitly true with attribution and a positive budget before production provider calls |
+| `GEOAPIFY_ATTRIBUTION` | *(empty)* | Approved attribution text required for production enablement |
+| `GEOAPIFY_MONTHLY_BUDGET_EUR` | `0` | Positive approved monthly ceiling required for production enablement |
 | `GEOAPIFY_GEOCODING_TIMEOUT_SECONDS` | `5` | Provider request timeout in seconds |
 | `GEOAPIFY_PROVIDER_REQUESTS_PER_SECOND` | `4` | Shared provider ceiling, below the subscribed plan limit |
 | `DEFAULT_FROM_EMAIL` | `noreply@example.local` | Outbound email sender address |

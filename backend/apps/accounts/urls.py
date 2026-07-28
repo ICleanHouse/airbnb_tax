@@ -15,6 +15,8 @@ from apps.accounts.views import (
     LogoutView,
     MeView,
     PublicCleanerViewSet,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
     SignupEmailCodeRequestView,
     SignupEmailCodeVerifyView,
     SignupView,
@@ -39,6 +41,8 @@ urlpatterns = [
     path("confirm-email/<str:uidb64>/<str:token>/", ConfirmEmailView.as_view(), name="account-confirm-email"),
     path("login/", LoginView.as_view(), name="account-login"),
     path("logout/", LogoutView.as_view(), name="account-logout"),
+    path("password-reset/request/", PasswordResetRequestView.as_view(), name="account-password-reset-request"),
+    path("password-reset/confirm/", PasswordResetConfirmView.as_view(), name="account-password-reset-confirm"),
     path("me/", MeView.as_view(), name="account-me"),
     path("cookie-consent/", CookieConsentView.as_view(), name="cookie-consent"),
 ] + router.urls

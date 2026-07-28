@@ -93,6 +93,7 @@ export default function LoginPage() {
               <UserPlus size={18} aria-hidden />
               {t("createAccount")}
             </Link>
+            <Link className="secondary-link" href="/forgot-password">{t("forgotPassword")}</Link>
           </div>
         </form>
       </section>

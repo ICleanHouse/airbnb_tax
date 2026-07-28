@@ -199,6 +199,10 @@ GEOAPIFY_PROVIDER_REQUESTS_PER_SECOND = max(
 MARKETPLACE_SUPPORT_CHANNEL = os.getenv(
     "MARKETPLACE_SUPPORT_CHANNEL", "support"
 )
+# An optional monitored support destination shown only for blocked account
+# deletion. It may be an https URL or mailto link; validation happens in the
+# deletion service before the value reaches an API response.
+MARKETPLACE_SUPPORT_DESTINATION = os.getenv("MARKETPLACE_SUPPORT_DESTINATION", "")
 
 CACHE_URL = os.getenv("CACHE_URL", "")
 if CACHE_URL:
@@ -231,6 +235,10 @@ SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+PASSWORD_RESET_TIMEOUT = max(300, int(os.getenv("PASSWORD_RESET_TIMEOUT", "3600")))
+PASSWORD_RESET_RATE_WINDOW_SECONDS = max(60, int(os.getenv("PASSWORD_RESET_RATE_WINDOW_SECONDS", "3600")))
+PASSWORD_RESET_EMAIL_LIMIT = max(1, int(os.getenv("PASSWORD_RESET_EMAIL_LIMIT", "3")))
+PASSWORD_RESET_IP_LIMIT = max(1, int(os.getenv("PASSWORD_RESET_IP_LIMIT", "20")))
 
 
 def validate_production_settings() -> None:

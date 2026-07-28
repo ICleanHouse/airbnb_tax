@@ -45,7 +45,17 @@
     "signingIn": "Signing in",
     "signIn": "Sign in",
     "or": "OR",
-    "createAccount": "Create an account"
+    "createAccount": "Create an account",
+    "forgotPassword": "Forgot password?"
+  },
+  "passwordRecovery": {
+    "emailLabel": "Email",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm new password",
+    "backToLogin": "Back to log in",
+    "support": "Need help? Contact {channel}.",
+    "request": { "heading": "Reset your password", "copy": "Enter your email and we will send instructions if recovery is available.", "submit": "Send instructions", "submitting": "Sending…", "success": "If recovery is available for this address, instructions have been sent.", "error": "We could not start recovery. Check your connection and try again." },
+    "confirm": { "heading": "Choose a new password", "copy": "Choose a strong password you do not use elsewhere.", "submit": "Change password", "submitting": "Changing…", "mismatch": "The passwords do not match.", "error": "We could not change your password. Try again.", "invalidHeading": "This reset link is not available", "invalidCopy": "It may be invalid, expired, or already used. Request a new link to continue.", "successHeading": "Password changed", "successCopy": "Your password was changed. Log in with your new password." }
   },
   "signup": {
     "brandName": "Host Cleaners",
@@ -1156,6 +1166,7 @@
       "cancelBtn": "Cancel",
       "deleting": "Deleting...",
       "confirmBtn": "Delete permanently",
+      "contactSupport": "Contact support about account deletion",
       "errors": {
         "deleteFailed": "Could not delete your account.",
         "activeObligations": "Finish or cancel your active marketplace obligations before deleting your account.",

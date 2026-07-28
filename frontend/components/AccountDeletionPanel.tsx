@@ -16,6 +16,7 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [supportDestination, setSupportDestination] = useState("");
   const modalRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -60,12 +61,13 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
   async function deleteAccount() {
     setDeleting(true);
     setError("");
+    setSupportDestination("");
     try {
       const response = await apiFetch("/api/accounts/me/", { method: "DELETE" });
       if (!response.ok) {
         const data = await response.json().catch(() => null) as {
           code?: string;
-          fields?: { support_channel?: string; support_hours?: string };
+          fields?: { support_channel?: string; support_hours?: string; support_destination?: string };
         } | null;
         if (data?.code === "account_deletion_blocked_active_obligations") {
           setError(t("errors.activeObligations"));
@@ -74,13 +76,16 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
             channel: data.fields?.support_channel || t("errors.supportFallback"),
             hours: data.fields?.support_hours || t("errors.supportHoursFallback"),
           }));
+          setSupportDestination(data.fields?.support_destination || "");
         } else {
+          setSupportDestination("");
           setError(t("errors.deleteFailed"));
         }
         return;
       }
       window.location.href = "/";
     } catch {
+      setSupportDestination("");
       setError(t("errors.deleteFailed"));
     } finally {
       setDeleting(false);
@@ -99,6 +104,7 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
         onClick={() => {
           if (shouldSuppressModalOpen()) return;
           setError("");
+          setSupportDestination("");
           setConfirmOpen(true);
         }}
       >
@@ -142,7 +148,16 @@ export default function AccountDeletionPanel({ email }: AccountDeletionPanelProp
             <div className="account-delete-modal-body">
               <p id="delete-account-confirm-description">{t("confirmBody")}</p>
               <div aria-live="polite" role="status">
-                {error ? <p className="form-error">{error}</p> : null}
+                {error ? (
+                  <>
+                    <p className="form-error">{error}</p>
+                    {supportDestination ? (
+                      <a className="secondary-link" href={supportDestination}>
+                        {t("contactSupport")}
+                      </a>
+                    ) : null}
+                  </>
+                ) : null}
               </div>
               <div className="host-form-actions">
                 <button

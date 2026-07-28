@@ -429,6 +429,13 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField(max_length=256)
+    token = serializers.CharField(max_length=256)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    password_confirm = serializers.CharField(write_only=True, trim_whitespace=False)
+
+
 class HostProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
 

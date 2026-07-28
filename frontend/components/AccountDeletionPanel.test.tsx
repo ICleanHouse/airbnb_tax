@@ -36,5 +36,28 @@ describe("AccountDeletionPanel", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(apiFetchMock).toHaveBeenCalledWith("/api/accounts/me/", { method: "DELETE" });
   });
-});
 
+  it("offers only the configured support destination for protected history", async () => {
+    const user = userEvent.setup();
+    apiFetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: "account_deletion_requires_support",
+          fields: {
+            support_channel: "support",
+            support_hours: "08:00-20:00 Europe/Sofia daily",
+            support_destination: "https://support.example.test/account-deletion",
+          },
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    render(<AccountDeletionPanel email="host@example.test" />);
+
+    await user.click(screen.getByRole("button", { name: "deleteBtn" }));
+    await user.click(screen.getByRole("button", { name: "confirmBtn" }));
+
+    const supportLink = await screen.findByRole("link", { name: "contactSupport" });
+    expect(supportLink).toHaveAttribute("href", "https://support.example.test/account-deletion");
+  });
+});

@@ -61,6 +61,19 @@ EVENT_SPECS: dict[str, NotificationEventSpec] = {
         "Marketplace access suspended", "New marketplace actions are unavailable. Your permitted history remains accessible.",
         "Достъпът до платформата е спрян", "Новите действия в платформата не са налични. Разрешената история остава достъпна.",
     ),
+    "account.password_reset_requested": _spec(
+        "Password reset requested", "Use the secure link in this email to choose a new password.",
+        "Заявена е промяна на парола", "Използвайте защитената връзка в този имейл, за да изберете нова парола.",
+        channels=("email",),
+        en_subject="Reset your Host Cleaners password",
+        bg_subject="Променете паролата си за Host Cleaners",
+    ),
+    "account.password_reset_completed": _spec(
+        "Password changed", "Your password was changed. If this was not you, contact support.",
+        "Паролата е променена", "Паролата ви е променена. Ако не сте били вие, свържете се с поддръжката.",
+        en_subject="Your Host Cleaners password was changed",
+        bg_subject="Паролата ви за Host Cleaners е променена",
+    ),
     "cleaner.marketplace_access_activated": _spec(
         "Marketplace access active", "Your email-confirmed marketplace profile can now use cleaner actions.",
         "Достъпът до платформата е активен", "Профилът ви с потвърден имейл вече може да използва действията за изпълнители.",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from django.db import transaction
 from django.db.models import Q
@@ -16,11 +17,12 @@ from apps.accounts.models import (
     PilotEvidenceExclusion,
     User,
 )
-from apps.connections.models import Connection
+from apps.connections.models import Connection, Message
 from apps.core.services import write_audit_log
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob, Dispute, ReplacementRequest
 from apps.core.logging import get_request_id
 from apps.notifications.services import NotificationEventRequest, emit_notification_event
+from apps.notifications.models import Notification, NotificationEvent
 from config.verification import validate_runtime_verification_configuration
 
 
@@ -36,6 +38,17 @@ ACCOUNT_REASON_CATEGORIES = frozenset(
     }
 )
 MAX_INTERNAL_NOTE_LENGTH = 2000
+
+
+def _safe_support_destination() -> str:
+    """Return only an operator-configured https or mailto support endpoint."""
+    candidate = str(getattr(settings, "MARKETPLACE_SUPPORT_DESTINATION", "")).strip()
+    parsed = urlsplit(candidate)
+    if parsed.scheme == "https" and parsed.netloc:
+        return candidate
+    if parsed.scheme == "mailto" and parsed.path and not parsed.netloc:
+        return candidate
+    return ""
 
 
 class AccountTransitionError(ValueError):
@@ -781,10 +794,21 @@ def account_deletion_blocker(*, user: User) -> AccountDeletionBlocked | None:
             detail="Account deletion is blocked while marketplace obligations are active.",
         )
 
+    # These records have counterpart, operational, or delegated-work meaning.
+    # S1-D04 has not approved retention/anonymisation, so a self-service hard
+    # delete must not cascade through them. Support owns the policy decision.
     has_marketplace_history = (
         CleaningJob.objects.filter(host=user).exists()
         or Assignment.objects.filter(Q(cleaner=user) | Q(assigned_member=user)).exists()
         or CleanerApplication.objects.filter(cleaner=user).exists()
+        or Connection.objects.filter(Q(requester=user) | Q(addressee=user)).exists()
+        or Message.objects.filter(sender=user).exists()
+        or AgencyMembership.objects.filter(Q(cleaner=user) | Q(agency__user=user)).exists()
+        or AgencyInvitation.objects.filter(
+            Q(target_cleaner=user) | Q(invited_by=user) | Q(agency__user=user)
+        ).exists()
+        or NotificationEvent.objects.filter(recipient=user).exists()
+        or Notification.objects.filter(user=user).exists()
     )
     if has_marketplace_history:
         return AccountDeletionBlocked(
@@ -792,8 +816,10 @@ def account_deletion_blocker(*, user: User) -> AccountDeletionBlocked | None:
             detail="Marketplace history must be handled by support before account deletion.",
             fields={
                 "support_channel": settings.MARKETPLACE_SUPPORT_CHANNEL,
+                "support_destination": _safe_support_destination(),
                 "support_hours": "08:00-20:00 Europe/Sofia daily",
                 "emergency_service": False,
+                "reason_category": "protected_marketplace_history",
             },
         )
     return None
@@ -812,7 +838,6 @@ def delete_account_permanently(*, user: User, request=None) -> None:
     user_id = user.id
     role = user.role
 
-    Connection.objects.filter(Q(requester=user) | Q(addressee=user)).delete()
     write_audit_log(
         actor=user,
         action="account.deleted",

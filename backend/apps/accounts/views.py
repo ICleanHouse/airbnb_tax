@@ -46,6 +46,11 @@ from apps.accounts.services import (
     suspend_account,
 )
 from apps.accounts.tokens import email_verification_token
+from apps.accounts.recovery import (
+    PasswordResetConfirmationError,
+    confirm_password_reset,
+    request_password_reset,
+)
 from apps.notifications.services import NotificationEventRequest, emit_notification_event
 from apps.notifications.tasks import send_signup_email_code
 from apps.core.logging import get_request_id
@@ -60,6 +65,7 @@ from apps.accounts.serializers import (
     CookieConsentSerializer,
     HostProfileSerializer,
     LoginSerializer,
+    PasswordResetConfirmSerializer,
     PublicCleanerDetailSerializer,
     PublicCleanerSerializer,
     SignupEmailCodeRequestSerializer,
@@ -310,6 +316,33 @@ class LogoutView(APIView):
             entity_id=user.id,
             request=request,
         )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        # Never use forwarded headers here: proxy trust is not part of this contract.
+        request_password_reset(
+            raw_email=request.data.get("email"),
+            client_ip=request.META.get("REMOTE_ADDR", ""),
+            request=request,
+        )
+        return Response({"detail": "If an account can be recovered, recovery instructions will be sent."})
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({"code": "invalid_or_expired_link"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            confirm_password_reset(**serializer.validated_data, request=request)
+        except PasswordResetConfirmationError as exc:
+            return Response({"code": exc.code}, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

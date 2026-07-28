@@ -5,6 +5,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
+from apps.connections.models import Connection
 from apps.marketplace.models import CleaningJob
 from apps.marketplace.services import create_cleaning_job
 from apps.properties.models import Property
@@ -68,3 +69,24 @@ class AccountDeletionBlockerTests(TestCase):
 
         self.assertEqual(response.status_code, 204)
         self.assertFalse(User.objects.filter(id=user.id).exists())
+
+    def test_counterpart_connection_routes_deletion_to_support_without_cascade(self):
+        cleaner = User.objects.create_user(
+            username="connection-cleaner",
+            password="password123",
+            role=User.Role.CLEANER,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        connection = Connection.objects.create(requester=self.host, addressee=cleaner)
+        self.client.force_authenticate(self.host)
+
+        response = self.client.delete("/api/accounts/me/")
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["code"], "account_deletion_requires_support")
+        self.assertEqual(
+            response.json()["fields"]["reason_category"],
+            "protected_marketplace_history",
+        )
+        self.assertTrue(Connection.objects.filter(pk=connection.pk).exists())
+        self.assertTrue(User.objects.filter(id=self.host.id).exists())

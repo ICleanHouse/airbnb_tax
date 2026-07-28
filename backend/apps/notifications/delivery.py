@@ -8,7 +8,10 @@ from urllib.parse import urlsplit
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 
+from apps.accounts.tokens import password_reset_token
 from apps.notifications.contracts import get_event_spec
 from apps.notifications.models import NotificationDelivery
 
@@ -37,7 +40,12 @@ def _render_email(delivery: NotificationDelivery) -> tuple[str, str, str]:
     if spec is None or event.language not in spec.templates:
         raise NotificationProviderError("contract", "template_unavailable", False)
     template = spec.templates[event.language]
-    destination_url = _frontend_destination(event.destination)
+    destination = event.destination
+    if event.event_type == "account.password_reset_requested":
+        token = password_reset_token.make_token(delivery.recipient)
+        uid = urlsafe_base64_encode(force_bytes(delivery.recipient.pk))
+        destination = f"/{event.language}/reset-password?uid={uid}&token={token}"
+    destination_url = _frontend_destination(destination)
     text = f"{template.email_body}\n\n{destination_url}\n"
     html = render_to_string(
         "notifications/event_email.html",

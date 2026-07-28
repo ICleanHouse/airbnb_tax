@@ -118,3 +118,91 @@ need a running seeded frontend/backend environment; account-status surfaces
 still need explicit component/browser coverage for every blocked state; and the
 full backend suite needs a completion result rather than a timed-out run.
 No S1-E02 work was added.
+
+## Follow-up verification and UI-hardening slice (2026-07-28)
+
+### Additional gap found and fixed
+
+Direct navigation to a role dashboard was not consistently routed away from a
+terminal account state. Host, cleaner, and agency dashboards now route rejected
+and suspended users to the existing localized `/app` locked surface. Pending
+users deliberately retain the existing role-workspace contract and backend
+authorization remains authoritative.
+
+`/app` now provides a focused, localized status heading for a locked/unknown
+account response and a focused, retryable generic error surface when account
+state cannot be loaded. It never displays a raw API error or staff detail.
+
+### Deterministic E2E fixtures
+
+`seed_s1_e07_e2e` is a new Django management command for local/test browser
+work. It is refused unless `DEBUG` is enabled and `APP_ENV` is `local`, `test`,
+or `testing`; it requires a runtime `--password` and has no tracked credential.
+It creates or refreshes disposable `s1e07-e2e-` users for approved host,
+cleaner, agency and admin; pending host/cleaner/agency; rejected, suspended,
+and inactive accounts; a public cleaner; agency membership; a pending agency
+application; and valid/fallback in-app notifications. `--reset` touches only
+connections and in-app notifications owned by those test users.
+
+The documented startup sequence is in
+[the E2E README](../../frontend/tests/e2e/README.md): apply existing migrations,
+set one disposable `E2E_PASSWORD` only in the invoking shell, seed, start the
+backend/frontend, then run Playwright. The command reports a concise migration
+preflight error when the local schema is stale.
+
+### Browser and component coverage added
+
+- `s1-e07-routing.spec.ts`: approved and pending role destinations; terminal
+  status/direct-dashboard containment; inactive-login behavior; EN/BG safe-next
+  cases; guest Connect login/return/modal/no-replay/final submit journey.
+- `agency-parity.spec.ts`: no longer skips for absent accounts/services and
+  consumes deterministic agency data for readiness, member selection, and
+  anonymous access.
+- Redirect utility tests cover external, protocol-relative, encoded and
+  double-encoded external, backslash, malformed-percent, fragment, sensitive,
+  nested, JavaScript/data, oversized, unsupported and role-inappropriate input.
+- Notification tests cover canonical role routes, locale preservation, legacy
+  numeric review metadata, malformed/missing IDs, unknown events, unavailable
+  paths and connection metadata fallback.
+- `/app` component tests cover rejected, suspended, unsupported-role,
+  unauthenticated and account-load-error states, including heading focus and no
+  raw internal/API error text.
+
+### CodeGraph follow-up evidence
+
+After the edits, `codegraph sync .` completed with the index current.
+
+- `codegraph callers postAuthDestination` found only login `submitLogin`,
+  signup `createAccount`, `/app`, and its test.
+- `codegraph callers safeInternalDestination` found only the redirect utility,
+  login, signup, notification canonicalization, and tests.
+- `codegraph callers notificationDestination` found `NotificationBell` and its
+  unit test.
+- `codegraph affected` identified the new seed test, account-status,
+  connection, notification, host/cleaner/agency dashboard, signup, redirect
+  and notification test surfaces. Source was inspected before each change.
+
+### Additional commands and outcomes
+
+| Command | Result |
+| --- | --- |
+| `python manage.py test apps.accounts.tests.test_s1_e07_e2e_seed` | Passed: 2 tests. |
+| `npm.cmd test -- app/[locale]/app/page.test.tsx components/notificationRouting.test.ts lib/redirects.test.ts` | Passed: 16 tests. |
+| `npm.cmd test -- features/host/HostDashboard.test.tsx features/cleaner/CleanerDashboard.test.tsx lib/redirects.test.ts components/notificationRouting.test.ts app/[locale]/app/page.test.tsx` | Passed: 31 tests. |
+| `npm.cmd run typecheck` | Passed. |
+| `npm.cmd test` | Passed: 19 files, 79 tests. |
+| `npm.cmd run lint` | Exit 0 with four pre-existing hook-dependency warnings and no errors. |
+| `python manage.py check` | Passed. |
+| `python manage.py makemigrations --check --dry-run` | Passed; no changes. |
+| Focused backend account-status/connections/notifications command | Timed out at 60 seconds after making progress; no final result and not treated as a pass. |
+| `python manage.py test apps.accounts` | Timed out at 60 seconds after making progress; no final result and not treated as a pass. |
+| Local seed/E2E startup attempt | Blocked before browser execution: local `backend/db.sqlite3` is behind existing migrations (`marketplace_cleanerapplication.proposed_member_id` is absent). No migration was applied to the developer database. |
+
+### Current assessment
+
+**In progress — not Done.** The source-level E2E matrix is now deterministic
+and has no intentional skips, but it has not run because the local database
+schema is stale. The full backend suite also still lacks a completed result.
+Notification navigation is covered at resolver level; a live browser run is
+still required to prove target-screen fallback behavior against the seeded
+environment. No S1-E02 implementation was added.

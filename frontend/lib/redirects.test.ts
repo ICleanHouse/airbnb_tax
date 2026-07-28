@@ -15,7 +15,23 @@ describe("safe internal destinations", () => {
   });
 
   it("rejects external, encoded-external, malformed, unsupported, and sensitive destinations", () => {
-    for (const value of ["https://evil.example", "//evil.example", "/%2F%2Fevil.example", "/host#private", "/host?token=x", "/unknown", "/host?cleaner=zero"]) {
+    for (const value of [
+      "https://evil.example",
+      "http://evil.example",
+      "//evil.example",
+      "/%2F%2Fevil.example",
+      "/%252F%252Fevil.example",
+      "/\\evil.example",
+      "/%E0%A4%A",
+      "/host#private",
+      "/host?token=x",
+      "/host?next=%2Fhost",
+      "/unknown",
+      "/host?cleaner=zero",
+      "javascript:alert(1)",
+      "data:text/html,unsafe",
+      `/${"a".repeat(513)}`,
+    ]) {
       expect(safeInternalDestination(value)).toBeNull();
     }
   });
@@ -24,5 +40,12 @@ describe("safe internal destinations", () => {
     expect(postAuthDestination(host, "/cleaner", "bg")).toBe("/bg/host");
     expect(postAuthDestination(host, "/bg/?cleaner=12", "en")).toBe("/bg/?cleaner=12");
     expect(postAuthDestination({ ...host, account_status: "suspended" }, "/host", "bg")).toBe("/bg/app");
+  });
+
+  it("accepts bounded route queries and rejects role-inappropriate returns", () => {
+    expect(safeInternalDestination("/en/?cleaner=12")).toBe("/en/?cleaner=12");
+    expect(safeInternalDestination("/bg/host?section=applications&appFilter=pending")).toBe("/bg/host?section=applications&appFilter=pending");
+    expect(postAuthDestination(host, "/agency", "en")).toBe("/en/host");
+    expect(postAuthDestination(host, "/?cleaner=12", "bg")).toBe("/bg/?cleaner=12");
   });
 });

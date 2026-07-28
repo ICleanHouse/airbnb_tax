@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CheckCircle2, Clock3, LogOut, ShieldCheck, ShieldAlert, UserRoundCog } from "lucide-react";
 import { CurrentUser, apiFetch } from "../../../lib/api";
@@ -14,23 +14,32 @@ export default function AppEntryPage() {
   const locale = useLocale() as AppLocale;
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   function statusCopy(u: CurrentUser) {
-    const role = t(`roleLabels.${u.role}` as Parameters<typeof t>[0]);
+    const role = ["host", "cleaner", "agency", "admin"].includes(u.role)
+      ? t(`roleLabels.${u.role}` as Parameters<typeof t>[0])
+      : t("roleLabels.unknown");
     if (u.account_status === "approved") {
-      return { title: t("statusCopy.approved.title", { role }), body: t("statusCopy.approved.body"), icon: CheckCircle2 };
+      return { role, title: t("statusCopy.approved.title", { role }), body: t("statusCopy.approved.body"), icon: CheckCircle2 };
     }
     if (u.account_status === "rejected") {
-      return { title: t("statusCopy.rejected.title"), body: t("statusCopy.rejected.body"), icon: ShieldAlert };
+      return { role, title: t("statusCopy.rejected.title"), body: t("statusCopy.rejected.body"), icon: ShieldAlert };
     }
     if (u.account_status === "suspended") {
-      return { title: t("statusCopy.suspended.title"), body: t("statusCopy.suspended.body"), icon: ShieldAlert };
+      return { role, title: t("statusCopy.suspended.title"), body: t("statusCopy.suspended.body"), icon: ShieldAlert };
     }
-    return { title: t("statusCopy.pending.title"), body: t("statusCopy.pending.body"), icon: Clock3 };
+    if (u.account_status === "pending") {
+      return { role, title: t("statusCopy.pending.title"), body: t("statusCopy.pending.body"), icon: Clock3 };
+    }
+    return { role, title: t("statusCopy.unavailable.title"), body: t("statusCopy.unavailable.body"), icon: ShieldAlert };
   }
 
-  useEffect(() => {
-    async function loadUser() {
+  const loadUser = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
       const response = await apiFetch("/api/accounts/me/");
       if (response.ok) {
         const data = (await response.json()) as CurrentUser;
@@ -39,12 +48,23 @@ export default function AppEntryPage() {
           return;
         }
         setUser(data);
+      } else if (response.status !== 401 && response.status !== 403) {
+        setLoadError(true);
       }
+    } catch {
+      setLoadError(true);
+    } finally {
       setLoading(false);
     }
-
-    void loadUser();
   }, [locale]);
+
+  useEffect(() => {
+    void loadUser();
+  }, [loadUser]);
+
+  useEffect(() => {
+    if (!loading && (user || loadError)) headingRef.current?.focus();
+  }, [loadError, loading, user]);
 
   async function logout() {
     await apiFetch("/api/accounts/logout/", { method: "POST" });
@@ -63,11 +83,25 @@ export default function AppEntryPage() {
   }
 
   if (!user) {
+    if (loadError) {
+      return (
+        <main className="app-page">
+          <section className="app-shell" aria-live="polite">
+            <p className="eyebrow">{t("loadError.eyebrow")}</p>
+            <h1 ref={headingRef} tabIndex={-1}>{t("loadError.heading")}</h1>
+            <p>{t("loadError.body")}</p>
+            <button type="button" className="primary-link" onClick={() => void loadUser()}>
+              {t("loadError.retry")}
+            </button>
+          </section>
+        </main>
+      );
+    }
     return (
       <main className="app-page">
         <section className="app-shell">
           <p className="eyebrow">{t("notLoggedIn.eyebrow")}</p>
-          <h1>{t("notLoggedIn.heading")}</h1>
+            <h1>{t("notLoggedIn.heading")}</h1>
           <div className="join-actions">
             <Link className="primary-link" href="/login">
               {t("notLoggedIn.loginBtn")}
@@ -108,13 +142,13 @@ export default function AppEntryPage() {
           </div>
         </header>
 
-        <div className="status-panel">
+        <div className="status-panel" aria-live="polite">
           <div className="status-icon" aria-hidden>
             <StatusIcon size={24} />
           </div>
           <div>
-            <p className="eyebrow">{t(`roleLabels.${user.role}` as Parameters<typeof t>[0])}</p>
-            <h1>{copy.title}</h1>
+            <p className="eyebrow">{copy.role}</p>
+            <h1 ref={headingRef} tabIndex={-1}>{copy.title}</h1>
             <p>{copy.body}</p>
           </div>
         </div>

@@ -115,6 +115,12 @@ export default function AgencyDashboard() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    if (user?.role !== "agency" || (user.account_status !== "rejected" && user.account_status !== "suspended")) return;
+    const locale = window.location.pathname.split("/")[1] === "en" ? "en" : "bg";
+    window.location.replace(`/${locale}/app`);
+  }, [user]);
+
   const readiness = profile?.readiness ?? user?.agency_readiness ?? null;
   const activeMembers = useMemo(
     () => members.filter((member) => member.status === "active" && member.cleaner_marketplace_eligible),

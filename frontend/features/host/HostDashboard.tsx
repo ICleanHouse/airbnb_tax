@@ -400,6 +400,12 @@ export default function HostDashboard() {
       .finally(() => setLoadingMe(false));
   }, []);
 
+  useEffect(() => {
+    if (me?.role === "host" && (me.account_status === "rejected" || me.account_status === "suspended")) {
+      localeRouter.replace("/app");
+    }
+  }, [localeRouter, me]);
+
   // ── Load data once approved host confirmed ─────────────────────────────────
   useEffect(() => {
     if (me?.role === "host" && me.is_approved) void loadAll();

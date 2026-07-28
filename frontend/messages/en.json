@@ -863,6 +863,12 @@
       "loginBtn": "Log in",
       "signupBtn": "Sign up"
     },
+    "loadError": {
+      "eyebrow": "Account status unavailable",
+      "heading": "We could not check your account right now",
+      "body": "No marketplace action was started. Check your connection and try again.",
+      "retry": "Try again"
+    },
     "header": {
       "brandName": "Host Cleaners",
       "adminPanelBtn": "Admin panel",
@@ -884,6 +890,10 @@
       "pending": {
         "title": "Contact requirements incomplete",
         "body": "You can complete onboarding details while the configured contact requirements are completed."
+      },
+      "unavailable": {
+        "title": "Marketplace access unavailable",
+        "body": "This account cannot use marketplace tools. Contact support if you need help."
       }
     },
     "roleLabels": {
@@ -891,6 +901,7 @@
       "cleaner": "Cleaner",
       "agency": "Agency",
       "admin": "Admin"
+      ,"unknown": "Account"
     },
     "accountCard": {
       "label": "Account",

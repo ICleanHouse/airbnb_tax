@@ -388,6 +388,11 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
              /agency, admin → /admin; rejected/suspended/unsupported → /app
   shows: localized locked account status when no role workspace is available
 
+Terminal account route containment: rejected and suspended host, cleaner, and
+agency users who directly open their role workspace are redirected to the same
+localized `/app` locked surface. Pending users retain their documented role
+workspace with backend-gated actions.
+
 /admin                            [role: admin only]
   auth: required
   reads: GET /api/accounts/users/

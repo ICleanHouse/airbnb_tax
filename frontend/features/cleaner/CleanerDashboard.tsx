@@ -672,6 +672,12 @@ export default function CleanerDashboard() {
   }, []);
 
   useEffect(() => {
+    if (me?.role === "cleaner" && (me.account_status === "rejected" || me.account_status === "suspended")) {
+      localeRouter.replace("/app");
+    }
+  }, [localeRouter, me]);
+
+  useEffect(() => {
     if (me?.role === "cleaner") void loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);

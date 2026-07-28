@@ -65,6 +65,13 @@ change product or release authority.
   Redis/Celery/provider smoke remain unverified because those local services are
   unavailable; do not mark the item Done until those gates pass. Evidence:
   [S1-E06 TDD record](docs/testing/s1_e06_notification_reliability.tdd.md).
+- **S1-E07 — In progress.** The centralized safe-return routing, guest Connect
+  recovery, direct terminal-status containment, locked/error accessibility
+  surface, deterministic local-only E2E seed command, and browser matrix source
+  are implemented. It remains blocked from Done: this local SQLite database is
+  behind existing migrations, so the seeded browser suite has not executed; the
+  full Django suite also has no completed result. See
+  [S1-E07 evidence](docs/testing/s1_e07_conversion_routing.tdd.md).
 
 ## Owner decisions still needed
 

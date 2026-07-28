@@ -15,6 +15,11 @@ state belongs in [TGN.md](TGN.md), Stage 1 work in
 [docs/STAGE_1_SOFIA_PILOT_PLAN.md](docs/STAGE_1_SOFIA_PILOT_PLAN.md), and
 implementation proof in `docs/testing/`.
 
+Codex repository navigation now uses CodeGraph as described in
+[AGENTS.md](AGENTS.md#codegraph-workflow-canonical). The local index is
+machine-specific and should be checked/refreshed at session start; it does not
+change product or release authority.
+
 ## Current Stage 1 state
 
 - **S1-D01 — Done.** The project owner approved the Stage 1 charter: Sofia-only

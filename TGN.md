@@ -359,7 +359,9 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
   auth: no
   reads: none
   writes: POST /api/accounts/login/
-  next: / (on success)
+  next: validated internal `next` destination when authorized for the signed-in
+        role; otherwise localized role workspace (host `/host`, cleaner
+        `/cleaner`, agency `/agency`, admin `/admin`) or locked `/app`
 
 /signup
   auth: no
@@ -382,8 +384,9 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
 /app
   auth: required
   reads: GET /api/accounts/me/
-  redirects: host → /host, admin → /admin
-  shows: account status for cleaner/agency
+  redirects: approved/pending host → /host, cleaner → /cleaner, agency →
+             /agency, admin → /admin; rejected/suspended/unsupported → /app
+  shows: localized locked account status when no role workspace is available
 
 /admin                            [role: admin only]
   auth: required
@@ -443,12 +446,13 @@ Each route node lists: auth requirement, role gate, data sources (API calls), an
     - Cleaner marking done completes the job outright (no host confirm); a review.requested
       notification deep-links via ?reviewJob=<id> into the ReviewModal double-blind window
 
-/agency   [NOT BUILT — STAGE 1 LAUNCH BLOCKER]   [role: agency only]
-  planned reads: GET /api/accounts/me/
-                 GET /api/accounts/agency-memberships/
-                 GET /api/marketplace/assignments/
-  planned writes: POST /api/marketplace/assignments/{id}/assign-member/
-                  POST /api/accounts/agencies/{id}/invite-cleaner/
+/agency   [role: agency only]
+  reads: GET /api/accounts/me/, /api/accounts/agencies/,
+         /api/accounts/agency-memberships/, /api/accounts/agency-invitations/,
+         /api/marketplace/applications/, /api/marketplace/assignments/
+  writes: agency profile, target-bound invitations, membership revocation,
+          member selection, and authorized recovery actions
+  behavior: existing S1-D05 workspace; non-agency users route safely to /app
 ```
 
 The 2026-07-23 S1-D01 charter requires the launch-critical agency path to add
@@ -950,7 +954,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Cookie consent banner | ✅ Complete |
 | `apiFetch` — CSRF, Content-Type, FormData-safe | ✅ Complete |
 | Cleaner dashboard `/cleaner` | ✅ Complete |
-| Agency dashboard `/agency` | ⬜ Not built |
+| Agency dashboard `/agency` | ✅ Complete — S1-D05 workspace/routing; launch evidence remains gated |
 | Landing cleaner browser with city/district filtering | ✅ Complete |
 | Separate interim verification states and restricted review history in admin panel | ✅ Complete |
 | Manual cleaner identity/quality verification in admin panel | Not required by approved S1-D02 |

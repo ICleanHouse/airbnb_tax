@@ -23,6 +23,35 @@ Read only what the task needs:
 - `CURRENT_PROGRESS.md`: resume point for deployment or signup-flow work.
 - `DEPLOY.md`: production Docker, firewall, router, and hosting work.
 
+## CodeGraph workflow (canonical)
+
+CodeGraph is the primary navigation and impact-analysis tool for Codex in this
+repository. Before broad manual exploration, use the Codex `codegraph_explore`
+MCP tool (or the verified `codegraph explore "<question>"` CLI) to locate
+symbols, callers, dependencies, routes, event flows, and affected tests. Then
+inspect the exact source and tests before changing anything; graph output is a
+navigation aid, not a substitute for repository code or the authorities below.
+
+For each coherent implementation batch, explore the target symbol and callers,
+inspect its source, use `codegraph impact <symbol>` or `codegraph affected
+<files...>` where useful, implement the smallest change, then run `codegraph
+sync .` and repeat the caller/test check. In a new Codex session, confirm the
+integration with `codegraph status .` and a focused MCP/CLI query. If the
+server is unavailable or stale, use `codegraph sync .`; use `codegraph index
+.` only when a full rebuild is genuinely required. Fall back to focused `rg`
+plus direct source/test inspection when CodeGraph cannot be used, and record
+that limitation in evidence.
+
+Use CodeGraph together with `$repo-scan` for repository-surface ownership,
+`$iterative-retrieval` for no-more-than-three focused discovery/refinement
+cycles, and `$context-budget` to avoid loading broad files unnecessarily.
+Never put secrets, tokens, private data, absolute local paths, or generated
+index output into CodeGraph documentation. Local `.codegraph/` files are
+project index/runtime data; Codex global MCP registration is user-global.
+Generated configuration or cross-agent files do not override `BUSINESS.md`,
+`architecture.md`, `TGN.md`, ADRs, or these repository rules. Retain a
+cross-agent configuration only when its purpose is accurately documented.
+
 Instruction priority:
 1. `BUSINESS.md`
 2. `architecture.md`

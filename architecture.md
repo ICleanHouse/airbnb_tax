@@ -12,9 +12,14 @@ The v1 architecture is a modular Django backend with a Next.js PWA frontend. Thi
 
 The app calendar is the source of truth. External calendars, including Airbnb iCal feeds and Google Calendar, sync into or out of the application.
 
-The public landing page is the entry point. Signup lives at a single React route (`/signup`) with animated wizard steps. Authenticated host, cleaner, and admin workspaces live behind separate authenticated routes.
+The public landing page is the entry point. Signup lives at a single React route (`/signup`) with animated wizard steps. Authenticated host, cleaner, agency, and admin workspaces live behind separate authenticated routes.
 
 ## Architecture Style
+
+CodeGraph supports Codex discovery of symbol relationships, route flows, and
+affected tests; it is tooling rather than an architecture authority. The
+canonical usage, refresh, and safe-fallback rules are maintained in
+[AGENTS.md](AGENTS.md#codegraph-workflow-canonical).
 
 Modular monolith for v1:
 
@@ -88,7 +93,9 @@ Future extraction into microservices should be possible without rewriting core b
 - `frontend/next.config.mjs`: `trailingSlash: true` + two `/api/:path*` rewrite rules that proxy to the Django backend while preserving trailing slashes for `APPEND_SLASH` compatibility.
 - `frontend/app/page.tsx`: public landing page. Auth-aware header shows the role-correct dashboard link and, for authenticated users, the shared notification bell plus profile-icon menu containing Profile, persistent BG/EN language slider, and Log out. The first screen has a centered hero and audience toggle: `Find a cleaner` renders the shared `CleanerBrowser` (`/api/accounts/public-cleaners/`, city/district filters), while `Find cleaning work` renders aggregate supply/demand counts and canonical district demand.
 - `frontend/components/OpenJobMap.tsx`: compatibility-named aggregate demand component for the landing page. It loads canonical `GET /api/marketplace/public-demand/?city=sofia` and renders canonical Sofia zone/count rows. It has no job/property marker, coordinate, media, address, schedule, price, host, or application contract. `/open-job-locations/` is a deprecated response-compatible alias only.
-- `frontend/app/login/page.tsx`: session login — redirects to `/` on success.
+- `frontend/app/[locale]/login/page.tsx`: session login — accepts only the
+  typed safe internal `next` allowlist, preserves locale, and otherwise routes
+  to the current user’s authorized workspace or locked `/app` surface.
 - `frontend/app/signup/page.tsx`: single-route signup wizard. It handles credentials, Resend 6-digit email-code verification, role selection, cleaner personal details, location/service-area selection, native language, experience, introduction, profile photo, and final account creation without full page reloads between steps. It uses Motion (`motion/react`) for reusable panel transitions. Refresh recovery is 24-hour `sessionStorage` state built from the explicit `version`, `savedAt`, `role`, `citySlug`, `selectedZoneIds`, and `experienceLevel` allowlist; credentials, codes, tokens, identity/profile data, errors, and responses remain memory-only and refresh empty.
 - `frontend/app/signup/confirm-email/page.tsx`, `frontend/app/signup/role/page.tsx`, `frontend/app/signup/location/page.tsx`, `frontend/app/signup/personal-info/page.tsx`, `frontend/app/signup/native-language/page.tsx`, `frontend/app/signup/experience/page.tsx`: lightweight compatibility redirects to `/signup`.
 - `frontend/app/app/page.tsx`: generic authenticated workspace. Automatically redirects hosts to `/host` and admins to `/admin`. For cleaners and agencies shows account status.
@@ -106,11 +113,10 @@ Future extraction into microservices should be possible without rewriting core b
 
 ### Not yet built
 
-- `/agency` — agency dashboard (readiness, profile, target-bound invitations,
-  roster, member selection, assignments/recovery and history). The 2026-07-23
-  S1-D01 charter makes full launch-critical agency parity a marketplace-launch
-  blocker, including agency recovery rather than only the existing backend
-  invitation/delegation primitives.
+- Full launch evidence for the existing `/agency` dashboard (readiness,
+  profile, target-bound invitations, roster, member selection,
+  assignments/recovery and history). S1-D05 is implemented, but its separate
+  runtime, S1-E02, availability, and concurrency gates remain launch blockers.
 - Applications review panel inside the host dashboard (host sees applications per job, accepts one).
 - S1-D02 completion: EEA phone OTP, all-role private birth-date handling,
   contact-change recovery, phone reservation/transfer, owner-admin restoration,

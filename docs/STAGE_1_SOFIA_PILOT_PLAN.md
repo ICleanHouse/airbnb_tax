@@ -49,7 +49,7 @@ state and the next action visible.
 | 2 | Maintain public-data/profile/review and property-media containment | Done; ongoing regression duty | Keep S1-E01 privacy tests in every release gate. |
 | 3 | Complete contact verification under S1-D02 | In progress | The target maturity audit and batches are refreshed; select the EEA SMS provider/privacy/rate-limit contract, then execute Batches 1–6. |
 | 4 | Remove sensitive signup persistence | Done; ongoing regression duty | Keep the browser-storage and telemetry allowlist tests. |
-| 5 | Repair anonymous conversion and role routing | Not started | Implement S1-E07, including safe return targets, usable status errors, agency routing, and removal of dead OAuth controls. |
+| 5 | Repair anonymous conversion and role routing | In progress | Safe localized return targets, guest Connect recovery, account-state routing, and notification-link validation are implemented; complete the remaining status, browser, and full evidence matrix before marking Done. |
 | 6 | Enforce authoritative assignment-overlap protection | Done for implemented assignment paths | Resolve the separate availability/work-preference documentation drift and reuse the overlap service in future reschedule/replacement assignment paths. |
 | 7 | Add history-preserving lifecycle/recovery | Partially complete | Deliver agency recovery parity and correct delegated-member completion/review notifications. |
 | 8 | Disable calendar URL import and validate enabled uploads | Done | Keep URL fetching absent and preserve upload-security regression coverage. |
@@ -82,7 +82,7 @@ state and the next action visible.
 | S1-E04 | Prevent overlapping cleaner assignments | Done for hard-overlap contract; availability follow-up open | Resolve the work-preference/availability documentation drift and keep operator-confirmed availability for the concierge cohort. |
 | S1-E05 | Add history-preserving failure and recovery workflows | Partially complete | Add agency-backed recovery without mutating delegation and fix delegated-member completion/review recipients. |
 | S1-E06 | Complete the reliability notification loop | In progress; runtime evidence pending | Prove PostgreSQL concurrency plus live Redis/Celery and provider delivery/failure behavior. |
-| S1-E07 | Repair conversion and role routing | Not started | Fix guest Connect/returns, status explanations, dead actions/OAuth controls, agency routes, notification links, and role redirects. |
+| S1-E07 | Repair conversion and role routing | In progress | See `docs/testing/s1_e07_conversion_routing_maturity_audit.md` and `docs/testing/s1_e07_conversion_routing.tdd.md`; do not mark Done before the required browser and full verification evidence. |
 | S1-E08 | Add account recovery and safe account deletion | Not started | Implement localized password reset, throttling/enumeration resistance, operator fallback, blocked-deletion support flow, and retention/anonymization. |
 | S1-E09 | Secure or disable calendar URL import and uploads | Done with URL import disabled | Keep URL fetch absent; retain bounded ICS/image validation and privacy tests. |
 | S1-E10 | Govern maps, geocoding, and exact location | In progress | Approve provider/privacy/budget decisions, update policy disclosure, and capture the authenticated browser trace/fallback evidence. |

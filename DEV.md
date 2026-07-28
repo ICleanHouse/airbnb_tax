@@ -67,6 +67,17 @@ Use this baseline stack unless the architecture document is intentionally update
 
 ## Repository State
 
+### CodeGraph for Codex
+
+CodeGraph is the repository-navigation tool used by Codex. Follow the canonical
+[workflow in AGENTS.md](AGENTS.md#codegraph-workflow-canonical) before broad
+manual code exploration. In a new session, verify it with `codegraph status .`
+and a focused `codegraph explore` query; after a code batch, use `codegraph
+sync .` before confirming callers and affected tests. The `.codegraph/`
+database, daemon files, logs, and sockets are local index data and must not be
+committed. Do not include secrets, machine paths, or generated graph output in
+documentation.
+
 ```text
 backend/
   config/           Django project config (settings, celery, wsgi, asgi)

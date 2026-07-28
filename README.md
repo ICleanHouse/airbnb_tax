@@ -18,6 +18,9 @@ The MVP focuses on job posting, monthly cleaning batches, Airbnb iCal imports, c
 - `DEV.md`: development setup and operating guide.
 - `DEPLOY.md`: production-style Docker hosting, Windows firewall, and router forwarding guide.
 - `AGENT.md`: instructions for AI and developer agents.
+- `AGENTS.md`: Codex entrypoint and the canonical CodeGraph development
+  workflow. Verify a local index with `codegraph status .`; see that guide for
+  safe exploration, refresh, and fallback instructions.
 
 ## Stack
 

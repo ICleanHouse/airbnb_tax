@@ -47,6 +47,11 @@ The product direction for v1 is:
 
 ## Documentation Rules
 
+For CodeGraph navigation, impact analysis, stale-index recovery, and the
+relationship to repository-audit skills, follow the canonical
+[CodeGraph workflow](AGENTS.md#codegraph-workflow-canonical). It supplements
+source/test inspection and never overrides the documented authorities below.
+
 Update docs in the same change when altering:
 
 - Business strategy, target users, monetization assumptions, launch strategy, or success metrics.

@@ -1,6 +1,6 @@
 # S1-E07 conversion and role routing — TDD evidence
 
-**Status:** In progress — do **not** mark S1-E07 Done.
+**Status:** Done — all required automated evidence below passed on 2026-07-28.
 
 ## Original gaps
 
@@ -95,12 +95,12 @@ record, the maturity audit, and the CodeGraph documentation audit.
 | `npm.cmd test -- --run lib/redirects.test.ts components/notificationRouting.test.ts` | Passed: 8 tests. |
 | `npm.cmd run typecheck` | Passed. |
 | `npm.cmd run lint` | Passed with 4 pre-existing hook-dependency warnings. |
-| `npm.cmd test` | Passed: 18 files, 71 tests. |
+| `npm.cmd test` | Superseded by the final 19 files / 79 tests result below. |
 | `python manage.py check` | Passed. |
 | `python manage.py makemigrations --check --dry-run` | Passed; no changes. |
-| `python manage.py test` | Timed out at the command ceiling after beginning the suite; no final result. |
+| `python manage.py test` | Superseded by the completed 472-test result below. |
 | `python manage.py test apps.marketplace.tests.test_account_status_gates apps.connections.tests.test_connections apps.notifications.tests.test_notification_api` | Passed: 27 tests. |
-| `npm.cmd run test:e2e` | Command passed; three pre-existing agency tests skipped because required seeded E2E services/accounts were absent. |
+| `npm.cmd run test:e2e` | Superseded by the final seeded 10-test result below. |
 | `codegraph status .`, `codegraph sync .` | Passed; index current. |
 | `codegraph callers postAuthDestination`, `codegraph callers notificationDestination`, `codegraph affected ...` | Passed; callers and affected tests verified. |
 
@@ -154,7 +154,8 @@ preflight error when the local schema is stale.
 
 - `s1-e07-routing.spec.ts`: approved and pending role destinations; terminal
   status/direct-dashboard containment; inactive-login behavior; EN/BG safe-next
-  cases; guest Connect login/return/modal/no-replay/final submit journey.
+  cases; guest Connect login/return/modal/no-replay/final submit journey; and
+  host, cleaner, agency, and unavailable-notification routing.
 - `agency-parity.spec.ts`: no longer skips for absent accounts/services and
   consumes deterministic agency data for readiness, member selection, and
   anonymous access.
@@ -194,15 +195,21 @@ After the edits, `codegraph sync .` completed with the index current.
 | `npm.cmd run lint` | Exit 0 with four pre-existing hook-dependency warnings and no errors. |
 | `python manage.py check` | Passed. |
 | `python manage.py makemigrations --check --dry-run` | Passed; no changes. |
-| Focused backend account-status/connections/notifications command | Timed out at 60 seconds after making progress; no final result and not treated as a pass. |
-| `python manage.py test apps.accounts` | Timed out at 60 seconds after making progress; no final result and not treated as a pass. |
-| Local seed/E2E startup attempt | Blocked before browser execution: local `backend/db.sqlite3` is behind existing migrations (`marketplace_cleanerapplication.proposed_member_id` is absent). No migration was applied to the developer database. |
+| `python manage.py migrate` | Passed; no migrations to apply. |
+| `python manage.py seed_s1_e07_e2e --password $env:E2E_PASSWORD --reset` | Passed; refreshed only the guarded local/test disposable S1-E07 data. |
+| `python manage.py test` | Passed: 472 tests in 539.191s; 9 skipped; exit 0. |
+| `npm.cmd run typecheck` | Passed. |
+| `npm.cmd run lint` | Exit 0 with the same four pre-existing hook-dependency warnings and no errors. |
+| `npm.cmd test` | Passed: 19 files, 79 tests. |
+| `npm.cmd run test:e2e` | Passed: 10 Chromium tests, 0 failed, 0 skipped (51.1s). Covers the agency fixtures, role/status matrix, malicious safe-next matrix, guest Connect return/no replay, and valid/unavailable host, cleaner, and agency notification routes. |
+| `codegraph sync .` | Passed; already up to date. |
+| `codegraph callers postAuthDestination`, `codegraph callers safeInternalDestination`, `codegraph callers notificationDestination`, `codegraph status .` | Passed; index current (330 files, 4,490 nodes, 11,508 edges) and no obsolete redirect caller found. |
 
 ### Current assessment
 
-**In progress — not Done.** The source-level E2E matrix is now deterministic
-and has no intentional skips, but it has not run because the local database
-schema is stale. The full backend suite also still lacks a completed result.
-Notification navigation is covered at resolver level; a live browser run is
-still required to prove target-screen fallback behavior against the seeded
-environment. No S1-E02 implementation was added.
+**Done.** The final local schema was current, the complete Django suite passed,
+and the deterministic Playwright suite passed with no skips. Browser coverage
+now includes role/status routing, malicious destination rejection, the guest
+Connect return/no-replay journey, locale preservation, the existing agency
+workspace paths, and role-safe valid/unavailable notification destinations.
+No S1-E02 implementation was added.

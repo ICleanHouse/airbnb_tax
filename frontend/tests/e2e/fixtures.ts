@@ -30,3 +30,20 @@ export async function login(page: Page, email: string, destination: RegExp): Pro
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(destination);
 }
+
+/**
+ * Dashboards deliberately do not share a visual logout control. Clear the
+ * browser session between identities so multi-role journeys remain independent
+ * without coupling browser coverage to an unrelated dashboard header layout.
+ */
+export async function logout(page: Page): Promise<void> {
+  await page.context().clearCookies();
+  await page.goto("/en/login");
+}
+
+export async function dismissCookieBanner(page: Page): Promise<void> {
+  const essentialOnly = page.getByRole("button", { name: /essential only|само задължителни/i });
+  if (await essentialOnly.waitFor({ state: "visible", timeout: 2_000 }).then(() => true).catch(() => false)) {
+    await essentialOnly.click();
+  }
+}

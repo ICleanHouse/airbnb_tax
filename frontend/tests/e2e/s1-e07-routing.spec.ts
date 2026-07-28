@@ -1,34 +1,34 @@
 import { expect, test } from "@playwright/test";
 
-import { e2eEmails, e2ePassword, login } from "./fixtures";
+import { dismissCookieBanner, e2eEmails, e2ePassword, login, logout } from "./fixtures";
 
 test.describe("S1-E07 conversion and role routing", () => {
   test("routes approved host, cleaner, agency and admin users to localized workspaces", async ({ page }) => {
     await login(page, e2eEmails.host, /\/en\/host\/?$/);
-    await page.getByRole("button", { name: /log out/i }).click();
+    await logout(page);
     await login(page, e2eEmails.cleaner, /\/en\/cleaner\/?$/);
-    await page.getByRole("button", { name: /log out/i }).click();
+    await logout(page);
     await login(page, e2eEmails.agency, /\/en\/agency\/?$/);
-    await page.getByRole("button", { name: /log out/i }).click();
+    await logout(page);
     await login(page, e2eEmails.admin, /\/en\/admin\/?$/);
   });
 
   test("keeps pending users in their existing role workspace contract", async ({ page }) => {
     await login(page, e2eEmails.pendingHost, /\/en\/host\/?$/);
-    await page.getByRole("button", { name: /log out/i }).click();
+    await logout(page);
     await login(page, e2eEmails.pendingCleaner, /\/en\/cleaner\/?$/);
-    await page.getByRole("button", { name: /log out/i }).click();
+    await logout(page);
     await login(page, e2eEmails.pendingAgency, /\/en\/agency\/?$/);
   });
 
   test("routes rejected and suspended users to the locked surface, including direct role URLs", async ({ page }) => {
     for (const email of [e2eEmails.rejected, e2eEmails.suspended]) {
       await login(page, email, /\/en\/app\/?$/);
-      await expect(page.getByRole("heading")).toBeFocused();
+      await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
       await page.goto("/en/host");
       await expect(page).toHaveURL(/\/en\/app\/?$/);
       await expect(page.locator("body")).not.toContainText(/private support context|internal note/i);
-      await page.getByRole("button", { name: /log out/i }).click();
+      await logout(page);
     }
   });
 
@@ -53,10 +53,11 @@ test.describe("S1-E07 conversion and role routing", () => {
       await page.getByLabel("Password").fill(e2ePassword());
       await page.getByRole("button", { name: "Sign in" }).click();
       await expect(page).toHaveURL(/\/en\/host\/?$/);
-      await page.getByRole("button", { name: /log out/i }).click();
+      await logout(page);
     }
 
     await page.goto("/bg/login?next=%2Fbg%2F%3Fcleaner%3D1");
+    await dismissCookieBanner(page);
     await page.getByLabel("Имейл").fill(e2eEmails.host);
     await page.getByLabel("Парола").fill(e2ePassword());
     await page.getByRole("button", { name: "Влезте" }).click();
@@ -77,8 +78,9 @@ test.describe("S1-E07 conversion and role routing", () => {
     await page.goto(`/en/?cleaner=${cleanerId}`);
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByRole("button", { name: "Connect" }).click();
-    await expect(page).toHaveURL(new RegExp(`/en/login\\?next=.*cleaner%3D${cleanerId}`));
-    await expect(page.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", new RegExp(`^/signup\\?next=.*cleaner%3D${cleanerId}`));
+    await expect(page).toHaveURL(new RegExp(`/en/login/?\\?next=.*cleaner%3D${cleanerId}`));
+    await dismissCookieBanner(page);
+    await expect(page.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", new RegExp(`^/signup/?\\?next=.*cleaner%3D${cleanerId}`));
 
     await page.getByLabel("Email").fill(e2eEmails.host);
     await page.getByLabel("Password").fill(e2ePassword());
@@ -89,5 +91,29 @@ test.describe("S1-E07 conversion and role routing", () => {
 
     await page.getByRole("button", { name: "Connect" }).click();
     await expect(page.getByText("Pending")).toBeVisible();
+  });
+
+  test("routes valid and unavailable notifications to localized role-safe destinations", async ({ page }) => {
+    await login(page, e2eEmails.host, /\/en\/host\/?$/);
+    await dismissCookieBanner(page);
+    await page.getByRole("button", { name: /notification/i }).click();
+    await page.getByRole("button", { name: /S1 E2E host notification/i }).click();
+    await expect(page).toHaveURL(/\/en\/host\/?\?section=applications&appFilter=pending$/);
+
+    await page.getByRole("button", { name: /notification/i }).click();
+    await page.getByRole("button", { name: /S1 E2E unavailable notification/i }).click();
+    await expect(page).toHaveURL(/\/en\/host\/?$/);
+    await logout(page);
+
+    await login(page, e2eEmails.cleaner, /\/en\/cleaner\/?$/);
+    await page.getByRole("button", { name: /notification/i }).click();
+    await page.getByRole("button", { name: /S1 E2E cleaner notification/i }).click();
+    await expect(page).toHaveURL(/\/en\/cleaner\/?\?section=assignments&reviewJob=\d+$/);
+    await logout(page);
+
+    await login(page, e2eEmails.agency, /\/en\/agency\/?$/);
+    await page.getByRole("button", { name: /notification/i }).click();
+    await page.getByRole("button", { name: /S1 E2E agency notification/i }).click();
+    await expect(page).toHaveURL(/\/en\/agency\/?\?section=work$/);
   });
 });

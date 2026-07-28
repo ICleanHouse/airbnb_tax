@@ -49,7 +49,7 @@ state and the next action visible.
 | 2 | Maintain public-data/profile/review and property-media containment | Done; ongoing regression duty | Keep S1-E01 privacy tests in every release gate. |
 | 3 | Complete contact verification under S1-D02 | In progress | The target maturity audit and batches are refreshed; select the EEA SMS provider/privacy/rate-limit contract, then execute Batches 1–6. |
 | 4 | Remove sensitive signup persistence | Done; ongoing regression duty | Keep the browser-storage and telemetry allowlist tests. |
-| 5 | Repair anonymous conversion and role routing | In progress | Safe localized return targets, guest Connect recovery, account-state routing, and notification-link validation are implemented; complete the remaining status, browser, and full evidence matrix before marking Done. |
+| 5 | Repair anonymous conversion and role routing | Done | Safe localized return targets, guest Connect recovery, account-state routing, notification-link validation, deterministic browser fixtures, and the full verification matrix passed. |
 | 6 | Enforce authoritative assignment-overlap protection | Done for implemented assignment paths | Resolve the separate availability/work-preference documentation drift and reuse the overlap service in future reschedule/replacement assignment paths. |
 | 7 | Add history-preserving lifecycle/recovery | Partially complete | Deliver agency recovery parity and correct delegated-member completion/review notifications. |
 | 8 | Disable calendar URL import and validate enabled uploads | Done | Keep URL fetching absent and preserve upload-security regression coverage. |
@@ -82,7 +82,7 @@ state and the next action visible.
 | S1-E04 | Prevent overlapping cleaner assignments | Done for hard-overlap contract; availability follow-up open | Resolve the work-preference/availability documentation drift and keep operator-confirmed availability for the concierge cohort. |
 | S1-E05 | Add history-preserving failure and recovery workflows | Partially complete | Add agency-backed recovery without mutating delegation and fix delegated-member completion/review recipients. |
 | S1-E06 | Complete the reliability notification loop | In progress; runtime evidence pending | Prove PostgreSQL concurrency plus live Redis/Celery and provider delivery/failure behavior. |
-| S1-E07 | Repair conversion and role routing | In progress | Safe routing and deterministic local-only E2E fixtures are implemented; browser evidence is blocked until existing local migrations are applied, and the full backend result remains required. See `docs/testing/s1_e07_conversion_routing.tdd.md`; do not mark Done before the required browser and full verification evidence. |
+| S1-E07 | Repair conversion and role routing | Done | Full Django (472 tests) and seeded Playwright (10 tests, no skips) evidence passed. See `docs/testing/s1_e07_conversion_routing.tdd.md`. |
 | S1-E08 | Add account recovery and safe account deletion | Not started | Implement localized password reset, throttling/enumeration resistance, operator fallback, blocked-deletion support flow, and retention/anonymization. |
 | S1-E09 | Secure or disable calendar URL import and uploads | Done with URL import disabled | Keep URL fetch absent; retain bounded ICS/image validation and privacy tests. |
 | S1-E10 | Govern maps, geocoding, and exact location | In progress | Approve provider/privacy/budget decisions, update policy disclosure, and capture the authenticated browser trace/fallback evidence. |
@@ -558,7 +558,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E04 | Must-have | Project owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-E05 | Must-have | Project owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
 | S1-E06 | Must-have; reminders may be operator-assisted | Project owner | S1-D03 | In progress — runtime verification pending | 2026-07-22 | [Evidence](testing/s1_e06_notification_reliability.tdd.md) |
-| S1-E07 | Must-have | Project owner | S1-D05 | Not started |  |  |
+| S1-E07 | Must-have | Project owner | S1-D05 | Done | 2026-07-28 | [TDD evidence](testing/s1_e07_conversion_routing.tdd.md) |
 | S1-E08 | Must-have | Project owner | S1-D03/D04 | Not started |  |  |
 | S1-E09 | Must-have | Project owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
 | S1-E10 | Must-have | Project owner | S1-D04 and provider decision | In progress | 2026-07-22 | [Backend geocoding TDD evidence](testing/s1_e10_geocoding_backend.tdd.md) |
@@ -1159,15 +1159,15 @@ Acceptance criteria:
 
 ### S1-E07 — Repair conversion and role routing
 
-- [ ] Logged-out Connect leads to localized login/signup and preserves a safe
+- [x] Logged-out Connect leads to localized login/signup and preserves a safe
       relative return target.
-- [ ] Validate return targets to prevent open redirects.
-- [ ] Pending, rejected, suspended, and wrong-role users see an explanation,
+- [x] Validate return targets to prevent open redirects.
+- [x] Pending, rejected, suspended, and wrong-role users see an explanation,
       not a silent failure.
-- [ ] Do not call protected APIs only to decide the appearance of a guest CTA.
-- [ ] Apply the selected agency decision in frontend and backend.
-- [ ] Hide unimplemented OAuth controls.
-- [ ] Ensure every visible CTA, header link, notification deep link, and
+- [x] Do not call protected APIs only to decide the appearance of a guest CTA.
+- [x] Apply the selected agency decision in frontend and backend.
+- [x] Hide unimplemented OAuth controls.
+- [x] Ensure every visible CTA, header link, notification deep link, and
       post-login redirect has a usable destination.
 
 Acceptance criteria:

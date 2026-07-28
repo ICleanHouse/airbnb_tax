@@ -15,7 +15,7 @@ test.describe("S1-D05 agency workspace", () => {
     await login(page, e2eEmails.agency, /\/en\/agency\/?$/);
     await page.getByRole("tab", { name: "Work" }).click();
     const row = page.getByText(/Application #\d+/, { exact: false }).first().locator("..");
-    await row.getByRole("combobox", { name: "Selected member" }).selectOption({ label: "S1 E2E Cleaner" });
+    await row.getByRole("combobox", { name: "Selected member" }).selectOption({ label: "S1 E2E Cleaner Cleaner" });
     await row.getByRole("button", { name: "Select member" }).click();
     await expect(page.getByText("The agency workspace was updated.")).toBeVisible();
   });

@@ -12,6 +12,13 @@ Read this file at the start of any new development session to reconstruct full c
 **Last updated:** 2026-07-20
 **Stage:** v1 MVP — Active Development
 
+Password recovery is a public generic-response flow: request rate limiting uses
+normalized email and direct client IP; confirmation uses Django's expiring,
+single-use password-reset token and never changes account status, role, or
+marketplace eligibility. Self-service deletion stops at protected marketplace,
+counterpart, agency, or notification history and routes to monitored support
+until S1-D04 defines retention/anonymization.
+
 ---
 
 ## 1. Entity Graph

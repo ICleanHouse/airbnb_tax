@@ -71,6 +71,12 @@ change product or release authority.
   complete. The full Django suite passed (472 tests, 9 skipped) and the seeded
   Playwright suite passed (10 tests, no skips). See
   [S1-E07 evidence](docs/testing/s1_e07_conversion_routing.tdd.md).
+- **S1-E08 — Partially complete.** Generic throttled self-service password
+  recovery, localized recovery UI, reset-completion notification, and safe
+  support-routed deletion blockers are implemented. Full deletion remains
+  blocked by S1-D04's retention/anonymization decision; PostgreSQL, provider,
+  browser, and complete regression evidence remains outstanding. See
+  [S1-E08 evidence](docs/testing/s1_e08_account_recovery.tdd.md).
 
 ## Owner decisions still needed
 

@@ -714,6 +714,13 @@ machine is exercised.
 
 ## Documentation Expectations
 
+For password recovery, configure `PASSWORD_RESET_TIMEOUT`,
+`PASSWORD_RESET_RATE_WINDOW_SECONDS`, `PASSWORD_RESET_EMAIL_LIMIT`, and
+`PASSWORD_RESET_IP_LIMIT` only through environment configuration. Optional
+`MARKETPLACE_SUPPORT_DESTINATION` is restricted to a monitored `https` or
+`mailto` endpoint and is shown only after the API returns a safe
+support-required deletion blocker.
+
 Update documentation in the same change when modifying:
 
 - Business strategy, target users, marketplace assumptions, monetization hypotheses, launch strategy, or success metrics.

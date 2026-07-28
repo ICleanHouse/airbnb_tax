@@ -516,6 +516,13 @@ Target EU managed cloud infrastructure:
 
 The system is GDPR-conscious from the start. Store only necessary personal data, avoid secrets in source control, and document retention/deletion decisions when they are implemented.
 
+Password recovery uses Django's password-reset token generator and the existing
+notification outbox: tokens are generated only for delivery, never persisted in
+events or frontend storage. Self-service deletion is deliberately conservative:
+protected marketplace, counterpart, agency, and notification history is routed
+to monitored support until S1-D04 establishes the cross-domain retention and
+anonymization contract.
+
 ### Environment Variables Reference
 
 | Variable | Default | Purpose |

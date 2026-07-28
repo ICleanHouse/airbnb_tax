@@ -83,7 +83,7 @@ state and the next action visible.
 | S1-E05 | Add history-preserving failure and recovery workflows | Partially complete | Add agency-backed recovery without mutating delegation and fix delegated-member completion/review recipients. |
 | S1-E06 | Complete the reliability notification loop | In progress; runtime evidence pending | Prove PostgreSQL concurrency plus live Redis/Celery and provider delivery/failure behavior. |
 | S1-E07 | Repair conversion and role routing | Done | Full Django (472 tests) and seeded Playwright (10 tests, no skips) evidence passed. See `docs/testing/s1_e07_conversion_routing.tdd.md`. |
-| S1-E08 | Add account recovery and safe account deletion | Not started | Implement localized password reset, throttling/enumeration resistance, operator fallback, blocked-deletion support flow, and retention/anonymization. |
+| S1-E08 | Add account recovery and safe account deletion | Partially complete | Password recovery and support-routed deletion blockers are implemented; S1-D04 retention/anonymization and complete runtime evidence remain blockers. See `docs/testing/s1_e08_account_recovery.tdd.md`. |
 | S1-E09 | Secure or disable calendar URL import and uploads | Done with URL import disabled | Keep URL fetch absent; retain bounded ICS/image validation and privacy tests. |
 | S1-E10 | Govern maps, geocoding, and exact location | In progress | Approve provider/privacy/budget decisions, update policy disclosure, and capture the authenticated browser trace/fallback evidence. |
 | S1-UX01 | Build a safe conversion-complete landing page | Not started | Implement Sofia-specific value/actions, honest verification/coverage, privacy-safe lead capture, text alternative, and policy/support links. |
@@ -559,7 +559,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E05 | Must-have | Project owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
 | S1-E06 | Must-have; reminders may be operator-assisted | Project owner | S1-D03 | In progress — runtime verification pending | 2026-07-22 | [Evidence](testing/s1_e06_notification_reliability.tdd.md) |
 | S1-E07 | Must-have | Project owner | S1-D05 | Done | 2026-07-28 | [TDD evidence](testing/s1_e07_conversion_routing.tdd.md) |
-| S1-E08 | Must-have | Project owner | S1-D03/D04 | Not started |  |  |
+| S1-E08 | Must-have | Project owner | S1-D03/D04 | Partially complete | 2026-07-28 | [TDD evidence](testing/s1_e08_account_recovery.tdd.md); S1-D04 decision remains required. |
 | S1-E09 | Must-have | Project owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
 | S1-E10 | Must-have | Project owner | S1-D04 and provider decision | In progress | 2026-07-22 | [Backend geocoding TDD evidence](testing/s1_e10_geocoding_backend.tdd.md) |
 | S1-UX01 | Must-have | Project owner | S1-D04/D05 | Not started |  |  |

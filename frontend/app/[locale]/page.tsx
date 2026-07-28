@@ -124,9 +124,11 @@ export default function Home() {
     ? "/admin"
     : currentUser?.role === "host"
       ? "/host"
-      : currentUser?.role === "cleaner"
-        ? "/cleaner"
-        : "/app";
+    : currentUser?.role === "cleaner"
+      ? "/cleaner"
+        : currentUser?.role === "agency"
+          ? "/agency"
+          : "/app";
   const profileHref = currentUser?.role === "host"
     ? "/host?section=account"
     : currentUser?.role === "cleaner"

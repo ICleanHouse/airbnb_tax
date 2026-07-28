@@ -1,4 +1,5 @@
 import type { AppNotification } from "../types/notification";
+import { localeFromPathname, safeInternalDestination, withLocale } from "../lib/redirects";
 
 const ALLOWED_PATHS = new Set(["/admin", "/app", "/host", "/cleaner", "/agency"]);
 const ALLOWED_QUERY_KEYS = new Set([
@@ -11,32 +12,14 @@ const ALLOWED_QUERY_KEYS = new Set([
 const NUMERIC_QUERY_KEYS = new Set(["reviewJob", "reviewId", "connectionId"]);
 
 function safeCanonicalDestination(value: unknown): string | null {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
-    return null;
+  const destination = safeInternalDestination(value);
+  if (!destination) return null;
+  const parsed = new URL(destination, "https://host-cleaners.invalid");
+  if (!ALLOWED_PATHS.has(parsed.pathname.replace(/^\/(bg|en)(?=\/|$)/, "") || "/")) return null;
+  for (const [key, item] of parsed.searchParams) {
+    if (!ALLOWED_QUERY_KEYS.has(key) || item.length === 0 || item.length > 64 || (NUMERIC_QUERY_KEYS.has(key) && !/^\d+$/.test(item))) return null;
   }
-  try {
-    const parsed = new URL(value, "https://host-cleaners.invalid");
-    if (
-      parsed.origin !== "https://host-cleaners.invalid" ||
-      parsed.hash ||
-      !ALLOWED_PATHS.has(parsed.pathname)
-    ) {
-      return null;
-    }
-    for (const [key, item] of parsed.searchParams) {
-      if (
-        !ALLOWED_QUERY_KEYS.has(key) ||
-        item.length === 0 ||
-        item.length > 64 ||
-        (NUMERIC_QUERY_KEYS.has(key) && !/^\d+$/.test(item))
-      ) {
-        return null;
-      }
-    }
-    return `${parsed.pathname}${parsed.search}`;
-  } catch {
-    return null;
-  }
+  return destination;
 }
 
 function numericMetadata(notification: AppNotification, key: string): number | null {
@@ -46,10 +29,11 @@ function numericMetadata(notification: AppNotification, key: string): number | n
 }
 
 function roleFallback(pathname: string): string {
-  if (pathname.startsWith("/host")) return "/host";
-  if (pathname.startsWith("/cleaner")) return "/cleaner";
-  if (pathname.startsWith("/agency")) return "/agency";
-  if (pathname.startsWith("/admin")) return "/admin";
+  const normalized = new URL(pathname, "https://host-cleaners.invalid").pathname.replace(/^\/(bg|en)(?=\/|$)/, "") || "/";
+  if (normalized.startsWith("/host")) return "/host";
+  if (normalized.startsWith("/cleaner")) return "/cleaner";
+  if (normalized.startsWith("/agency")) return "/agency";
+  if (normalized.startsWith("/admin")) return "/admin";
   return "/app";
 }
 
@@ -58,41 +42,43 @@ export function notificationDestination(
   pathname: string,
 ): string {
   const canonical = safeCanonicalDestination(notification.metadata?.destination);
-  if (canonical) return canonical;
+  const locale = localeFromPathname(pathname);
+  if (canonical) return withLocale(canonical, locale);
 
   // Compatibility for notifications persisted before the v1 event contract.
   const jobId = numericMetadata(notification, "job_id");
   const reviewId = numericMetadata(notification, "review_id");
   if (notification.notification_type === "review.requested" && jobId) {
-    return pathname.startsWith("/host")
+    return withLocale(pathname.replace(/^\/(bg|en)(?=\/|$)/, "").startsWith("/host")
       ? `/host?section=applications&appFilter=completed&reviewJob=${jobId}`
-      : `/cleaner?section=assignments&reviewJob=${jobId}`;
+      : `/cleaner?section=assignments&reviewJob=${jobId}`, locale);
   }
   if (
     (notification.notification_type === "review.revealed" ||
       notification.notification_type === "review.submitted") &&
     jobId
   ) {
+    const onHost = pathname.replace(/^\/(bg|en)(?=\/|$)/, "").startsWith("/host");
     const params = new URLSearchParams({
-      section: pathname.startsWith("/host") ? "applications" : "assignments",
+      section: onHost ? "applications" : "assignments",
       reviewJob: String(jobId),
     });
-    if (pathname.startsWith("/host")) params.set("appFilter", "rating");
+    if (onHost) params.set("appFilter", "rating");
     if (reviewId) params.set("reviewId", String(reviewId));
-    return `${pathname.startsWith("/host") ? "/host" : "/cleaner"}?${params.toString()}`;
+    return withLocale(`${onHost ? "/host" : "/cleaner"}?${params.toString()}`, locale);
   }
-  if (pathname.startsWith("/host")) {
+  if (pathname.replace(/^\/(bg|en)(?=\/|$)/, "").startsWith("/host")) {
     if (["application.submitted", "application.withdrawn"].includes(notification.notification_type)) {
-      return "/host?section=applications&appFilter=pending";
+      return withLocale("/host?section=applications&appFilter=pending", locale);
     }
     if (notification.notification_type === "offer.accepted") {
-      return "/host?section=applications&appFilter=active";
+      return withLocale("/host?section=applications&appFilter=active", locale);
     }
     if (notification.notification_type === "offer.declined") {
-      return "/host?section=applications";
+      return withLocale("/host?section=applications", locale);
     }
   }
-  return roleFallback(pathname);
+  return withLocale(roleFallback(pathname), locale);
 }
 
 export function connectionTarget(

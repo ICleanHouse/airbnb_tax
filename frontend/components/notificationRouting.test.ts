@@ -27,7 +27,7 @@ describe("notification routing", () => {
         notification({ metadata: { destination: "/host?section=applications&appFilter=pending" } }),
         "/host",
       ),
-    ).toBe("/host?section=applications&appFilter=pending");
+    ).toBe("/bg/host?section=applications&appFilter=pending");
   });
 
   it("rejects external, protocol-relative, fragment, and sensitive query destinations", () => {
@@ -39,14 +39,21 @@ describe("notification routing", () => {
     ]) {
       expect(
         notificationDestination(notification({ metadata: { destination } }), "/host"),
-      ).toBe("/host");
+      ).toBe("/bg/host");
     }
   });
 
   it("gives unknown event types a safe role-local fallback", () => {
     expect(
       notificationDestination(notification({ notification_type: "future.unknown" }), "/cleaner/jobs"),
-    ).toBe("/cleaner");
+    ).toBe("/bg/cleaner");
+  });
+
+  it("preserves the active locale for canonical and fallback destinations", () => {
+    expect(
+      notificationDestination(notification({ metadata: { destination: "/agency?section=work" } }), "/en/agency"),
+    ).toBe("/en/agency?section=work");
+    expect(notificationDestination(notification(), "/en/agency")).toBe("/en/agency");
   });
 
   it("extracts canonical connection destinations without exposing message text", () => {

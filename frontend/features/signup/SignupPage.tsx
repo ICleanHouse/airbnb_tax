@@ -19,12 +19,13 @@ import {
   UserPlus,
   UserRoundCheck,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { apiFetch, UserRole } from "../../lib/api";
+import { useLocale, useTranslations } from "next-intl";
+import { apiFetch, CurrentUser, UserRole } from "../../lib/api";
 import { cities } from "../../lib/cityDistricts";
 import { fallbackServiceZones, serviceAreaNamesToZoneIds, zoneIdsToServiceAreaNames } from "../../lib/locations";
 import { CLEANER_IMAGE_MAX_BYTES, validateImageFile } from "../../lib/uploadValidation";
 import { clearSignupRecovery, restoreSignupRecovery, saveSignupRecovery } from "./signupRecovery";
+import { postAuthDestination, safeInternalDestination, type AppLocale } from "../../lib/redirects";
 
 type SignupRole = Extract<UserRole, "host" | "cleaner" | "agency">;
 type SignupStep = "account" | "confirm_email" | "role" | "location" | "personal_info" | "native_language" | "experience" | "introduction" | "profile_photo";
@@ -193,6 +194,10 @@ function hasProgress(step: SignupStep) {
 export default function SignupPage() {
   const tS = useTranslations("signup");
   const tC = useTranslations("common");
+  const locale = useLocale() as AppLocale;
+  const requestedDestination = typeof window === "undefined"
+    ? null
+    : safeInternalDestination(new URLSearchParams(window.location.search).get("next"));
 
   const monthNames = tC.raw("months") as string[];
   const weekdayLabels = tC.raw("weekdays") as string[];
@@ -488,7 +493,9 @@ export default function SignupPage() {
       }
       clearSignupRecovery(sessionStorage);
       clearSensitiveSignupState();
-      window.location.href = "/app";
+      const meResponse = await apiFetch("/api/accounts/me/");
+      const me = meResponse.ok ? (await meResponse.json()) as CurrentUser : null;
+      window.location.href = postAuthDestination(me, requestedDestination, locale);
     } catch {
       setSubmitError(tS("account.error.createNetwork"));
       setSubmitting(false);

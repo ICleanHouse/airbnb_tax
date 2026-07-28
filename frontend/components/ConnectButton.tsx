@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { UserPlus, Clock, Check } from "lucide-react";
 import { apiFetch, type Connection } from "../lib/api";
+import { withLocale, type AppLocale } from "../lib/redirects";
 
 type State = "loading" | "idle" | "pending" | "connected";
 
@@ -14,9 +15,11 @@ type State = "loading" | "idle" | "pending" | "connected";
  */
 export default function ConnectButton({
   targetUserId,
+  returnTo,
   className = "",
 }: {
   targetUserId: number;
+  returnTo: string;
   className?: string;
 }) {
   const t = useTranslations("components.connectButton");
@@ -51,6 +54,10 @@ export default function ConnectButton({
     if (res.ok) {
       const c = (await res.json()) as Connection;
       setState(c.status === "accepted" ? "connected" : "pending");
+    } else if (res.status === 401 || res.status === 403) {
+      const locale = window.location.pathname.split("/")[1] as AppLocale;
+      const destination = withLocale(returnTo, locale === "en" ? "en" : "bg");
+      window.location.href = `/${locale === "en" ? "en" : "bg"}/login?next=${encodeURIComponent(destination)}`;
     } else {
       setState("idle");
     }

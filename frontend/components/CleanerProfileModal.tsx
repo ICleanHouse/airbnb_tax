@@ -158,7 +158,7 @@ export default function CleanerProfileModal({
                     </p>
                   )}
                   <div className="cleaner-profile-connect">
-                    <ConnectButton targetUserId={detail.user_id} />
+                    <ConnectButton targetUserId={detail.user_id} returnTo={`/?cleaner=${cleanerId}`} />
                   </div>
                 </div>
               </div>

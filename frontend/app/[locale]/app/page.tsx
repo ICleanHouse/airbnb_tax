@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { CheckCircle2, Clock3, LogOut, ShieldCheck, ShieldAlert, UserRoundCog } from "lucide-react";
 import { CurrentUser, apiFetch } from "../../../lib/api";
 import AccountDeletionPanel from "../../../components/AccountDeletionPanel";
 import VerificationStatusSummary from "../../../components/VerificationStatusSummary";
+import { postAuthDestination, type AppLocale } from "../../../lib/redirects";
 
 export default function AppEntryPage() {
   const t = useTranslations("app");
+  const locale = useLocale() as AppLocale;
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,21 +34,8 @@ export default function AppEntryPage() {
       const response = await apiFetch("/api/accounts/me/");
       if (response.ok) {
         const data = (await response.json()) as CurrentUser;
-        if (data.is_platform_admin) {
-          window.location.replace("/admin");
-          return;
-        }
-        // Redirect approved hosts straight to their dedicated dashboard
-        if (data.role === "host") {
-          window.location.replace("/host");
-          return;
-        }
-        if (data.role === "cleaner") {
-          window.location.replace("/cleaner");
-          return;
-        }
-        if (data.role === "agency") {
-          window.location.replace("/agency");
+        if (data.is_platform_admin || data.account_status === "approved" || data.account_status === "pending") {
+          window.location.replace(postAuthDestination(data, null, locale));
           return;
         }
         setUser(data);
@@ -55,7 +44,7 @@ export default function AppEntryPage() {
     }
 
     void loadUser();
-  }, []);
+  }, [locale]);
 
   async function logout() {
     await apiFetch("/api/accounts/logout/", { method: "POST" });

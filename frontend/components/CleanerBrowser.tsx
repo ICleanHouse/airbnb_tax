@@ -63,6 +63,11 @@ export default function CleanerBrowser({ offerEnabled = false }: { offerEnabled?
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
 
+  useEffect(() => {
+    const cleanerId = Number(new URLSearchParams(window.location.search).get("cleaner"));
+    if (Number.isSafeInteger(cleanerId) && cleanerId > 0) setOpenId(cleanerId);
+  }, []);
+
   async function loadCleaners(silent = false) {
     if (!silent) {
       setLoading(true);

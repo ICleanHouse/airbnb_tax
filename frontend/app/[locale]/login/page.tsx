@@ -2,22 +2,19 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { useLocale } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { LogIn, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { apiFetch, type CurrentUser } from "../../../lib/api";
-
-function dashboardPath(user: CurrentUser | null): string {
-  if (!user) return "/";
-  if (user.is_platform_admin) return "/admin";
-  if (user.role === "host") return "/host";
-  if (user.role === "cleaner") return "/cleaner";
-  if (user.role === "agency") return "/agency";
-  return "/app";
-}
+import { postAuthDestination, safeInternalDestination, type AppLocale } from "../../../lib/redirects";
 
 export default function LoginPage() {
   const t = useTranslations("login");
   const tNav = useTranslations("nav");
+  const locale = useLocale() as AppLocale;
+  const searchParams = useSearchParams();
+  const requestedDestination = safeInternalDestination(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -42,7 +39,7 @@ export default function LoginPage() {
       }
       const meRes = await apiFetch("/api/accounts/me/");
       const me: CurrentUser | null = meRes.ok ? await meRes.json() : null;
-      window.location.href = dashboardPath(me);
+      window.location.href = postAuthDestination(me, requestedDestination, locale);
     } finally {
       setSubmitting(false);
     }
@@ -92,7 +89,7 @@ export default function LoginPage() {
             <div className="auth-divider">
               <span>{t("or")}</span>
             </div>
-            <Link className="auth-choice-button login-submit" href="/signup">
+            <Link className="auth-choice-button login-submit" href={requestedDestination ? `/signup?next=${encodeURIComponent(requestedDestination)}` : "/signup"}>
               <UserPlus size={18} aria-hidden />
               {t("createAccount")}
             </Link>

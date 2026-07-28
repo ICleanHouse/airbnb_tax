@@ -624,6 +624,7 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
     cleaner = serializers.PrimaryKeyRelatedField(read_only=True)
     cleaner_name = serializers.SerializerMethodField()
     cleaner_profile_id = serializers.SerializerMethodField()
+    cleaner_public_id = serializers.SerializerMethodField()
     agency_member_selected = serializers.SerializerMethodField()
     job_title = serializers.CharField(source="job.title", read_only=True)
     job_scheduled_start = serializers.DateTimeField(source="job.scheduled_start", read_only=True)
@@ -653,6 +654,7 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
             "cleaner",
             "cleaner_name",
             "cleaner_profile_id",
+            "cleaner_public_id",
             "agency_member_selected",
             "status",
             "origin",
@@ -678,6 +680,10 @@ class CleanerApplicationSerializer(serializers.ModelSerializer):
     def get_cleaner_profile_id(self, obj):
         profile = getattr(obj.cleaner, "cleaner_profile", None)
         return profile.id if profile else None
+
+    def get_cleaner_public_id(self, obj):
+        profile = getattr(obj.cleaner, "cleaner_profile", None)
+        return str(profile.public_id) if profile else None
 
     def get_agency_member_selected(self, obj):
         return bool(obj.cleaner.is_agency and obj.proposed_member_id)
@@ -715,11 +721,17 @@ class WorkerCleanerApplicationSerializer(serializers.ModelSerializer):
 
 class OfferJobSerializer(serializers.Serializer):
     job_id = serializers.PrimaryKeyRelatedField(source="job", queryset=CleaningJob.objects.all())
-    cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all())
+    cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all(), required=False)
+    cleaner_public_id = serializers.UUIDField(required=False)
     proposed_price = serializers.DecimalField(
         max_digits=8, decimal_places=2, required=False, allow_null=True
     )
     message = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        if bool(attrs.get("cleaner")) == bool(attrs.get("cleaner_public_id")):
+            raise serializers.ValidationError("Provide exactly one cleaner target.")
+        return attrs
 
 
 class OfferToCleanerSerializer(serializers.Serializer):
@@ -733,7 +745,8 @@ class OfferToCleanerSerializer(serializers.Serializer):
     property_id = serializers.PrimaryKeyRelatedField(
         source="property", queryset=Property.objects.all()
     )
-    cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all())
+    cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all(), required=False)
+    cleaner_public_id = serializers.UUIDField(required=False)
     scheduled_start = serializers.DateTimeField()
     scheduled_end = serializers.DateTimeField()
     title = serializers.CharField(required=False, allow_blank=True, default="")
@@ -742,11 +755,17 @@ class OfferToCleanerSerializer(serializers.Serializer):
     )
     message = serializers.CharField(required=False, allow_blank=True, default="")
 
+    def validate(self, attrs):
+        if bool(attrs.get("cleaner")) == bool(attrs.get("cleaner_public_id")):
+            raise serializers.ValidationError("Provide exactly one cleaner target.")
+        return attrs
+
 
 class FavouriteCleanerSerializer(serializers.ModelSerializer):
     cleaner_id = serializers.PrimaryKeyRelatedField(source="cleaner", queryset=User.objects.all())
     cleaner_name = serializers.SerializerMethodField()
     cleaner_profile_id = serializers.SerializerMethodField()
+    cleaner_public_id = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     completed_jobs_count = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
@@ -760,6 +779,7 @@ class FavouriteCleanerSerializer(serializers.ModelSerializer):
             "cleaner",
             "cleaner_name",
             "cleaner_profile_id",
+            "cleaner_public_id",
             "average_rating",
             "completed_jobs_count",
             "profile_image",
@@ -777,6 +797,10 @@ class FavouriteCleanerSerializer(serializers.ModelSerializer):
     def get_cleaner_profile_id(self, obj):
         profile = self._profile(obj)
         return profile.id if profile else None
+
+    def get_cleaner_public_id(self, obj):
+        profile = self._profile(obj)
+        return str(profile.public_id) if profile else None
 
     def get_average_rating(self, obj):
         profile = self._profile(obj)

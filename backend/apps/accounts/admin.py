@@ -5,6 +5,7 @@ from apps.accounts.models import (
     AgencyInvitation,
     AgencyMembership,
     AgencyProfile,
+    AccountRetentionHold,
     CleanerProfile,
     CookieConsent,
     HostProfile,
@@ -28,6 +29,8 @@ class AppUserAdmin(UserAdmin):
                     "preferred_language",
                     "email_verified_at",
                     "phone_verified_at",
+                    "closed_at",
+                    "anonymized_at",
                 )
             },
         ),
@@ -49,7 +52,20 @@ class AppUserAdmin(UserAdmin):
         "approved_by",
         "email_verified_at",
         "phone_verified_at",
+        "closed_at",
+        "anonymized_at",
     )
+
+
+@admin.register(AccountRetentionHold)
+class AccountRetentionHoldAdmin(admin.ModelAdmin):
+    list_display = ("user", "category", "reason_code", "placed_by", "created_at", "released_at")
+    list_filter = ("category", "released_at")
+    search_fields = ("user__username", "reason_code")
+    readonly_fields = ("user", "category", "reason_code", "placed_by", "created_at")
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(HostProfile)

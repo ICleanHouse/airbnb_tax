@@ -69,6 +69,8 @@ interface CleanerProfile {
   has_driving_license: boolean | null;
   has_own_car: boolean | null;
   profile_image: string;
+  publication_enabled: boolean;
+  publication_paused_at: string | null;
   average_rating: string;
   completed_jobs_count: number;
   is_verified: boolean;
@@ -621,6 +623,8 @@ export default function CleanerDashboard() {
   const [profileError, setProfileError] = useState("");
   const [profileFieldErrors, setProfileFieldErrors] = useState<ProfileFieldErrors>({});
   const [profileSaved, setProfileSaved] = useState(false);
+  const [publicationChanging, setPublicationChanging] = useState(false);
+  const [publicationNotice, setPublicationNotice] = useState("");
   const [savedProfileSnapshot, setSavedProfileSnapshot] = useState<string | null>(null);
   const [districtOverlayOpen, setDistrictOverlayOpen] = useState(false);
   const [districtSelectedZoneIds, setDistrictSelectedZoneIds] = useState<string[]>([]);
@@ -1372,6 +1376,24 @@ export default function CleanerDashboard() {
       if (success) setProfileSaved(true);
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  async function changePublication(action: "pause-publication" | "resume-publication") {
+    if (!profile) return;
+    setPublicationChanging(true);
+    setPublicationNotice("");
+    try {
+      const response = await apiFetch(`/api/accounts/cleaners/${profile.id}/${action}/`, { method: "POST" });
+      if (!response.ok) {
+        setPublicationNotice(tPF("publication.error"));
+        return;
+      }
+      const updated = await response.json() as CleanerProfile;
+      setProfile(updated);
+      setPublicationNotice(action === "pause-publication" ? tPF("publication.paused") : tPF("publication.published"));
+    } finally {
+      setPublicationChanging(false);
     }
   }
 
@@ -2929,6 +2951,16 @@ export default function CleanerDashboard() {
                       {savingProfile ? tPF("saving") : tPF("saveChanges")}
                     </button>
                   </div>
+                  <section className="cleaner-profile-section cleaner-profile-section--single" aria-labelledby="cleaner-publication-title">
+                    <h2 id="cleaner-publication-title">{tPF("publication.title")}</h2>
+                    <p>{profile.publication_paused_at ? tPF("publication.grace") : tPF("publication.description")}</p>
+                    <p role="status" aria-live="polite">{publicationNotice}</p>
+                    {profile.publication_paused_at ? (
+                      <button type="button" className="secondary-link" disabled={publicationChanging} onClick={() => void changePublication("resume-publication")}>{tPF("publication.resume")}</button>
+                    ) : (
+                      <button type="button" className="secondary-link" disabled={publicationChanging} onClick={() => void changePublication("pause-publication")}>{tPF("publication.pause")}</button>
+                    )}
+                  </section>
                   <AccountDeletionPanel email={me.email} />
                 </div>
 

@@ -1,6 +1,5 @@
 export interface PublicCleaner {
-  id: number;
-  user_id: number;
+  public_id: string;
   kind: string;
   display_name: string;
   bio: string;
@@ -35,6 +34,7 @@ export interface FavouriteCleaner {
   cleaner: number;
   cleaner_name: string;
   cleaner_profile_id: number | null;
+  cleaner_public_id: string | null;
   average_rating: number | null;
   completed_jobs_count: number;
   profile_image: string | null;

@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login, logout
@@ -6,6 +7,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.db.models import Count, Q
+from django.http import Http404
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -21,6 +23,7 @@ from apps.core.services import write_audit_log
 from apps.core.middleware import get_endpoint_template
 from apps.accounts.models import (
     AgencyInvitation,
+    AccountRetentionHold,
     AgencyMembership,
     AgencyProfile,
     CleanerProfile,
@@ -68,6 +71,8 @@ from apps.accounts.serializers import (
     PasswordResetConfirmSerializer,
     PublicCleanerDetailSerializer,
     PublicCleanerSerializer,
+    RetentionHoldCreateSerializer,
+    RetentionHoldReleaseSerializer,
     SignupEmailCodeRequestSerializer,
     SignupEmailCodeVerifySerializer,
     SignupSerializer,
@@ -356,14 +361,14 @@ class MeView(APIView):
     def delete(self, request):
         user = request.user
         try:
-            delete_account_permanently(user=user, request=request)
+            result = delete_account_permanently(user=user, request=request)
         except AccountDeletionBlocked as exc:
             return Response(
                 {"code": exc.code, "detail": exc.detail, "fields": exc.fields},
                 status=status.HTTP_409_CONFLICT,
             )
         logout(request)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({"result": result}, status=status.HTTP_202_ACCEPTED)
 
 
 class CookieConsentView(APIView):
@@ -414,6 +419,8 @@ class UserViewSet(viewsets.ModelViewSet):
             "reject",
             "suspend",
             "review_history",
+            "place_retention_hold",
+            "release_retention_hold",
         }:
             return [IsPlatformAdmin()]
         return [permissions.IsAuthenticated()]
@@ -583,6 +590,44 @@ class CleanerProfileViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can update only your own cleaner profile.")
         serializer.save()
 
+    @action(detail=True, methods=["post"], url_path="pause-publication")
+    def pause_publication(self, request, pk=None):
+        profile = self.get_object()
+        if not request.user.is_platform_admin and profile.user_id != request.user.id:
+            raise PermissionDenied("You can update only your own cleaner profile.")
+        if not profile.publication_enabled:
+            return Response({"code": "publication_not_enabled"}, status=status.HTTP_409_CONFLICT)
+        if profile.publication_paused_at is None:
+            profile.publication_paused_at = timezone.now()
+            profile.save(update_fields=["publication_paused_at", "updated_at"])
+            write_audit_log(
+                actor=request.user,
+                action="cleaner_profile.publication_paused",
+                entity_type="CleanerProfile",
+                entity_id=profile.id,
+                request=request,
+                metadata={},
+            )
+        return Response(CleanerProfileSerializer(profile, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"], url_path="resume-publication")
+    def resume_publication(self, request, pk=None):
+        profile = self.get_object()
+        if not request.user.is_platform_admin and profile.user_id != request.user.id:
+            raise PermissionDenied("You can update only your own cleaner profile.")
+        profile.publication_enabled = True
+        profile.publication_paused_at = None
+        profile.save(update_fields=["publication_enabled", "publication_paused_at", "updated_at"])
+        write_audit_log(
+            actor=request.user,
+            action="cleaner_profile.publication_resumed",
+            entity_type="CleanerProfile",
+            entity_id=profile.id,
+            request=request,
+            metadata={},
+        )
+        return Response(CleanerProfileSerializer(profile, context={"request": request}).data)
+
 
 class PublicCleanerViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -596,6 +641,8 @@ class PublicCleanerViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     permission_classes = [permissions.AllowAny]
+    lookup_field = "public_id"
+    lookup_url_kwarg = "public_id"
 
     def get_serializer_class(self):
         if self.action == "retrieve":
@@ -606,6 +653,10 @@ class PublicCleanerViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = (
             CleanerProfile.objects.select_related("user")
             .filter(**CleanerProfile.public_marketplace_eligible_filter())
+            .filter(
+                Q(publication_paused_at__isnull=True)
+                | Q(publication_paused_at__gte=timezone.now() - timedelta(days=14))
+            )
             .order_by("-average_rating", "-completed_jobs_count", "id")
         )
 
@@ -678,10 +729,17 @@ class AgencyProfileViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can invite cleaners only for your own agency.")
         serializer = AgencyInviteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        cleaner = CleanerProfile.objects.select_related("user").filter(
+            public_id=serializer.validated_data["cleaner_public_id"],
+            **CleanerProfile.public_marketplace_eligible_filter(),
+        ).first()
+        if cleaner is None or not cleaner.is_publicly_published():
+            # Keep unknown and non-public directory targets indistinguishable.
+            raise Http404
         try:
             invitation = create_agency_invitation(
                 agency_user=agency.user,
-                target_cleaner_id=serializer.validated_data["cleaner_id"],
+                target_cleaner_id=cleaner.user_id,
                 actor=request.user,
                 message=serializer.validated_data.get("message", ""),
             )
@@ -701,6 +759,51 @@ class AgencyProfileViewSet(viewsets.ModelViewSet):
                 "blockers": list(readiness.blockers),
             }
         )
+
+    @action(detail=True, methods=["post"], url_path="retention-holds")
+    def place_retention_hold(self, request, pk=None):
+        user = self.get_object()
+        serializer = RetentionHoldCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        hold = AccountRetentionHold.objects.create(
+            user=user,
+            placed_by=request.user,
+            **serializer.validated_data,
+        )
+        write_audit_log(
+            actor=request.user,
+            action="account.retention_hold_placed",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+            metadata={"category": hold.category, "reason_code": hold.reason_code},
+        )
+        return Response({"id": hold.id, "active": True}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="retention-holds/(?P<hold_id>[^/.]+)/release")
+    def release_retention_hold(self, request, pk=None, hold_id=None):
+        user = self.get_object()
+        serializer = RetentionHoldReleaseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            hold = AccountRetentionHold.objects.select_for_update().filter(
+                id=hold_id, user=user, released_at__isnull=True
+            ).first()
+            if hold is None:
+                raise Http404
+            hold.released_at = timezone.now()
+            hold.released_by = request.user
+            hold.release_reason_code = serializer.validated_data["reason_code"]
+            hold.save(update_fields=["released_at", "released_by", "release_reason_code", "updated_at"])
+        write_audit_log(
+            actor=request.user,
+            action="account.retention_hold_released",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+            metadata={"category": hold.category, "reason_code": hold.release_reason_code},
+        )
+        return Response({"id": hold.id, "active": False})
 
 
 class AgencyInvitationViewSet(viewsets.ReadOnlyModelViewSet):

@@ -88,6 +88,11 @@ Instruction priority:
 - Operational property images use object-authorized API streaming and every raw
   `/media/*` request is denied. Approved public cleaner profile media remains a
   public API/data value, not `PropertyImage` raw storage.
+- Public cleaner routes and browser actions use `CleanerProfile.public_id` only;
+  never expose or accept a numeric user/profile identifier in the public flow.
+- S1-D04 account closure disables access and unpublishes immediately. Preserve
+  protected history behind a neutral tombstone; never cascade-delete it to
+  satisfy a closure request.
 
 ## Frontend Rules
 

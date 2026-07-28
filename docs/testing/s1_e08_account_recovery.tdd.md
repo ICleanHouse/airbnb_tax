@@ -1,8 +1,10 @@
 # S1-E08 account recovery and safe account deletion — TDD evidence
 
-Status: **Partially complete** (2026-07-28). S1-D04 has not approved the
-cross-domain retention/anonymisation decision required for full deletion
-acceptance. No destructive retention or anonymisation behaviour was added.
+Status: **Partially complete** (2026-07-28). S1-D04 now approves the product
+retention/closure policy. The account-closure implementation anonymizes direct
+identifiers while preserving protected history and schedules eligible
+history-free hard deletion after 30 days. Full completion still requires the
+remaining PostgreSQL, Redis/Celery, provider, and browser runtime evidence.
 
 ## Baseline and CodeGraph analysis
 
@@ -28,10 +30,13 @@ Source was then inspected before each edit.
   creates a localized frontend link only at send time.
 - Localized BG/EN forgot/reset pages use `apiFetch`, do not persist tokens, keep
   terminal/error states accessible, and replace reset URL history on success.
-- Self-service deletion now blocks active obligations and all identified
-  protected marketplace/counterpart/agency/notification history before a
-  cascade. Safe fields include an optional validated `https`/`mailto` monitored
-  support route; no object IDs, counterpart data, or internal notes are exposed.
+- Self-service closure blocks active obligations and admin legal/dispute/support
+  holds. It disables authentication, clears direct identifiers and publication,
+  preserves protected marketplace/counterpart/agency/notification history under
+  a neutral tombstone, and makes history-free accounts eligible for bounded
+  deletion after 30 days. Safe fields include an optional validated
+  `https`/`mailto` monitored support route; no object IDs, counterpart data, or
+  internal notes are exposed.
 
 ## Tests and commands
 
@@ -52,7 +57,8 @@ locally and are unverified, not passed.
 
 Tokens/passwords are absent from event metadata, audit metadata, API success
 copy, and frontend storage. Recovery request responses remain generic during a
-downstream event-persistence outage. Roll back with commit `7b73410`; no schema
-migration or destructive retention operation was introduced. Operator fallback
-is the configured monitored support destination; operators initiate a fresh
-approved reset and may not read/set passwords or alter account state.
+downstream event-persistence outage. Closure/anonymization migrations are
+forward-only; rollback must stop cleanup first and restore only from a verified
+non-production backup rehearsal. Operator fallback is the configured monitored
+support destination; operators initiate a fresh approved reset and may not
+read/set passwords or alter account state.

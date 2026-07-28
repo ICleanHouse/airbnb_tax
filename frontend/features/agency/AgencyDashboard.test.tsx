@@ -61,7 +61,7 @@ function mockApi({ ready = false } = {}) {
       case "/api/accounts/agency-memberships/": return jsonResponse(ready ? [{ id: 11, cleaner: 21, cleaner_name: "Mira", cleaner_marketplace_eligible: true, status: "active" }] : []);
       case "/api/accounts/agency-invitations/": return jsonResponse([]);
       case "/api/accounts/public-cleaners/?city=sofia":
-        return jsonResponse([{ user_id: 22, display_name: "Elena", city: "Sofia", marketplace_eligible: true, email: "private@example.test" }]);
+        return jsonResponse([{ public_id: "00000000-0000-4000-8000-000000000022", display_name: "Elena", city: "Sofia", marketplace_eligible: true, email: "private@example.test" }]);
       case "/api/marketplace/applications/": return jsonResponse(ready ? [{ id: 17, job: 44, status: "pending", origin: "cleaner_applied", proposed_member: null }] : []);
       case "/api/marketplace/assignments/": return jsonResponse([]);
       default:
@@ -102,7 +102,7 @@ describe("AgencyDashboard", () => {
     await waitFor(() => {
       const call = apiFetchMock.mock.calls.find(([path]) => path === "/api/accounts/agencies/3/invite-cleaner/");
       expect(call).toBeDefined();
-      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ cleaner_id: 22 });
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ cleaner_public_id: "00000000-0000-4000-8000-000000000022" });
     });
   });
 

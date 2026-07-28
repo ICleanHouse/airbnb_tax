@@ -15,6 +15,7 @@ from rest_framework.response import Response
 
 from apps.core.services import write_audit_log
 from apps.accounts.services import agency_readiness
+from apps.accounts.models import CleanerProfile
 from apps.marketplace.models import (
     Assignment,
     CleanerApplication,
@@ -1040,7 +1041,7 @@ class CleaningJobViewSet(
             application = offer_job(
                 job=serializer.validated_data["job"],
                 host=request.user,
-                cleaner=serializer.validated_data["cleaner"],
+                cleaner=serializer.validated_data.get("cleaner") or self._public_offer_cleaner(serializer.validated_data["cleaner_public_id"]),
                 proposed_price=serializer.validated_data.get("proposed_price"),
                 message=serializer.validated_data.get("message", ""),
                 request=request,
@@ -1070,7 +1071,7 @@ class CleaningJobViewSet(
         try:
             application = offer_job_to_cleaner(
                 host=request.user,
-                cleaner=serializer.validated_data["cleaner"],
+                cleaner=serializer.validated_data.get("cleaner") or self._public_offer_cleaner(serializer.validated_data["cleaner_public_id"]),
                 property=serializer.validated_data["property"],
                 scheduled_start=serializer.validated_data["scheduled_start"],
                 scheduled_end=serializer.validated_data["scheduled_end"],
@@ -1089,6 +1090,17 @@ class CleaningJobViewSet(
             CleanerApplicationSerializer(application, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
+
+    @staticmethod
+    def _public_offer_cleaner(public_id):
+        profile = CleanerProfile.objects.select_related("user").filter(
+            public_id=public_id,
+            **CleanerProfile.public_marketplace_eligible_filter(),
+        ).first()
+        if profile is None or not profile.is_publicly_published():
+            # Public UUIDs are never an oracle for non-public accounts.
+            raise Http404
+        return profile.user
 
 
 class TurnoverLineageViewSet(

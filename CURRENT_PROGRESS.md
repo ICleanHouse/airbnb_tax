@@ -71,12 +71,15 @@ change product or release authority.
   complete. The full Django suite passed (472 tests, 9 skipped) and the seeded
   Playwright suite passed (10 tests, no skips). See
   [S1-E07 evidence](docs/testing/s1_e07_conversion_routing.tdd.md).
+- **S1-D04 — In progress.** Owner-approved publication, retention and Geoapify
+  policy is represented in code: opaque public cleaner UUIDs, a 14-day pause
+  grace, retention holds, atomic closure/anonymization, bounded cleanup and a
+  fail-closed production guard. PostgreSQL/Redis/Celery/provider/browser
+  evidence and release policy surfaces remain outstanding.
 - **S1-E08 — Partially complete.** Generic throttled self-service password
   recovery, localized recovery UI, reset-completion notification, and safe
-  support-routed deletion blockers are implemented. Full deletion remains
-  blocked by S1-D04's retention/anonymization decision; the full Django suite
-  and seeded browser regression pass, while PostgreSQL and provider runtime
-  evidence remains outstanding. See
+  closure/anonymization foundations are implemented. The complete runtime
+  evidence matrix remains outstanding. See
   [S1-E08 evidence](docs/testing/s1_e08_account_recovery.tdd.md).
 
 ## Owner decisions still needed

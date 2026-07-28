@@ -153,6 +153,19 @@ class GeocodingApiTests(TestCase):
 
         self.assert_safe_unavailable(response)
 
+    @override_settings(
+        APP_ENV="production",
+        GEOAPIFY_PRODUCTION_APPROVED=False,
+        GEOAPIFY_ATTRIBUTION="",
+        GEOAPIFY_MONTHLY_BUDGET_EUR=0,
+    )
+    @patch("apps.locations.geocoding.urlopen", side_effect=fake_urlopen.__func__)
+    def test_production_provider_is_fail_closed_until_processor_prerequisites_are_recorded(self, urlopen_mock):
+        response = self.post(self.search_url, {"query": "Sofia"}, user=self.host)
+
+        self.assert_safe_unavailable(response)
+        urlopen_mock.assert_not_called()
+
     @patch("apps.locations.geocoding.urlopen", side_effect=OSError("PRIVATE-UPSTREAM-SENTINEL"))
     def test_provider_failure_is_safe_and_audit_metadata_is_redacted(self, _urlopen):
         response = self.post(

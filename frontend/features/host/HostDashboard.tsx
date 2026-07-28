@@ -120,6 +120,7 @@ interface CleanerApplication {
   cleaner_name: string;
   cleaner_email: string;
   cleaner_profile_id: number | null;
+  cleaner_public_id: string | null;
   status: ApplicationStatus;
   origin: "cleaner_applied" | "host_offered";
   proposed_price: string | null;
@@ -375,7 +376,7 @@ export default function HostDashboard() {
   const [editingJobId,   setEditingJobId]   = useState<number | null>(null);
 
   // ── View cleaner profile ───────────────────────────────────────────────────
-  const [viewProfileId,  setViewProfileId]  = useState<number | null>(null);
+  const [viewProfileId,  setViewProfileId]  = useState<string | null>(null);
 
   // ── Favourites + direct offers ─────────────────────────────────────────────
   const [favourites, setFavourites] = useState<FavouriteCleaner[]>([]);
@@ -1566,13 +1567,13 @@ export default function HostDashboard() {
                         )}
                       </div>
                       <div className="host-mycleaner-actions">
-                        {fav.cleaner_profile_id && (
+                        {fav.cleaner_public_id && (
                           <button
                             type="button"
                             className="host-app-view-profile"
                             onClick={() => {
                               if (shouldSuppressModalOpen()) return;
-                              setViewProfileId(fav.cleaner_profile_id);
+                              setViewProfileId(fav.cleaner_public_id);
                             }}
                           >
                             {t("apps.view")}
@@ -1655,13 +1656,13 @@ export default function HostDashboard() {
                                 >
                                   {app.cleaner_email}
                                 </a>
-                                {app.cleaner_profile_id && (
+                                {app.cleaner_public_id && (
                                   <button
                                     type="button"
                                     className="host-app-view-profile"
                                     onClick={() => {
                                       if (shouldSuppressModalOpen()) return;
-                                      setViewProfileId(app.cleaner_profile_id);
+                                      setViewProfileId(app.cleaner_public_id);
                                     }}
                                   >
                                     {t("apps.pending.viewProfile")}
@@ -2807,7 +2808,7 @@ export default function HostDashboard() {
 
       {viewProfileId !== null && (
         <CleanerProfileModal
-          cleanerId={viewProfileId}
+          cleanerPublicId={viewProfileId}
           onClose={() => setViewProfileId(null)}
         />
       )}

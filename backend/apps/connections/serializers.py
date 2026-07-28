@@ -11,6 +11,7 @@ class ConnectionSerializer(serializers.ModelSerializer):
     other_user_role = serializers.SerializerMethodField()
     other_user_image = serializers.SerializerMethodField()
     other_user_profile_id = serializers.SerializerMethodField()
+    other_user_public_id = serializers.SerializerMethodField()
     direction = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
@@ -26,6 +27,7 @@ class ConnectionSerializer(serializers.ModelSerializer):
             "other_user_role",
             "other_user_image",
             "other_user_profile_id",
+            "other_user_public_id",
             "unread_count",
             "last_message",
             "created_at",
@@ -56,6 +58,10 @@ class ConnectionSerializer(serializers.ModelSerializer):
     def get_other_user_profile_id(self, obj):
         profile = getattr(self._other(obj), "cleaner_profile", None)
         return profile.id if profile else None
+
+    def get_other_user_public_id(self, obj):
+        profile = getattr(self._other(obj), "cleaner_profile", None)
+        return str(profile.public_id) if profile else None
 
     def get_direction(self, obj):
         if obj.status == Connection.Status.ACCEPTED:
@@ -88,7 +94,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class ConnectionRequestSerializer(serializers.Serializer):
-    user_id = serializers.IntegerField()
+    cleaner_public_id = serializers.UUIDField()
 
 
 class SendMessageSerializer(serializers.Serializer):

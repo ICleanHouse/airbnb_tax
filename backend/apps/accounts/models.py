@@ -82,6 +82,8 @@ class User(AbstractUser):
     )
     email_verified_at = models.DateTimeField(null=True, blank=True)
     phone_verified_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    anonymized_at = models.DateTimeField(null=True, blank=True)
 
     objects = PlatformUserManager()
 
@@ -227,6 +229,55 @@ class PilotEvidenceExclusion(models.Model):
         return f"Pilot evidence exclusion for user {self.user_id}"
 
 
+class AccountRetentionHold(TimeStampedModel):
+    """An operator-controlled, append-only hold on account closure cleanup."""
+
+    class Category(models.TextChoices):
+        LEGAL = "legal", "Legal"
+        DISPUTE = "dispute", "Dispute"
+        SUPPORT = "support", "Support"
+
+    user = models.ForeignKey(
+        User,
+        # A released hold remains immutable operator evidence even if a
+        # history-free account reaches its approved hard-deletion date. Keep
+        # that evidence without retaining a direct account relationship.
+        on_delete=models.SET_NULL,
+        related_name="retention_holds",
+        null=True,
+        blank=True,
+    )
+    category = models.CharField(max_length=16, choices=Category.choices)
+    reason_code = models.CharField(max_length=64)
+    placed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="placed_retention_holds",
+        null=True,
+        blank=True,
+    )
+    released_at = models.DateTimeField(null=True, blank=True)
+    released_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="released_retention_holds",
+        null=True,
+        blank=True,
+    )
+    release_reason_code = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["user", "released_at"], name="retention_hold_active_idx")]
+
+    @property
+    def is_active(self) -> bool:
+        return self.released_at is None
+
+    def __str__(self) -> str:
+        return f"{self.category} retention hold for user {self.user_id}"
+
+
 class CleanerProfile(TimeStampedModel):
     class Kind(models.TextChoices):
         INDIVIDUAL = "individual", "Individual"
@@ -291,6 +342,9 @@ class CleanerProfile(TimeStampedModel):
     profile_image = models.TextField(blank=True)
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
     completed_jobs_count = models.PositiveIntegerField(default=0)
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    publication_enabled = models.BooleanField(default=False)
+    publication_paused_at = models.DateTimeField(null=True, blank=True)
 
     @property
     def is_verified(self) -> bool:
@@ -302,7 +356,22 @@ class CleanerProfile(TimeStampedModel):
             "verification_status": cls.VerificationStatus.VERIFIED,
             "user__account_status": User.AccountStatus.APPROVED,
             "user__is_active": True,
+            "user__closed_at__isnull": True,
+            "publication_enabled": True,
         }
+
+    @property
+    def publication_grace_expires_at(self):
+        if self.publication_paused_at is None:
+            return None
+        return self.publication_paused_at + timedelta(days=14)
+
+    def is_publicly_published(self, *, now=None) -> bool:
+        if not self.publication_enabled or self.user.closed_at is not None:
+            return False
+        if self.publication_paused_at is None:
+            return True
+        return self.publication_grace_expires_at > (now or timezone.now())
 
     def __str__(self) -> str:
         return self.display_name or self.user.get_username()

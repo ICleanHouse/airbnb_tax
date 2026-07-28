@@ -13,7 +13,9 @@ from apps.accounts.models import (
     AgencyInvitation,
     AgencyMembership,
     AgencyProfile,
+    AccountRetentionHold,
     CleanerProfile,
+    HostProfile,
     PilotEvidenceExclusion,
     User,
 )
@@ -794,10 +796,27 @@ def account_deletion_blocker(*, user: User) -> AccountDeletionBlocked | None:
             detail="Account deletion is blocked while marketplace obligations are active.",
         )
 
+    if AccountRetentionHold.objects.filter(user=user, released_at__isnull=True).exists():
+        return AccountDeletionBlocked(
+            code="account_closure_blocked_retention_hold",
+            detail="Account closure is temporarily unavailable while a retention hold is active.",
+            fields={
+                "support_channel": settings.MARKETPLACE_SUPPORT_CHANNEL,
+                "support_destination": _safe_support_destination(),
+                "reason_category": "retention_hold",
+            },
+        )
+
+    return None
+
+
+def account_has_protected_history(*, user: User) -> bool:
+    """Whether account closure must preserve linked marketplace chronology."""
+
     # These records have counterpart, operational, or delegated-work meaning.
-    # S1-D04 has not approved retention/anonymisation, so a self-service hard
-    # delete must not cascade through them. Support owns the policy decision.
-    has_marketplace_history = (
+    # Under the approved S1-D04 policy they are preserved behind the neutral
+    # account tombstone rather than being cascade-deleted.
+    return (
         CleaningJob.objects.filter(host=user).exists()
         or Assignment.objects.filter(Q(cleaner=user) | Q(assigned_member=user)).exists()
         or CleanerApplication.objects.filter(cleaner=user).exists()
@@ -810,19 +829,6 @@ def account_deletion_blocker(*, user: User) -> AccountDeletionBlocked | None:
         or NotificationEvent.objects.filter(recipient=user).exists()
         or Notification.objects.filter(user=user).exists()
     )
-    if has_marketplace_history:
-        return AccountDeletionBlocked(
-            code="account_deletion_requires_support",
-            detail="Marketplace history must be handled by support before account deletion.",
-            fields={
-                "support_channel": settings.MARKETPLACE_SUPPORT_CHANNEL,
-                "support_destination": _safe_support_destination(),
-                "support_hours": "08:00-20:00 Europe/Sofia daily",
-                "emergency_service": False,
-                "reason_category": "protected_marketplace_history",
-            },
-        )
-    return None
 
 
 def ensure_account_can_be_deleted(*, user: User) -> None:
@@ -832,18 +838,75 @@ def ensure_account_can_be_deleted(*, user: User) -> None:
 
 
 @transaction.atomic
-def delete_account_permanently(*, user: User, request=None) -> None:
+def close_account(*, user: User, request=None) -> str:
+    """Close access and anonymize direct identifiers without breaking history.
+
+    The caller's session is invalidated by the unusable-password change; the
+    view also logs out the current browser. The preserved account row is later
+    eligible for bounded hard deletion only when no protected history exists.
+    """
     user = User.objects.select_for_update().get(id=user.id)
     ensure_account_can_be_deleted(user=user)
-    user_id = user.id
-    role = user.role
+    if user.closed_at is not None:
+        return "already_closed"
+
+    now = timezone.now()
+    protected_history = account_has_protected_history(user=user)
+    # A random invalid namespace prevents collisions and cannot be used as a
+    # contact address. We deliberately do not hash identifiers and call them
+    # anonymous: hashes remain linkable personal data.
+    tombstone = uuid.uuid4().hex
+    user.username = f"closed-{tombstone}"
+    user.email = f"closed-{tombstone}@invalid.local"
+    user.first_name = ""
+    user.last_name = ""
+    user.phone_number = ""
+    user.email_verified_at = None
+    user.phone_verified_at = None
+    user.dashboard_prefs = {}
+    user.is_active = False
+    user.closed_at = now
+    user.anonymized_at = now
+    user.set_unusable_password()
+    user.save(
+        update_fields=[
+            "username", "email", "first_name", "last_name", "phone_number",
+            "email_verified_at", "phone_verified_at", "dashboard_prefs", "is_active",
+            "closed_at", "anonymized_at", "password",
+        ]
+    )
+
+    profile = CleanerProfile.objects.select_for_update().filter(user=user).first()
+    if profile is not None:
+        profile.display_name = "Former marketplace user"
+        profile.bio = ""
+        profile.city = ""
+        profile.service_areas = []
+        profile.native_language = ""
+        profile.other_languages = []
+        profile.personal_preferences = []
+        profile.birth_date = None
+        profile.age = None
+        profile.education = ""
+        profile.profile_image = ""
+        profile.publication_enabled = False
+        profile.publication_paused_at = now
+        profile.save()
+
+    HostProfile.objects.filter(user=user).update(company_name="", city="", notes="")
+    AgencyProfile.objects.filter(user=user).update(company_name="Former marketplace user", city="", service_areas=[], description="")
 
     write_audit_log(
         actor=user,
-        action="account.deleted",
+        action="account.closed_anonymized",
         entity_type="User",
-        entity_id=user_id,
+        entity_id=user.id,
         request=request,
-        metadata={"role": role},
+        metadata={"closure_mode": "protected_history" if protected_history else "history_free"},
     )
-    user.delete()
+    return "protected_history_anonymized" if protected_history else "history_free_pending_deletion"
+
+
+def delete_account_permanently(*, user: User, request=None) -> str:
+    """Backward-compatible entry point for the self-service closure endpoint."""
+    return close_account(user=user, request=request)

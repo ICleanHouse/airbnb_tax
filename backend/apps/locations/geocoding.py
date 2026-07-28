@@ -41,6 +41,17 @@ def reverse_geocode(*, latitude: float, longitude: float, locale: str) -> list[d
 
 
 def _lookup(*, path: str, params: dict[str, object], maximum_results: int) -> list[dict[str, object]]:
+    if (
+        getattr(settings, "APP_ENV", "local").lower() in {"prod", "production"}
+        and not (
+            getattr(settings, "GEOAPIFY_PRODUCTION_APPROVED", False)
+            and getattr(settings, "GEOAPIFY_ATTRIBUTION", "").strip()
+            and getattr(settings, "GEOAPIFY_MONTHLY_BUDGET_EUR", 0) > 0
+        )
+    ):
+        # Production remains fail-closed until the approved processor checklist
+        # (notice, terms/DPA, attribution, budget and browser trace) is recorded.
+        raise GeocodingUnavailable
     api_key = getattr(settings, "GEOAPIFY_API_KEY", "").strip()
     if not api_key:
         raise GeocodingUnavailable

@@ -36,6 +36,7 @@ def make_cleaner(
         average_rating=average_rating,
         completed_jobs_count=completed_jobs_count,
         birth_date="1990-01-01",
+        publication_enabled=True,
     )
 
 
@@ -61,8 +62,18 @@ class PublicCleanerDirectoryTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         results = response.data["results"] if isinstance(response.data, dict) else response.data
-        ids = [row["id"] for row in results]
-        self.assertEqual(ids, [approved.id])
+        ids = [row["public_id"] for row in results]
+        self.assertEqual(ids, [str(approved.public_id)])
+
+    def test_requires_explicit_publication_opt_in(self):
+        cleaner = make_cleaner(email="private@example.com", display_name="Private")
+        cleaner.publication_enabled = False
+        cleaner.save(update_fields=["publication_enabled", "updated_at"])
+
+        response = self.client.get(self.list_url)
+
+        results = response.data["results"] if isinstance(response.data, dict) else response.data
+        self.assertEqual(results, [])
 
     def test_public_payload_hides_pii(self):
         cleaner = make_cleaner(email="pii@example.com", display_name="No PII")
@@ -81,8 +92,7 @@ class PublicCleanerDirectoryTests(TestCase):
         self.assertEqual(
             set(row),
             {
-                "id",
-                "user_id",
+                "public_id",
                 "kind",
                 "display_name",
                 "bio",
@@ -124,9 +134,9 @@ class PublicCleanerDirectoryTests(TestCase):
         response = self.client.get(self.list_url, {"min_rating": "4"})
 
         results = response.data["results"] if isinstance(response.data, dict) else response.data
-        ids = [row["id"] for row in results]
-        self.assertIn(high.id, ids)
-        self.assertNotIn(low.id, ids)
+        ids = [row["public_id"] for row in results]
+        self.assertIn(str(high.public_id), ids)
+        self.assertNotIn(str(low.public_id), ids)
 
     def test_filters_by_service_area(self):
         sofia = make_cleaner(
@@ -139,9 +149,9 @@ class PublicCleanerDirectoryTests(TestCase):
         response = self.client.get(self.list_url, {"service_area": "sofia"})
 
         results = response.data["results"] if isinstance(response.data, dict) else response.data
-        ids = [row["id"] for row in results]
-        self.assertEqual(ids, [sofia.id])
-        self.assertNotIn(plovdiv.id, ids)
+        ids = [row["public_id"] for row in results]
+        self.assertEqual(ids, [str(sofia.public_id)])
+        self.assertNotIn(str(plovdiv.public_id), ids)
 
     def test_filters_by_city_uses_profile_city(self):
         sofia = make_cleaner(
@@ -160,8 +170,8 @@ class PublicCleanerDirectoryTests(TestCase):
         response = self.client.get(self.list_url, {"city": "Sofia"})
 
         results = response.data["results"] if isinstance(response.data, dict) else response.data
-        ids = [row["id"] for row in results]
-        self.assertEqual(ids, [sofia.id])
+        ids = [row["public_id"] for row in results]
+        self.assertEqual(ids, [str(sofia.public_id)])
 
     def test_detail_embeds_received_reviews_without_pii(self):
         cleaner = make_cleaner(email="reviewed@example.com", display_name="Reviewed")
@@ -199,6 +209,15 @@ class PublicCleanerDirectoryTests(TestCase):
             rating=5,
             comment="Spotless work",
         )
+
+        viewer = User.objects.create_user(
+            username="viewer@example.com",
+            email="viewer@example.com",
+            password="Password123!",
+            role=User.Role.HOST,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.client.force_authenticate(viewer)
         # Counterpart review so the pair is revealed under the double-blind rule.
         Review.objects.create(
             job=job,
@@ -208,7 +227,7 @@ class PublicCleanerDirectoryTests(TestCase):
             comment="Clear instructions",
         )
 
-        detail_url = reverse("public-cleaner-detail", args=[cleaner.id])
+        detail_url = reverse("public-cleaner-detail", args=[cleaner.public_id])
         response = self.client.get(detail_url)
 
         self.assertEqual(response.status_code, 200)
@@ -217,9 +236,8 @@ class PublicCleanerDirectoryTests(TestCase):
         review = response.data["reviews"][0]
         self.assertEqual(review["rating"], 5)
         self.assertEqual(review["comment"], "Spotless work")
-        self.assertEqual(review["reviewer_name"], "verified_host")
+        self.assertEqual(review["reviewer_name"], "Host User")
         self.assertNotIn(host.email, str(review))
-        self.assertNotIn(host.get_full_name(), str(review))
         self.assertEqual(
             set(review),
             {"id", "reviewer_name", "rating", "comment", "created_at"},

@@ -13,7 +13,8 @@ export interface OfferProperty {
 }
 
 interface JobOfferModalProps {
-  cleanerUserId: number;
+  cleanerPublicId?: string;
+  cleanerUserId?: number;
   cleanerName: string;
   properties: OfferProperty[];
   onClose: () => void;
@@ -40,6 +41,7 @@ function extractError(data: unknown): string | null {
  * re-activates declined ones.
  */
 export default function JobOfferModal({
+  cleanerPublicId,
   cleanerUserId,
   cleanerName,
   properties,
@@ -86,7 +88,7 @@ export default function JobOfferModal({
         method: "POST",
         body: JSON.stringify({
           property_id: parseInt(propId, 10),
-          cleaner_id: cleanerUserId,
+          ...(cleanerPublicId ? { cleaner_public_id: cleanerPublicId } : { cleaner_id: cleanerUserId }),
           title,
           scheduled_start: startIso,
           scheduled_end: endIso,

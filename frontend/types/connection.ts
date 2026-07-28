@@ -10,6 +10,7 @@ export interface Connection {
   other_user_role: string;
   other_user_image: string | null;
   other_user_profile_id: number | null;
+  other_user_public_id: string | null;
   unread_count: number;
   last_message: { body: string; created_at: string; sender: number } | null;
   created_at: string;

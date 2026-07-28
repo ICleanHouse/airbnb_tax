@@ -23,6 +23,10 @@ class Review(TimeStampedModel):
     )
     rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
     comment = models.TextField(blank=True)
+    # Moderation affects only the authenticated public projection. The original
+    # protected record remains intact for dispute/audit interpretation.
+    public_comment_redacted = models.BooleanField(default=False)
+    public_comment_replacement = models.TextField(blank=True)
     private_note = models.TextField(blank=True)
     is_private_issue = models.BooleanField(default=False)
 
@@ -34,4 +38,3 @@ class Review(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.reviewer} reviewed {self.reviewee} for {self.job}"
-

@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.http import Http404
+from django.utils import timezone
 from django.utils.cache import patch_vary_headers
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -18,6 +19,7 @@ from apps.connections.serializers import (
     MessageSerializer,
     SendMessageSerializer,
 )
+from apps.accounts.models import CleanerProfile
 
 
 User = get_user_model()
@@ -52,10 +54,14 @@ class ConnectionViewSet(PrivateNoStoreResponseMixin, viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = ConnectionRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        try:
-            addressee = User.objects.get(id=serializer.validated_data["user_id"])
-        except User.DoesNotExist:
-            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        profile = CleanerProfile.objects.select_related("user").filter(
+            public_id=serializer.validated_data["cleaner_public_id"],
+            **CleanerProfile.public_marketplace_eligible_filter(),
+        ).first()
+        if profile is None or not profile.is_publicly_published(now=timezone.now()):
+            # Unknown and no-longer-public profiles intentionally share a result.
+            raise Http404
+        addressee = profile.user
         try:
             connection = services.request_connection(
                 requester=request.user, addressee=addressee, request=request

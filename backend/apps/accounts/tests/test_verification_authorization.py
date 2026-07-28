@@ -67,6 +67,7 @@ class VerificationAuthorizationTests(TestCase):
             user=user,
             display_name=username,
             verification_status=verification,
+            publication_enabled=True,
         )
         return user
 
@@ -141,7 +142,7 @@ class VerificationAuthorizationTests(TestCase):
             f"/api/accounts/cleaners/{self.cleaner.cleaner_profile.id}/"
         )
         public = self.client.get(
-            f"/api/accounts/public-cleaners/{self.cleaner.cleaner_profile.id}/"
+            f"/api/accounts/public-cleaners/{self.cleaner.cleaner_profile.public_id}/"
         )
 
         self.assertEqual(private.status_code, 404)
@@ -173,7 +174,7 @@ class VerificationAuthorizationTests(TestCase):
 
         create_response = self.client.post(
             f"/api/accounts/agencies/{agency.id}/invite-cleaner/",
-            {"cleaner_id": self.cleaner.id},
+            {"cleaner_public_id": str(self.cleaner.cleaner_profile.public_id)},
             format="json",
         )
         self.assertEqual(create_response.status_code, 409)

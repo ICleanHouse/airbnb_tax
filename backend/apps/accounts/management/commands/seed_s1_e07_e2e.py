@@ -115,6 +115,10 @@ class Command(BaseCommand):
                     "service_areas": ["Center"],
                     "verification_status": verification_status,
                     "bio": "Disposable browser-test profile.",
+                    # The browser suite exercises only the public UUID route;
+                    # explicit publication is required by the S1-D04 contract.
+                    "publication_enabled": key == "cleaner",
+                    "publication_paused_at": None,
                 },
             )
 

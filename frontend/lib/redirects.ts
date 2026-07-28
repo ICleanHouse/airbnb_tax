@@ -3,9 +3,11 @@ import type { CurrentUser } from "../types/user";
 const APP_ORIGIN = "https://host-cleaners.invalid";
 const LOCALES = new Set(["bg", "en"]);
 const APP_PATHS = new Set(["/", "/app", "/admin", "/host", "/cleaner", "/agency", "/cleaners"]);
-const QUERY_RULES: Record<string, "text" | "numeric" | "role"> = {
+const QUERY_RULES: Record<string, "text" | "numeric" | "publicId" | "role"> = {
   as: "text",
-  cleaner: "numeric",
+  // Public cleaner routes use opaque UUIDs. Private operational endpoints keep
+  // their numeric identifiers outside this post-auth return allowlist.
+  cleaner: "publicId",
   role: "role",
   section: "text",
   appFilter: "text",
@@ -65,6 +67,7 @@ export function safeInternalDestination(value: unknown): string | null {
       const rule = QUERY_RULES[key];
       if (!rule || item.length === 0 || item.length > 64) return null;
       if (rule === "numeric" && (!/^\d+$/.test(item) || !Number.isSafeInteger(Number(item)) || Number(item) < 1)) return null;
+      if (rule === "publicId" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item)) return null;
       if (rule === "role" && !VALID_ROLES.has(item)) return null;
     }
     return `${parsed.pathname}${parsed.search}`;

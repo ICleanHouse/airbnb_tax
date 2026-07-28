@@ -156,7 +156,9 @@ validated.
   company-registry, or manual quality review is performed. The visible
   “Verified” badge is explicitly scoped to confirmed email and phone. See the
   [approved policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md).
-- **Done:** S1-D04, S1-E01, S1-E03, S1-E04, and S1-E09. Public
+- **In progress:** S1-D04; its owner-approved policy is implemented but remains
+  blocked from Done by the Geoapify processor-approval records and provider
+  runtime evidence. **Done:** S1-E01, S1-E03, S1-E04, and S1-E09. Public
   disclosure/media, signup-secret persistence, cleaner schedule overlap, and
   calendar/upload protections are implemented and tested.
 - **In progress — interim contact policy implemented:** ADR-0002 records the
@@ -550,7 +552,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-D01 | Must-have | Project owner | None | Done | 2026-07-23 | [Approved Stage 1 charter](S1_D01_STAGE_1_CHARTER.md) |
 | S1-D02 | Must-have | Project owner | S1-D01 | Done | 2026-07-23 | [Approved contact-eligibility policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md) |
 | S1-D03 | Must-have | Project owner | S1-D01 | Done | 2026-07-20 | [Approved lifecycle/support policy contract](S1_D03_LIFECYCLE_SUPPORT_POLICY.md) |
-| S1-D04 | Must-have | Project owner | S1-D01 | Done | 2026-07-14 | [Recorded disclosure tiers](#s1-d04--define-privacy-and-disclosure-tiers) |
+| S1-D04 | Must-have | Project owner | S1-D01 | In progress | 2026-07-29 | [Approved privacy/retention decision](S1_D04_PRIVACY_RETENTION_DECISION.md); [runtime evidence](testing/s1_d04_completion.tdd.md); Geoapify owner records and provider trace remain required. |
 | S1-D05 | Must-have | Project owner | S1-D01 | In progress |  | [Full-agency launch decision](S1_D01_STAGE_1_CHARTER.md) |
 | S1-E01 | Must-have | Project owner | S1-D04 | Done | 2026-07-14 | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E02 | Must-have | Project owner | ADR-0002 and S1-D02 | In progress |  | [Approved target policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md); [interim ADR](adr/0002-contact-based-verification.md); [maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [TDD evidence](testing/s1_e02_account_verification.tdd.md) |

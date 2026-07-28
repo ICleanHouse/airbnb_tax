@@ -545,6 +545,51 @@ class UserViewSet(viewsets.ModelViewSet):
             ]
         )
 
+    @action(detail=True, methods=["post"], url_path="retention-holds")
+    def place_retention_hold(self, request, pk=None):
+        user = self.get_object()
+        serializer = RetentionHoldCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        hold = AccountRetentionHold.objects.create(
+            user=user,
+            placed_by=request.user,
+            **serializer.validated_data,
+        )
+        write_audit_log(
+            actor=request.user,
+            action="account.retention_hold_placed",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+            metadata={"category": hold.category, "reason_code": hold.reason_code},
+        )
+        return Response({"id": hold.id, "active": True}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="retention-holds/(?P<hold_id>[^/.]+)/release")
+    def release_retention_hold(self, request, pk=None, hold_id=None):
+        user = self.get_object()
+        serializer = RetentionHoldReleaseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            hold = AccountRetentionHold.objects.select_for_update().filter(
+                id=hold_id, user=user, released_at__isnull=True
+            ).first()
+            if hold is None:
+                raise Http404
+            hold.released_at = timezone.now()
+            hold.released_by = request.user
+            hold.release_reason_code = serializer.validated_data["reason_code"]
+            hold.save(update_fields=["released_at", "released_by", "release_reason_code", "updated_at"])
+        write_audit_log(
+            actor=request.user,
+            action="account.retention_hold_released",
+            entity_type="User",
+            entity_id=user.id,
+            request=request,
+            metadata={"category": hold.category, "reason_code": hold.release_reason_code},
+        )
+        return Response({"id": hold.id, "active": False})
+
 
 class HostProfileViewSet(viewsets.ModelViewSet):
     serializer_class = HostProfileSerializer
@@ -759,52 +804,6 @@ class AgencyProfileViewSet(viewsets.ModelViewSet):
                 "blockers": list(readiness.blockers),
             }
         )
-
-    @action(detail=True, methods=["post"], url_path="retention-holds")
-    def place_retention_hold(self, request, pk=None):
-        user = self.get_object()
-        serializer = RetentionHoldCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        hold = AccountRetentionHold.objects.create(
-            user=user,
-            placed_by=request.user,
-            **serializer.validated_data,
-        )
-        write_audit_log(
-            actor=request.user,
-            action="account.retention_hold_placed",
-            entity_type="User",
-            entity_id=user.id,
-            request=request,
-            metadata={"category": hold.category, "reason_code": hold.reason_code},
-        )
-        return Response({"id": hold.id, "active": True}, status=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=["post"], url_path="retention-holds/(?P<hold_id>[^/.]+)/release")
-    def release_retention_hold(self, request, pk=None, hold_id=None):
-        user = self.get_object()
-        serializer = RetentionHoldReleaseSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        with transaction.atomic():
-            hold = AccountRetentionHold.objects.select_for_update().filter(
-                id=hold_id, user=user, released_at__isnull=True
-            ).first()
-            if hold is None:
-                raise Http404
-            hold.released_at = timezone.now()
-            hold.released_by = request.user
-            hold.release_reason_code = serializer.validated_data["reason_code"]
-            hold.save(update_fields=["released_at", "released_by", "release_reason_code", "updated_at"])
-        write_audit_log(
-            actor=request.user,
-            action="account.retention_hold_released",
-            entity_type="User",
-            entity_id=user.id,
-            request=request,
-            metadata={"category": hold.category, "reason_code": hold.release_reason_code},
-        )
-        return Response({"id": hold.id, "active": False})
-
 
 class AgencyInvitationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AgencyInvitationSerializer

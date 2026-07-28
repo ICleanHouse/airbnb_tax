@@ -472,6 +472,8 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "has_own_car",
             "smoker",
             "profile_image",
+            "publication_enabled",
+            "publication_paused_at",
             "average_rating",
             "completed_jobs_count",
             "is_verified",
@@ -485,6 +487,7 @@ class CleanerProfileSerializer(serializers.ModelSerializer):
             "completed_jobs_count",
             "is_verified",
             "verification_status",
+            "publication_paused_at",
             "created_at",
             "updated_at",
         ]
@@ -514,6 +517,7 @@ class PublicCleanerSerializer(serializers.ModelSerializer):
     """Safe, browsable cleaner card — no PII (no email/phone/birth_date)."""
 
     user_id = serializers.IntegerField(source="user.id", read_only=True)
+    public_id = serializers.UUIDField(read_only=True)
     marketplace_eligible = serializers.SerializerMethodField()
 
     class Meta:
@@ -521,6 +525,7 @@ class PublicCleanerSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "user_id",
+            "public_id",
             "kind",
             "display_name",
             "bio",
@@ -556,8 +561,11 @@ class PublicCleanerDetailSerializer(PublicCleanerSerializer):
         from apps.feedback.serializers import PublicReviewSerializer
         from apps.feedback.services import revealed_received_reviews
 
+        request = self.context.get("request")
+        if not getattr(getattr(request, "user", None), "is_authenticated", False):
+            return []
         # Only reviews revealed under the double-blind rule (counterpart submitted,
-        # or the review window has closed) are shown publicly.
+        # or the review window has closed) are shown to authenticated users.
         reviews = (
             revealed_received_reviews(obj.user)
             .select_related("reviewer", "job")

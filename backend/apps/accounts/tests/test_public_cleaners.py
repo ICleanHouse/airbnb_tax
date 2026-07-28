@@ -36,6 +36,7 @@ def make_cleaner(
         average_rating=average_rating,
         completed_jobs_count=completed_jobs_count,
         birth_date="1990-01-01",
+        publication_enabled=True,
     )
 
 
@@ -64,6 +65,16 @@ class PublicCleanerDirectoryTests(TestCase):
         ids = [row["id"] for row in results]
         self.assertEqual(ids, [approved.id])
 
+    def test_requires_explicit_publication_opt_in(self):
+        cleaner = make_cleaner(email="private@example.com", display_name="Private")
+        cleaner.publication_enabled = False
+        cleaner.save(update_fields=["publication_enabled", "updated_at"])
+
+        response = self.client.get(self.list_url)
+
+        results = response.data["results"] if isinstance(response.data, dict) else response.data
+        self.assertEqual(results, [])
+
     def test_public_payload_hides_pii(self):
         cleaner = make_cleaner(email="pii@example.com", display_name="No PII")
         cleaner.profile_image = "/media/cleaner_profiles/approved-public.webp"
@@ -83,6 +94,7 @@ class PublicCleanerDirectoryTests(TestCase):
             {
                 "id",
                 "user_id",
+                "public_id",
                 "kind",
                 "display_name",
                 "bio",
@@ -199,6 +211,15 @@ class PublicCleanerDirectoryTests(TestCase):
             rating=5,
             comment="Spotless work",
         )
+
+        viewer = User.objects.create_user(
+            username="viewer@example.com",
+            email="viewer@example.com",
+            password="Password123!",
+            role=User.Role.HOST,
+            account_status=User.AccountStatus.APPROVED,
+        )
+        self.client.force_authenticate(viewer)
         # Counterpart review so the pair is revealed under the double-blind rule.
         Review.objects.create(
             job=job,
@@ -217,9 +238,8 @@ class PublicCleanerDirectoryTests(TestCase):
         review = response.data["reviews"][0]
         self.assertEqual(review["rating"], 5)
         self.assertEqual(review["comment"], "Spotless work")
-        self.assertEqual(review["reviewer_name"], "verified_host")
+        self.assertEqual(review["reviewer_name"], "Host User")
         self.assertNotIn(host.email, str(review))
-        self.assertNotIn(host.get_full_name(), str(review))
         self.assertEqual(
             set(review),
             {"id", "reviewer_name", "rating", "comment", "created_at"},

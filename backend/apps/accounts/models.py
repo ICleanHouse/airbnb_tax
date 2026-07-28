@@ -82,6 +82,8 @@ class User(AbstractUser):
     )
     email_verified_at = models.DateTimeField(null=True, blank=True)
     phone_verified_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    anonymized_at = models.DateTimeField(null=True, blank=True)
 
     objects = PlatformUserManager()
 
@@ -291,6 +293,9 @@ class CleanerProfile(TimeStampedModel):
     profile_image = models.TextField(blank=True)
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
     completed_jobs_count = models.PositiveIntegerField(default=0)
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    publication_enabled = models.BooleanField(default=False)
+    publication_paused_at = models.DateTimeField(null=True, blank=True)
 
     @property
     def is_verified(self) -> bool:
@@ -302,7 +307,22 @@ class CleanerProfile(TimeStampedModel):
             "verification_status": cls.VerificationStatus.VERIFIED,
             "user__account_status": User.AccountStatus.APPROVED,
             "user__is_active": True,
+            "user__closed_at__isnull": True,
+            "publication_enabled": True,
         }
+
+    @property
+    def publication_grace_expires_at(self):
+        if self.publication_paused_at is None:
+            return None
+        return self.publication_paused_at + timedelta(days=14)
+
+    def is_publicly_published(self, *, now=None) -> bool:
+        if not self.publication_enabled or self.user.closed_at is not None:
+            return False
+        if self.publication_paused_at is None:
+            return True
+        return self.publication_grace_expires_at > (now or timezone.now())
 
     def __str__(self) -> str:
         return self.display_name or self.user.get_username()

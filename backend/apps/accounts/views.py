@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login, logout
@@ -583,6 +584,44 @@ class CleanerProfileViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You can update only your own cleaner profile.")
         serializer.save()
 
+    @action(detail=True, methods=["post"], url_path="pause-publication")
+    def pause_publication(self, request, pk=None):
+        profile = self.get_object()
+        if not request.user.is_platform_admin and profile.user_id != request.user.id:
+            raise PermissionDenied("You can update only your own cleaner profile.")
+        if not profile.publication_enabled:
+            return Response({"code": "publication_not_enabled"}, status=status.HTTP_409_CONFLICT)
+        if profile.publication_paused_at is None:
+            profile.publication_paused_at = timezone.now()
+            profile.save(update_fields=["publication_paused_at", "updated_at"])
+            write_audit_log(
+                actor=request.user,
+                action="cleaner_profile.publication_paused",
+                entity_type="CleanerProfile",
+                entity_id=profile.id,
+                request=request,
+                metadata={},
+            )
+        return Response(CleanerProfileSerializer(profile, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"], url_path="resume-publication")
+    def resume_publication(self, request, pk=None):
+        profile = self.get_object()
+        if not request.user.is_platform_admin and profile.user_id != request.user.id:
+            raise PermissionDenied("You can update only your own cleaner profile.")
+        profile.publication_enabled = True
+        profile.publication_paused_at = None
+        profile.save(update_fields=["publication_enabled", "publication_paused_at", "updated_at"])
+        write_audit_log(
+            actor=request.user,
+            action="cleaner_profile.publication_resumed",
+            entity_type="CleanerProfile",
+            entity_id=profile.id,
+            request=request,
+            metadata={},
+        )
+        return Response(CleanerProfileSerializer(profile, context={"request": request}).data)
+
 
 class PublicCleanerViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -606,6 +645,10 @@ class PublicCleanerViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = (
             CleanerProfile.objects.select_related("user")
             .filter(**CleanerProfile.public_marketplace_eligible_filter())
+            .filter(
+                Q(publication_paused_at__isnull=True)
+                | Q(publication_paused_at__gte=timezone.now() - timedelta(days=14))
+            )
             .order_by("-average_rating", "-completed_jobs_count", "id")
         )
 

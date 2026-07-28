@@ -57,7 +57,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 
 class PublicReviewSerializer(serializers.ModelSerializer):
-    """Anonymous review projection for an eligible public cleaner profile."""
+    """Authenticated, non-contact review projection for an eligible profile."""
 
     reviewer_name = serializers.SerializerMethodField()
 
@@ -67,5 +67,9 @@ class PublicReviewSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_reviewer_name(self, obj) -> str:
-        return "verified_host"
+        user = obj.reviewer
+        if user.anonymized_at is not None:
+            return "Former marketplace user"
+        full = f"{user.first_name} {user.last_name}".strip()
+        return full or "Former marketplace user"
 

@@ -37,14 +37,16 @@ Source was then inspected before each edit.
 
 Passed: migration check (no changes), migration plan (none), Django check,
 focused account recovery/deletion (10), `apps.accounts` (94; 5 PostgreSQL
-skips), `apps.notifications` (27; 1 skip), TypeScript typecheck, ESLint (4
-pre-existing warnings), and focused Vitest (3 files/5 tests).
+skips), `apps.notifications` (27; 1 skip), `apps.marketplace` (189; 3 skips),
+and the complete Django suite (479; 9 skips). TypeScript typecheck passed;
+ESLint passed with 4 pre-existing hook-dependency warnings; full Vitest passed
+(21 files/83 tests); the seeded Chromium suite passed (10/10).
 
-`python manage.py test apps.marketplace` exceeded the 120-second command
-ceiling while still running, so it is unverified. Full Django, feedback,
-connections, Playwright recovery journeys, PostgreSQL 16 concurrency, and
-Redis/Celery/provider runtime evidence were not completed; no passing result is
-inferred from partial output.
+The browser result covers the established role, agency, guest-Connect, safe
+return-route, and notification journeys. It does not yet contain a dedicated
+password-reset email-capture fixture or a deletion support journey. PostgreSQL
+16 concurrency and Redis/Celery/provider runtime evidence remain unavailable
+locally and are unverified, not passed.
 
 ## Security review and rollback
 

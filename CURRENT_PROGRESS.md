@@ -74,8 +74,9 @@ change product or release authority.
 - **S1-E08 — Partially complete.** Generic throttled self-service password
   recovery, localized recovery UI, reset-completion notification, and safe
   support-routed deletion blockers are implemented. Full deletion remains
-  blocked by S1-D04's retention/anonymization decision; PostgreSQL, provider,
-  browser, and complete regression evidence remains outstanding. See
+  blocked by S1-D04's retention/anonymization decision; the full Django suite
+  and seeded browser regression pass, while PostgreSQL and provider runtime
+  evidence remains outstanding. See
   [S1-E08 evidence](docs/testing/s1_e08_account_recovery.tdd.md).
 
 ## Owner decisions still needed

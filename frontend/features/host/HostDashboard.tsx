@@ -31,7 +31,7 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 import { Upload } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname as useLocalePathname, useRouter as useLocaleRouter } from "../../i18n/navigation";
 import { apiFetch, CurrentUser, type FavouriteCleaner } from "../../lib/api";
 import VerificationStatusSummary from "../../components/VerificationStatusSummary";
@@ -227,6 +227,7 @@ export default function HostDashboard() {
   const t = useTranslations("host");
   const tC = useTranslations("common");
   const tNav = useTranslations("nav");
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const localeRouter = useLocaleRouter();
@@ -1309,6 +1310,9 @@ export default function HostDashboard() {
         </nav>
 
         <div className="host-topbar-right">
+          <Link className="text-link" href={`/${locale}/privacy`}>
+            {tNav("privacy")}
+          </Link>
           <Link className="text-link" href="/cleaners">
             <Users size={15} aria-hidden />
             {t("topbar.findCleaners")}

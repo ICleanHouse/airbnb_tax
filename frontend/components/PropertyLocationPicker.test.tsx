@@ -15,6 +15,7 @@ const leafletMock = vi.hoisted(() => ({
   marker: vi.fn(() => ({ addTo: vi.fn(), setLatLng: vi.fn() })),
   divIcon: vi.fn(() => ({})),
 }));
+const mapClickHandler = vi.hoisted(() => vi.fn());
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => `components.propertyLocationPicker.${key}`,
@@ -74,5 +75,26 @@ describe("PropertyLocationPicker private geocoding boundary", () => {
 
     expect(screen.getByRole("link", { name: "Geoapify" })).toHaveAttribute("href", "https://www.geoapify.com/");
     expect(document.body.textContent).not.toContain("test-geoapify-key");
+  });
+
+  it("uses the owned reverse endpoint for a private map click and preserves manual-entry fallback on 429", async () => {
+    const callbacks: Record<string, (event: { latlng: { lat: number; lng: number } }) => void> = {};
+    leafletMock.map.mockReturnValueOnce({
+      on: vi.fn((name: string, callback: typeof mapClickHandler) => { callbacks[name] = callback; }),
+      remove: vi.fn(),
+      panTo: vi.fn(),
+      setView: vi.fn(),
+    });
+    apiFetchMock.mockResolvedValueOnce({ ok: false, json: async () => ({ code: "geocoding_daily_quota_exhausted" }) });
+
+    render(<PropertyLocationPicker lat={null} lng={null} city="Sofia" onSelect={vi.fn()} />);
+    await waitFor(() => expect(callbacks.click).toBeDefined());
+    callbacks.click({ latlng: { lat: 42.6977, lng: 23.3219 } });
+
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledWith("/api/locations/geocode/reverse/", {
+      method: "POST",
+      body: JSON.stringify({ latitude: 42.6977, longitude: 23.3219, locale: "bg" }),
+    }));
+    expect(await screen.findByRole("status")).toHaveTextContent("components.propertyLocationPicker.lookupUnavailable");
   });
 });

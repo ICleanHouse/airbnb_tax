@@ -15,7 +15,8 @@
     "language": "Language",
     "logOut": "Log out",
     "logIn": "Log in",
-    "signUp": "Sign up"
+    "signUp": "Sign up",
+    "privacy": "Privacy"
   },
   "landing": {
     "welcomeBack": "Welcome back",
@@ -1284,6 +1285,19 @@
     ,"operatorNote": "Private operator note"
     ,"resolve": "Resolve"
     ,"resolveFailed": "The dispute could not be updated."
+  },
+  "privacy": {
+    "back": "Back to home",
+    "eyebrow": "Privacy notice",
+    "title": "Private property location search",
+    "intro": "This notice explains the optional address-search and map-pin help available while a host creates or edits a private property.",
+    "purpose": {"title": "Purpose", "body": "We use the service only to help an approved host find an address or turn a map pin into an address. It is not used for public job discovery, worker maps, or advertising."},
+    "data": {"title": "Data sent", "body": "A search sends the address text, Bulgarian or English locale, and a Bulgaria-only filter. A map lookup sends the exact coordinate and locale. The provider also receives unavoidable backend request metadata. The browser never contacts the provider directly."},
+    "processor": {"title": "Processor and location", "body": "Geoapify, operated by KEPTAGO, processes this feature through its EU endpoint. Its approved subprocessors are governed by its data-processing agreement. We keep provider access server-side and require the production approval record before enabling it."},
+    "retention": {"title": "Retention", "body": "Geoapify normally retains these request categories for up to 24 hours. We cache only normalized results on our server for up to 24 hours; aggregate daily usage and delivery-status records are retained for 12 months. Selected coordinates are private to the property and are never public or sent to workers."},
+    "choice": {"title": "Manual alternative", "body": "Address search is optional. You can enter the address and district manually whenever the service is unavailable, disabled, or at its daily limit."},
+    "rights": {"title": "Your rights and contact", "body": "For access, correction, deletion, restriction, objection, or a privacy question, contact the project owner through the marketplace support contact in your account. We will handle requests under the applicable Bulgarian and EU privacy rules."},
+    "review": "Project-owner processor review date: pending recorded production approval."
   },
   "agency": {
     "loading": "Loading agency workspace…",

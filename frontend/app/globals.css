@@ -8200,3 +8200,13 @@ img {
 .agency-notice { margin: 14px 0 0; padding: 10px 12px; border-radius: 7px; background: #e8f4ed; color: #175c3c; }
 .agency-loading { padding: 48px; text-align: center; }
 @media (max-width: 640px) { .agency-header { align-items: flex-start; flex-direction: column; } .agency-shell { width: min(100% - 20px, 1120px); } .agency-panel { padding: 16px; } }
+
+.site-legal-footer { padding: 20px clamp(16px, 4vw, 48px) 32px; text-align: center; }
+.site-legal-footer a, .privacy-page__back { color: var(--brand, #156b58); font-weight: 650; }
+.privacy-page { min-height: 100vh; padding: clamp(24px, 6vw, 72px) 16px; background: var(--page-bg, #f6f6f2); color: var(--ink, #16332b); }
+.privacy-page__content { width: min(780px, 100%); margin: 0 auto; padding: clamp(24px, 5vw, 52px); border: 1px solid var(--border, #d8d7d0); border-radius: 16px; background: #fff; }
+.privacy-page h1 { margin: 8px 0 14px; }
+.privacy-page h2 { margin: 28px 0 8px; font-size: 1.15rem; }
+.privacy-page p { line-height: 1.6; }
+.privacy-page__intro { font-size: 1.08rem; }
+.privacy-page__review { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--border, #d8d7d0); color: #53645e; font-size: .92rem; }

@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from apps.accounts.permissions import IsApprovedHostOrPlatformAdmin
 from apps.core.services import write_audit_log
 from apps.locations.geocoding import (
+    GeocodingDailyQuotaExceeded,
     GeocodingProviderRateLimited,
     GeocodingUnavailable,
     reverse_geocode,
@@ -60,6 +61,10 @@ def _geocoding_message(request, code: str) -> str:
         "geocoding_provider_rate_limited": (
             "Търсенето на адреси е временно ограничено. Опитайте отново след малко.",
             "Address search is temporarily limited. Please try again shortly.",
+        ),
+        "geocoding_daily_quota_exhausted": (
+            "Търсенето на адреси е достигнало дневния лимит. Въведете адреса и района ръчно.",
+            "Address search has reached its daily limit. Enter the address and district manually.",
         ),
     }
     return messages[code][0 if is_bulgarian else 1]
@@ -118,6 +123,22 @@ class GeocodingBaseView(PrivateNoStoreResponseMixin, APIView):
             status=status.HTTP_429_TOO_MANY_REQUESTS,
         )
 
+    def _daily_quota_exhausted_response(self, request):
+        write_audit_log(
+            actor=request.user,
+            action=f"geocoding.{self.action_name}.throttled",
+            entity_type="Geocoding",
+            request=request,
+            metadata={"reason_code": "daily_quota_exhausted"},
+        )
+        return Response(
+            {
+                "code": "geocoding_daily_quota_exhausted",
+                "detail": _geocoding_message(request, "geocoding_daily_quota_exhausted"),
+            },
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
     def _success_response(self, request, results: list[dict[str, object]]):
         write_audit_log(
             actor=request.user,
@@ -137,6 +158,8 @@ class GeocodingSearchView(GeocodingBaseView):
         serializer.is_valid(raise_exception=True)
         try:
             results = search_locations(**serializer.validated_data)
+        except GeocodingDailyQuotaExceeded:
+            return self._daily_quota_exhausted_response(request)
         except GeocodingProviderRateLimited:
             return self._provider_rate_limited_response(request)
         except GeocodingUnavailable:
@@ -152,6 +175,8 @@ class GeocodingReverseView(GeocodingBaseView):
         serializer.is_valid(raise_exception=True)
         try:
             results = reverse_geocode(**serializer.validated_data)
+        except GeocodingDailyQuotaExceeded:
+            return self._daily_quota_exhausted_response(request)
         except GeocodingProviderRateLimited:
             return self._provider_rate_limited_response(request)
         except GeocodingUnavailable:

@@ -42,10 +42,16 @@ change product or release authority.
   intentionally unsupported and returns a safe `409`; do not add parity without
   a new approved decision. Evidence:
   [direct recovery workflows](docs/testing/s1_e05_recovery_workflows.tdd.md).
-- **S1-E10 — In progress.** The Geoapify-backed private geocoding API and
-  frontend fallback are implemented. Production enablement is blocked on the
-  owner/privacy approval, privacy-notice update, and an authenticated browser
-  network trace. The complete contract and provider review are in
+- **S1-E10 — In progress; implementation complete.** The Geoapify-backed
+  private geocoding API now includes its 24-hour HMAC-keyed normalized-result
+  cache, 1,000/day aggregate outbound-call cap, 80%/100% idempotent owner-email
+  alerts, 12-month cleanup, production configuration validation, BG/EN privacy
+  route, links and private-picker regressions. Production enablement remains
+  blocked on the accountable owner’s DPA/terms/free-plan record, configured
+  alert address and DPA/terms/free-plan approval record. The authenticated
+  restricted local browser network trace passed on 2026-07-29 and remains
+  outside Git. The
+  complete contract and provider review are in
   [S1-E10 map and geocoding capability](docs/S1_E10_MAP_GEOCODING_CAPABILITY.md).
 - **S1-E02 — In progress.** Email-based interim contact access is implemented.
   The approved-target maturity audit was refreshed on 2026-07-23 with the
@@ -89,8 +95,9 @@ change product or release authority.
   marketplace work begins.
 - Re-baseline Gate D, instrumentation, and the final readout around the approved
   product-led descriptive model before public launch.
-- Approve Geoapify as the precise-location processor/recipient and record the
-  privacy and budget decisions before production use.
+- Record Geoapify’s precise-location processor approval, DPA/terms/free-plan
+  version, attribution, owner alert destination and privacy re-review date;
+  then capture the restricted authenticated trace before production use.
 - Keep the v1 no-payments boundary unchanged unless the business owner opens a
   monetization phase; see `docs/monetization/`.
 

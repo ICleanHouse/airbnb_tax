@@ -47,7 +47,7 @@ treated as approval merely because it exists.
 | Connections/messages | `connections.Connection`, `Message` | Counterpart participants only. | Any connection/message blocks self-service deletion. | D03-20 proposes 12 months; final trigger/anonymization and hold policy. |
 | Notifications | `NotificationEvent`, `NotificationDelivery`, attempts, `Notification` | Recipient/admin as authorized; email processor receives localized delivery payload. | Events/deliveries currently block self-service deletion. | Delivery evidence period, Resend deletion/no-action, backup treatment. |
 | Audit/logs/Sentry | `core.AuditLog` stores actor, action, entity, request ID, IP, user agent, metadata; request logging sanitizes endpoint/request IDs; Sentry integration is configured in `apps.core` | Operators/infrastructure only. | `AuditLog.actor` becomes null on user deletion; no approved expiry. | Audit/log/Sentry period, access, incident hold and deletion procedure. |
-| Geoapify/geocoding | `locations` service/endpoints, cache; `GEOAPIFY_API_KEY` server-only | Approved host/admin → owned backend → `api-eu.geoapify.com`; browser has no key/direct provider call. | Raw responses are minimized/not persisted; raw addresses/coordinates excluded from logs/audit/Sentry by contract. | Processor/DPA, terms, budget, attribution, notice and production approval. |
+| Geoapify/geocoding | `locations` service/endpoints, HMAC-keyed 24-hour normalized-result cache, aggregate daily-usage/alert outbox; `GEOAPIFY_API_KEY` server-only | Approved host/admin → owned backend → `api-eu.geoapify.com`; browser has no key/direct provider call. | Raw provider bodies are not persisted. Normalized server cache expires after 24 hours; aggregate-only daily count/threshold/delivery rows expire after 12 months. Raw addresses/coordinates stay excluded from logs/audit/Sentry, cache keys, alerts and browser persistence. | Attach processor/DPA, terms, attribution, owner alert address, notice review/re-review dates and restricted browser trace before enablement. |
 | Cache/backups/browser | Django Redis/locmem cache; database/media backups; browser cookies and React memory | Cache is deployment infrastructure; browser recovery secrets are memory-only. | No approved backup expiry or cache data-class schedule. | Backup lifecycle, restore handling, cache TTLs, analytics/survey processor rule. |
 
 ## 2. Existing policy versus decision status
@@ -114,6 +114,15 @@ and district selection, eliminating this processor boundary.
 enablement still conditional on the documented notice, budget, attribution,
 terms/DPA record and authenticated browser trace.
 
+**S1-E10 implementation update (2026-07-29):** The boundary now has a
+1,000-outbound-call/day technical cap (cache hits do not consume it), 80% and
+100% idempotent owner-email alerts, and bounded 12-month aggregate cleanup.
+`/[locale]/privacy/` is published in BG/EN. The prior inline localized provider
+disclosure requirement is replaced by the owner-approved exception: the existing
+visible Geoapify/OpenStreetMap picker credit remains, with the full processor
+notice on that privacy page. No owner approval artifact, production alert
+address, or authenticated trace is invented by this repository update.
+
 ### C. Retention, closure, and anonymization — recommended architecture
 
 Use a policy version and a central retention classification, not model-local
@@ -143,7 +152,8 @@ and qualified legal review where indicated**, not asserted legal requirements.
 | Notification events/delivery attempts | 24 months | Pseudonymize recipient linkage where feasible | Resend processor action/contract to record |
 | Audit logs | 5 years | Retain action/opaque actor reference, remove direct contact payload | Security/incident hold overrides |
 | Request logs/Sentry | 90 days recommended | TTL/delete | Sentry plan/config and incident hold need review |
-| Geoapify raw/cached data | no persistence; cache only bounded TTL | Expire cache | Provider contract governs processor-side retention |
+| Geoapify normalized cache | 24 hours | Server cache expiry; HMAC-derived key has no raw lookup | Provider contract governs processor-side retention |
+| Geoapify aggregate usage/alert state | 12 months | Bounded scheduled deletion of provider/date/count/threshold/delivery state | No recipient, lookup or coordinate is stored |
 | Analytics/surveys | 12 months only with separate approved consent/processor | Delete/anonymize | No collection without approval |
 | Database/media backups | 90 days approved | Immutable backup expiry, not immediate erasure | Restore must reapply closure queue; legal review required |
 

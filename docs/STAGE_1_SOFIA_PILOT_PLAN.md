@@ -563,7 +563,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E07 | Must-have | Project owner | S1-D05 | Done | 2026-07-28 | [TDD evidence](testing/s1_e07_conversion_routing.tdd.md) |
 | S1-E08 | Must-have | Project owner | S1-D03/D04 | Partially complete | 2026-07-28 | [TDD evidence](testing/s1_e08_account_recovery.tdd.md); S1-D04 decision remains required. |
 | S1-E09 | Must-have | Project owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
-| S1-E10 | Must-have | Project owner | S1-D04 and provider decision | In progress | 2026-07-22 | [Backend geocoding TDD evidence](testing/s1_e10_geocoding_backend.tdd.md) |
+| S1-E10 | Must-have | Project owner | S1-D04 and provider decision | In progress; implementation complete | 2026-07-29 | [Backend geocoding TDD evidence](testing/s1_e10_geocoding_backend.tdd.md); restricted authenticated trace passed; owner approval record still gates Done |
 | S1-UX01 | Must-have | Project owner | S1-D04/D05 | Not started |  |  |
 | S1-UX02 | Must-have | Project owner | S1-D02/D05 | Not started |  |  |
 | S1-UX03 | Must-have | Project owner | Pilot-critical Gate B flows | Not started |  |  |

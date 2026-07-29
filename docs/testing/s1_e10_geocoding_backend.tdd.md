@@ -1,5 +1,32 @@
 # S1-E10 Private Geocoding and Maps — TDD Evidence
 
+## Completion safeguard batch — 2026-07-29
+
+Added `test_geocoding_usage.py` before the ledger implementation. Its initial
+run was **RED** because the bounded cleanup module did not exist. The final
+focused backend command passed **15 tests**:
+
+```powershell
+python manage.py test apps.locations.tests.test_geocoding_usage apps.locations.tests.test_geocoding_api
+python manage.py makemigrations --check --dry-run
+```
+
+The new evidence covers HMAC-keyed cache hits, aggregate-only provider-call
+ledger rows, 80%/100% deduplicated alert outbox rows, cap refusal, 12-month
+bounded cleanup, idempotent owner-email delivery without a persisted recipient,
+rejected-host denial and safe daily-cap responses. It uses fake upstream data;
+it is not a production provider acceptance or a restricted browser trace.
+
+Frontend verification on the same date passed `npm.cmd run typecheck`,
+`npm.cmd run lint` (four pre-existing hook-dependency warnings), and the three
+targeted picker/district/public-map Vitest files (10 tests). The seeded,
+authenticated Playwright run then passed both S1-E10 cases: only the owned
+geocoding endpoint is requested by the browser, and manual property completion
+remains usable after a 503 lookup response. It was repeated with
+`--trace on`; the successful trace remains in the local Playwright test-results
+area, access-restricted and outside Git. This is non-production evidence and
+does not substitute for the owner’s provider/DPA approval record.
+
 **Date:** 2026-07-22  
 **Scope:** approved-host/platform-admin Geoapify search and reverse-geocoding,
 plus the private property picker and local GeoJSON district map migrations.

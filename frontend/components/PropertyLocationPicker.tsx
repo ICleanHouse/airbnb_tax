@@ -106,7 +106,7 @@ export default function PropertyLocationPicker({ lat, lng, city, onSelect }: Pro
     }
   }
 
-  // ── Fetch suggestions from Nominatim ─────────────────────────────────────
+  // ── Fetch suggestions through the owned private boundary ──────────────────
   async function fetchSuggestions(q: string) {
     setSearching(true);
     setLookupError("");

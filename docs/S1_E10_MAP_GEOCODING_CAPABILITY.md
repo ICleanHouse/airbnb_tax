@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft implementation contract — Geoapify capability validated; provider/terms approval pending |
-| Date | 2026-07-22 |
+| Status | Implementation complete; owner record and restricted authenticated trace are recorded. Production enablement remains gated on server-only operational configuration. |
+| Date | 2026-07-29 |
 | Stage 1 item | S1-E10 |
 | Owner direction | Keep third-party map/geocoding capability; use OpenStreetMap-derived map data for exact property selection; do not expose private location data to anonymous users. |
 
@@ -28,6 +28,11 @@ existing city/district aggregate-demand map and list.
   a neutral background, without a remote map tile source.
 - The existing locations app owns the canonical city and Sofia-zone catalog;
   it is the correct boundary for geocoding, not a property serializer or view.
+- Normalized results are cached server-side for 24 hours using an HMAC-derived
+  key. Cache keys contain no raw lookup, coordinate, or provider URL.
+- Outbound calls (not cache hits) are held to 1,000 per Sofia-local day. The
+  aggregate-only ledger creates one idempotent owner-email outbox row at 80%
+  and 100%; aggregate usage/alert rows are deleted after 12 months.
 
 ## Fixed constraints
 
@@ -85,18 +90,23 @@ linked to a host or property.
 | Attribution and availability | Its [terms](https://www.geoapify.com/terms-and-conditions/) require OpenStreetMap and Geoapify attribution on the Free plan. The picker displays both. No Free-plan SLA is relied on; manual address/district entry remains available. |
 
 Implemented safeguards are server-only `GEOAPIFY_API_KEY`, approved-host/admin
-access, input bounds, no-store responses, throttles, no raw request data in
-application logs/audit metadata, owned `apiFetch` browser calls, no remote
-geocoding/tile calls, and visible attribution.
+access, input bounds, no-store responses, user and provider throttles, a 24-hour
+HMAC-keyed normalized-result cache, 1,000/day aggregate outbound-call cap,
+deduplicated 80%/100% owner-email outbox, 12-month bounded cleanup, no raw
+request data in application logs/audit metadata, owned `apiFetch` browser
+calls, no remote geocoding/tile calls, and visible attribution.
 
-Before production, the owner/privacy lead must: accept Geoapify as a precise
-location-data recipient; approve the subscription, budget alert, and rate
-ceiling; decide on any signed/custom DPA; update the customer privacy notice
-with recipient/purpose/data/retention; and retain the approved terms/DPA
-version, review date, owner, and re-review date in the privacy register. A
-real approved-host browser trace must also confirm that property create/edit
-only contacts the owned API and that anonymous demand makes no provider or
-exact-location request.
+The project owner approved Geoapify as a precise location-data recipient on
+2026-07-29: Free-tier use is confirmed as compliant with its limited-commercial-
+use terms; the 1,000/day cap, attribution, 24-hour normalized cache, 12-month
+aggregate telemetry retention, BG/EN notice, and manual fallback are accepted.
+The DPA revision (2024-08-15), terms/pricing, EU endpoint, and listed
+subprocessor/retention disclosures were reviewed. The next re-review date is
+2027-01-29. The approved-host browser trace passed on 2026-07-29, is restricted
+local evidence, and is not committed. Production stays disabled until the
+server-only key, approval flag, attribution, positive readiness value, and
+`GEOAPIFY_USAGE_ALERT_EMAIL` are configured; the recipient address remains out
+of Git.
 
 The public `nominatim.openstreetmap.org` service is not a valid production
 processor for private property addresses: its current policy says not to submit
@@ -152,6 +162,13 @@ The backend caps results at six and requests Bulgarian/English output only.
   key; the Stage 1 implementation intentionally has no such layer. An absent
   or invalid server configuration makes the endpoints return the documented
   unavailable response.
+- Production startup validates an enabled processor configuration: API key,
+  approval flag, complete attribution, positive €1 readiness value, valid
+  owner-alert address, positive cache TTL and positive daily cap. Disabled
+  production remains bootable and manual entry remains available.
+- `GeocodingUsageDaily` and `GeocodingUsageAlert` deliberately contain only
+  provider, date, aggregate count, threshold, delivery state and timestamps.
+  The alert recipient is read from server-only configuration only when sending.
 - Geoapify permits storage of its results under its terms, but raw
   address/coordinate values remain excluded from cache keys, logs, audit
   metadata, Sentry, and analytics.
@@ -167,9 +184,10 @@ The backend caps results at six and requests Bulgarian/English output only.
 - Keep `OpenJobMap` self-contained.  It must retain its local canonical
   GeoJSON and aggregate list fallback and must not add tile, marker, or
   geocoding requests.
-- Add localized provider disclosure and a keyboard-operable manual address and
-  district alternative.  The map cannot be the sole means of providing a
-  location.
+- The existing visible Geoapify/OpenStreetMap picker credit is the
+  owner-approved exception to the earlier inline-localized-disclosure wording.
+  Full BG/EN processor information is provided by `/[locale]/privacy/`; manual
+  address and keyboard-operable district selection remain available.
 
 ## Test and release evidence
 
@@ -180,12 +198,14 @@ The backend caps results at six and requests Bulgarian/English output only.
   failure/fallback states, and contains no Nominatim URL or direct `fetch`.
   Add a regression assertion that the public map has no external tile source
   and receives only aggregate demand data.
-- Manual browser trace: anonymous landing has no exact location in requests;
-  property create/edit sends private lookup only to the owned API and approved
-  map processor; all required attribution is visible.
-- Update the BG/EN privacy notice with the approved provider/recipient,
-  purpose, data categories, retention/logging, and non-map fallback before
-  pilot release.
+- Browser coverage records that an approved host reaches only
+  `/api/locations/geocode/*`, never a Geoapify/Nominatim/OSM geocoder or tile
+  URL, and can complete manual entry when lookup is disabled. The resulting
+  trace artifact is access-restricted and never committed.
+- `/[locale]/privacy/` provides BG/EN provider/recipient, purpose, data
+  categories, EU endpoint/subprocessor, retention, rights/contact and manual
+  fallback disclosure. Its project-owner review field stays explicitly pending
+  until the accountable owner records the production approval.
 
 ## Execution order
 
@@ -196,10 +216,12 @@ The backend caps results at six and requests Bulgarian/English output only.
 3. [x] Migrate `PropertyLocationPicker` to the owned API with a neutral
    click-to-pin surface and make `DistrictMapSelector` GeoJSON-only; preserve
    manual entry and public-map isolation.
-4. [x] Add focused frontend tests and BG/EN failure/fallback copy. Complete the
-   authenticated browser network trace and provider privacy notice next.
-5. Attach provider review, network trace, test results, and release evidence to
-   S1-E10; then update the Stage 1 tracker from **Not started** to **Done**.
+4. [x] Add focused frontend tests, BG/EN privacy route and manual-fallback copy.
+5. [x] Record the owner’s DPA/terms/free-plan approval, attribution,
+   server-only alert-recipient requirement and review/re-review dates; the
+   restricted authenticated local trace passed and remains outside Git.
+   Production traffic stays disabled until its secret-store configuration is
+   complete; this operational step does not require a new owner decision.
 
 ## Non-goals
 
@@ -211,6 +233,8 @@ The backend caps results at six and requests Bulgarian/English output only.
 
 ## Handoff
 
-The API and UI foundations are implemented and covered by fake-provider tests.
-Production use of the configured processor remains blocked on the
-named-provider approval, privacy notice, and authenticated network trace above.
+The API, quota/retention safeguards, privacy route and UI foundations are
+implemented and covered by fake-provider/unit coverage. The provider record and
+authenticated restricted network trace are attached in the S1-D04 evidence.
+Production use remains blocked only until valid server-only production
+configuration, including the alert-recipient secret, is present.

@@ -74,3 +74,59 @@ class ServiceZoneGeometry(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"Geometry for {self.zone.zone_id}"
+
+
+class GeocodingUsageDaily(TimeStampedModel):
+    """Aggregate-only record of outbound provider calls for one Sofia-local day."""
+
+    provider = models.CharField(max_length=40, default="geoapify")
+    usage_date = models.DateField()
+    outbound_request_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "usage_date"],
+                name="unique_geocoding_usage_provider_day",
+            ),
+        ]
+        ordering = ["-usage_date", "provider"]
+
+    def __str__(self) -> str:
+        return f"{self.provider} geocoding usage for {self.usage_date}"
+
+
+class GeocodingUsageAlert(TimeStampedModel):
+    """Idempotent owner-alert outbox; never stores a recipient or lookup data."""
+
+    class DeliveryState(models.TextChoices):
+        PENDING = "pending", "Pending"
+        DELIVERING = "delivering", "Delivering"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    usage = models.ForeignKey(
+        GeocodingUsageDaily,
+        on_delete=models.CASCADE,
+        related_name="alerts",
+    )
+    threshold = models.PositiveIntegerField()
+    delivery_state = models.CharField(
+        max_length=20,
+        choices=DeliveryState.choices,
+        default=DeliveryState.PENDING,
+    )
+    delivery_attempted_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["usage", "threshold"],
+                name="unique_geocoding_usage_alert_threshold",
+            ),
+        ]
+        ordering = ["usage__usage_date", "threshold"]
+
+    def __str__(self) -> str:
+        return f"{self.usage.provider} usage alert {self.threshold} for {self.usage.usage_date}"

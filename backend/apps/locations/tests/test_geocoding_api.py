@@ -125,6 +125,7 @@ class GeocodingApiTests(TestCase):
             self.create_user("cleaner", User.Role.CLEANER),
             self.create_user("agency", User.Role.AGENCY),
             self.create_user("pending", User.Role.HOST, status=User.AccountStatus.PENDING),
+            self.create_user("rejected", User.Role.HOST, status=User.AccountStatus.REJECTED),
             self.create_user("suspended", User.Role.HOST, status=User.AccountStatus.SUSPENDED),
             self.create_user("inactive", User.Role.HOST, is_active=False),
         )
@@ -166,6 +167,22 @@ class GeocodingApiTests(TestCase):
         self.assert_safe_unavailable(response)
         urlopen_mock.assert_not_called()
 
+    @override_settings(
+        APP_ENV="production",
+        GEOAPIFY_PRODUCTION_APPROVED=True,
+        GEOAPIFY_ATTRIBUTION="© OpenStreetMap contributors · Geoapify",
+        GEOAPIFY_MONTHLY_BUDGET_EUR=1,
+        GEOAPIFY_USAGE_ALERT_EMAIL="",
+        GEOAPIFY_DAILY_CREDIT_CAP=1000,
+        GEOAPIFY_CACHE_TTL_SECONDS=86400,
+    )
+    @patch("apps.locations.geocoding.urlopen", side_effect=fake_urlopen.__func__)
+    def test_production_provider_requires_owner_alert_configuration(self, urlopen_mock):
+        response = self.post(self.search_url, {"query": "Sofia"}, user=self.host)
+
+        self.assert_safe_unavailable(response)
+        urlopen_mock.assert_not_called()
+
     @patch("apps.locations.geocoding.urlopen", side_effect=OSError("PRIVATE-UPSTREAM-SENTINEL"))
     def test_provider_failure_is_safe_and_audit_metadata_is_redacted(self, _urlopen):
         response = self.post(
@@ -196,6 +213,18 @@ class GeocodingApiTests(TestCase):
         self.assertEqual(second.status_code, 429)
         self.assertEqual(second.data["code"], "geocoding_provider_rate_limited")
         self.assertNotIn("PRIVATE-RATE-LIMIT-SENTINEL", str(second.data))
+
+    @override_settings(GEOAPIFY_DAILY_CREDIT_CAP=1)
+    @patch("apps.locations.geocoding.urlopen", side_effect=fake_urlopen.__func__)
+    def test_daily_provider_cap_returns_a_safe_manual_fallback_response(self, urlopen_mock):
+        first = self.post(self.search_url, {"query": "Sofia", "locale": "en"}, user=self.host)
+        second = self.post(self.search_url, {"query": "PRIVATE-DAILY-CAP-SENTINEL", "locale": "en"}, user=self.admin)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second.data["code"], "geocoding_daily_quota_exhausted")
+        self.assertNotIn("PRIVATE-DAILY-CAP-SENTINEL", str(second.data))
+        self.assertEqual(urlopen_mock.call_count, 1)
 
     def assert_safe_unavailable(self, response):
         self.assertEqual(response.status_code, 503)

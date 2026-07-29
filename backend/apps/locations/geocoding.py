@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import hmac
+import logging
 import math
 import time
+from copy import deepcopy
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db import IntegrityError, transaction
+from django.utils import timezone
+
+from apps.locations.models import GeocodingUsageAlert, GeocodingUsageDaily
+
+logger = logging.getLogger("apps.locations")
 
 
 class GeocodingUnavailable(Exception):
@@ -17,6 +27,10 @@ class GeocodingUnavailable(Exception):
 
 class GeocodingProviderRateLimited(Exception):
     """The shared provider budget is exhausted for the current time window."""
+
+
+class GeocodingDailyQuotaExceeded(Exception):
+    """The daily aggregate provider-call cap has been reached."""
 
 
 def search_locations(*, query: str, locale: str) -> list[dict[str, object]]:
@@ -41,22 +55,20 @@ def reverse_geocode(*, latitude: float, longitude: float, locale: str) -> list[d
 
 
 def _lookup(*, path: str, params: dict[str, object], maximum_results: int) -> list[dict[str, object]]:
-    if (
-        getattr(settings, "APP_ENV", "local").lower() in {"prod", "production"}
-        and not (
-            getattr(settings, "GEOAPIFY_PRODUCTION_APPROVED", False)
-            and getattr(settings, "GEOAPIFY_ATTRIBUTION", "").strip()
-            and getattr(settings, "GEOAPIFY_MONTHLY_BUDGET_EUR", 0) > 0
-        )
-    ):
-        # Production remains fail-closed until the approved processor checklist
-        # (notice, terms/DPA, attribution, budget and browser trace) is recorded.
-        raise GeocodingUnavailable
-    api_key = getattr(settings, "GEOAPIFY_API_KEY", "").strip()
-    if not api_key:
-        raise GeocodingUnavailable
-
+    api_key = _configured_api_key()
+    _ensure_daily_quota_available()
+    cache_key = _cache_key(path=path, params=params)
+    cached = cache.get(cache_key)
+    if isinstance(cached, list):
+        # Return a copy because locmem caches can otherwise hand a caller the
+        # server-side cache value itself. Browser responses remain no-store.
+        return deepcopy(cached)
     _consume_provider_budget()
+    alert_ids = _reserve_daily_provider_credit()
+    # A failed provider response is still an outbound provider call and must
+    # retain its aggregate quota/alert evidence. Queue the idempotent outbox
+    # before making that network request.
+    _enqueue_usage_alerts(alert_ids)
     request_params = {**params, "format": "geojson", "apiKey": api_key}
     request = Request(
         f"https://api-eu.geoapify.com/v1/geocode/{path}?{urlencode(request_params)}",
@@ -82,7 +94,105 @@ def _lookup(*, path: str, params: dict[str, object], maximum_results: int) -> li
             normalized_results.append(normalized)
         if len(normalized_results) >= maximum_results:
             break
+    cache.set(
+        cache_key,
+        normalized_results,
+        timeout=max(1, int(getattr(settings, "GEOAPIFY_CACHE_TTL_SECONDS", 86400))),
+    )
     return normalized_results
+
+
+def _configured_api_key() -> str:
+    api_key = getattr(settings, "GEOAPIFY_API_KEY", "").strip()
+    if not api_key:
+        raise GeocodingUnavailable
+    if getattr(settings, "APP_ENV", "local").lower() not in {"prod", "production"}:
+        return api_key
+    if not (
+        getattr(settings, "GEOAPIFY_PRODUCTION_APPROVED", False)
+        and getattr(settings, "GEOAPIFY_ATTRIBUTION", "").strip()
+        and getattr(settings, "GEOAPIFY_MONTHLY_BUDGET_EUR", 0) >= 1
+        and getattr(settings, "GEOAPIFY_USAGE_ALERT_EMAIL", "").strip()
+        and int(getattr(settings, "GEOAPIFY_DAILY_CREDIT_CAP", 0)) > 0
+        and int(getattr(settings, "GEOAPIFY_CACHE_TTL_SECONDS", 0)) > 0
+    ):
+        # Production remains fail-closed until the processor approval, notice,
+        # attribution, owner contact and bounded technical safeguards exist.
+        raise GeocodingUnavailable
+    return api_key
+
+
+def _cache_key(*, path: str, params: dict[str, object]) -> str:
+    canonical = json.dumps(
+        {"path": path, "params": params},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    secret = str(getattr(settings, "SECRET_KEY", "")).encode("utf-8")
+    digest = hmac.new(secret, canonical, hashlib.sha256).hexdigest()
+    return f"geocoding:normalized:v1:{digest}"
+
+
+def _ensure_daily_quota_available() -> None:
+    cap = max(1, int(getattr(settings, "GEOAPIFY_DAILY_CREDIT_CAP", 1000)))
+    used = GeocodingUsageDaily.objects.filter(
+        provider="geoapify", usage_date=timezone.localdate()
+    ).values_list("outbound_request_count", flat=True).first()
+    if used is not None and used >= cap:
+        raise GeocodingDailyQuotaExceeded
+
+
+def _reserve_daily_provider_credit() -> list[int]:
+    """Atomically reserve one outbound call and create threshold outbox rows."""
+    cap = max(1, int(getattr(settings, "GEOAPIFY_DAILY_CREDIT_CAP", 1000)))
+    usage_date = timezone.localdate()
+    try:
+        with transaction.atomic():
+            usage, _ = GeocodingUsageDaily.objects.select_for_update().get_or_create(
+                provider="geoapify",
+                usage_date=usage_date,
+            )
+            if usage.outbound_request_count >= cap:
+                raise GeocodingDailyQuotaExceeded
+            usage.outbound_request_count += 1
+            usage.save(update_fields=["outbound_request_count", "updated_at"])
+            thresholds = (max(1, (cap * 80 + 99) // 100), cap)
+            alert_ids: list[int] = []
+            for threshold in dict.fromkeys(thresholds):
+                if usage.outbound_request_count >= threshold:
+                    alert, created = GeocodingUsageAlert.objects.get_or_create(
+                        usage=usage,
+                        threshold=threshold,
+                    )
+                    if created:
+                        alert_ids.append(alert.id)
+            return alert_ids
+    except IntegrityError:
+        # A competing first request created the daily row. Retry through the
+        # normal lock path; no request data is retained in this operation.
+        return _reserve_daily_provider_credit()
+
+
+def _enqueue_usage_alerts(alert_ids: list[int]) -> None:
+    if not alert_ids:
+        return
+    from apps.locations.tasks import deliver_geocoding_usage_alert
+
+    for alert_id in alert_ids:
+        def dispatch(alert_id: int = alert_id) -> None:
+            try:
+                deliver_geocoding_usage_alert.delay(alert_id)
+            except Exception:
+                # Alert delivery must never re-expose a lookup or turn a
+                # successful private lookup into an outage. The durable outbox
+                # remains pending for the worker/retry path.
+                logger.warning(
+                    "Geocoding usage alert enqueue failed",
+                    extra={"event": "geocoding.usage_alert.enqueue_failed"},
+                )
+
+        transaction.on_commit(dispatch)
 
 
 def _normalize_feature(feature: object) -> dict[str, object] | None:

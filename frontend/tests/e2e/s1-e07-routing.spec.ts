@@ -56,12 +56,13 @@ test.describe("S1-E07 conversion and role routing", () => {
       await logout(page);
     }
 
-    await page.goto("/bg/login?next=%2Fbg%2F%3Fcleaner%3D1");
+    const validPublicId = "0c6f4615-3575-42ef-9329-d97584de7b15";
+    await page.goto(`/bg/login?next=${encodeURIComponent(`/bg/?cleaner=${validPublicId}`)}`);
     await dismissCookieBanner(page);
     await page.getByLabel("Имейл").fill(e2eEmails.host);
     await page.getByLabel("Парола").fill(e2ePassword());
     await page.getByRole("button", { name: "Влезте" }).click();
-    await expect(page).toHaveURL(/\/bg\/\?cleaner=1$/);
+    await expect(page).toHaveURL(new RegExp(`/bg/\\?cleaner=${validPublicId}$`));
   });
 
   test("takes a guest through Connect, returns to the cleaner profile, and does not replay the request", async ({ page }) => {
@@ -70,22 +71,22 @@ test.describe("S1-E07 conversion and role routing", () => {
     expect(cleanersResponse.ok()).toBeTruthy();
     const rawCleaners = await cleanersResponse.json() as unknown;
     const cleaners = Array.isArray(rawCleaners)
-      ? rawCleaners as Array<{ id?: number; user_id?: number }>
-      : (rawCleaners as { results?: Array<{ id?: number; user_id?: number }> }).results ?? [];
-    const cleanerId = cleaners[0]?.id;
-    expect(cleanerId).toBeTruthy();
+      ? rawCleaners as Array<{ public_id?: string }>
+      : (rawCleaners as { results?: Array<{ public_id?: string }> }).results ?? [];
+    const cleanerPublicId = cleaners[0]?.public_id;
+    expect(cleanerPublicId).toMatch(/^[0-9a-f-]{36}$/i);
 
-    await page.goto(`/en/?cleaner=${cleanerId}`);
+    await page.goto(`/en/?cleaner=${cleanerPublicId}`);
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByRole("button", { name: "Connect" }).click();
-    await expect(page).toHaveURL(new RegExp(`/en/login/?\\?next=.*cleaner%3D${cleanerId}`));
+    await expect(page).toHaveURL(new RegExp(`/en/login/?\\?next=.*cleaner%3D${cleanerPublicId}`));
     await dismissCookieBanner(page);
-    await expect(page.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", new RegExp(`^/signup/?\\?next=.*cleaner%3D${cleanerId}`));
+    await expect(page.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", new RegExp(`^/signup/?\\?next=.*cleaner%3D${cleanerPublicId}`));
 
     await page.getByLabel("Email").fill(e2eEmails.host);
     await page.getByLabel("Password").fill(e2ePassword());
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(new RegExp(`/en/\\?cleaner=${cleanerId}$`));
+    await expect(page).toHaveURL(new RegExp(`/en/\\?cleaner=${cleanerPublicId}$`));
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("button", { name: "Connect" })).toBeVisible();
 

@@ -2,7 +2,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.accounts.models import CleanerProfile, HostProfile, User
+from apps.accounts.models import AccountRetentionHold, CleanerProfile, HostProfile, User
 
 
 @override_settings(SENTRY_DSN="")
@@ -260,3 +260,37 @@ class AccountStatusPermissionTests(TestCase):
         self.assertNotIn("phone_number", response.data)
         self.assertNotIn("phone", response.data)
         self.assertNotIn("birth_date", response.data)
+
+    def test_only_platform_admin_can_place_and_release_a_retention_hold(self):
+        admin = self.create_admin()
+        target = self.create_user("retention-target")
+        non_admin = self.create_user("retention-non-admin")
+
+        self.client.force_authenticate(non_admin)
+        forbidden = self.client.post(
+            f"/api/accounts/users/{target.id}/retention-holds/",
+            {"category": "legal", "reason_code": "legal_review"},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, 403)
+
+        self.client.force_authenticate(admin)
+        placed = self.client.post(
+            f"/api/accounts/users/{target.id}/retention-holds/",
+            {"category": "legal", "reason_code": "legal_review"},
+            format="json",
+        )
+        self.assertEqual(placed.status_code, 201)
+        hold = AccountRetentionHold.objects.get(pk=placed.data["id"])
+        self.assertEqual(hold.user, target)
+        self.assertEqual(hold.placed_by, admin)
+
+        released = self.client.post(
+            f"/api/accounts/users/{target.id}/retention-holds/{hold.id}/release/",
+            {"reason_code": "legal_review_complete"},
+            format="json",
+        )
+        self.assertEqual(released.status_code, 200)
+        hold.refresh_from_db()
+        self.assertIsNotNone(hold.released_at)
+        self.assertEqual(hold.released_by, admin)

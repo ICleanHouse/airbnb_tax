@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from django.core.exceptions import ImproperlyConfigured
+from django.core.validators import validate_email
 from dotenv import load_dotenv
 
 
@@ -198,6 +199,10 @@ GEOAPIFY_GEOCODING_TIMEOUT_SECONDS = float(
 GEOAPIFY_PROVIDER_REQUESTS_PER_SECOND = max(
     1, int(os.getenv("GEOAPIFY_PROVIDER_REQUESTS_PER_SECOND", "4"))
 )
+GEOAPIFY_CACHE_TTL_SECONDS = max(1, int(os.getenv("GEOAPIFY_CACHE_TTL_SECONDS", "86400")))
+GEOAPIFY_DAILY_CREDIT_CAP = max(1, int(os.getenv("GEOAPIFY_DAILY_CREDIT_CAP", "1000")))
+GEOAPIFY_USAGE_RETENTION_DAYS = max(1, int(os.getenv("GEOAPIFY_USAGE_RETENTION_DAYS", "365")))
+GEOAPIFY_USAGE_ALERT_EMAIL = os.getenv("GEOAPIFY_USAGE_ALERT_EMAIL", "").strip()
 
 MARKETPLACE_SUPPORT_CHANNEL = os.getenv(
     "MARKETPLACE_SUPPORT_CHANNEL", "support"
@@ -267,6 +272,29 @@ def validate_production_settings() -> None:
     if SECRET_KEY == "dev-only-change-me" or len(SECRET_KEY) < 32:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY must be a strong production secret.")
 
+    # Disabled production deployments must boot so manual entry remains
+    # available. Enabling the external processor, however, requires every
+    # approved technical and accountability prerequisite at startup.
+    if GEOAPIFY_PRODUCTION_APPROVED:
+        geocoding_required = {
+            "GEOAPIFY_API_KEY": GEOAPIFY_API_KEY,
+            "GEOAPIFY_ATTRIBUTION": GEOAPIFY_ATTRIBUTION,
+            "GEOAPIFY_USAGE_ALERT_EMAIL": GEOAPIFY_USAGE_ALERT_EMAIL,
+        }
+        missing_geocoding = [name for name, value in geocoding_required.items() if not value]
+        if missing_geocoding:
+            raise ImproperlyConfigured(
+                "Approved production Geoapify use is missing: " + ", ".join(sorted(missing_geocoding))
+            )
+        try:
+            validate_email(GEOAPIFY_USAGE_ALERT_EMAIL)
+        except Exception as exc:
+            raise ImproperlyConfigured("GEOAPIFY_USAGE_ALERT_EMAIL must be a valid owner email address.") from exc
+        if GEOAPIFY_MONTHLY_BUDGET_EUR < 1:
+            raise ImproperlyConfigured("GEOAPIFY_MONTHLY_BUDGET_EUR must be at least 1 for approved production use.")
+        if GEOAPIFY_DAILY_CREDIT_CAP < 1 or GEOAPIFY_CACHE_TTL_SECONDS < 1:
+            raise ImproperlyConfigured("Geoapify daily credit cap and cache TTL must be positive.")
+
 
 validate_production_settings()
 
@@ -295,10 +323,15 @@ if VERIFICATION_CONFIGURATION.uses_requirement_bypass:
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
-CELERY_IMPORTS = ("apps.notifications.tasks", "apps.accounts.tasks")
+CELERY_IMPORTS = ("apps.notifications.tasks", "apps.accounts.tasks", "apps.locations.tasks")
 CELERY_BEAT_SCHEDULE = {
     "s1-d04-retention-cleanup": {
         "task": "apps.accounts.tasks.run_retention_cleanup",
+        "schedule": 24 * 60 * 60,
+        "kwargs": {"batch_size": 100},
+    },
+    "s1-e10-geocoding-retention-cleanup": {
+        "task": "apps.locations.tasks.run_geocoding_retention_cleanup",
         "schedule": 24 * 60 * 60,
         "kwargs": {"batch_size": 100},
     },

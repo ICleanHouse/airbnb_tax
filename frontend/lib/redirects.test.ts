@@ -11,7 +11,7 @@ const host = {
 describe("safe internal destinations", () => {
   it("accepts supported internal localized routes", () => {
     expect(safeInternalDestination("/bg/host?section=applications")).toBe("/bg/host?section=applications");
-    expect(withLocale("/?cleaner=12", "en")).toBe("/en/?cleaner=12");
+    expect(withLocale("/?cleaner=0c6f4615-3575-42ef-9329-d97584de7b15", "en")).toBe("/en/?cleaner=0c6f4615-3575-42ef-9329-d97584de7b15");
   });
 
   it("rejects external, encoded-external, malformed, unsupported, and sensitive destinations", () => {
@@ -38,14 +38,14 @@ describe("safe internal destinations", () => {
 
   it("keeps users inside their role boundary and puts locked users on /app", () => {
     expect(postAuthDestination(host, "/cleaner", "bg")).toBe("/bg/host");
-    expect(postAuthDestination(host, "/bg/?cleaner=12", "en")).toBe("/bg/?cleaner=12");
+    expect(postAuthDestination(host, "/bg/?cleaner=0c6f4615-3575-42ef-9329-d97584de7b15", "en")).toBe("/bg/?cleaner=0c6f4615-3575-42ef-9329-d97584de7b15");
     expect(postAuthDestination({ ...host, account_status: "suspended" }, "/host", "bg")).toBe("/bg/app");
   });
 
   it("accepts bounded route queries and rejects role-inappropriate returns", () => {
-    expect(safeInternalDestination("/en/?cleaner=12")).toBe("/en/?cleaner=12");
+    expect(safeInternalDestination("/en/?cleaner=0c6f4615-3575-42ef-9329-d97584de7b15")).toBe("/en/?cleaner=0c6f4615-3575-42ef-9329-d97584de7b15");
     expect(safeInternalDestination("/bg/host?section=applications&appFilter=pending")).toBe("/bg/host?section=applications&appFilter=pending");
     expect(postAuthDestination(host, "/agency", "en")).toBe("/en/host");
-    expect(postAuthDestination(host, "/?cleaner=12", "bg")).toBe("/bg/?cleaner=12");
+    expect(postAuthDestination(host, "/?cleaner=0c6f4615-3575-42ef-9329-d97584de7b15", "bg")).toBe("/bg/?cleaner=0c6f4615-3575-42ef-9329-d97584de7b15");
   });
 });

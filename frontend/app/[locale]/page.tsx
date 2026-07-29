@@ -302,6 +302,9 @@ export default function Home() {
           </section>
         </>
       ) : null}
+      <footer className="site-legal-footer">
+        <Link href="/privacy">{tNav("privacy")}</Link>
+      </footer>
     </main>
   );
 }

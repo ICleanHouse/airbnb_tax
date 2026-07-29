@@ -143,11 +143,10 @@ def _send_with_resend(
     return external_id
 
 
-def send_notification_email(delivery: NotificationDelivery) -> str:
-    recipient_email = delivery.recipient.email
-    if not recipient_email:
-        raise NotificationProviderError("recipient_unavailable", "missing_email", False)
-    subject, text_body, html_body = _render_email(delivery)
+def send_configured_email(
+    *, to_email: str, subject: str, text_body: str, html_body: str, idempotency_key: str
+) -> str:
+    """Deliver a service-owned message without creating an in-app notification."""
     provider = getattr(settings, "NOTIFICATION_EMAIL_PROVIDER", "django").lower()
     send = {
         "django": _send_with_django,
@@ -156,6 +155,20 @@ def send_notification_email(delivery: NotificationDelivery) -> str:
     if send is None:
         raise NotificationProviderError("configuration", "unsupported_email_provider", False)
     return send(
+        to_email=to_email,
+        subject=subject,
+        text_body=text_body,
+        html_body=html_body,
+        idempotency_key=idempotency_key,
+    )
+
+
+def send_notification_email(delivery: NotificationDelivery) -> str:
+    recipient_email = delivery.recipient.email
+    if not recipient_email:
+        raise NotificationProviderError("recipient_unavailable", "missing_email", False)
+    subject, text_body, html_body = _render_email(delivery)
+    return send_configured_email(
         to_email=recipient_email,
         subject=subject,
         text_body=text_body,

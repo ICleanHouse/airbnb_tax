@@ -2,11 +2,11 @@
 
 | Field | Value |
 |---|---|
-| Status | **Owner-approved implementation contract — 2026-07-28** |
+| Status | **Complete — owner approval and required local runtime evidence recorded — 2026-07-29** |
 | Owner | Project owner / accountable privacy reviewer |
 | Prepared | 2026-07-28 |
 | Authority | `docs/STAGE_1_SOFIA_PILOT_PLAN.md` S1-D04; it supersedes implementation assumptions and older operational proposals |
-| Current implementation | Publication opt-in/grace, opaque public identifiers, closure/anonymization, holds, dry-run cleanup and a fail-closed Geoapify production guard are implemented; production/provider and runtime evidence remain open |
+| Current implementation | Publication opt-in/grace, opaque public identifiers, closure/anonymization, holds, dry-run cleanup and the private Geoapify boundary are implemented. Geoapify production use remains disabled until its server-only alert-recipient configuration and other production settings are present. |
 
 This is a repository-grounded engineering and product decision package, not legal
 advice. It separates current code, documented policy, recommendations, and
@@ -110,9 +110,11 @@ attribution, notice wording, re-review owner/date, and an approved-host network
 trace. Alternative: disable exact third-party geocoding; retain manual address
 and district selection, eliminating this processor boundary.
 
-**Approved:** Geoapify under this backend-only EU boundary, with production
-enablement still conditional on the documented notice, budget, attribution,
-terms/DPA record and authenticated browser trace.
+**Approved (2026-07-29):** Geoapify under this backend-only EU boundary. The
+project owner confirms that the intended use complies with the provider's
+Free-tier limited-commercial-use terms. Production enablement remains
+conditional on the server-only production configuration described below; the
+manual address/district fallback remains available while it is disabled.
 
 **S1-E10 implementation update (2026-07-29):** The boundary now has a
 1,000-outbound-call/day technical cap (cache hits do not consume it), 80% and
@@ -120,8 +122,17 @@ terms/DPA record and authenticated browser trace.
 `/[locale]/privacy/` is published in BG/EN. The prior inline localized provider
 disclosure requirement is replaced by the owner-approved exception: the existing
 visible Geoapify/OpenStreetMap picker credit remains, with the full processor
-notice on that privacy page. No owner approval artifact, production alert
-address, or authenticated trace is invented by this repository update.
+notice on that privacy page.
+
+| Approval record | Owner-approved record — 2026-07-29 |
+|---|---|
+| Account and cap | Geoapify Free tier; intended use confirmed by the project owner as compliant with the tier's limited-commercial-use terms. The application independently caps outbound provider calls at 1,000 per Sofia-local day. |
+| Terms and DPA | Pricing and terms reviewed 2026-07-29. Geoapify DPA revision 2024-08-15, naming KEPTAGO LTD as processor, reviewed 2026-07-29. |
+| Location and subprocessors | Requests are limited to `api-eu.geoapify.com`. The EU/EEA processing commitment and the DPA/privacy-policy infrastructure disclosures, including the listed EU delivery/hosting subprocessors, were assessed for this boundary. |
+| Data and retention | Forward lookup sends address text, BG/EN locale and Bulgaria filter; reverse lookup sends exact coordinate and locale; both include unavoidable backend request metadata. Geoapify normally retains request categories up to 24 hours, with its documented exceptional suspicious/fraud retention. The application keeps normalized results for 24 hours and aggregate-only usage/alert records for 12 months. |
+| Attribution and fallback | The existing visible Geoapify/OpenStreetMap picker credit is retained. Manual address and canonical-district entry remain usable on outage, disablement, throttling, or daily-cap exhaustion. |
+| Alert delivery | `GEOAPIFY_USAGE_ALERT_EMAIL` is intentionally absent from Git and must be set only in the production secret store before provider enablement. The recipient is read only at delivery time and is never stored in the ledger or alert outbox. |
+| Trace and review | The restricted authenticated local browser network trace passed on 2026-07-29 and remains outside Git. Accountable reviewer: Project owner. Re-review due 2027-01-29. |
 
 ### C. Retention, closure, and anonymization — recommended architecture
 
@@ -172,15 +183,17 @@ PostgreSQL/Redis/Celery/browser verification. Rollback cannot restore irreversib
 anonymized data; early batches must therefore ship dry-run/preview and explicit
 operator confirmation before destructive execution.
 
-## 5. Acceptance evidence required after approval
+## 5. Completion evidence
 
 Serializer/media/log/audit/notification assertions, public unpublish/redaction
-tests, provider boundary/fallback trace, retention dry-run, atomic/idempotent
-closure tests, PostgreSQL concurrency, Redis/Celery cleanup, media/provider
-cleanup, and seeded browser journeys. S1-D04 and policy-dependent S1-E08 work
-remain incomplete until that evidence is recorded.
+tests, the provider boundary/fallback trace, retention dry-run,
+atomic/idempotent closure tests, PostgreSQL concurrency, Redis/Celery cleanup,
+media/provider cleanup, and seeded browser journeys are recorded in
+`docs/testing/s1_d04_completion.tdd.md`. This completes S1-D04's decision,
+processor-disclosure, retention, and local-evidence obligations. It does not
+enable Geoapify in production or complete the separate S1-E08 and S1-R01 work.
 
-## 6. Implementation status — 2026-07-28
+## 6. Implementation status — 2026-07-29
 
 The approved contract is represented by `AccountRetentionHold`, the atomic
 account-closure service, and a bounded cleanup task/preview command. Closure
@@ -190,7 +203,9 @@ former-user identity. History-free closed accounts are eligible for physical
 deletion only after 30 days and never while an active hold exists.
 
 The Geoapify endpoint remains backend-only and fails closed in production unless
-its explicit approval flag, attribution and budget configuration are all
-present. This code guard does **not** prove a DPA/terms review, privacy notice,
-budget approval, Redis/Celery delivery, provider smoke test, or authenticated
-browser trace; those remain release evidence.
+its explicit approval flag, attribution, positive readiness value, valid owner
+alert email, and positive cache/quota limits are all present. The approval,
+privacy notice, local runtime evidence, and restricted authenticated browser
+trace are now recorded above. Configuring the alert email (and the rest of the
+server-only production settings) remains an operational prerequisite to
+enabling the provider, not an open S1-D04 decision.

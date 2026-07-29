@@ -1,6 +1,6 @@
 # Current Progress Handoff
 
-Updated: 2026-07-23.
+Updated: 2026-07-29.
 
 Implementation note (2026-07-27): S1-D05 now has a target-bound invitation
 contract, agency readiness projection, member-bound new assignments,
@@ -46,9 +46,10 @@ change product or release authority.
   private geocoding API now includes its 24-hour HMAC-keyed normalized-result
   cache, 1,000/day aggregate outbound-call cap, 80%/100% idempotent owner-email
   alerts, 12-month cleanup, production configuration validation, BG/EN privacy
-  route, links and private-picker regressions. Production enablement remains
-  blocked on the accountable owner’s DPA/terms/free-plan record, configured
-  alert address and DPA/terms/free-plan approval record. The authenticated
+  route, links and private-picker regressions. The project owner has recorded
+  the DPA/terms/free-plan decision; production enablement remains blocked only
+  until the configured alert address and other server-only production settings
+  are present. The authenticated
   restricted local browser network trace passed on 2026-07-29 and remains
   outside Git. The
   complete contract and provider review are in
@@ -77,11 +78,13 @@ change product or release authority.
   complete. The full Django suite passed (472 tests, 9 skipped) and the seeded
   Playwright suite passed (10 tests, no skips). See
   [S1-E07 evidence](docs/testing/s1_e07_conversion_routing.tdd.md).
-- **S1-D04 — In progress.** Owner-approved publication, retention and Geoapify
-  policy is represented in code: opaque public cleaner UUIDs, a 14-day pause
-  grace, retention holds, atomic closure/anonymization, bounded cleanup and a
-  fail-closed production guard. PostgreSQL/Redis/Celery/provider/browser
-  evidence and release policy surfaces remain outstanding.
+- **S1-D04 — Done.** The owner-approved publication, retention and Geoapify
+  processor record is represented in code: opaque public cleaner UUIDs, a
+  14-day pause grace, retention holds, atomic closure/anonymization, bounded
+  cleanup, a fail-closed production guard, approved terms/DPA record, and
+  restricted local runtime evidence. Production Geoapify remains disabled
+  until server-only alert-recipient configuration is set; S1-R01's broader
+  legal-policy surfaces remain separate.
 - **S1-E08 — Partially complete.** Generic throttled self-service password
   recovery, localized recovery UI, reset-completion notification, and safe
   closure/anonymization foundations are implemented. The complete runtime
@@ -95,9 +98,9 @@ change product or release authority.
   marketplace work begins.
 - Re-baseline Gate D, instrumentation, and the final readout around the approved
   product-led descriptive model before public launch.
-- Record Geoapify’s precise-location processor approval, DPA/terms/free-plan
-  version, attribution, owner alert destination and privacy re-review date;
-  then capture the restricted authenticated trace before production use.
+- Configure `GEOAPIFY_USAGE_ALERT_EMAIL` and the remaining server-only
+  Geoapify production settings in the production secret store before enabling
+  provider traffic; never place the recipient address in Git.
 - Keep the v1 no-payments boundary unchanged unless the business owner opens a
   monetization phase; see `docs/monetization/`.
 

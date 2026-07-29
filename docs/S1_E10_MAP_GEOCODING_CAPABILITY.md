@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Implementation complete; production release evidence remains gated on the owner record and restricted authenticated trace |
+| Status | Implementation complete; owner record and restricted authenticated trace are recorded. Production enablement remains gated on server-only operational configuration. |
 | Date | 2026-07-29 |
 | Stage 1 item | S1-E10 |
 | Owner direction | Keep third-party map/geocoding capability; use OpenStreetMap-derived map data for exact property selection; do not expose private location data to anonymous users. |
@@ -96,14 +96,17 @@ deduplicated 80%/100% owner-email outbox, 12-month bounded cleanup, no raw
 request data in application logs/audit metadata, owned `apiFetch` browser
 calls, no remote geocoding/tile calls, and visible attribution.
 
-Before production, the owner/privacy lead must: accept Geoapify as a precise
-location-data recipient; approve the subscription, budget alert, and rate
-ceiling; decide on any signed/custom DPA; update the customer privacy notice
-with recipient/purpose/data/retention; and retain the approved terms/DPA
-version, review date, owner, and re-review date in the privacy register. A
-real approved-host browser trace must also confirm that property create/edit
-only contacts the owned API and that anonymous demand makes no provider or
-exact-location request.
+The project owner approved Geoapify as a precise location-data recipient on
+2026-07-29: Free-tier use is confirmed as compliant with its limited-commercial-
+use terms; the 1,000/day cap, attribution, 24-hour normalized cache, 12-month
+aggregate telemetry retention, BG/EN notice, and manual fallback are accepted.
+The DPA revision (2024-08-15), terms/pricing, EU endpoint, and listed
+subprocessor/retention disclosures were reviewed. The next re-review date is
+2027-01-29. The approved-host browser trace passed on 2026-07-29, is restricted
+local evidence, and is not committed. Production stays disabled until the
+server-only key, approval flag, attribution, positive readiness value, and
+`GEOAPIFY_USAGE_ALERT_EMAIL` are configured; the recipient address remains out
+of Git.
 
 The public `nominatim.openstreetmap.org` service is not a valid production
 processor for private property addresses: its current policy says not to submit
@@ -214,9 +217,11 @@ The backend caps results at six and requests Bulgarian/English output only.
    click-to-pin surface and make `DistrictMapSelector` GeoJSON-only; preserve
    manual entry and public-map isolation.
 4. [x] Add focused frontend tests, BG/EN privacy route and manual-fallback copy.
-5. [ ] Record the owner’s DPA/terms/free-plan approval, attribution, alert
-   recipient and review/re-review dates; the restricted authenticated local
-   trace has passed and remains outside Git. Then mark S1-E10 done.
+5. [x] Record the owner’s DPA/terms/free-plan approval, attribution,
+   server-only alert-recipient requirement and review/re-review dates; the
+   restricted authenticated local trace passed and remains outside Git.
+   Production traffic stays disabled until its secret-store configuration is
+   complete; this operational step does not require a new owner decision.
 
 ## Non-goals
 
@@ -229,6 +234,7 @@ The backend caps results at six and requests Bulgarian/English output only.
 ## Handoff
 
 The API, quota/retention safeguards, privacy route and UI foundations are
-implemented and covered by fake-provider/unit coverage. Production use remains
-blocked until the named provider record, valid production configuration and
-authenticated restricted network trace are attached by the accountable owner.
+implemented and covered by fake-provider/unit coverage. The provider record and
+authenticated restricted network trace are attached in the S1-D04 evidence.
+Production use remains blocked only until valid server-only production
+configuration, including the alert-recipient secret, is present.

@@ -1,9 +1,11 @@
 # S1-D04 approved-policy implementation evidence
 
-Status: **In progress** (2026-07-29). The owner-approved policy is represented
-in code. Local PostgreSQL, Redis/Celery, backup/restore and seeded-browser
-evidence has been advanced; Geoapify processor-approval records and the
-provider-network trace remain required and are not claimed as passed.
+Status: **Complete** (2026-07-29). The owner-approved policy is represented in
+code. Local PostgreSQL, Redis/Celery, backup/restore, seeded-browser and
+restricted authenticated Geoapify-network evidence passed. The owner record is
+in `docs/S1_D04_PRIVACY_RETENTION_DECISION.md`; Geoapify remains disabled in
+production until its server-only alert email and other production settings are
+configured.
 
 ## Implemented contract
 
@@ -68,10 +70,10 @@ evidence for the full Django suite.
   accounts. The focused Chromium guest Connect journey passed after UUID
   return-target support was added. The complete seeded Chromium suite then
   passed **10/10**, with no skips.
-- Full PostgreSQL Django suite: `docker exec … python manage.py test` was
-  attempted against PostgreSQL 16 but exceeded the 120-second command ceiling.
-  It is **unverified**, not a pass. Focused PostgreSQL concurrency, migration,
-  and runtime-rehearsal results above remain independently recorded.
+- Full Django suite: `python manage.py test` passed **492 tests, 10 skipped**.
+  The earlier PostgreSQL command that exceeded its command ceiling remains
+  unclaimed; the focused PostgreSQL concurrency, migration, and runtime-
+  rehearsal results above remain independently recorded.
 - CodeGraph: `codegraph sync .` completed with the graph already current.
   Caller analysis covered `safeInternalDestination`, `postAuthDestination`,
   `ConnectButton`, `AccountRetentionHold`, `close_account`, and
@@ -90,9 +92,21 @@ evidence for the full Django suite.
 - The public modal renders the approved authenticated review projection's
   reviewer name/tombstone label rather than an inaccurate verification label.
 
-## Remaining evidence
+## Geoapify completion evidence and operational boundary
 
-Run and record a complete Django suite, Geoapify authenticated browser network
-trace and provider smoke. Production Geoapify remains disabled until the owner records
-the selected plan, DPA/terms review, privacy-notice reference, attribution and
-monthly budget. Those owner records are the blocking condition for S1-D04 Done.
+- The approved-host Playwright Geoapify network suite passed **2/2** on
+  2026-07-29. It proves lookup requests stay on
+  `/api/locations/geocode/*`, no Geoapify/Nominatim/OSM geocoding or tile
+  request originates in the browser, and manual entry completes while
+  geocoding is disabled.
+- Its trace artifact is restricted local evidence in `frontend/test-results/`.
+  It is intentionally untracked and excluded from Git.
+- The project owner recorded the Free-tier, DPA/terms, EU endpoint,
+  subprocessor/retention, attribution, fallback, alert-delivery, and
+  re-review decisions in the S1-D04 decision. No recipient address is stored
+  in repository evidence.
+
+S1-D04 is complete. Geoapify production use remains disabled until
+`GEOAPIFY_USAGE_ALERT_EMAIL` and the other server-only production requirements
+are configured. That operational gate belongs to S1-E10 enablement and does
+not reopen this decision record.

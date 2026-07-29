@@ -1297,7 +1297,7 @@
     "retention": {"title": "Retention", "body": "Geoapify normally retains these request categories for up to 24 hours. We cache only normalized results on our server for up to 24 hours; aggregate daily usage and delivery-status records are retained for 12 months. Selected coordinates are private to the property and are never public or sent to workers."},
     "choice": {"title": "Manual alternative", "body": "Address search is optional. You can enter the address and district manually whenever the service is unavailable, disabled, or at its daily limit."},
     "rights": {"title": "Your rights and contact", "body": "For access, correction, deletion, restriction, objection, or a privacy question, contact the project owner through the marketplace support contact in your account. We will handle requests under the applicable Bulgarian and EU privacy rules."},
-    "review": "Project-owner processor review date: pending recorded production approval."
+    "review": "Project-owner processor review: 29 July 2026. Production use remains disabled until the server-only alert email is configured."
   },
   "agency": {
     "loading": "Loading agency workspace…",

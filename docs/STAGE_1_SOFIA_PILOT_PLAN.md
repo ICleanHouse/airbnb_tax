@@ -45,7 +45,7 @@ state and the next action visible.
 
 | Order | Plan step | Status | Next action |
 |---:|---|---|---|
-| 1 | Record policy/architecture decisions | In progress | Finish S1-D05 delivery framing, S1-D03 measurement addendum, S1-D04 public-publication/retention decisions, and map/SMS provider approvals. |
+| 1 | Record policy/architecture decisions | In progress | Finish S1-D05 delivery framing, S1-D03 measurement addendum, and the remaining map operational enablement/SMS provider decisions. |
 | 2 | Maintain public-data/profile/review and property-media containment | Done; ongoing regression duty | Keep S1-E01 privacy tests in every release gate. |
 | 3 | Complete contact verification under S1-D02 | In progress | The target maturity audit and batches are refreshed; select the EEA SMS provider/privacy/rate-limit contract, then execute Batches 1–6. |
 | 4 | Remove sensitive signup persistence | Done; ongoing regression duty | Keep the browser-storage and telemetry allowlist tests. |
@@ -69,7 +69,7 @@ state and the next action visible.
 | S1-D01 | Confirm the Stage 1 charter | Done | Maintain the signed charter as the scope boundary. |
 | S1-D02 | Define cleaner and agency verification | Done | Execute the approved policy through S1-E02; do not reopen identity/quality vetting. |
 | S1-D03 | Define lifecycle and support policy | Done for transition contract; six measurement decisions open | Approve the incident matrix/adjudicator, operational-success tolerance, activation window, match-mode/organic threshold, operator-time formula, and exposed-host-cancellation denominator rule. |
-| S1-D04 | Define privacy and disclosure tiers | In progress; owner decisions implemented | Complete PostgreSQL, Redis/Celery, provider and browser evidence; publish required policy surfaces. |
+| S1-D04 | Define privacy and disclosure tiers | Done | Maintain the approved privacy/retention record and its regression evidence; keep broader S1-R01 policy work separate. |
 | S1-D05 | Resolve agency participation and routing | In progress | Deliver complete signup/onboarding, workspace, member eligibility, job/application/assignment, notification, and history-preserving recovery parity. |
 
 #### Gate B — product and workflow readiness
@@ -85,7 +85,7 @@ state and the next action visible.
 | S1-E07 | Repair conversion and role routing | Done | Full Django (472 tests) and seeded Playwright (10 tests, no skips) evidence passed. See `docs/testing/s1_e07_conversion_routing.tdd.md`. |
 | S1-E08 | Add account recovery and safe account deletion | Partially complete | Password recovery and S1-D04 closure/anonymization foundations are implemented; complete runtime evidence remains required. See `docs/testing/s1_e08_account_recovery.tdd.md`. |
 | S1-E09 | Secure or disable calendar URL import and uploads | Done with URL import disabled | Keep URL fetch absent; retain bounded ICS/image validation and privacy tests. |
-| S1-E10 | Govern maps, geocoding, and exact location | In progress | Approve provider/privacy/budget decisions, update policy disclosure, and capture the authenticated browser trace/fallback evidence. |
+| S1-E10 | Govern maps, geocoding, and exact location | In progress; implementation complete | Keep provider traffic disabled until the production secret-store alert email and other validated server-only settings are configured; manual fallback remains available. |
 | S1-UX01 | Build a safe conversion-complete landing page | Not started | Implement Sofia-specific value/actions, honest verification/coverage, privacy-safe lead capture, text alternative, and policy/support links. |
 | S1-UX02 | Make onboarding and activation honest | Not started | Reframe the email-code action and show the complete email/phone/age/profile/activation journey with locked-state explanations. |
 | S1-UX03 | Mobile-responsive pilot workflow | Not started | Test/fix the full pilot flow at 320/360/390/430 CSS pixels on Android Chrome and iOS Safari. |
@@ -156,9 +156,10 @@ validated.
   company-registry, or manual quality review is performed. The visible
   “Verified” badge is explicitly scoped to confirmed email and phone. See the
   [approved policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md).
-- **In progress:** S1-D04; its owner-approved policy is implemented but remains
-  blocked from Done by the Geoapify processor-approval records and provider
-  runtime evidence. **Done:** S1-E01, S1-E03, S1-E04, and S1-E09. Public
+- **Done:** S1-D04, S1-E01, S1-E03, S1-E04, and S1-E09. S1-D04's owner
+  approval, local runtime evidence, and processor-disclosure record are
+  complete; Geoapify production use remains separately disabled until its
+  server-only operational configuration is present. Public
   disclosure/media, signup-secret persistence, cleaner schedule overlap, and
   calendar/upload protections are implemented and tested.
 - **In progress — interim contact policy implemented:** ADR-0002 records the
@@ -552,7 +553,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-D01 | Must-have | Project owner | None | Done | 2026-07-23 | [Approved Stage 1 charter](S1_D01_STAGE_1_CHARTER.md) |
 | S1-D02 | Must-have | Project owner | S1-D01 | Done | 2026-07-23 | [Approved contact-eligibility policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md) |
 | S1-D03 | Must-have | Project owner | S1-D01 | Done | 2026-07-20 | [Approved lifecycle/support policy contract](S1_D03_LIFECYCLE_SUPPORT_POLICY.md) |
-| S1-D04 | Must-have | Project owner | S1-D01 | In progress | 2026-07-29 | [Approved privacy/retention decision](S1_D04_PRIVACY_RETENTION_DECISION.md); [runtime evidence](testing/s1_d04_completion.tdd.md); Geoapify owner records and provider trace remain required. |
+| S1-D04 | Must-have | Project owner | S1-D01 | Done | 2026-07-29 | [Approved privacy/retention decision](S1_D04_PRIVACY_RETENTION_DECISION.md); [runtime evidence](testing/s1_d04_completion.tdd.md). |
 | S1-D05 | Must-have | Project owner | S1-D01 | In progress |  | [Full-agency launch decision](S1_D01_STAGE_1_CHARTER.md) |
 | S1-E01 | Must-have | Project owner | S1-D04 | Done | 2026-07-14 | [Privacy remediation evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E02 | Must-have | Project owner | ADR-0002 and S1-D02 | In progress |  | [Approved target policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md); [interim ADR](adr/0002-contact-based-verification.md); [maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [TDD evidence](testing/s1_e02_account_verification.tdd.md) |
@@ -563,7 +564,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E07 | Must-have | Project owner | S1-D05 | Done | 2026-07-28 | [TDD evidence](testing/s1_e07_conversion_routing.tdd.md) |
 | S1-E08 | Must-have | Project owner | S1-D03/D04 | Partially complete | 2026-07-28 | [TDD evidence](testing/s1_e08_account_recovery.tdd.md); S1-D04 decision remains required. |
 | S1-E09 | Must-have | Project owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
-| S1-E10 | Must-have | Project owner | S1-D04 and provider decision | In progress; implementation complete | 2026-07-29 | [Backend geocoding TDD evidence](testing/s1_e10_geocoding_backend.tdd.md); restricted authenticated trace passed; owner approval record still gates Done |
+| S1-E10 | Must-have | Project owner | S1-D04 and provider decision | In progress; implementation complete | 2026-07-29 | [Backend geocoding TDD evidence](testing/s1_e10_geocoding_backend.tdd.md); restricted authenticated trace and owner approval record passed; production secret-store configuration still gates provider enablement. |
 | S1-UX01 | Must-have | Project owner | S1-D04/D05 | Not started |  |  |
 | S1-UX02 | Must-have | Project owner | S1-D02/D05 | Not started |  |  |
 | S1-UX03 | Must-have | Project owner | Pilot-critical Gate B flows | Not started |  |  |
@@ -746,16 +747,16 @@ fields.
       is not raw `PropertyImage` storage. Operational property media and
       verification media are private and require object-level authorization;
       every raw `/media/*` route is denied.
-- [ ] Define the informed cleaner choice and exact field allowlist for public
+- [x] Define the informed cleaner choice and exact field allowlist for public
       profile publication, and the public display/redaction rules for reviewer
       identity, job references, and free-text comments.
 - [x] Exact address and operational instructions become visible only after an
       active, non-cancelled assignment to the authorized participant.
-- [ ] Approve the map/geocoding provider or proxy, processor/privacy terms,
+- [x] Approve the map/geocoding provider or proxy, processor/privacy terms,
       retention/logging, attribution/usage limits, and fallback when consent or
       service is unavailable. If none is approved, disable exact third-party
       maps/geocoding for Stage 1.
-- [ ] Define a retention policy for job, support, verification, review, and
+- [x] Define a retention policy for job, support, verification, review, and
       research data.
 
 **Done when:** Every relevant serializer and media route has an explicit
@@ -1256,8 +1257,8 @@ Acceptance criteria:
 
 **Implementation contract:** [S1-E10 map and geocoding capability](S1_E10_MAP_GEOCODING_CAPABILITY.md)
 records the owner direction to retain third-party capability behind the owned
-privacy boundary. Geoapify is configured as the server-side candidate; its
-privacy/terms approval remains required before production enablement.
+privacy boundary. Geoapify is the owner-approved server-side candidate;
+production enablement still requires its secret-store operational configuration.
 
 Choose an approved map/geocoding architecture before the public pilot:
 
@@ -1267,7 +1268,7 @@ Choose an approved map/geocoding architecture before the public pilot:
 - [x] Route approved-host address search and reverse geocoding through owned,
       authenticated, private/no-store backend endpoints. The frontend picker
       migration remains to be completed.
-- [ ] Review the provider’s processing terms, data location, retention/logging,
+- [x] Review the provider’s processing terms, data location, retention/logging,
       usage limits, attribution, caching, credentials, and production-service
       suitability; document the provider as a processor/recipient where
       required.
@@ -1278,9 +1279,9 @@ Choose an approved map/geocoding architecture before the public pilot:
       location to an unapproved third party. The private property picker and
       district selector use no remote tile source; private lookup uses the
       owned API only.
-- [ ] Keep the public demand map aggregated and technically separate from the
+- [x] Keep the public demand map aggregated and technically separate from the
       private property-location workflow.
-- [ ] Provide BG/EN notice and a usable non-map fallback.
+- [x] Provide BG/EN notice and a usable non-map fallback.
 
 Acceptance criteria:
 

@@ -298,18 +298,16 @@ class AgencyReviewParticipantTests(ReviewScenarioMixin, TestCase):
         self.assertEqual(review.reviewer, self.member)
         self.assertEqual(review.reviewee, self.host)
 
-    def test_agency_account_is_not_review_participant_after_member_delegation(self):
+    def test_agency_account_is_a_review_participant_after_member_delegation(self):
         cases = [
             ("host-to-agency", self.host, self.agency_user),
             ("agency-to-host", self.agency_user, self.host),
         ]
         for label, reviewer, reviewee in cases:
             with self.subTest(label=label):
-                with self.assertRaisesMessage(
-                    FeedbackError,
-                    "Only the host and assigned cleaner can review each other for this job.",
-                ):
-                    submit_review(job=self.job, reviewer=reviewer, reviewee=reviewee, rating=5)
+                review = submit_review(job=self.job, reviewer=reviewer, reviewee=reviewee, rating=5)
+                self.assertEqual(review.reviewer, reviewer)
+                self.assertEqual(review.reviewee, reviewee)
 
     def test_agency_account_is_review_participant_before_member_delegation(self):
         undelegated_job, _assignment = self.create_agency_job(assigned_member=None)
@@ -340,11 +338,11 @@ class AgencyReviewParticipantTests(ReviewScenarioMixin, TestCase):
 
         self.assertEqual(Review.objects.count(), 0)
 
-    def test_manipulated_reviewee_id_cannot_target_agency_or_other_member(self):
+    def test_delegated_member_can_review_agency_but_not_other_members(self):
         for reviewee in [self.agency_user, self.non_assigned_member, self.former_member, self.host]:
             with self.subTest(reviewee=reviewee.username):
                 response = self.api_post_review(self.member, job=self.job, reviewee=reviewee)
-                if reviewee == self.host:
+                if reviewee in {self.host, self.agency_user}:
                     self.assertEqual(response.status_code, 201)
                     Review.objects.all().delete()
                 else:

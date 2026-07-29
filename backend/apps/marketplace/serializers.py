@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from apps.marketplace.models import (
     Assignment,
+    AssignmentReleaseRequest,
     CleanerApplication,
     CleaningBatch,
     CleaningJob,
@@ -352,6 +353,22 @@ class RecoveryRequestSerializer(serializers.Serializer):
     status = serializers.CharField(read_only=True)
     expires_at = serializers.DateTimeField(read_only=True)
     successor_id = serializers.IntegerField(source="successor_id", read_only=True)
+
+
+class AssignmentReleaseRequestCreateSerializer(serializers.Serializer):
+    reason_code = serializers.CharField(max_length=48)
+    narrative = serializers.CharField(max_length=5000, required=False, allow_blank=True)
+
+
+class AssignmentReleaseRequestResolveSerializer(serializers.Serializer):
+    resolution = serializers.ChoiceField(choices=["decline", "acted"])
+
+
+class AssignmentReleaseRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssignmentReleaseRequest
+        fields = ["id", "assignment", "member", "reason_code", "status", "resolved_by", "resolved_at", "replacement_request", "created_at"]
+        read_only_fields = fields
 
 
 class ParticipantDisputeSerializer(serializers.ModelSerializer):

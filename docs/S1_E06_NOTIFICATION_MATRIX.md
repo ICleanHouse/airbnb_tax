@@ -5,6 +5,14 @@
 **Channels:** `in_app`, `email` only  
 **Default locale:** Bulgarian (`bg`), with English (`en`) parity
 
+## ADR-0003 additions
+
+`assignment.release_requested` and `assignment.release_resolved` are durable
+recipient-specific in-app/email events for the host, agency, delegated member,
+and operators. `review.group_requested` and `review.group_revealed` are
+in-app-only events sent only to the host, agency, and delegated member, with
+role-safe `/host`, `/agency`, and `/cleaner` deep links respectively.
+
 ## Contract rules
 
 1. A canonical event is one recipient-specific occurrence. It is persisted

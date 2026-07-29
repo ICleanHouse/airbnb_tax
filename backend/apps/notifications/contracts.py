@@ -142,6 +142,14 @@ EVENT_SPECS: dict[str, NotificationEventSpec] = {
         "Agency assignment delegated", "An agency delegated a cleaning assignment to you.",
         "Възлагане от агенция", "Агенция ви възложи задача за почистване.",
     ),
+    "assignment.release_requested": _spec(
+        "Delegated member requested release", "A delegated member requested agency recovery action.",
+        "Делегиран член поиска освобождаване", "Делегиран член поиска действие от агенцията.",
+    ),
+    "assignment.release_resolved": _spec(
+        "Release request updated", "An agency resolved a delegated member release request.",
+        "Заявката за освобождаване е обновена", "Агенцията разреши заявка за освобождаване на делегиран член.",
+    ),
     "job.cancelled": _spec(
         "Cleaning job cancelled", "A cleaning job involving you was cancelled.",
         "Задачата за почистване е отменена", "Задача за почистване, която ви засяга, беше отменена.",
@@ -202,6 +210,16 @@ EVENT_SPECS: dict[str, NotificationEventSpec] = {
     "review.revealed": _spec(
         "Reviews are now visible", "Both participants submitted reviews, which are now visible.",
         "Отзивите вече са видими", "И двете страни изпратиха отзив и те вече са видими.",
+        channels=("in_app",),
+    ),
+    "review.group_requested": _spec(
+        "Leave your group review", "Submit reviews for both counterparts to unlock the group reviews.",
+        "Оставете груповия си отзив", "Изпратете отзиви за двамата участници, за да отключите груповите отзиви.",
+        channels=("in_app",),
+    ),
+    "review.group_revealed": _spec(
+        "Group reviews are now visible", "All group reviews are now visible to the completed-job participants.",
+        "Груповите отзиви вече са видими", "Всички групови отзиви вече са видими за участниците по завършената задача.",
         channels=("in_app",),
     ),
     "job.upcoming_reminder": _spec(

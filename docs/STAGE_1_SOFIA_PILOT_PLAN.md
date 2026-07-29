@@ -68,7 +68,7 @@ state and the next action visible.
 |---|---|---|---|
 | S1-D01 | Confirm the Stage 1 charter | Done | Maintain the signed charter as the scope boundary. |
 | S1-D02 | Define cleaner and agency verification | Done | Execute the approved policy through S1-E02; do not reopen identity/quality vetting. |
-| S1-D03 | Define lifecycle and support policy | Done for transition contract; six measurement decisions open | Approve the incident matrix/adjudicator, operational-success tolerance, activation window, match-mode/organic threshold, operator-time formula, and exposed-host-cancellation denominator rule. |
+| S1-D03 | Define lifecycle and support policy | Done | Measurement decisions are recorded in the lifecycle policy: severity/adjudication, +/-30-minute evidence, 14-day activation, no-outreach organic definition/no numeric gate, successful-turnover operator time, and exposed-host-cancellation exclusion. |
 | S1-D04 | Define privacy and disclosure tiers | Done | Maintain the approved privacy/retention record and its regression evidence; keep broader S1-R01 policy work separate. |
 | S1-D05 | Resolve agency participation and routing | In progress | Deliver complete signup/onboarding, workspace, member eligibility, job/application/assignment, notification, and history-preserving recovery parity. |
 

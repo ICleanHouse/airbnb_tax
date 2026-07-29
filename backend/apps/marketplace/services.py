@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.conf import settings
 from django.utils import timezone
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, User
@@ -16,6 +17,7 @@ from apps.accounts.services import (
 from apps.core.services import write_audit_log
 from apps.marketplace.models import (
     Assignment,
+    AssignmentReleaseRequest,
     CleanerApplication,
     CleaningJob,
     Dispute,
@@ -521,6 +523,8 @@ def _ensure_recovery_authority(
         error = LifecycleConflict("This account is not eligible for lifecycle actions.")
         error.code = "account_not_eligible"
         raise error
+    if assignment and assignment.cleaner.is_agency:
+        _ensure_agency_live_recovery_enabled()
     if not assignment or not assignment.cleaner.is_agency or actor.is_platform_admin:
         return
     if action in {"cancel", "reschedule", "replacement", "dispute"}:
@@ -551,6 +555,78 @@ def _active_operators(*, exclude_id: int | None = None) -> list[User]:
     if exclude_id is not None:
         queryset = queryset.exclude(id=exclude_id)
     return list(queryset)
+
+
+def _ensure_agency_live_recovery_enabled() -> None:
+    if not settings.AGENCY_LIVE_RECOVERY_ENABLED:
+        raise _agency_conflict(
+            "agency_live_recovery_disabled",
+            "Agency recovery is not enabled for this rollout.",
+        )
+
+
+@transaction.atomic
+def create_assignment_release_request(*, assignment: Assignment, member: User, reason_code: str, narrative: str = "", request=None) -> AssignmentReleaseRequest:
+    """Record a delegated member's release request without mutating the assignment."""
+    _ensure_agency_live_recovery_enabled()
+    job = _lock_lineage_and_job(assignment.job_id)
+    assignment = _recovery_assignment(job)
+    if assignment is None or not assignment.cleaner.is_agency or assignment.assigned_member_id != member.id:
+        raise LifecycleConflict("Only the delegated member can request release from this assignment.")
+    member = User.objects.select_for_update().get(pk=member.pk)
+    if not lifecycle_actor_is_eligible(member):
+        raise _agency_conflict("account_not_eligible", "This account is not eligible for lifecycle actions.")
+    if job.status != CleaningJob.Status.ASSIGNED or assignment.cancelled_at is not None:
+        raise LifecycleConflict("Only an active delegated assignment can be released.")
+    reason_code = reason_code.strip().lower()
+    narrative = narrative.strip()
+    if not reason_code or len(reason_code) > 48 or len(narrative) > 5000:
+        raise LifecycleInputError(fields={"reason_code": ["Provide a release reason and up to 5000 private characters."]})
+    try:
+        release = AssignmentReleaseRequest.objects.create(
+            assignment=assignment, member=member, reason_code=reason_code, narrative=narrative
+        )
+    except IntegrityError as exc:
+        raise _agency_conflict("duplicate_release_request", "A pending release request already exists.") from exc
+    _record_lifecycle_event(
+        job=job, actor=member, event_type=JobLifecycleEvent.EventType.ASSIGNMENT_RELEASE_REQUESTED,
+        metadata={"release_request_id": release.id}, request=request,
+    )
+    recipients = _recovery_recipients(job=job, assignment=assignment, actor=member) + _active_operators()
+    for recipient in {recipient.id: recipient for recipient in recipients}.values():
+        _emit_notification(
+            event_type="assignment.release_requested", recipient=recipient,
+            occurrence_key=f"assignment-release:{release.id}:requested:{recipient.id}",
+            source_entity_type="AssignmentReleaseRequest", source_entity_id=release.id,
+            request=request, section="assignments",
+        )
+    write_audit_log(actor=member, action="assignment.release_requested", entity_type="AssignmentReleaseRequest", entity_id=release.id, request=request, metadata={"assignment_id": assignment.id})
+    return release
+
+
+@transaction.atomic
+def resolve_assignment_release_request(*, release: AssignmentReleaseRequest, agency: User, resolution: str, request=None) -> AssignmentReleaseRequest:
+    _ensure_agency_live_recovery_enabled()
+    release = AssignmentReleaseRequest.objects.select_for_update().select_related("assignment__job", "assignment__cleaner", "assignment__assigned_member").get(pk=release.pk)
+    job = _lock_lineage_and_job(release.assignment.job_id)
+    assignment = _recovery_assignment(job)
+    agency = User.objects.select_for_update().get(pk=agency.pk)
+    if assignment is None or assignment.cleaner_id != agency.id or not agency.is_agency:
+        raise LifecycleConflict("Only the assigned agency can resolve this release request.")
+    if release.status != AssignmentReleaseRequest.Status.PENDING:
+        raise _agency_conflict("release_request_already_resolved", "This release request is no longer actionable.")
+    if resolution not in {"decline", "acted"}:
+        raise LifecycleInputError(fields={"resolution": ["Use decline or acted."]})
+    release.status = AssignmentReleaseRequest.Status.DECLINED if resolution == "decline" else AssignmentReleaseRequest.Status.ACTED
+    release.resolved_by = agency
+    release.resolved_at = timezone.now()
+    release.save(update_fields=["status", "resolved_by", "resolved_at", "updated_at"])
+    _record_lifecycle_event(job=job, actor=agency, event_type=JobLifecycleEvent.EventType.ASSIGNMENT_RELEASE_RESOLVED, metadata={"release_request_id": release.id, "resolution": resolution}, request=request)
+    recipients = _recovery_recipients(job=job, assignment=assignment, actor=agency) + _active_operators()
+    for recipient in {recipient.id: recipient for recipient in recipients}.values():
+        _emit_notification(event_type="assignment.release_resolved", recipient=recipient, occurrence_key=f"assignment-release:{release.id}:{release.status}:{recipient.id}", source_entity_type="AssignmentReleaseRequest", source_entity_id=release.id, request=request, section="assignments")
+    write_audit_log(actor=agency, action="assignment.release_resolved", entity_type="AssignmentReleaseRequest", entity_id=release.id, request=request, metadata={"resolution": resolution})
+    return release
 
 
 @transaction.atomic
@@ -1317,14 +1393,25 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
             source_entity_type="CleaningJob", source_entity_id=job.id,
             request=request, section="assignments",
         )
-    for recipient, reviewee_id in ((job.host, actual_worker.id), (actual_worker, job.host_id)):
+    review_recipients = ((job.host, actual_worker.id), (actual_worker, job.host_id))
+    if assignment.assigned_member_id and assignment.cleaner.is_agency:
+        # A delegated agency completion has three contractual participants.
+        # The agency receives its own safe group-review prompt; the actual
+        # worker remains the operational and review counterpart, never a proxy.
+        review_recipients = (
+            (job.host, actual_worker.id),
+            (actual_worker, job.host_id),
+            (assignment.cleaner, job.host_id),
+        )
+    for recipient, reviewee_id in review_recipients:
         _emit_notification(
-            event_type="review.requested", recipient=recipient,
+            event_type="review.group_requested" if assignment.assigned_member_id and assignment.cleaner.is_agency else "review.requested", recipient=recipient,
             occurrence_key=f"review-request:{job.id}:{reviewee_id}:{assignment.completed_at.isoformat()}",
             source_entity_type="CleaningJob", source_entity_id=job.id,
             request=request,
             destination=(
                 f"/host?reviewJob={job.id}" if recipient.id == job.host_id
+                else f"/agency?reviewJob={job.id}" if recipient.id == assignment.cleaner_id
                 else f"/cleaner?reviewJob={job.id}"
             ),
         )

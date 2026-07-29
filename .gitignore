@@ -229,3 +229,6 @@ __marimo__/
 #images
 *.jpg
 *.jpeg
+
+# Codegraph folder
+.codegraph

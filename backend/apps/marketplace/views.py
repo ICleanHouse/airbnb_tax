@@ -18,6 +18,7 @@ from apps.accounts.services import agency_readiness
 from apps.accounts.models import CleanerProfile
 from apps.marketplace.models import (
     Assignment,
+    AssignmentReleaseRequest,
     CleanerApplication,
     CleaningBatch,
     CleaningJob,
@@ -49,6 +50,9 @@ from apps.marketplace.serializers import (
     ReplacementRequestCreateSerializer,
     ReplacementResponseSerializer,
     RecoveryRequestSerializer,
+    AssignmentReleaseRequestCreateSerializer,
+    AssignmentReleaseRequestResolveSerializer,
+    AssignmentReleaseRequestSerializer,
     RescheduleProposalCreateSerializer,
     RescheduleResponseSerializer,
     JobIncidentCreateSerializer,
@@ -100,6 +104,8 @@ from apps.marketplace.services import (
     send_upcoming_work_reminder,
     select_member_for_application,
     update_dispute,
+    create_assignment_release_request,
+    resolve_assignment_release_request,
 )
 from apps.marketplace.throttles import LifecycleWriteThrottle, RecoveryCaseWriteThrottle
 from apps.properties.models import Property
@@ -1401,6 +1407,33 @@ class AssignmentViewSet(PrivateNoStoreResponseMixin, viewsets.ReadOnlyModelViewS
             )
             return marketplace_error_response(exc)
         return Response(self.get_serializer(assignment).data)
+
+    @action(detail=True, methods=["get", "post"], url_path="release-requests", throttle_classes=[RecoveryCaseWriteThrottle])
+    def release_requests(self, request, pk=None):
+        assignment = self.get_object()
+        if request.method == "GET":
+            return Response(AssignmentReleaseRequestSerializer(assignment.release_requests.all(), many=True).data)
+        serializer = AssignmentReleaseRequestCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return lifecycle_error_response("invalid_input", "Correct the highlighted fields and try again.", status_code=status.HTTP_400_BAD_REQUEST, fields=serializer.errors)
+        try:
+            release = create_assignment_release_request(assignment=assignment, member=request.user, request=request, **serializer.validated_data)
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response(AssignmentReleaseRequestSerializer(release).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path=r"release-requests/(?P<release_id>[^/.]+)/resolve", throttle_classes=[RecoveryCaseWriteThrottle])
+    def resolve_release_request(self, request, pk=None, release_id=None):
+        assignment = self.get_object()
+        release = get_object_or_404(AssignmentReleaseRequest, pk=release_id, assignment=assignment)
+        serializer = AssignmentReleaseRequestResolveSerializer(data=request.data)
+        if not serializer.is_valid():
+            return lifecycle_error_response("invalid_input", "Correct the highlighted fields and try again.", status_code=status.HTTP_400_BAD_REQUEST, fields=serializer.errors)
+        try:
+            release = resolve_assignment_release_request(release=release, agency=request.user, request=request, **serializer.validated_data)
+        except MarketplaceError as exc:
+            return marketplace_error_response(exc)
+        return Response(AssignmentReleaseRequestSerializer(release).data)
 
 
 class FavouriteCleanerViewSet(viewsets.ModelViewSet):

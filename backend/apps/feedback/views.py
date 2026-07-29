@@ -6,7 +6,7 @@ from rest_framework.response import Response
 
 from apps.feedback.models import Review
 from apps.feedback.serializers import ReviewSerializer
-from apps.feedback.services import FeedbackError, revealed_received_reviews, submit_review
+from apps.feedback.services import FeedbackError, revealed_group_reviews, revealed_received_reviews, submit_review
 
 
 logger = logging.getLogger("apps.feedback")
@@ -23,8 +23,9 @@ class ReviewViewSet(viewsets.ModelViewSet):
         # Always your own reviews; received reviews only once revealed
         # (counterpart submitted, or the review window has closed).
         visible_received = Subquery(revealed_received_reviews(user).values("id"))
+        visible_groups = Subquery(revealed_group_reviews(user).values("id"))
         return queryset.filter(
-            Q(reviewer=user, is_private_issue=False) | Q(id__in=visible_received)
+            Q(reviewer=user, is_private_issue=False) | Q(id__in=visible_received) | Q(id__in=visible_groups)
         ).distinct()
 
     def create(self, request, *args, **kwargs):

@@ -7,3 +7,4 @@ Only records with status **accepted** define implemented architecture.
 |---|---|---|---|
 | [0001](0001-turnover-lineage-recovery.md) | Turnover lineage and history-preserving recovery | accepted | 2026-07-20 |
 | [0002](0002-contact-based-verification.md) | Interim contact-based marketplace verification | accepted | 2026-07-21 |
+| [0003](0003-open-live-agency-recovery-and-three-party-reviews.md) | Open-live agency recovery and three-party reviews | accepted | 2026-07-29 |

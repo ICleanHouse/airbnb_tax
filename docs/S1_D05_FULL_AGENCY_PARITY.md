@@ -1,7 +1,8 @@
 # S1-D05 — Full Agency Parity
 
 **Implementation decision:** 2026-07-27  
-**Status:** implemented in code; launch evidence remains gated by S1-E02 phone
+**Status:** implemented in code; ADR-0003 adds open-live recovery and group
+reviews. Launch evidence remains gated by S1-E02 phone
 verification, cleaner-availability work, PostgreSQL concurrency proof, and
 notification runtime smoke.
 

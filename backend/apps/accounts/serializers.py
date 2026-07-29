@@ -573,7 +573,9 @@ class PublicCleanerDetailSerializer(PublicCleanerSerializer):
         # Only reviews revealed under the double-blind rule (counterpart submitted,
         # or the review window has closed) are shown to authenticated users.
         reviews = (
-            revealed_received_reviews(obj.user)
+            # Delegated-agency review groups never expose individual public
+            # records, names, comments, jobs, or recovery context.
+            revealed_received_reviews(obj.user).filter(group__isnull=True)
             .select_related("reviewer", "job")
             .order_by("-created_at")
         )

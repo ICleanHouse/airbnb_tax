@@ -2,6 +2,12 @@
 
 Updated: 2026-07-29.
 
+S1-D05 is now open-live under [ADR-0003](docs/adr/0003-open-live-agency-recovery-and-three-party-reviews.md).
+The older safe-409 recovery statements are historical; the only temporary
+boundary is the fail-closed `AGENCY_LIVE_RECOVERY_ENABLED` rollout flag.
+S1-E05 remains partially complete pending PostgreSQL concurrency and browser
+evidence. S1-E06 runtime verification follows acceptance.
+
 Implementation note (2026-07-27): S1-D05 now has a target-bound invitation
 contract, agency readiness projection, member-bound new assignments,
 agency-accountable recovery, `/agency` workspace/routing, and agency-safe

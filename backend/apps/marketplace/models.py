@@ -284,6 +284,48 @@ class Assignment(TimeStampedModel):
         return f"{self.cleaner} assigned to {self.job}"
 
 
+class AssignmentReleaseRequest(TimeStampedModel):
+    """An immutable delegated worker's request for its agency to act.
+
+    Creating this record never changes the source assignment or job.  The
+    agency must use the existing cancellation/replacement services for any
+    subsequent recovery action.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACTED = "acted", "Acted"
+        DECLINED = "declined", "Declined"
+        EXPIRED = "expired", "Expired"
+
+    assignment = models.ForeignKey(Assignment, on_delete=models.PROTECT, related_name="release_requests")
+    member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="assignment_release_requests")
+    reason_code = models.CharField(max_length=48)
+    narrative = models.TextField(blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="resolved_assignment_release_requests")
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    replacement_request = models.ForeignKey("ReplacementRequest", on_delete=models.PROTECT, null=True, blank=True, related_name="release_requests")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["assignment", "member"],
+                condition=Q(status="pending"),
+                name="uq_pending_release_per_assignment_member",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            original = type(self).objects.get(pk=self.pk)
+            immutable = ("assignment_id", "member_id", "reason_code", "narrative", "created_at")
+            if any(getattr(original, field) != getattr(self, field) for field in immutable):
+                raise ValidationError("Assignment release requests are append-only.")
+        super().save(*args, **kwargs)
+
+
 class RescheduleProposal(TimeStampedModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
@@ -418,6 +460,8 @@ class JobLifecycleEvent(models.Model):
         REPLACEMENT_APPROVED = "replacement_approved", "Replacement approved"
         REPLACEMENT_DECLINED = "replacement_declined", "Replacement declined"
         REPLACEMENT_WITHDRAWN = "replacement_withdrawn", "Replacement withdrawn"
+        ASSIGNMENT_RELEASE_REQUESTED = "assignment_release_requested", "Assignment release requested"
+        ASSIGNMENT_RELEASE_RESOLVED = "assignment_release_resolved", "Assignment release resolved"
         DISPUTE_OPENED = "dispute_opened", "Dispute opened"
         DISPUTE_UPDATED = "dispute_updated", "Dispute updated"
         DISPUTE_RESOLVED = "dispute_resolved", "Dispute resolved"

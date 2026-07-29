@@ -74,6 +74,10 @@ PILOT_VERIFICATION_BYPASS_END_AT = os.getenv(
 PILOT_GENUINE_JOB_INTAKE_PAUSED = env_bool(
     "PILOT_GENUINE_JOB_INTAKE_PAUSED", False
 )
+# Fail closed until the additive migrations and PostgreSQL concurrency evidence
+# have been deployed.  This is deliberately the only temporary recovery 409
+# boundary; ordinary agency participation remains open-live.
+AGENCY_LIVE_RECOVERY_ENABLED = env_bool("AGENCY_LIVE_RECOVERY_ENABLED", False)
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")

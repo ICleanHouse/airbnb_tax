@@ -239,11 +239,13 @@ AuditLog ──[references]────────► (any entity — polymorph
   permits one actionable job per exact property/start/end slot and one
   actionable job per lineage. Historical `completed`/`cancelled` attempts may
   share a slot.
-- Recovery creates a new linked job in the same lineage. Replacement is a later
-  S1-E05 batch; agency recovery remains explicitly unsupported.
+- Recovery creates a new linked job in the same lineage. Under ADR-0003 an
+  eligible agency may use the same explicit recovery services; a delegated
+  member records an append-only release request. The rollout flag is the only
+  temporary agency-recovery 409 boundary.
 - Competing applications are rejected when one is accepted.
 - **Completion is a single step by the assigned cleaner (or an admin)** — there is no separate host confirmation. Marking done sets `completed_at` and flips the job to `completed` immediately; `cleaner_completed_at`/`host_completed_at` are both stamped at that moment. Cleaner completion is time-gated to after `scheduled_start`.
-- Reviews only allowed after `completed` with `assignment.completed_at` set, and are **double-blind**: a review about a user is revealed only once both sides have reviewed that job, or after a 14-day window (`feedback.services.REVIEW_WINDOW_DAYS`). On completion both host and cleaner receive a `review.requested` prompt. For delegated agency assignments, the review parties are the host and the actual assigned cleaner member; the agency account is not a review participant after delegation.
+- Reviews only allowed after `completed` with `assignment.completed_at` set and are **double-blind**. Direct and undelegated jobs use two parties. A delegated-agency assignment uses the immutable host/agency/delegated-member `ReviewGroup`, six directed reviews, and group reveal after all six submissions or the 14-day window.
 - Disputes are orthogonal case records, not job statuses. The dispute workflow
   is a later S1-E05 batch and cannot change completion, reviews, or ratings.
 
@@ -525,7 +527,7 @@ Full API surface with implementation state.
 | GET | `/api/marketplace/public-demand/` | None | ✅ — canonical city/zone aggregate only |
 | GET | `/api/marketplace/open-job-locations/` | None | Deprecated alias — identical aggregate body; sunset 2026-10-15 |
 | POST | `/api/marketplace/jobs/{id}/publish/` | Host | ✅ |
-| POST | `/api/marketplace/jobs/{id}/cancel/` | Authorized host/direct cleaner/admin | ✅ — agency recovery writes explicitly unsupported |
+| POST | `/api/marketplace/jobs/{id}/cancel/` | Authorized host/agency/direct cleaner/admin | ✅ — agency writes are fail-closed only while the rollout flag is false |
 | GET | `/api/marketplace/jobs/{id}/available-actions/` | Authorized participant/admin | ✅ — server-derived |
 | GET | `/api/marketplace/lineages/{id}/chronology/` | Authorized participant/admin | ✅ — disclosure-tiered |
 | DELETE | `/api/marketplace/jobs/{id}/` | Authorized participant | ✅ — stable 409; use cancellation |

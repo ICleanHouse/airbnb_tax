@@ -327,10 +327,10 @@ Responsibilities:
 
 The complete implemented/reserved event and recipient contract is versioned in
 `docs/S1_E06_NOTIFICATION_MATRIX.md`. It covers account outcomes, explicit
-matching/offers, applications, assignment/delegation, direct S1-E05 recovery,
-completion/reviews, connections/messages, and operator-recorded reminders.
-Unimplemented S1-D02 phone/restoration/expiry outcomes and agency recovery
-remain reserved, not inferred.
+matching/offers, applications, assignment/delegation, S1-E05 agency recovery,
+completion/group reviews, connections/messages, and operator-recorded reminders.
+Unimplemented S1-D02 phone/restoration/expiry outcomes remain reserved, not
+inferred. Agency recovery is governed by ADR-0003 and its rollout flag.
 
 The approved Stage 1 evidence boundary also requires an admin-initiated survey
 invitation capability before the 90-day observation period: role/activation/

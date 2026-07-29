@@ -4,12 +4,12 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
-from django.db.models import Avg, Q, Subquery
+from django.db.models import Avg, Count, Q, Subquery
 from django.utils import timezone
 
 from apps.accounts.models import CleanerProfile
 from apps.core.services import write_audit_log
-from apps.feedback.models import Review
+from apps.feedback.models import Review, ReviewGroup
 from apps.marketplace.models import CleaningJob
 from apps.notifications.services import NotificationEventRequest, emit_notification_event
 
@@ -37,13 +37,31 @@ def revealed_received_reviews(user: User):
     the review window has closed. Private-issue reports are never included.
     """
     reviewed_job_ids = Review.objects.filter(reviewer=user, is_private_issue=False).values("job")
+    revealed_group_ids = ReviewGroup.objects.filter(
+        Q(host=user) | Q(agency=user) | Q(delegated_member=user)
+    ).annotate(
+        review_count=Count("reviews", filter=Q(reviews__is_private_issue=False))
+    ).filter(
+        Q(review_count=6) | Q(job__assignment__completed_at__lte=review_window_cutoff())
+    ).values("id")
     return Review.objects.filter(reviewee=user, is_private_issue=False).filter(
-        Q(job__in=Subquery(reviewed_job_ids))
-        | Q(job__assignment__completed_at__lte=review_window_cutoff())
+        Q(group__in=Subquery(revealed_group_ids))
+        | Q(group__isnull=True, job__in=Subquery(reviewed_job_ids))
+        | Q(group__isnull=True, job__assignment__completed_at__lte=review_window_cutoff())
     )
 
 
+def revealed_group_reviews(user: User):
+    """All six reviews are visible to a group participant once the group reveals."""
+    group_ids = ReviewGroup.objects.filter(Q(host=user) | Q(agency=user) | Q(delegated_member=user)).annotate(
+        review_count=Count("reviews", filter=Q(reviews__is_private_issue=False))
+    ).filter(Q(review_count=6) | Q(job__assignment__completed_at__lte=review_window_cutoff())).values("id")
+    return Review.objects.filter(group__in=Subquery(group_ids), is_private_issue=False)
+
+
 def _review_participant_ids(job: CleaningJob, assignment) -> set[int]:
+    if _is_delegated_agency_assignment(assignment):
+        return {job.host_id, assignment.cleaner_id, assignment.assigned_member_id}
     actual_cleaner_id = assignment.assigned_member_id or assignment.cleaner_id
     return {job.host_id, actual_cleaner_id}
 
@@ -79,11 +97,17 @@ def submit_review(
     ):
         raise FeedbackError("The review window for this job has closed.")
 
+    group = None
     involved_user_ids = _review_participant_ids(job, assignment)
+    if _is_delegated_agency_assignment(assignment):
+        group, _ = ReviewGroup.objects.get_or_create(
+            job=job,
+            defaults={"host_id": job.host_id, "agency_id": assignment.cleaner_id, "delegated_member_id": assignment.assigned_member_id},
+        )
     if reviewer.id not in involved_user_ids or reviewee.id not in involved_user_ids:
         if _is_delegated_agency_assignment(assignment):
             raise FeedbackError(
-                "Only the host and assigned cleaner can review each other for this job."
+                "Only the host, assigned agency, and delegated cleaner can review this job group."
             )
         raise FeedbackError("Only users involved in the job can review each other.")
 
@@ -103,6 +127,7 @@ def submit_review(
                 comment=comment,
                 private_note=private_note,
                 is_private_issue=is_private_issue,
+                group=group,
             )
     except IntegrityError as exc:
         raise FeedbackError("You have already reviewed this job.") from exc
@@ -121,6 +146,17 @@ def submit_review(
 
     if is_private_issue:
         pass
+    elif group is not None:
+        submitted_count = group.reviews.filter(is_private_issue=False).count()
+        if submitted_count == 6:
+            for recipient in (group.host, group.agency, group.delegated_member):
+                emit_notification_event(
+                    NotificationEventRequest(event_type="review.group_revealed", recipient_id=recipient.id, occurrence_key=f"review-group-revealed:{group.id}:{recipient.id}", destination=(f"/host?reviewJob={job.id}" if recipient.id == group.host_id else f"/agency?reviewJob={job.id}" if recipient.id == group.agency_id else f"/cleaner?reviewJob={job.id}"), source_entity_type="ReviewGroup", source_entity_id=str(group.id), request_id=getattr(request, "request_id", "") if request else "")
+                )
+        else:
+            emit_notification_event(
+                NotificationEventRequest(event_type="review.group_requested", recipient_id=reviewee.id, occurrence_key=f"review-group-request:{group.id}:{reviewer.id}:{reviewee.id}", destination=(f"/host?reviewJob={job.id}" if reviewee.id == group.host_id else f"/agency?reviewJob={job.id}" if reviewee.id == group.agency_id else f"/cleaner?reviewJob={job.id}"), source_entity_type="ReviewGroup", source_entity_id=str(group.id), request_id=getattr(request, "request_id", "") if request else "")
+            )
     elif counterpart is not None:
         # Both reviews now exist — they become visible to each other.
         for recipient in (reviewer, reviewee):

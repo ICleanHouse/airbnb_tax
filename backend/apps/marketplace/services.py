@@ -394,7 +394,7 @@ def cancel_job(
 ) -> CleaningJob:
     job = _lock_lineage_and_job(job.pk)
     assignment = (
-        Assignment.objects.select_for_update()
+        Assignment.objects.select_for_update(of=("self",))
         .select_related("cleaner", "assigned_member")
         .filter(job=job)
         .first()
@@ -508,7 +508,7 @@ def cancel_job(
 
 def _recovery_assignment(job: CleaningJob) -> Assignment | None:
     return (
-        Assignment.objects.select_for_update()
+        Assignment.objects.select_for_update(of=("self",))
         .select_related("cleaner", "assigned_member")
         .filter(job=job)
         .first()
@@ -609,7 +609,15 @@ def create_assignment_release_request(*, assignment: Assignment, member: User, r
 @transaction.atomic
 def resolve_assignment_release_request(*, release: AssignmentReleaseRequest, agency: User, resolution: str, request=None) -> AssignmentReleaseRequest:
     _ensure_agency_live_recovery_enabled()
-    release = AssignmentReleaseRequest.objects.select_for_update().select_related("assignment__job", "assignment__cleaner", "assignment__assigned_member").get(pk=release.pk)
+    release = (
+        AssignmentReleaseRequest.objects.select_for_update(of=("self",))
+        .select_related(
+            "assignment__job",
+            "assignment__cleaner",
+            "assignment__assigned_member",
+        )
+        .get(pk=release.pk)
+    )
     job = _lock_lineage_and_job(release.assignment.job_id)
     assignment = _recovery_assignment(job)
     agency = User.objects.select_for_update().get(pk=agency.pk)

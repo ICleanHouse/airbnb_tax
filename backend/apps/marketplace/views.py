@@ -931,8 +931,25 @@ class CleaningJobViewSet(
         if error:
             return error
         incident = get_object_or_404(JobIncident, pk=serializer.validated_data["incident_id"], job=job)
+        release_request = None
+        if "release_request_id" in serializer.validated_data:
+            release_request = AssignmentReleaseRequest.objects.filter(
+                pk=serializer.validated_data["release_request_id"]
+            ).first()
+            if release_request is None:
+                return lifecycle_error_response(
+                    "invalid_release_request",
+                    "This release request cannot be used for this recovery.",
+                    status_code=status.HTTP_409_CONFLICT,
+                )
         try:
-            replacement = create_replacement_request(job=job, incident=incident, actor=request.user, request=request)
+            replacement = create_replacement_request(
+                job=job,
+                incident=incident,
+                actor=request.user,
+                release_request=release_request,
+                request=request,
+            )
         except MarketplaceError as exc:
             return marketplace_error_response(exc)
         return Response(RecoveryRequestSerializer(replacement).data, status=status.HTTP_201_CREATED)

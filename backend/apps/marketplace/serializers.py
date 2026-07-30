@@ -322,6 +322,7 @@ class JobIncidentCreateSerializer(serializers.Serializer):
 
 class ReplacementRequestCreateSerializer(serializers.Serializer):
     incident_id = serializers.IntegerField()
+    release_request_id = serializers.IntegerField(required=False, min_value=1)
 
 
 class ReplacementResponseSerializer(serializers.Serializer):
@@ -352,7 +353,11 @@ class RecoveryRequestSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     status = serializers.CharField(read_only=True)
     expires_at = serializers.DateTimeField(read_only=True)
-    successor_id = serializers.IntegerField(source="successor_id", read_only=True)
+    successor_id = serializers.IntegerField(read_only=True)
+    release_request_id = serializers.SerializerMethodField()
+
+    def get_release_request_id(self, instance):
+        return instance.release_requests.values_list("id", flat=True).first()
 
 
 class AssignmentReleaseRequestCreateSerializer(serializers.Serializer):

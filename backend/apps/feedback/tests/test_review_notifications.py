@@ -33,7 +33,14 @@ class ReviewNotificationTests(ReviewScenarioMixin, TestCase):
 
         notification = Notification.objects.get(notification_type="review.requested")
         self.assertEqual(notification.user, self.cleaner)
-        self.assertEqual(notification.metadata, {"destination": f"/cleaner?reviewJob={self.job.id}"})
+        self.assertEqual(
+            notification.metadata,
+            {
+                "destination": f"/cleaner?reviewJob={self.job.id}",
+                "job_id": self.job.id,
+                "reviewee_id": self.cleaner.id,
+            },
+        )
         self.assertNotIn(str(review.rating), str(notification.metadata))
         self.assertNotIn(review.comment, notification.body)
         self.assertNotIn(self.job.title, notification.body)

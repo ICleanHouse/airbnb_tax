@@ -29,6 +29,7 @@ from apps.marketplace.models import (
     RescheduleProposal,
     TurnoverLineage,
 )
+from apps.marketplace.participants import resolve_review_participants
 from apps.marketplace.selectors import valid_future_marketplace_jobs
 from apps.notifications.services import NotificationEventRequest, emit_notification_event
 
@@ -125,7 +126,7 @@ def _notification_destination(user: User, *, section: str = "") -> str:
 def _emit_notification(
     *, event_type: str, recipient: User, occurrence_key: str,
     source_entity_type: str, source_entity_id: int, request=None, section: str = "",
-    destination: str = "",
+    destination: str = "", metadata: dict | None = None,
 ):
     return emit_notification_event(
         NotificationEventRequest(
@@ -136,6 +137,7 @@ def _emit_notification(
             source_entity_type=source_entity_type,
             source_entity_id=str(source_entity_id),
             request_id=_request_id(request),
+            metadata=metadata or {},
         )
     )
 
@@ -766,7 +768,14 @@ def _create_replacement_successor(*, source: CleaningJob, request: ReplacementRe
 
 
 @transaction.atomic
-def create_replacement_request(*, job: CleaningJob, incident: JobIncident | None, actor: User, request=None) -> ReplacementRequest:
+def create_replacement_request(
+    *,
+    job: CleaningJob,
+    incident: JobIncident | None,
+    actor: User,
+    release_request: AssignmentReleaseRequest | None = None,
+    request=None,
+) -> ReplacementRequest:
     job = _lock_lineage_and_job(job.pk)
     assignment = _recovery_assignment(job)
     actor = User.objects.select_for_update().get(pk=actor.pk)
@@ -778,17 +787,103 @@ def create_replacement_request(*, job: CleaningJob, incident: JobIncident | None
     expiry = _replacement_expiry(job)
     if expiry <= timezone.now():
         raise LifecycleConflict("The replacement window has expired.")
+
+    if assignment is not None and assignment.cleaner.is_agency:
+        if assignment.assigned_member_id is None:
+            raise _agency_conflict(
+                "agency_member_required",
+                "Agency recovery requires a delegated cleaner member.",
+            )
+    elif release_request is not None:
+        raise _agency_conflict(
+            "invalid_release_request",
+            "This release request cannot be used for this recovery.",
+        )
+
+    release = None
+    if release_request is not None:
+        release = (
+            AssignmentReleaseRequest.objects.select_for_update()
+            .filter(pk=release_request.pk)
+            .first()
+        )
+        if (
+            release is None
+            or assignment is None
+            or release.assignment_id != assignment.id
+            or release.member_id != assignment.assigned_member_id
+            or release.status != AssignmentReleaseRequest.Status.ACTED
+            or release.replacement_request_id is not None
+        ):
+            raise _agency_conflict(
+                "invalid_release_request",
+                "This release request cannot be used for this recovery.",
+            )
+
+    if ReplacementRequest.objects.filter(
+        source_job=job,
+        status__in=[
+            ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION,
+            ReplacementRequest.Status.AUTHORIZED,
+        ],
+    ).exists():
+        raise _agency_conflict(
+            "replacement_already_requested",
+            "A replacement request is already actionable for this job.",
+        )
+
     is_host = actor.id == job.host_id
-    replacement = ReplacementRequest.objects.create(
-        source_job=job, incident=incident, requested_by=actor, expires_at=expiry,
-        status=ReplacementRequest.Status.AUTHORIZED if is_host else ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION,
-        authorized_by=actor if is_host else None,
-    )
+    try:
+        with transaction.atomic():
+            replacement = ReplacementRequest.objects.create(
+                source_job=job,
+                incident=incident,
+                requested_by=actor,
+                expires_at=expiry,
+                status=(
+                    ReplacementRequest.Status.AUTHORIZED
+                    if is_host
+                    else ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION
+                ),
+                authorized_by=actor if is_host else None,
+            )
+    except IntegrityError as exc:
+        raise _agency_conflict(
+            "replacement_already_requested",
+            "A replacement request is already actionable for this job.",
+        ) from exc
     if is_host:
         replacement.successor = _create_replacement_successor(source=job, request=replacement)
         replacement.save(update_fields=["successor", "updated_at"])
-    _record_lifecycle_event(job=job, actor=actor, event_type=JobLifecycleEvent.EventType.REPLACEMENT_REQUESTED,
-                            metadata={"replacement_request_id": replacement.id}, request=request)
+    if release is not None:
+        release.replacement_request = replacement
+        release.save(update_fields=["replacement_request", "updated_at"])
+    metadata = {
+        "replacement_request_id": replacement.id,
+        "incident_id": incident.id,
+    }
+    if release is not None:
+        metadata["release_request_id"] = release.id
+    _record_lifecycle_event(
+        job=job,
+        actor=actor,
+        event_type=JobLifecycleEvent.EventType.REPLACEMENT_REQUESTED,
+        metadata=metadata,
+        request=request,
+    )
+    write_audit_log(
+        actor=actor,
+        action="job.replacement_requested",
+        entity_type="ReplacementRequest",
+        entity_id=replacement.id,
+        request=request,
+        metadata={
+            "source_job_id": job.id,
+            "lineage_id": job.lineage_id,
+            "incident_id": incident.id,
+            **({"release_request_id": release.id} if release is not None else {}),
+        },
+    )
     if is_host:
         for recipient in _recovery_recipients(job=job, assignment=assignment, actor=actor):
             _emit_notification(
@@ -814,8 +909,11 @@ def authorize_replacement_request(*, replacement: ReplacementRequest, actor: Use
     assignment = _recovery_assignment(job)
     actor = User.objects.select_for_update().get(pk=actor.pk)
     _ensure_recovery_authority(job=job, actor=actor, assignment=assignment, action="replacement")
-    if actor.id != job.host_id and not actor.is_platform_admin:
-        raise LifecycleConflict("Only the host can authorize this replacement.")
+    if actor.id != job.host_id:
+        raise _agency_conflict(
+            "host_authorization_required",
+            "Only the host can authorize this replacement.",
+        )
     if replacement.status != ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION:
         raise LifecycleConflict("This replacement request is no longer actionable.")
     if replacement.expires_at <= timezone.now():
@@ -827,9 +925,34 @@ def authorize_replacement_request(*, replacement: ReplacementRequest, actor: Use
         replacement.authorized_by = actor
         replacement.successor = _create_replacement_successor(source=job, request=replacement)
     replacement.save(update_fields=["status", "authorized_by", "successor", "updated_at"])
-    _record_lifecycle_event(job=job, actor=actor,
-                            event_type=JobLifecycleEvent.EventType.REPLACEMENT_APPROVED if accept else JobLifecycleEvent.EventType.REPLACEMENT_DECLINED,
-                            metadata={"replacement_request_id": replacement.id}, request=request)
+    _record_lifecycle_event(
+        job=job,
+        actor=actor,
+        event_type=(
+            JobLifecycleEvent.EventType.REPLACEMENT_APPROVED
+            if replacement.status == ReplacementRequest.Status.AUTHORIZED
+            else JobLifecycleEvent.EventType.REPLACEMENT_DECLINED
+        ),
+        reason_code="expired" if replacement.status == ReplacementRequest.Status.EXPIRED else "",
+        metadata={"replacement_request_id": replacement.id},
+        request=request,
+    )
+    write_audit_log(
+        actor=actor,
+        action=(
+            "job.replacement_authorized"
+            if replacement.status == ReplacementRequest.Status.AUTHORIZED
+            else "job.replacement_declined"
+        ),
+        entity_type="ReplacementRequest",
+        entity_id=replacement.id,
+        request=request,
+        metadata={
+            "source_job_id": job.id,
+            "lineage_id": job.lineage_id,
+            "status": replacement.status,
+        },
+    )
     requester = User.objects.get(id=replacement.requested_by_id)
     if requester.id != actor.id:
         _emit_notification(
@@ -1378,7 +1501,8 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
             request=request,
         )
 
-    actual_worker = assignment.assigned_member or assignment.cleaner
+    participants = resolve_review_participants(job=job, assignment=assignment)
+    actual_worker = participants.concrete_worker
     _emit_notification(
         event_type="job.completed", recipient=job.host,
         occurrence_key=f"job-completed:{job.id}:{assignment.completed_at.isoformat()}",
@@ -1393,27 +1517,22 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
             source_entity_type="CleaningJob", source_entity_id=job.id,
             request=request, section="assignments",
         )
-    review_recipients = ((job.host, actual_worker.id), (actual_worker, job.host_id))
-    if assignment.assigned_member_id and assignment.cleaner.is_agency:
-        # A delegated agency completion has three contractual participants.
-        # The agency receives its own safe group-review prompt; the actual
-        # worker remains the operational and review counterpart, never a proxy.
-        review_recipients = (
-            (job.host, actual_worker.id),
-            (actual_worker, job.host_id),
-            (assignment.cleaner, job.host_id),
-        )
+    review_recipients = (
+        (participants.host, actual_worker.id),
+        (actual_worker, participants.host.id),
+    )
     for recipient, reviewee_id in review_recipients:
         _emit_notification(
-            event_type="review.group_requested" if assignment.assigned_member_id and assignment.cleaner.is_agency else "review.requested", recipient=recipient,
+            event_type="review.requested", recipient=recipient,
             occurrence_key=f"review-request:{job.id}:{reviewee_id}:{assignment.completed_at.isoformat()}",
             source_entity_type="CleaningJob", source_entity_id=job.id,
             request=request,
             destination=(
-                f"/host?reviewJob={job.id}" if recipient.id == job.host_id
-                else f"/agency?reviewJob={job.id}" if recipient.id == assignment.cleaner_id
+                f"/host?reviewJob={job.id}"
+                if recipient.id == participants.host.id
                 else f"/cleaner?reviewJob={job.id}"
             ),
+            metadata={"job_id": job.id, "reviewee_id": reviewee_id},
         )
 
     write_audit_log(

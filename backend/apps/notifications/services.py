@@ -179,7 +179,7 @@ def emit_notification_event(request: NotificationEventRequest) -> NotificationEv
                 channel=Notification.Channel.IN_APP,
                 title=template.title,
                 body=template.body,
-                metadata={"destination": destination},
+                metadata={"destination": destination, **request.metadata},
                 sent_at=now,
                 deduplication_key=delivery.deduplication_key,
             )

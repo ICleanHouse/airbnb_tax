@@ -32,6 +32,7 @@ def _spec(
     channels: tuple[str, ...] = ("in_app", "email"),
     en_subject: str = "Action required in Host Cleaners",
     bg_subject: str = "Необходимо е действие в Host Cleaners",
+    allowed_metadata: frozenset[str] = frozenset(),
 ) -> NotificationEventSpec:
     return NotificationEventSpec(
         channels=channels,
@@ -39,6 +40,7 @@ def _spec(
             "en": LocalizedNotificationTemplate(en_title, en_body, en_subject, en_body),
             "bg": LocalizedNotificationTemplate(bg_title, bg_body, bg_subject, bg_body),
         },
+        allowed_metadata=allowed_metadata,
     )
 
 
@@ -206,6 +208,7 @@ EVENT_SPECS: dict[str, NotificationEventSpec] = {
         "Leave a review", "Leave your review to unlock both participants' reviews.",
         "Оставете отзив", "Оставете своя отзив, за да отключите отзивите и на двете страни.",
         channels=("in_app",),
+        allowed_metadata=frozenset({"job_id", "reviewee_id"}),
     ),
     "review.revealed": _spec(
         "Reviews are now visible", "Both participants submitted reviews, which are now visible.",

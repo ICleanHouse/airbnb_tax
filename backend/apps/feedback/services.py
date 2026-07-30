@@ -11,6 +11,7 @@ from apps.accounts.models import CleanerProfile
 from apps.core.services import write_audit_log
 from apps.feedback.models import Review, ReviewGroup
 from apps.marketplace.models import CleaningJob
+from apps.marketplace.participants import resolve_review_participants
 from apps.notifications.services import NotificationEventRequest, emit_notification_event
 
 
@@ -60,14 +61,8 @@ def revealed_group_reviews(user: User):
 
 
 def _review_participant_ids(job: CleaningJob, assignment) -> set[int]:
-    if _is_delegated_agency_assignment(assignment):
-        return {job.host_id, assignment.cleaner_id, assignment.assigned_member_id}
-    actual_cleaner_id = assignment.assigned_member_id or assignment.cleaner_id
-    return {job.host_id, actual_cleaner_id}
-
-
-def _is_delegated_agency_assignment(assignment) -> bool:
-    return bool(assignment.assigned_member_id and assignment.cleaner.is_agency)
+    participants = resolve_review_participants(job=job, assignment=assignment)
+    return {participants.host.id, participants.concrete_worker.id}
 
 
 @transaction.atomic
@@ -97,18 +92,8 @@ def submit_review(
     ):
         raise FeedbackError("The review window for this job has closed.")
 
-    group = None
     involved_user_ids = _review_participant_ids(job, assignment)
-    if _is_delegated_agency_assignment(assignment):
-        group, _ = ReviewGroup.objects.get_or_create(
-            job=job,
-            defaults={"host_id": job.host_id, "agency_id": assignment.cleaner_id, "delegated_member_id": assignment.assigned_member_id},
-        )
     if reviewer.id not in involved_user_ids or reviewee.id not in involved_user_ids:
-        if _is_delegated_agency_assignment(assignment):
-            raise FeedbackError(
-                "Only the host, assigned agency, and delegated cleaner can review this job group."
-            )
         raise FeedbackError("Only users involved in the job can review each other.")
 
     if reviewer.id == reviewee.id:
@@ -127,7 +112,6 @@ def submit_review(
                 comment=comment,
                 private_note=private_note,
                 is_private_issue=is_private_issue,
-                group=group,
             )
     except IntegrityError as exc:
         raise FeedbackError("You have already reviewed this job.") from exc
@@ -146,17 +130,6 @@ def submit_review(
 
     if is_private_issue:
         pass
-    elif group is not None:
-        submitted_count = group.reviews.filter(is_private_issue=False).count()
-        if submitted_count == 6:
-            for recipient in (group.host, group.agency, group.delegated_member):
-                emit_notification_event(
-                    NotificationEventRequest(event_type="review.group_revealed", recipient_id=recipient.id, occurrence_key=f"review-group-revealed:{group.id}:{recipient.id}", destination=(f"/host?reviewJob={job.id}" if recipient.id == group.host_id else f"/agency?reviewJob={job.id}" if recipient.id == group.agency_id else f"/cleaner?reviewJob={job.id}"), source_entity_type="ReviewGroup", source_entity_id=str(group.id), request_id=getattr(request, "request_id", "") if request else "")
-                )
-        else:
-            emit_notification_event(
-                NotificationEventRequest(event_type="review.group_requested", recipient_id=reviewee.id, occurrence_key=f"review-group-request:{group.id}:{reviewer.id}:{reviewee.id}", destination=(f"/host?reviewJob={job.id}" if reviewee.id == group.host_id else f"/agency?reviewJob={job.id}" if reviewee.id == group.agency_id else f"/cleaner?reviewJob={job.id}"), source_entity_type="ReviewGroup", source_entity_id=str(group.id), request_id=getattr(request, "request_id", "") if request else "")
-            )
     elif counterpart is not None:
         # Both reviews now exist — they become visible to each other.
         for recipient in (reviewer, reviewee):
@@ -189,6 +162,7 @@ def submit_review(
                 source_entity_type="Review",
                 source_entity_id=str(review.id),
                 request_id=getattr(request, "request_id", "") if request else "",
+                metadata={"job_id": job.id, "reviewee_id": reviewee.id},
             )
         )
 
@@ -213,7 +187,12 @@ def refresh_cleaner_rating(user: User) -> None:
 
     # Only revealed reviews count toward the public rating (double-blind).
     aggregate = revealed_received_reviews(user).aggregate(average=Avg("rating"))
-    completed_count = user.cleaning_assignments.filter(job__status=CleaningJob.Status.COMPLETED).count()
+    completed_count = (
+        user.cleaning_assignments.filter(job__status=CleaningJob.Status.COMPLETED).count()
+        + user.agency_assigned_cleanings.filter(
+            job__status=CleaningJob.Status.COMPLETED
+        ).count()
+    )
     profile.average_rating = aggregate["average"] or 0
     profile.completed_jobs_count = completed_count
     profile.save(update_fields=["average_rating", "completed_jobs_count", "updated_at"])

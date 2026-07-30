@@ -4,14 +4,14 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, HostProfile, User
-from apps.feedback.models import ReviewGroup
-from apps.feedback.services import revealed_received_reviews, submit_review
+from apps.feedback.models import Review, ReviewGroup
+from apps.feedback.services import FeedbackError, revealed_received_reviews, submit_review
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
 from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property
 
 
-class DelegatedAgencyGroupReviewTests(TestCase):
+class DelegatedAgencyReviewTests(TestCase):
     def setUp(self):
         self.host = self._user("host", User.Role.HOST); HostProfile.objects.create(user=self.host, city="Sofia")
         self.agency_user = self._user("agency", User.Role.AGENCY); self.agency = AgencyProfile.objects.create(user=self.agency_user, company_name="Agency", city="Sofia")
@@ -26,13 +26,35 @@ class DelegatedAgencyGroupReviewTests(TestCase):
     def _user(self, username, role):
         return User.objects.create_user(username=username, email=f"{username}@example.test", password="Password123!", role=role, account_status=User.AccountStatus.APPROVED, email_verified_at=timezone.now())
 
-    def test_group_has_three_snapshotted_participants_and_reveals_only_after_all_six_pairs(self):
-        participants = (self.host, self.agency_user, self.member)
-        for reviewer in participants:
-            for reviewee in participants:
-                if reviewer != reviewee:
-                    submit_review(job=self.job, reviewer=reviewer, reviewee=reviewee, rating=5)
-        group = ReviewGroup.objects.get(job=self.job)
-        self.assertEqual(set(group.participant_ids), {user.id for user in participants})
-        self.assertEqual(group.reviews.count(), 6)
-        self.assertEqual(revealed_received_reviews(self.host).filter(job=self.job).count(), 2)
+    def test_delegated_assignment_has_two_party_reviews_and_no_new_agency_group(self):
+        host_review = submit_review(
+            job=self.job, reviewer=self.host, reviewee=self.member, rating=5
+        )
+        member_review = submit_review(
+            job=self.job, reviewer=self.member, reviewee=self.host, rating=4
+        )
+
+        self.assertFalse(ReviewGroup.objects.filter(job=self.job).exists())
+        self.assertEqual(
+            set(Review.objects.filter(job=self.job).values_list("reviewer_id", "reviewee_id")),
+            {(self.host.id, self.member.id), (self.member.id, self.host.id)},
+        )
+        self.assertEqual(revealed_received_reviews(self.host).filter(job=self.job).count(), 1)
+        self.assertEqual(host_review.reviewee_id, self.member.id)
+        self.assertEqual(member_review.reviewee_id, self.host.id)
+
+    def test_agency_cannot_participate_in_delegated_member_reviews(self):
+        with self.assertRaises(FeedbackError):
+            submit_review(
+                job=self.job,
+                reviewer=self.host,
+                reviewee=self.agency_user,
+                rating=5,
+            )
+        with self.assertRaises(FeedbackError):
+            submit_review(
+                job=self.job,
+                reviewer=self.agency_user,
+                reviewee=self.host,
+                rating=5,
+            )

@@ -1,6 +1,6 @@
 # S1-E06 Notification Reliability — TDD and Verification Record
 
-**Date:** 2026-07-22  
+**Date:** 2026-07-30
 **Implementation state:** complete  
 **Stage tracker state:** In progress — PostgreSQL/Redis/provider runtime gates pending
 
@@ -177,16 +177,41 @@ Completed on Windows with the repository's SQLite test configuration:
 
 ## Environment-gated evidence
 
-- **PostgreSQL 16 concurrency:** UNVERIFIED. The test is present and guarded by
-  `connection.vendor == "postgresql"`; it was correctly skipped under SQLite.
-  Docker Desktop's engine was unavailable and no PostgreSQL listener existed
-  on port 5432. SQLite results are not counted as row-locking evidence.
-- **Live Redis/Celery/provider smoke:** UNVERIFIED. Docker Desktop's engine was
-  unavailable and no Redis listener existed on port 6379, so the required solo
-  worker smoke could not be run. Eager/local tests cover the same state machine
-  but are not represented as live worker/provider proof.
+| Runtime command/scope | Outcome |
+| --- | --- |
+| Isolated `docker compose -p s1e06smoke` PostgreSQL 16 + Redis 7 stack, followed by `python manage.py migrate --noinput` | PASS — all project migrations applied to an empty disposable database. |
+| `python manage.py test apps.notifications.tests.test_reliability` against that database | PASS — 19 tests, including the PostgreSQL-only concurrent-claim case. |
+| Real Redis/Celery worker health and a queued canonical email delivery using the local Django adapter | PASS — worker and broker health true; the delivery became `sent` after one attempt. |
+| Worker delivery to an unavailable loopback SMTP endpoint | PASS — durable `retryable_failed` result with no terminal alert. |
+| Resend adapter with an intentionally blank key | PASS — durable terminal failure and exactly one operator alert, without an external request. |
+
+- **PostgreSQL 16 concurrency:** PASS. An isolated Compose project ran
+  PostgreSQL 16 and Redis 7, applied all migrations to an empty database, and
+  completed `python manage.py test apps.notifications.tests.test_reliability`:
+  19 tests passed, including the PostgreSQL-only concurrent claim test.
+- **Live Redis/Celery worker and health:** PASS. A real worker connected to the
+  isolated Redis broker. The admin-equivalent health query reported
+  `worker_running=true`, `queue_connected=true`, and no queued or failed work
+  before dispatch. A newly emitted email delivery was claimed by that worker and
+  persisted as `sent` with one `sent` attempt.
+- **Provider failure state machine:** PASS for safe local faults. A Django SMTP
+  adapter pointed at an unavailable loopback port persisted
+  `retryable_failed`, `provider_unavailable`, and `django_send_failed` after one
+  attempt, with no terminal alert. A Resend-configured worker with its API key
+  deliberately blank made no network request and persisted
+  `final_failed`, `configuration`, and `resend_not_configured` after one
+  attempt, with exactly one durable operator alert. Worker and broker health
+  remained available in both cases.
+- **Live Resend acceptance:** NOT RUN. The project has a configured Resend key
+  and sender, but the environment correctly blocked sending a real test email
+  without explicit approval of the destination and payload. This remains the
+  sole S1-E06 runtime evidence gap.
 - **Scheduler health:** not applicable. Automated reminders/Celery Beat are
   explicitly deferred; the operator-triggered reminder path is implemented.
+
+The disposable Compose worker emitted Celery's root-user warning. This did not
+affect the isolated test result, but it is an S1-R03 deployment-hardening item:
+the production worker should run as an unprivileged user before release.
 
 ## Deferred items and known limitations
 
@@ -196,8 +221,9 @@ Completed on Windows with the repository's SQLite test configuration:
 - Automated reminder scans and scheduler health are deferred.
 - Signup-code email is a separate pre-account authentication flow backed by
   `SignupEmailVerification`; task arguments now contain only its stable ID.
-- Production readiness remains gated on the two unverified runtime checks and
-  real Bulgarian/English delivery through a verified Resend sender.
+- Production readiness remains gated on real Bulgarian/English delivery through
+  a verified Resend sender.
 
-S1-E06 must remain **In progress** until the PostgreSQL 16 and live
-Redis/Celery/provider checks pass; the skipped gates are not passing evidence.
+S1-E06 must remain **In progress** until an explicitly approved live Resend
+acceptance test passes. PostgreSQL 16, Redis/Celery worker, health, success,
+retryable-failure, and terminal-alert runtime evidence are complete.

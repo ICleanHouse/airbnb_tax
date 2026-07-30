@@ -4,11 +4,11 @@
 |---|---|
 | Status | Active execution plan — S1-D01 and S1-D02 complete; Gates A and B in progress |
 | Created | 2026-07-13 |
-| Last updated | 2026-07-23 |
+| Last updated | 2026-07-30 |
 | Scope | Product, engineering, research, operations, and release work required to complete Stage 1 |
 | Decision at exit | Proceed, extend once, pivot, or stop |
 
-## Stage 1 execution dashboard — 2026-07-23
+## Stage 1 execution dashboard — 2026-07-30
 
 This is the top-level resume view for every named work item in the original
 plan. The detailed checklists and acceptance criteria remain authoritative in
@@ -54,7 +54,7 @@ state and the next action visible.
 | 7 | Add history-preserving lifecycle/recovery | Partially complete | Deliver agency recovery parity and correct delegated-member completion/review notifications. |
 | 8 | Disable calendar URL import and validate enabled uploads | Done | Keep URL fetching absent and preserve upload-security regression coverage. |
 | 9 | Govern exact maps/geocoding through the owned API boundary | In progress | Approve Geoapify/privacy/budget terms, update the privacy notice, and capture an authenticated browser network trace. |
-| 10 | Complete reliable critical notifications and reminders | In progress; implementation complete, runtime evidence pending | Run PostgreSQL 16, Redis/Celery, and real-provider smoke evidence before marking S1-E06 Done. |
+| 10 | Complete reliable critical notifications and reminders | In progress; PostgreSQL and Redis/Celery runtime evidence complete | Run the explicitly approved live Resend acceptance smoke before marking S1-E06 Done. |
 | 11 | Complete landing, onboarding, mobile, accessibility, and recovery UX | Not started | Start S1-UX01/02 after S1-D05/S1-E02 contracts are stable, then run mobile and WCAG gates. |
 | 12 | Complete instrumentation and the backend/frontend/browser test matrix | Not started as a consolidated gate | Re-baseline S1-Q01 for product-led evidence, then close S1-Q02–Q04 against the final implemented scope. |
 | 13 | Deploy securely and prove restore/rollback/support | Not started | Complete S1-R01–R05, including domain/TLS, production PostgreSQL/Redis, support runbooks, point-in-time restore, rollback, and alerts. |
@@ -81,7 +81,7 @@ state and the next action visible.
 | S1-E03 | Remove sensitive signup persistence | Done | Maintain storage, browser-history, logging, telemetry, and refresh-recovery regression tests. |
 | S1-E04 | Prevent overlapping cleaner assignments | Done for hard-overlap contract; availability follow-up open | Resolve the work-preference/availability documentation drift and keep operator-confirmed availability for the concierge cohort. |
 | S1-E05 | Add history-preserving failure and recovery workflows | Partially complete | Add agency-backed recovery without mutating delegation and fix delegated-member completion/review recipients. |
-| S1-E06 | Complete the reliability notification loop | In progress; runtime evidence pending | Prove PostgreSQL concurrency plus live Redis/Celery and provider delivery/failure behavior. |
+| S1-E06 | Complete the reliability notification loop | In progress; live Resend acceptance pending | PostgreSQL concurrency, Redis/Celery, local delivery, retryable failure, and terminal-alert behavior are evidenced; run the explicitly approved Resend acceptance smoke. |
 | S1-E07 | Repair conversion and role routing | Done | Full Django (472 tests) and seeded Playwright (10 tests, no skips) evidence passed. See `docs/testing/s1_e07_conversion_routing.tdd.md`. |
 | S1-E08 | Add account recovery and safe account deletion | Partially complete | Password recovery and S1-D04 closure/anonymization foundations are implemented; complete runtime evidence remains required. See `docs/testing/s1_e08_account_recovery.tdd.md`. |
 | S1-E09 | Secure or disable calendar URL import and uploads | Done with URL import disabled | Keep URL fetch absent; retain bounded ICS/image validation and privacy tests. |
@@ -177,7 +177,7 @@ validated.
 - **Next critical work:** implement S1-E02 under the approved S1-D02 policy,
   re-scope S1-D05 and Gate B for full agency parity, and re-baseline Gate D and
   the final readout for product-led descriptive evidence. In parallel, complete
-  S1-E06's PostgreSQL/Redis/provider runtime evidence and S1-E10's provider
+  S1-E06's explicitly approved live Resend acceptance smoke and S1-E10's provider
   approval, privacy notice, and authenticated browser trace.
 
 ---
@@ -560,7 +560,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E03 | Must-have | Project owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E04 | Must-have | Project owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
 | S1-E05 | Must-have | Project owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
-| S1-E06 | Must-have; reminders may be operator-assisted | Project owner | S1-D03 | In progress — runtime verification pending | 2026-07-22 | [Evidence](testing/s1_e06_notification_reliability.tdd.md) |
+| S1-E06 | Must-have; reminders may be operator-assisted | Project owner | S1-D03 | In progress — live Resend acceptance pending | 2026-07-30 | [Evidence](testing/s1_e06_notification_reliability.tdd.md) |
 | S1-E07 | Must-have | Project owner | S1-D05 | Done | 2026-07-28 | [TDD evidence](testing/s1_e07_conversion_routing.tdd.md) |
 | S1-E08 | Must-have | Project owner | S1-D03/D04 | Partially complete | 2026-07-28 | [TDD evidence](testing/s1_e08_account_recovery.tdd.md); S1-D04 decision remains required. |
 | S1-E09 | Must-have | Project owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
@@ -1147,11 +1147,10 @@ remain research questions.
       subjects and lock-screen-style bodies.
 - [x] Alert the operator exactly once after final delivery failure.
 
-Implementation evidence is complete in
+Implementation and PostgreSQL 16/Redis/Celery runtime evidence are recorded in
 `docs/testing/s1_e06_notification_reliability.tdd.md`. The item remains **In
-progress**, not Done, until PostgreSQL 16 concurrency and the live
-Redis/Celery/provider smoke are run in an environment that provides those
-services.
+progress**, not Done, until an explicitly approved live Resend acceptance
+smoke is run through the configured provider.
 
 Acceptance criteria:
 

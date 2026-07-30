@@ -1,19 +1,20 @@
 # Current Progress Handoff
 
-Updated: 2026-07-29.
+Updated: 2026-07-30.
 
 S1-D05 is now open-live under [ADR-0003](docs/adr/0003-open-live-agency-recovery-and-three-party-reviews.md).
 The older safe-409 recovery statements are historical; the only temporary
 boundary is the fail-closed `AGENCY_LIVE_RECOVERY_ENABLED` rollout flag.
 S1-E05 remains partially complete pending PostgreSQL concurrency and browser
-evidence. S1-E06 runtime verification follows acceptance.
+evidence. S1-E06 now has PostgreSQL and Redis/Celery runtime evidence; only an
+explicitly approved live Resend acceptance smoke remains.
 
 Implementation note (2026-07-27): S1-D05 now has a target-bound invitation
 contract, agency readiness projection, member-bound new assignments,
 agency-accountable recovery, `/agency` workspace/routing, and agency-safe
 notifications. It is not a live-release completion: S1-E02 phone verification,
-cleaner availability, PostgreSQL concurrency evidence, browser E2E, and
-Redis/Celery/provider smoke still gate launch. See
+cleaner availability, browser E2E, and an explicitly approved live Resend
+acceptance smoke still gate launch. See
 [S1-D05 full agency parity](docs/S1_D05_FULL_AGENCY_PARITY.md).
 
 This is a concise resume point, not a historical changelog. Detailed domain
@@ -70,13 +71,15 @@ change product or release authority.
   [refreshed S1-E02 maturity audit](docs/testing/s1_e02_account_verification_maturity_audit.md),
   [S1-D02](docs/S1_D02_CONTACT_ELIGIBILITY_POLICY.md) and
   [ADR-0002](docs/adr/0002-contact-based-verification.md).
-- **S1-E06 — Implemented; runtime evidence pending.** The versioned notification
+- **S1-E06 — Implemented; Resend acceptance pending.** The versioned notification
   contract, durable event/delivery/attempt records, post-commit dispatch,
   retry-safe localized email, recovery wiring, operator reminders, final-failure
   alerts, health API/admin views, and safe frontend routing are implemented.
-  SQLite/backend and frontend checks pass. PostgreSQL 16 concurrency and a live
-  Redis/Celery/provider smoke remain unverified because those local services are
-  unavailable; do not mark the item Done until those gates pass. Evidence:
+  PostgreSQL 16 concurrency and live Redis/Celery worker health, success,
+  retryable-failure, and terminal-alert paths now pass in an isolated Compose
+  stack. Do not mark the item Done until an explicitly approved live Resend
+  acceptance test passes. The disposable worker's root-user warning is an
+  S1-R03 deployment-hardening follow-up. Evidence:
   [S1-E06 TDD record](docs/testing/s1_e06_notification_reliability.tdd.md).
 - **S1-E07 — Done.** Safe localized return routing, guest Connect recovery,
   terminal-status containment, locked/error accessibility, deterministic

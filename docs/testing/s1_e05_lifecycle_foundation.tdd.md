@@ -1,7 +1,7 @@
 # S1-E05 Batch 2 — Lifecycle Foundation Evidence
 
 **Date:** 2026-07-20  
-**Status:** implemented; S1-E05 Partially complete  
+**Status:** historical foundation; superseded for agency parity by [focused agency recovery evidence](s1_e05_agency_recovery_parity.tdd.md)
 **Policy:** [approved S1-D03 contract](../S1_D03_LIFECYCLE_SUPPORT_POLICY.md)  
 **Architecture:** [accepted ADR-0001](../adr/0001-turnover-lineage-recovery.md)
 
@@ -110,11 +110,10 @@ tests; SQLite thread tests are not acceptable substitutes.
 
 ## Remaining scope and explicit non-goals
 
-Still separate: reschedule proposals and incidents (Batch 3), replacement
-requests and successor creation (Batch 4), disputes/optional messaging (Batch
-5), and account de-identification/retention execution (privacy Batch 6). Agency
-recovery parity remains deferred and explicitly unsupported, so S1-E05 cannot
-be marked Done.
+At the time of this foundation batch, later recovery and retention slices were
+separate. Agency-backed recovery and delegated review routing are now covered by
+the focused follow-on evidence; this document remains a record of the Batch 2
+foundation only.
 
 No payment, compensation, attachment/media, automated suspension, email
 reliability, or general support-platform behavior was added.

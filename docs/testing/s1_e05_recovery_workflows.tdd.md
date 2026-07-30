@@ -1,7 +1,8 @@
 # S1-E05 Direct Recovery Workflows — TDD Evidence
 
 **Date:** 2026-07-22  
-**Scope:** direct host/cleaner recovery only; agency recovery remains unsupported.
+**Scope:** direct host/cleaner recovery only. Agency parity is documented in the
+[focused follow-on evidence](s1_e05_agency_recovery_parity.tdd.md).
 
 ## RED → GREEN
 
@@ -27,4 +28,7 @@
 
 ## Intentional Boundaries
 
-Agency-backed recovery, email delivery/retries, retention/de-identification execution, payments, media, and public recovery details remain out of scope. S1-E05 remains partially complete because agency recovery is explicitly deferred by the accepted ADR.
+This historical direct-workflow document does not cover agency-backed recovery,
+email delivery/retries, retention/de-identification execution, payments, media,
+or public recovery details. Agency parity is no longer deferred; see the focused
+follow-on evidence for its current contract and PostgreSQL proof.

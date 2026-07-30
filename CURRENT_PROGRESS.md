@@ -2,12 +2,15 @@
 
 Updated: 2026-07-30.
 
-S1-D05 is now open-live under [ADR-0003](docs/adr/0003-open-live-agency-recovery-and-three-party-reviews.md).
-The older safe-409 recovery statements are historical; the only temporary
-boundary is the fail-closed `AGENCY_LIVE_RECOVERY_ENABLED` rollout flag.
-S1-E05 remains partially complete pending PostgreSQL concurrency and browser
-evidence. S1-E06 now has PostgreSQL and Redis/Celery runtime evidence; only an
-explicitly approved live Resend acceptance smoke remains.
+S1-D05 agency recovery parity is implemented: it creates a new
+host-authorized lineage attempt without mutating the original agency,
+application, assignment, or delegated member. S1-E05 has focused service/API
+and real PostgreSQL concurrency evidence. The fail-closed
+`AGENCY_LIVE_RECOVERY_ENABLED` rollout flag must still be enabled only in a
+target environment after its migrations are applied. The existing Playwright
+agency suite does not yet cover recovery/review. S1-E06 now has PostgreSQL and
+Redis/Celery runtime evidence; only an explicitly approved live Resend
+acceptance smoke remains.
 
 Implementation note (2026-07-27): S1-D05 now has a target-bound invitation
 contract, agency readiness projection, member-bound new assignments,
@@ -42,13 +45,13 @@ change product or release authority.
   interview, trial-job, company-registry, or quality gate. The visible
   “Verified” badge is scoped to email and phone confirmation. See the
   [approved S1-D02 policy](docs/S1_D02_CONTACT_ELIGIBILITY_POLICY.md).
-- **S1-E05 — Partially complete by accepted ADR.** Direct host/cleaner recovery
-  is implemented: counterpart-consented rescheduling, private attendance
-  incidents, host-authorized draft replacements, private disputes, account
-  deletion blockers, and an operator queue. Agency-backed recovery remains
-  intentionally unsupported and returns a safe `409`; do not add parity without
-  a new approved decision. Evidence:
-  [direct recovery workflows](docs/testing/s1_e05_recovery_workflows.tdd.md).
+- **S1-E05 — Implementation verified; controlled rollout activation remains.**
+  Direct and agency-backed recovery preserve source history and create one
+  host-authorized successor in the same lineage. Delegated completion and
+  reviews resolve the concrete member, never the agency account. The source
+  assignment/member/application remain unchanged; normal reassignment stays
+  rejected. Evidence: [agency recovery parity](docs/testing/s1_e05_agency_recovery_parity.tdd.md)
+  and [direct recovery workflows](docs/testing/s1_e05_recovery_workflows.tdd.md).
 - **S1-E10 — In progress; implementation complete.** The Geoapify-backed
   private geocoding API now includes its 24-hour HMAC-keyed normalized-result
   cache, 1,000/day aggregate outbound-call cap, 80%/100% idempotent owner-email
@@ -103,8 +106,8 @@ change product or release authority.
 ## Owner decisions still needed
 
 - Select the EEA SMS provider and implement S1-E02 under the approved S1-D02
-  policy; finish S1-D05's full agency launch path before dependent live-
-  marketplace work begins.
+  policy; complete the remaining full-agency launch evidence before dependent
+  live-marketplace work begins.
 - Re-baseline Gate D, instrumentation, and the final readout around the approved
   product-led descriptive model before public launch.
 - Configure `GEOAPIFY_USAGE_ALERT_EMAIL` and the remaining server-only

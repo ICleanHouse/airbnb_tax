@@ -9,7 +9,7 @@ It maps every domain entity, relationship, state machine, module dependency,
 frontend data flow, and event trigger — including what is implemented vs planned.
 Read this file at the start of any new development session to reconstruct full context instantly.
 
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-30
 **Stage:** v1 MVP — Active Development
 
 Password recovery is a public generic-response flow: request rate limiting uses
@@ -239,13 +239,23 @@ AuditLog ──[references]────────► (any entity — polymorph
   permits one actionable job per exact property/start/end slot and one
   actionable job per lineage. Historical `completed`/`cancelled` attempts may
   share a slot.
-- Recovery creates a new linked job in the same lineage. Under ADR-0003 an
-  eligible agency may use the same explicit recovery services; a delegated
-  member records an append-only release request. The rollout flag is the only
-  temporary agency-recovery 409 boundary.
+- Recovery creates a new linked job in the same lineage; it never reopens or
+  rewrites the source attempt. Agency recovery is an explicit, atomic
+  host-authorized/operator-supported service for a terminal agency assignment
+  with an immutable delegated member. An optional acted delegated-member
+  release request is linked to the replacement request; the source application,
+  assignment, agency, and assigned member remain on the source job. The
+  fail-closed `AGENCY_LIVE_RECOVERY_ENABLED` flag is the only temporary
+  agency-recovery boundary while the target environment is prepared.
 - Competing applications are rejected when one is accepted.
 - **Completion is a single step by the assigned cleaner (or an admin)** — there is no separate host confirmation. Marking done sets `completed_at` and flips the job to `completed` immediately; `cleaner_completed_at`/`host_completed_at` are both stamped at that moment. Cleaner completion is time-gated to after `scheduled_start`.
-- Reviews only allowed after `completed` with `assignment.completed_at` set and are **double-blind**. Direct and undelegated jobs use two parties. A delegated-agency assignment uses the immutable host/agency/delegated-member `ReviewGroup`, six directed reviews, and group reveal after all six submissions or the 14-day window.
+- Reviews are allowed only after `completed` with `assignment.completed_at` set
+  and are **double-blind**. The review participants are the host and the
+  concrete worker: `Assignment.assigned_member` for a delegated agency
+  assignment, otherwise `Assignment.cleaner`. The agency account is not a
+  personal-review participant after delegation. Historical `ReviewGroup` data
+  remains immutable for compatibility; new delegated completions create the
+  same two directed reviews as direct work.
 - Disputes are orthogonal case records, not job statuses. The dispute workflow
   is a later S1-E05 batch and cannot change completion, reviews, or ratings.
 
@@ -283,6 +293,12 @@ Agency Membership:
 - Agency can assign work only to `active` members.
 - Member cleaner must also be `approved` + `verified` to receive agency work.
 - Once an accepted agency assignment is delegated to a member cleaner, the normal agency API treats that delegation as immutable. Repeating the same member assignment is idempotent; assigning a different member is rejected. Any future reassignment requires a separate admin/support workflow.
+- Recovery is not normal reassignment: it cancels or records failure on the
+  source attempt, then creates a separately linked replacement request and
+  successor. It never changes `Assignment.assigned_member` on the source. A
+  later concrete replacement member must go through the explicit allowed
+  assignment/delegation transition, including the existing membership,
+  eligibility, and overlap lock/check.
 - Cleaner application acceptance, direct-offer acceptance, and concrete agency
   member delegation lock the worker and reject any non-cancelled assignment
   satisfying `existing_start < candidate_end` and
@@ -637,7 +653,9 @@ EVENT: job.completed                               ✅ implemented
   └──► ON COMMIT: job.completed + review.requested for host and concrete assigned member
 
 EVENT: review.requested                            ✅ implemented
-  └──► SIDE EFFECT: validated role-safe notification destination
+  └──► SIDE EFFECT: validated role-safe notification destination plus only
+      `job_id` and `reviewee_id` routing metadata; host and concrete worker
+      deep-link to their respective review surfaces
 
 EVENT: review.submitted                            ✅ implemented
   ├──► SIDE EFFECT: CleanerProfile.rating recalculated from REVEALED reviews only
@@ -929,6 +947,8 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Structured cancellation + assignment interval release | ✅ Complete (S1-E05 Batch 2) |
 | Physical job deletion replacement (stable 409) | ✅ Complete (S1-E05 Batch 2) |
 | Account-deletion active blocker/history support route | ✅ Complete (S1-E05 Batch 2) |
+| Agency-backed recovery parity | ✅ Implemented and PostgreSQL-verified; controlled rollout activation remains |
+| Delegated completion/review recipient routing | ✅ Complete — host and concrete delegated member only |
 | Two-way double-blind reviews + revealed-only rating update | ✅ Complete |
 | In-app notification records | ✅ Complete |
 | Calendar conflict API | ✅ Complete |

@@ -12,15 +12,20 @@ applicable Gate A–D work has passed.
 
 | ID | Remaining step | Dependency / exit condition |
 | --- | --- | --- |
-| S1-D05 | Complete agency signup/onboarding, workspace, member eligibility, job/application/assignment paths, notifications, and history-preserving recovery parity. | Full launch-critical agency path passes end to end. |
+| S1-D05 | Complete the remaining agency launch evidence: phone-ready roles, availability, notification runtime, browser/accessibility journeys, and controlled recovery activation. | Full launch-critical agency path passes end to end. |
 | S1-E02 | Approve an EEA SMS provider and limits; implement phone OTP, unique-number handling, private 18+ date handling, contact-change recovery, owner-admin restoration, seven-day pending expiry/cleanup, and the scoped badge. | Every role requires confirmed email, EEA phone, and private 18+ result before live access. |
-| S1-E05 | Complete agency-backed recovery without replacing immutable member delegation; correct delegated-member completion/review notifications. | Recovery preserves history and counterpart recipients are correct. |
 | S1-E06 | Run an explicitly approved live Resend acceptance smoke using the configured provider. | Mark done only after provider acceptance; PostgreSQL, Redis/Celery, local success, retryable failure, and terminal-alert evidence already pass. |
 | S1-E08 | Complete the account-recovery/deletion runtime evidence matrix. | Recovery, closure/anonymization, and their runtime proofs meet the approved policy. |
 | S1-E10 | Configure the production secret-store alert recipient and remaining validated server-only settings; then enable Geoapify only when the approved controls hold. | Exact-provider traffic remains disabled until this passes; manual fallback stays available. |
 | S1-UX01 | Build the Sofia landing page: honest value/coverage/verification wording, privacy-safe lead capture, text alternative, policy and support links. | BG/EN conversion page is safe and complete. |
 | S1-UX02 | Make onboarding show the real email, phone, age, profile, and activation journey, including locked states. | No misleading “verified” or dead-end activation state. |
 | S1-UX03 | Test and repair the complete pilot flow at 320/360/390/430 CSS pixels on Android Chrome and iOS Safari. | Mobile pilot workflow passes. |
+
+## Recently completed implementation evidence
+
+| ID | Delivered slice | Evidence / remaining deployment boundary |
+| --- | --- | --- |
+| S1-E05 | Agency-backed recovery preserves immutable source delegation; delegated completion/review prompts route only between host and concrete member. | [Focused TDD and PostgreSQL evidence](docs/testing/s1_e05_agency_recovery_parity.tdd.md). Enable the fail-closed recovery flag only after target-environment migrations are applied. |
 | S1-UX04 | Complete WCAG 2.2 AA language, contrast, focus, errors, target size, reflow, map alternative, axe, keyboard, and screen-reader checks. | Accessibility gate passes. |
 
 ### Ongoing Gate B controls

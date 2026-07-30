@@ -114,9 +114,11 @@ Future extraction into microservices should be possible without rewriting core b
 ### Not yet built
 
 - Full launch evidence for the existing `/agency` dashboard (readiness,
-  profile, target-bound invitations, roster, member selection,
-  assignments/recovery and history). S1-D05 is implemented, but its separate
-  runtime, S1-E02, availability, and concurrency gates remain launch blockers.
+  profile, target-bound invitations, roster, member selection, assignments,
+  recovery, and history). Agency recovery parity has real PostgreSQL evidence;
+  the target environment still needs the controlled recovery flag enabled after
+  its migrations are applied. S1-E02, availability, notification runtime, and
+  broader browser/accessibility evidence remain launch blockers.
 - Applications review panel inside the host dashboard (host sees applications per job, accepts one).
 - S1-D02 completion: EEA phone OTP, all-role private birth-date handling,
   contact-change recovery, phone reservation/transfer, owner-admin restoration,
@@ -209,7 +211,11 @@ Rules:
 - Agencies can assign work only to active cleaner members.
 - Member cleaners must still have active approved accounts and the stored
   marketplace-eligible cleaner state before receiving agency work.
-- Once an accepted agency assignment is delegated to a member cleaner, the normal agency API cannot replace that member. The delegated cleaner owns calendar and operational responsibility, so reassignment needs a separate explicit admin/support workflow with reason and notification semantics.
+- Once an accepted agency assignment is delegated to a member cleaner, the
+  normal agency API cannot replace that member. Recovery is a separate explicit
+  service: the source remains immutable and terminal, and any replacement is a
+  new lineage-linked attempt with host authorization and audit/lifecycle
+  evidence.
 
 ### Marketplace Jobs
 
@@ -252,10 +258,13 @@ Rules:
 - Lifecycle APIs are explicit actions. Ordinary updates cannot change an
   assigned schedule or lifecycle status; lifecycle reads are object-authorized
   and lineage chronology is disclosure-tiered.
-- S1-D05 supersedes the old agency-recovery deferral: host and agency manage
-  recovery while the immutable assigned member owns incident/completion/review;
-  replacement is lineage-linked and must never overwrite the source assignment.
-  mutation. Normal delegated-member immutability is unchanged.
+- Agency recovery is a host-authorized, atomic, lineage-linked request for an
+  eligible terminal assignment with an immutable delegated member. An acted
+  member-release request may be attached for traceability. It preserves the
+  source job, application, agency, assignment, and assigned member, then
+  creates at most one actionable successor; it does not weaken normal
+  delegated-member immutability. Any replacement concrete worker enters through
+  the existing locked membership/eligibility/overlap contract.
 - Assigned jobs use the existing single-step completion rule: the assigned
   concrete cleaner may complete after `scheduled_start`; platform admins may
   complete after `scheduled_end`. Completion remains independent of future
@@ -328,9 +337,10 @@ Responsibilities:
 The complete implemented/reserved event and recipient contract is versioned in
 `docs/S1_E06_NOTIFICATION_MATRIX.md`. It covers account outcomes, explicit
 matching/offers, applications, assignment/delegation, S1-E05 agency recovery,
-completion/group reviews, connections/messages, and operator-recorded reminders.
-Unimplemented S1-D02 phone/restoration/expiry outcomes remain reserved, not
-inferred. Agency recovery is governed by ADR-0003 and its rollout flag.
+completion/two-party review prompts, connections/messages, and
+operator-recorded reminders. Recovery and review notifications dispatch after
+commit and contain only routing identifiers. Unimplemented S1-D02
+phone/restoration/expiry outcomes remain reserved, not inferred.
 
 The approved Stage 1 evidence boundary also requires an admin-initiated survey
 invitation capability before the 90-day observation period: role/activation/

@@ -51,7 +51,7 @@ state and the next action visible.
 | 4 | Remove sensitive signup persistence | Done; ongoing regression duty | Keep the browser-storage and telemetry allowlist tests. |
 | 5 | Repair anonymous conversion and role routing | Done | Safe localized return targets, guest Connect recovery, account-state routing, notification-link validation, deterministic browser fixtures, and the full verification matrix passed. |
 | 6 | Enforce authoritative assignment-overlap protection | Done for implemented assignment paths | Resolve the separate availability/work-preference documentation drift and reuse the overlap service in future reschedule/replacement assignment paths. |
-| 7 | Add history-preserving lifecycle/recovery | Partially complete | Deliver agency recovery parity and correct delegated-member completion/review notifications. |
+| 7 | Add history-preserving lifecycle/recovery | Implementation verified; controlled rollout activation remains | Agency recovery parity and delegated-member review routing have PostgreSQL evidence; activate only after target-environment migrations and the controlled flag. |
 | 8 | Disable calendar URL import and validate enabled uploads | Done | Keep URL fetching absent and preserve upload-security regression coverage. |
 | 9 | Govern exact maps/geocoding through the owned API boundary | In progress | Approve Geoapify/privacy/budget terms, update the privacy notice, and capture an authenticated browser network trace. |
 | 10 | Complete reliable critical notifications and reminders | In progress; PostgreSQL and Redis/Celery runtime evidence complete | Run the explicitly approved live Resend acceptance smoke before marking S1-E06 Done. |
@@ -70,7 +70,7 @@ state and the next action visible.
 | S1-D02 | Define cleaner and agency verification | Done | Execute the approved policy through S1-E02; do not reopen identity/quality vetting. |
 | S1-D03 | Define lifecycle and support policy | Done | Measurement decisions are recorded in the lifecycle policy: severity/adjudication, +/-30-minute evidence, 14-day activation, no-outreach organic definition/no numeric gate, successful-turnover operator time, and exposed-host-cancellation exclusion. |
 | S1-D04 | Define privacy and disclosure tiers | Done | Maintain the approved privacy/retention record and its regression evidence; keep broader S1-R01 policy work separate. |
-| S1-D05 | Resolve agency participation and routing | In progress | Deliver complete signup/onboarding, workspace, member eligibility, job/application/assignment, notification, and history-preserving recovery parity. |
+| S1-D05 | Resolve agency participation and routing | In progress | Complete the remaining phone-ready, availability, notification-runtime, browser/accessibility, and controlled-activation launch evidence. |
 
 #### Gate B — product and workflow readiness
 
@@ -80,7 +80,7 @@ state and the next action visible.
 | S1-E02 | Implement contact-based verification completion | In progress; target audit refreshed | Select/approve the EEA SMS provider and exact caps, then implement the six batches in the refreshed maturity audit. |
 | S1-E03 | Remove sensitive signup persistence | Done | Maintain storage, browser-history, logging, telemetry, and refresh-recovery regression tests. |
 | S1-E04 | Prevent overlapping cleaner assignments | Done for hard-overlap contract; availability follow-up open | Resolve the work-preference/availability documentation drift and keep operator-confirmed availability for the concierge cohort. |
-| S1-E05 | Add history-preserving failure and recovery workflows | Partially complete | Add agency-backed recovery without mutating delegation and fix delegated-member completion/review recipients. |
+| S1-E05 | Add history-preserving failure and recovery workflows | Implementation verified; controlled rollout activation remains | Preserve the recovery PostgreSQL proof and enable the flag only after target-environment migrations. |
 | S1-E06 | Complete the reliability notification loop | In progress; live Resend acceptance pending | PostgreSQL concurrency, Redis/Celery, local delivery, retryable failure, and terminal-alert behavior are evidenced; run the explicitly approved Resend acceptance smoke. |
 | S1-E07 | Repair conversion and role routing | Done | Full Django (472 tests) and seeded Playwright (10 tests, no skips) evidence passed. See `docs/testing/s1_e07_conversion_routing.tdd.md`. |
 | S1-E08 | Add account recovery and safe account deletion | Partially complete | Password recovery and S1-D04 closure/anonymization foundations are implemented; complete runtime evidence remains required. See `docs/testing/s1_e08_account_recovery.tdd.md`. |
@@ -559,7 +559,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E02 | Must-have | Project owner | ADR-0002 and S1-D02 | In progress |  | [Approved target policy](S1_D02_CONTACT_ELIGIBILITY_POLICY.md); [interim ADR](adr/0002-contact-based-verification.md); [maturity audit](testing/s1_e02_account_verification_maturity_audit.md); [TDD evidence](testing/s1_e02_account_verification.tdd.md) |
 | S1-E03 | Must-have | Project owner | None | Done | 2026-07-14 | [Signup-secret TDD evidence](testing/release_blocking_privacy_fix.tdd.md) |
 | S1-E04 | Must-have | Project owner | S1-D03 and scheduling ADR | Done | 2026-07-15 | [TDD and PostgreSQL evidence](testing/s1_e04_overlap_prevention.tdd.md) |
-| S1-E05 | Must-have | Project owner | S1-D03 and recovery ADR | Partially complete |  | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
+| S1-E05 | Must-have | Project owner | S1-D03 and recovery ADR | Implementation verified; controlled rollout activation remains | 2026-07-30 | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [agency parity evidence](testing/s1_e05_agency_recovery_parity.tdd.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
 | S1-E06 | Must-have; reminders may be operator-assisted | Project owner | S1-D03 | In progress — live Resend acceptance pending | 2026-07-30 | [Evidence](testing/s1_e06_notification_reliability.tdd.md) |
 | S1-E07 | Must-have | Project owner | S1-D05 | Done | 2026-07-28 | [TDD evidence](testing/s1_e07_conversion_routing.tdd.md) |
 | S1-E08 | Must-have | Project owner | S1-D03/D04 | Partially complete | 2026-07-28 | [TDD evidence](testing/s1_e08_account_recovery.tdd.md); S1-D04 decision remains required. |
@@ -764,11 +764,13 @@ field/access allowlist for each audience.
 
 ### S1-D05 — Resolve agency participation and routing
 
-**Implementation update 2026-07-27:** The target-bound invitation, readiness,
+**Implementation update 2026-07-30:** The target-bound invitation, readiness,
 member-selection, immutable member-bound assignment, agency recovery,
 notification-routing, signup and `/agency` workspace slices are implemented.
-Do not mark this launch gate complete until S1-E02, availability, PostgreSQL
-concurrency, notification runtime and E2E/accessibility evidence pass; see
+Agency recovery now has real PostgreSQL concurrency evidence. Do not mark this
+launch gate complete until S1-E02, availability, notification runtime and
+browser/accessibility evidence pass, and the target environment has applied its
+migrations before enabling the controlled recovery flag; see
 [S1-D05 full agency parity](S1_D05_FULL_AGENCY_PARITY.md).
 
 **Owner decision recorded 2026-07-23 — full agency launch role.**
@@ -780,8 +782,9 @@ concurrency, notification runtime and E2E/accessibility evidence pass; see
   applications/offers, accepted jobs, assignments, immutable eligible-member
   delegation, notifications, role guards, and end-to-end tests.
 - Add history-preserving agency cancellation, reschedule, incident, dispute,
-  and replacement recovery parity. The current safe `409` for unsupported
-  agency recovery remains correct until that explicit workflow ships.
+  and replacement recovery parity. This explicit workflow now ships with
+  PostgreSQL concurrency evidence; its fail-closed rollout flag remains until
+  target-environment migrations and controlled activation are complete.
 - Defer only advanced agency reporting, automation, and team-management
   features that are not required for safe parity. Observe actual agency
   behavior before selecting those additions.
@@ -1064,9 +1067,9 @@ the cancelled/failed job; it does not add a second assignment or overwrite the
 original cleaner/member. The constraint must ensure at most one actionable job
 in that lineage/property/time slot.
 
-Minimum Stage 1 capabilities. Batch 2 completed the checked foundation items;
-the epic remains partially complete and cannot be Done while agency parity is
-deferred:
+Minimum Stage 1 capabilities. Batch 2 completed the foundation items. Agency
+recovery parity is implemented and PostgreSQL-verified; final live activation
+remains deliberately controlled by its fail-closed setting:
 
 - [x] Cancel draft/open work without silently losing published history.
 - [x] Cancel assigned work with actor, timestamp, reason, and notifications.
@@ -1082,23 +1085,22 @@ deferred:
       never impersonates the host.
 - [x] Preserve the original job and its single assignment; link any replacement
       job back to that failed/cancelled record.
-- [ ] Preserve agency delegation immutability; support replacement creates a new
-      historical event rather than overwriting the delegated member.
+- [x] Preserve agency delegation immutability; support replacement creates a new
+       historical event rather than overwriting the delegated member.
 - [x] Prevent agency-assigned work from completing before an eligible member is
       delegated.
-- [ ] Correct delegated-agency completion notifications and review links so they
-      target the actual assigned member. Review authorization already treats the
-      host and member as the review parties.
+- [x] Correct delegated-agency completion notifications and review links so they
+      target the actual assigned member. Review authorization and notification
+      routing resolve only the host and concrete delegated member.
 - [x] Make account deletion refuse or defer while active jobs, assignments,
       disputes, or required history exist.
 - [x] Make the linked job/audit chronology inspectable through the hardened
       Django admin or a minimal operator surface; a bespoke chronology UI is
       deferred.
 
-Batch 2 already preserves existing agency delegation, blocks active jobs and
-assignments, and routes all current protected marketplace history to support.
-The two broader unchecked rows close only after replacement/dispute records are
-implemented and included in those guards.
+Agency recovery preserves existing delegation, blocks duplicate recovery under
+the lineage lock, and records lifecycle/audit/release linkage without mutating
+the source. See [agency recovery parity evidence](testing/s1_e05_agency_recovery_parity.tdd.md).
 
 These capabilities must exist as authorized service/API actions with a safe,
 audited operator route. Participant-facing request/acknowledgement UI is needed

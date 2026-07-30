@@ -55,8 +55,8 @@ state and the next action visible.
 | 8 | Disable calendar URL import and validate enabled uploads | Done | Keep URL fetching absent and preserve upload-security regression coverage. |
 | 9 | Govern exact maps/geocoding through the owned API boundary | In progress | Approve Geoapify/privacy/budget terms, update the privacy notice, and capture an authenticated browser network trace. |
 | 10 | Complete reliable critical notifications and reminders | In progress; PostgreSQL and Redis/Celery runtime evidence complete | Run the explicitly approved live Resend acceptance smoke before marking S1-E06 Done. |
-| 11 | Complete landing, onboarding, mobile, accessibility, and recovery UX | Not started | Start S1-UX01/02 after S1-D05/S1-E02 contracts are stable, then run mobile and WCAG gates. |
-| 12 | Complete instrumentation and the backend/frontend/browser test matrix | Not started as a consolidated gate | Re-baseline S1-Q01 for product-led evidence, then close S1-Q02–Q04 against the final implemented scope. |
+| 11 | Complete landing, onboarding, mobile, accessibility, and recovery UX | In progress; S1-UX04 text-selection sub-item complete | Start S1-UX01/02 after S1-D05/S1-E02 contracts are stable, then run the remaining mobile and WCAG gates. |
+| 12 | Complete instrumentation and the backend/frontend/browser test matrix | In progress; S1-Q03 host-dashboard mock blocker resolved | Re-baseline S1-Q01 for product-led evidence, then close S1-Q02–Q04 against the final implemented scope. |
 | 13 | Deploy securely and prove restore/rollback/support | Not started | Complete S1-R01–R05, including domain/TLS, production PostgreSQL/Redis, support runbooks, point-in-time restore, rollback, and alerts. |
 | 14 | Start genuine Sofia observation | Not started; blocked by prior gates | Select/activate the operating cluster and backup capacity, sign release readiness, then start the 90-day clock at full marketplace launch. |
 
@@ -89,7 +89,7 @@ state and the next action visible.
 | S1-UX01 | Build a safe conversion-complete landing page | Not started | Implement Sofia-specific value/actions, honest verification/coverage, privacy-safe lead capture, text alternative, and policy/support links. |
 | S1-UX02 | Make onboarding and activation honest | Not started | Reframe the email-code action and show the complete email/phone/age/profile/activation journey with locked-state explanations. |
 | S1-UX03 | Mobile-responsive pilot workflow | Not started | Test/fix the full pilot flow at 320/360/390/430 CSS pixels on Android Chrome and iOS Safari. |
-| S1-UX04 | WCAG 2.2 AA pilot gate | Not started | Implement the listed language, contrast, focus, error, target-size, reflow, map-alternative, axe, keyboard, and screen-reader checks. |
+| S1-UX04 | WCAG 2.2 AA pilot gate | In progress; text-selection sub-item complete | Complete the remaining language, contrast, focus, error, target-size, reflow, map-alternative, axe, keyboard, and screen-reader checks. |
 
 #### Gate C — policy, support, release, operations, and verification
 
@@ -102,7 +102,7 @@ state and the next action visible.
 | S1-R05 | Make observability active | Not started | Enable sanitized browser/Django/Celery errors, readiness/worker signals, external alerts, TLS/backup/notification monitoring, and request-ID tracing. |
 | S1-Q01 | Define the Stage 1 event and metric contract | Not started | Re-baseline events and the metric dictionary for the approved 90-day product-led model, including lineage, match mode, exclusions, operator time, consent, and raw counts. |
 | S1-Q02 | Backend test matrix | Not started as a consolidated gate; existing criteria partially covered | Map current evidence to every row, then add missing authorization, lifecycle, concurrency, reset/throttle, time, audit, and isolation tests. |
-| S1-Q03 | Frontend and browser test matrix | Not started | Add status/role/locale/mobile/accessibility cases and all twelve browser golden/recovery paths. |
+| S1-Q03 | Frontend and browser test matrix | In progress; host-dashboard mock blocker resolved | Add status/role/locale/mobile/accessibility cases and all twelve browser golden/recovery paths. |
 | S1-Q04 | Release commands and evidence | Not started | Add frontend/browser tests to CI and collect reproducible build, deploy, delivery, security, alert, restore, rollback, and sign-off evidence. |
 
 #### Gate D — deferred research and supply activation
@@ -568,7 +568,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-UX01 | Must-have | Project owner | S1-D04/D05 | Not started |  |  |
 | S1-UX02 | Must-have | Project owner | S1-D02/D05 | Not started |  |  |
 | S1-UX03 | Must-have | Project owner | Pilot-critical Gate B flows | Not started |  |  |
-| S1-UX04 | Must-have | Project owner | Pilot-critical Gate B flows | Not started |  |  |
+| S1-UX04 | Must-have | Project owner | Pilot-critical Gate B flows | In progress; text-selection sub-item complete | 2026-07-30 | Global selection block removed; wider WCAG gate remains open. |
 | S1-R01 | Must-have | Project owner | S1-D03/D04 | Not started |  |  |
 | S1-R02 | Must-have | Project owner | S1-D03 | Not started |  |  |
 | S1-R03 | Must-have | Project owner | Domain/TLS/hosting decisions | Not started |  |  |
@@ -576,7 +576,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-R05 | Must-have | Project owner | S1-R03 | Not started |  |  |
 | S1-Q01 | Must-have | Project owner | S1-D01 metric approval | Not started |  |  |
 | S1-Q02 | Must-have | Project owner | Implemented backend scope | Not started |  |  |
-| S1-Q03 | Must-have | Project owner | Implemented frontend scope | Not started |  |  |
+| S1-Q03 | Must-have | Project owner | Implemented frontend scope | In progress; host-dashboard mock blocker resolved | 2026-07-30 | `HostDashboard.test.tsx` now mocks `useLocale` as `bg`; the broader matrix remains open. |
 | S1-Q04 | Must-have | Project owner | S1-Q02/Q03 and S1-R03–R05 | Not started |  |  |
 | S1-M01 | Deferred by signed decision | Project owner | S1-D01 | Deferred by signed decision | 2026-07-23 | [Product-led validation decision](S1_D01_STAGE_1_CHARTER.md) |
 | S1-M02 | Deferred by signed decision | Project owner | S1-M01 | Deferred by signed decision | 2026-07-23 | [Product-led validation decision](S1_D01_STAGE_1_CHARTER.md) |
@@ -1390,6 +1390,15 @@ Acceptance criteria:
 
 ### S1-UX04 — WCAG 2.2 AA pilot gate
 
+**Implementation update 2026-07-30:** The global `* { user-select: none; }`
+declaration was removed from `frontend/app/globals.css`. Intentional local
+restrictions remain on the click-only ICS event and map-suggestion controls and
+on editable draggable dashboard cards. Source typecheck and lint pass when the
+malformed generated `.next` cache is excluded; the full test suite has an
+unrelated `next-intl` mock failure. Desktop/mobile Chromium selection checks
+remain blocked by the local frontend environment's stale cache/routing loop and
+missing `require-in-the-middle` dependency. This does **not** complete S1-UX04.
+
 - [ ] Normal text contrast is at least 4.5:1.
 - [ ] UI components and focus indicators reach at least 3:1.
 - [ ] Correct the document language for BG and EN pages.
@@ -1400,7 +1409,7 @@ Acceptance criteria:
 - [ ] Associate field errors with their inputs and announce submission/status
       changes through appropriate live regions.
 - [ ] Provide a keyboard and screen-reader alternative to map interaction.
-- [ ] Remove the global rule that prevents users selecting/copying normal text.
+- [x] Remove the global rule that prevents users selecting/copying normal text.
 - [ ] Support reflow at 400% zoom/320 CSS pixels.
 - [ ] Meet the WCAG 2.2 minimum target-size requirement.
 - [ ] Run automated axe checks as a floor, not as proof of conformance.
@@ -1646,6 +1655,15 @@ Acceptance criteria:
 - [ ] Test isolation: full tests must not retry a live/unavailable Redis broker.
 
 ### S1-Q03 — Frontend and browser test matrix
+
+**Implementation update 2026-07-30:** `HostDashboard.test.tsx` now exports
+`useLocale: () => "bg"` from its inline `next-intl` mock, matching the
+Bulgarian host fixture. `npm.cmd test -- features/host/HostDashboard.test.tsx`
+passes 10 tests. The full frontend suite has 82 passing tests; its only failed
+suite is the unrelated missing `require-in-the-middle` dependency in
+`lib/sentry-sanitize.test.ts`. Typecheck passes when the malformed generated
+`.next` cache is excluded, and lint passes with four existing warnings. This
+resolves one test-infrastructure blocker only; S1-Q03 remains open.
 
 - [ ] Guest, pending, rejected, suspended, wrong-role, and approved CTA behavior.
 - [ ] Safe public demand and zero-demand state.

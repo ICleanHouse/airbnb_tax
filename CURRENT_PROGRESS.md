@@ -102,6 +102,19 @@ change product or release authority.
   closure/anonymization foundations are implemented. The complete runtime
   evidence matrix remains outstanding. See
   [S1-E08 evidence](docs/testing/s1_e08_account_recovery.tdd.md).
+- **S1-UX04 — In progress; text-selection sub-item complete.** The global
+  selection block was removed from `frontend/app/globals.css`, while the three
+  interaction-specific local restrictions remain. Source typecheck and lint
+  pass when excluding the malformed generated `.next` cache; the full frontend
+  suite is now blocked only by the missing `require-in-the-middle` dependency.
+  Desktop/mobile Chromium selection checks remain blocked by the stale
+  cache/routing loop and that dependency. Do not mark the wider WCAG gate Done.
+- **S1-Q03 — In progress; host-dashboard mock blocker resolved.** The inline
+  `next-intl` mock in `HostDashboard.test.tsx` now returns `bg` from
+  `useLocale`, matching its Bulgarian host fixture. The focused suite passes
+  10 tests; the full suite has 82 passing tests and one unrelated Sentry
+  sanitization suite blocked by the missing `require-in-the-middle` dependency.
+  The wider frontend/browser test matrix remains open.
 
 ## Owner decisions still needed
 

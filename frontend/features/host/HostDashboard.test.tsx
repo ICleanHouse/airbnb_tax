@@ -40,6 +40,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next-intl", () => ({
+  useLocale: () => "bg",
   useTranslations: (namespace: string) => {
     const translate = ((key: string) => `${namespace}.${key}`) as {
       (key: string): string;

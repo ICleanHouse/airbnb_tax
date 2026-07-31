@@ -19,7 +19,8 @@ vi.mock("next-intl", () => ({
 
 vi.mock("../../lib/api", () => ({ apiFetch: apiFetchMock }));
 vi.mock("../../components/NotificationBell", () => ({ default: () => <div data-testid="notification-bell" /> }));
-vi.mock("../../components/RecoveryActions", () => ({ RecoveryActions: () => <div data-testid="recovery-actions" /> }));
+vi.mock("../../components/RecoveryActions", () => ({ RecoveryActions: ({ jobId }: { jobId: number }) => <div data-testid={`recovery-actions-${jobId}`} /> }));
+vi.mock("../../components/CancelJobDialog", () => ({ default: ({ jobTitle }: { jobTitle: string }) => <div data-testid="cancel-job-dialog">{jobTitle}</div> }));
 
 const agencyUser = {
   id: 7,
@@ -49,12 +50,15 @@ function jsonResponse(data: unknown, status = 200): Response {
   } as Response;
 }
 
-function mockApi({ ready = false } = {}) {
+function mockApi({ ready = false, assignments = [] as unknown[], jobs = [] as unknown[] } = {}) {
   const readiness = ready
     ? { marketplace_eligible: true, profile_complete: true, eligible_active_members_count: 1, blockers: [] }
     : agencyUser.agency_readiness;
   const readyProfile = { ...profile, readiness };
   apiFetchMock.mockImplementation(async (url: string, options?: RequestInit) => {
+    if (url === "/api/marketplace/applications/" && options?.method === "POST") {
+      return jsonResponse({ id: 18, job: 56, status: "pending", origin: "cleaner_applied", proposed_member: null }, 201);
+    }
     switch (url) {
       case "/api/accounts/me/": return jsonResponse({ ...agencyUser, agency_readiness: readiness });
       case "/api/accounts/agencies/": return jsonResponse([readyProfile]);
@@ -63,7 +67,8 @@ function mockApi({ ready = false } = {}) {
       case "/api/accounts/public-cleaners/?city=sofia":
         return jsonResponse([{ public_id: "00000000-0000-4000-8000-000000000022", display_name: "Elena", city: "Sofia", marketplace_eligible: true, email: "private@example.test" }]);
       case "/api/marketplace/applications/": return jsonResponse(ready ? [{ id: 17, job: 44, status: "pending", origin: "cleaner_applied", proposed_member: null }] : []);
-      case "/api/marketplace/assignments/": return jsonResponse([]);
+      case "/api/marketplace/assignments/": return jsonResponse(assignments);
+      case "/api/marketplace/jobs/": return jsonResponse(jobs);
       default:
         if (url === "/api/accounts/agencies/3/invite-cleaner/" && options?.method === "POST") return jsonResponse({}, 201);
         if (url === "/api/marketplace/applications/17/select-member/" && options?.method === "POST") return jsonResponse({});
@@ -121,6 +126,55 @@ describe("AgencyDashboard", () => {
       const call = apiFetchMock.mock.calls.find(([path]) => path === "/api/marketplace/applications/17/select-member/");
       expect(call).toBeDefined();
       expect(JSON.parse(String(call?.[1]?.body))).toEqual({ member_id: 21 });
+    });
+  });
+
+  it("offers cancellation for active agency work and recovery actions for cancelled history", async () => {
+    mockApi({
+      ready: true,
+      assignments: [
+        { id: 101, job: 44, job_title: "Upcoming delegated clean", job_status: "assigned", available_actions: ["cancel"] },
+        { id: 102, job: 45, job_title: "Cancelled delegated clean", job_status: "cancelled", available_actions: ["report_incident", "request_replacement"] },
+      ],
+    });
+    const user = userEvent.setup();
+    render(<AgencyDashboard />);
+
+    await screen.findByRole("heading", { name: "agency.overview.title" });
+    await user.click(screen.getByRole("tab", { name: "agency.tabs.assignments" }));
+    await user.click(screen.getByRole("button", { name: "agency.assignments.cancel" }));
+    expect(screen.getByTestId("cancel-job-dialog")).toHaveTextContent("Upcoming delegated clean");
+
+    await user.click(screen.getByRole("tab", { name: "agency.tabs.history" }));
+    expect(screen.getByTestId("recovery-actions-45")).toBeInTheDocument();
+  });
+
+  it("lets a ready agency apply to an eligible open job without exposing private job details", async () => {
+    mockApi({
+      ready: true,
+      jobs: [{
+        id: 56,
+        status: "open",
+        can_apply: true,
+        city_name_en: "Sofia",
+        zone_name_en: "Center",
+        scheduled_start: "2030-01-02T10:00:00Z",
+        scheduled_end: "2030-01-02T12:00:00Z",
+        currency: "EUR",
+        proposed_price: "45.00",
+      }],
+    });
+    const user = userEvent.setup();
+    render(<AgencyDashboard />);
+
+    await screen.findByRole("heading", { name: "agency.overview.title" });
+    await user.click(screen.getByRole("tab", { name: "agency.tabs.discover" }));
+    await user.click(screen.getByRole("button", { name: "agency.discover.apply" }));
+
+    await waitFor(() => {
+      const call = apiFetchMock.mock.calls.find(([path, options]) => path === "/api/marketplace/applications/" && options?.method === "POST");
+      expect(call).toBeDefined();
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ job_id: 56 });
     });
   });
 });

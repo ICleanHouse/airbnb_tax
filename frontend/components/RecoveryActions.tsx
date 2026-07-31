@@ -38,12 +38,15 @@ export function RecoveryActions({ jobId, actions, onComplete }: {
       : { incident_id: Number(incidentId) };
     try {
       const response = await apiFetch(`/api/marketplace/jobs/${jobId}/${endpoint}/`, { method: "POST", body: JSON.stringify(payload) });
+      const data = await response.json().catch(() => null) as { detail?: string; id?: number } | null;
       if (!response.ok) {
-        const data = await response.json().catch(() => null) as { detail?: string } | null;
         setError(data?.detail || t("error"));
         return;
       }
-      setMode(null); setNarrative(""); setIncidentId(""); onComplete?.();
+      if (mode === "report_incident" && typeof data?.id === "number") setIncidentId(String(data.id));
+      setMode(null); setNarrative("");
+      if (mode !== "report_incident") setIncidentId("");
+      onComplete?.();
     } finally { setSaving(false); }
   }
 

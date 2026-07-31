@@ -191,6 +191,7 @@ class CleaningJobSerializer(serializers.ModelSerializer):
     property_address = serializers.CharField(source="property.address", read_only=True)
     assignment = AssignmentSerializer(read_only=True)
     available_actions = serializers.SerializerMethodField()
+    pending_replacement_request = serializers.SerializerMethodField()
 
     class Meta:
         model = CleaningJob
@@ -223,6 +224,7 @@ class CleaningJobSerializer(serializers.ModelSerializer):
             "cleaning_instructions",
             "assignment",
             "available_actions",
+            "pending_replacement_request",
             "created_at",
             "updated_at",
         ]
@@ -241,6 +243,7 @@ class CleaningJobSerializer(serializers.ModelSerializer):
             "cancellation_notice_band",
             "assignment",
             "available_actions",
+            "pending_replacement_request",
             "created_at",
             "updated_at",
         ]
@@ -254,6 +257,23 @@ class CleaningJobSerializer(serializers.ModelSerializer):
         if request is None:
             return []
         return derive_available_job_actions(job=obj, actor=request.user)
+
+    def get_pending_replacement_request(self, obj):
+        request = self.context.get("request")
+        if request is None or not request.user.is_host or obj.host_id != request.user.id:
+            return None
+        pending = next(iter(getattr(obj, "pending_replacement_requests", [])), None)
+        if pending is None:
+            pending = obj.replacement_requests.filter(
+                status=ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION
+            ).first()
+        if pending is None:
+            return None
+        return {
+            "id": pending.id,
+            "status": pending.status,
+            "expires_at": serializers.DateTimeField().to_representation(pending.expires_at),
+        }
 
     def validate(self, attrs):
         property_obj = attrs.get("property", getattr(self.instance, "property", None))

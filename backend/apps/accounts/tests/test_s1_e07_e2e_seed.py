@@ -3,7 +3,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 
 from apps.accounts.models import AgencyMembership, CleanerProfile, User
-from apps.marketplace.models import CleanerApplication
+from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
 from apps.notifications.models import Notification
 
 
@@ -20,6 +20,10 @@ class S1E07E2ESeedCommandTests(TestCase):
         self.assertTrue(agency.is_marketplace_eligible)
         self.assertTrue(AgencyMembership.objects.filter(agency=agency.agency_profile, cleaner=cleaner).exists())
         self.assertTrue(CleanerApplication.objects.filter(cleaner=agency).exists())
+        recovery_job = CleaningJob.objects.get(title="S1 E05 Recovery Browser", status=CleaningJob.Status.ASSIGNED)
+        recovery_assignment = Assignment.objects.get(job=recovery_job)
+        self.assertEqual(recovery_assignment.cleaner, agency)
+        self.assertEqual(recovery_assignment.assigned_member, cleaner)
         self.assertEqual(Notification.objects.filter(user=agency).count(), 1)
 
     @override_settings(DEBUG=False)

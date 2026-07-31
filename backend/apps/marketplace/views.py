@@ -2,7 +2,7 @@ import logging
 import re
 from datetime import timedelta
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.contrib.auth import get_user_model
 from django.http import Http404
 from django.shortcuts import get_object_or_404
@@ -682,6 +682,16 @@ class CleaningJobViewSet(
             "assignment__application",
         ).prefetch_related("property__images")
         queryset = self.filter_for_user(queryset)
+        if self.request.user.is_host:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    "replacement_requests",
+                    queryset=ReplacementRequest.objects.filter(
+                        status=ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION
+                    ),
+                    to_attr="pending_replacement_requests",
+                )
+            )
         city = self.request.query_params.get("city", "").strip()
         neighborhood = self.request.query_params.get("neighborhood", "").strip()
         zone_id = self.request.query_params.get("zone_id", "").strip()

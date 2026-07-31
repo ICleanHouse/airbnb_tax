@@ -18,7 +18,13 @@ from apps.accounts.models import (
     User,
 )
 from apps.connections.models import Connection
-from apps.marketplace.models import CleanerApplication, CleaningJob, JobLifecycleEvent, TurnoverLineage
+from apps.marketplace.models import (
+    Assignment,
+    CleanerApplication,
+    CleaningJob,
+    JobLifecycleEvent,
+    TurnoverLineage,
+)
 from apps.notifications.models import Notification
 from apps.properties.models import Property
 
@@ -179,6 +185,55 @@ class Command(BaseCommand):
             cleaner=users["agency"],
             defaults={"status": CleanerApplication.Status.PENDING, "proposed_member": None, "message": "Disposable E2E application."},
         )
+
+        recovery_job = (
+            CleaningJob.objects.filter(
+                host=users["host"],
+                title="S1 E05 Recovery Browser",
+                status=CleaningJob.Status.ASSIGNED,
+                assignment__cleaner=users["agency"],
+                assignment__assigned_member=users["cleaner"],
+            )
+            .order_by("-id")
+            .first()
+        )
+        if recovery_job is None:
+            recovery_start = timezone.now() - timedelta(minutes=5)
+            recovery_lineage = TurnoverLineage.objects.create(property=property, host=users["host"])
+            recovery_job = CleaningJob.objects.create(
+                lineage=recovery_lineage,
+                property=property,
+                host=users["host"],
+                title="S1 E05 Recovery Browser",
+                scheduled_start=recovery_start,
+                scheduled_end=recovery_start + timedelta(hours=2),
+                proposed_price=Decimal("45.00"),
+                status=CleaningJob.Status.ASSIGNED,
+                published_at=timezone.now(),
+            )
+            recovery_application = CleanerApplication.objects.create(
+                job=recovery_job,
+                cleaner=users["agency"],
+                status=CleanerApplication.Status.ACCEPTED,
+                proposed_member=users["cleaner"],
+                message="Disposable delegated recovery assignment.",
+            )
+            Assignment.objects.create(
+                job=recovery_job,
+                cleaner=users["agency"],
+                assigned_member=users["cleaner"],
+                application=recovery_application,
+                agreed_price=Decimal("45.00"),
+            )
+            JobLifecycleEvent.objects.create(
+                lineage=recovery_lineage,
+                job=recovery_job,
+                actor=users["host"],
+                actor_role_snapshot=users["host"].role,
+                event_type=JobLifecycleEvent.EventType.JOB_ASSIGNED,
+                to_status=CleaningJob.Status.ASSIGNED,
+                metadata={"source": "s1_e05_recovery_e2e_seed"},
+            )
 
         notifications = (
             (users["host"], "application.submitted", "S1 E2E host notification", "/host?section=applications&appFilter=pending"),

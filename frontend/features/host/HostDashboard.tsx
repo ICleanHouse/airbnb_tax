@@ -54,6 +54,7 @@ import RatingStars from "../../components/RatingStars";
 import AccountDeletionPanel from "../../components/AccountDeletionPanel";
 import CancelJobDialog from "../../components/CancelJobDialog";
 import { RecoveryActions } from "../../components/RecoveryActions";
+import { PendingReplacementRequest, ReplacementAuthorizationActions } from "../../components/ReplacementAuthorizationActions";
 import DistrictMapSelector from "../../components/DistrictMapSelector";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -160,6 +161,7 @@ interface CleaningJob {
   status: JobStatus;
   description: string;
   available_actions?: string[];
+  pending_replacement_request?: PendingReplacementRequest | null;
 }
 
 // ── Calendar helpers ───────────────────────────────────────────────────────────
@@ -2157,6 +2159,11 @@ export default function HostDashboard() {
                           </div>
 
                           <RecoveryActions jobId={job.id} actions={job.available_actions} onComplete={() => void loadAll(true)} />
+                          <ReplacementAuthorizationActions
+                            jobId={job.id}
+                            replacementRequest={job.pending_replacement_request}
+                            onComplete={() => void loadAll(true)}
+                          />
 
                           {expandedAppsJobId === job.id &&
                             applications.some((a) => a.job === job.id && a.status === "pending") && (

@@ -19,9 +19,17 @@ npm.cmd run test:e2e
 
 The command creates deterministic approved, pending, terminal-status and inactive
 accounts, an eligible public cleaner, an approved agency with an active member,
-a pending agency application, and valid/fallback in-app notifications. It resets
+a pending agency application, and valid/fallback in-app notifications. It also
+creates a delegated, already-started `S1 E05 Recovery Browser` assignment for
+the recovery journey. The seed retains protected recovery history and resets
 only connections and in-app notifications belonging to its `s1e07-e2e-` users.
-Do not point the command at a shared, staging, or production database.
+
+`s1-e05-agency-recovery.spec.ts` is an activation smoke test. Run it only in
+an isolated local or staging environment, after migrations are applied and
+with `AGENCY_LIVE_RECOVERY_ENABLED=true` supplied through the target runtime
+configuration. It exercises the product UI end-to-end; do not substitute
+direct API or admin calls. Do not point the command at a shared or production
+database.
 
 Browser binaries are installed separately with `npx.cmd playwright install chromium`.
 The Stage 1 release gate still requires the PostgreSQL concurrency evidence,

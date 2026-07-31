@@ -6,6 +6,7 @@ import { Building2, LogOut, RefreshCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import NotificationBell from "../../components/NotificationBell";
+import CancelJobDialog from "../../components/CancelJobDialog";
 import { RecoveryActions } from "../../components/RecoveryActions";
 import { apiFetch, CurrentUser } from "../../lib/api";
 
@@ -54,7 +55,21 @@ type Assignment = {
   assigned_member_name?: string;
   available_actions?: string[];
 };
-type Tab = "overview" | "profile" | "members" | "invitations" | "work" | "assignments" | "history";
+type OpenJob = {
+  id: number;
+  status: "open";
+  can_apply: boolean;
+  city_name_bg?: string;
+  city_name_en?: string;
+  city_slug?: string;
+  zone_name_bg?: string;
+  zone_name_en?: string;
+  scheduled_start: string;
+  scheduled_end: string;
+  currency: string;
+  proposed_price: string | null;
+};
+type Tab = "overview" | "profile" | "members" | "invitations" | "discover" | "work" | "assignments" | "history";
 
 function asList<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[];
@@ -62,6 +77,14 @@ function asList<T>(data: unknown): T[] {
     return (data as { results: T[] }).results;
   }
   return [];
+}
+
+function formatSofiaDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Sofia",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 export default function AgencyDashboard() {
@@ -73,12 +96,14 @@ export default function AgencyDashboard() {
   const [cleaners, setCleaners] = useState<PublicCleaner[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [openJobs, setOpenJobs] = useState<OpenJob[]>([]);
   const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [memberChoice, setMemberChoice] = useState<Record<number, string>>({});
+  const [cancelJobTarget, setCancelJobTarget] = useState<Assignment | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,18 +123,20 @@ export default function AgencyDashboard() {
     const agencies = agenciesResponse.ok ? asList<AgencyProfile>(await agenciesResponse.json()) : [];
     const ownProfile = agencies[0] ?? null;
     setProfile(ownProfile);
-    const [membersResponse, invitationsResponse, cleanersResponse, applicationsResponse, assignmentsResponse] = await Promise.all([
+    const [membersResponse, invitationsResponse, cleanersResponse, applicationsResponse, assignmentsResponse, jobsResponse] = await Promise.all([
       apiFetch("/api/accounts/agency-memberships/"),
       apiFetch("/api/accounts/agency-invitations/"),
       apiFetch("/api/accounts/public-cleaners/?city=sofia"),
       apiFetch("/api/marketplace/applications/"),
       apiFetch("/api/marketplace/assignments/"),
+      apiFetch("/api/marketplace/jobs/"),
     ]);
     setMembers(membersResponse.ok ? asList<Member>(await membersResponse.json()) : []);
     setInvitations(invitationsResponse.ok ? asList<Invitation>(await invitationsResponse.json()) : []);
     setCleaners(cleanersResponse.ok ? asList<PublicCleaner>(await cleanersResponse.json()) : []);
     setApplications(applicationsResponse.ok ? asList<Application>(await applicationsResponse.json()) : []);
     setAssignments(assignmentsResponse.ok ? asList<Assignment>(await assignmentsResponse.json()) : []);
+    setOpenJobs(jobsResponse.ok ? asList<OpenJob>(await jobsResponse.json()) : []);
     setLoading(false);
   }, []);
 
@@ -144,6 +171,10 @@ export default function AgencyDashboard() {
       await load();
       return true;
     } finally { setSaving(false); }
+  }
+
+  function applyToOpenJob(jobId: number) {
+    void action("/api/marketplace/applications/", { job_id: jobId });
   }
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
@@ -183,7 +214,7 @@ export default function AgencyDashboard() {
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: "overview", label: t("tabs.overview") }, { id: "profile", label: t("tabs.profile") },
     { id: "members", label: t("tabs.members") }, { id: "invitations", label: t("tabs.invitations") },
-    { id: "work", label: t("tabs.work") }, { id: "assignments", label: t("tabs.assignments") },
+    { id: "discover", label: t("tabs.discover") }, { id: "work", label: t("tabs.work") }, { id: "assignments", label: t("tabs.assignments") },
     { id: "history", label: t("tabs.history") },
   ];
 
@@ -207,11 +238,35 @@ export default function AgencyDashboard() {
 
       {tab === "invitations" && <section className="agency-panel" role="tabpanel"><h1>{t("invitations.title")}</h1><p>{t("invitations.safeDirectory")}</p><div className="agency-cards">{availableCleaners.map((cleaner) => <article key={cleaner.public_id}><strong>{cleaner.display_name}</strong><span>{cleaner.city}</span><button disabled={saving} type="button" onClick={() => void action(`/api/accounts/agencies/${profile.id}/invite-cleaner/`, { cleaner_public_id: cleaner.public_id })}>{t("invitations.invite")}</button></article>)}</div><ul className="agency-list">{invitations.map((invitation) => <li key={invitation.id}><span>{invitation.target_cleaner_name || t("members.unnamed")}</span><small>{invitation.status}</small>{invitation.status === "pending" ? <button disabled={saving} type="button" onClick={() => void action(`/api/accounts/agency-invitations/${invitation.id}/revoke/`)}>{t("invitations.revoke")}</button> : <button disabled={saving} type="button" onClick={() => void action(`/api/accounts/agency-invitations/${invitation.id}/resend/`)}>{t("invitations.resend")}</button>}</li>)}</ul></section>}
 
+      {tab === "discover" && (
+        <section className="agency-panel" role="tabpanel">
+          <h1>{t("discover.title")}</h1>
+          {!readiness?.marketplace_eligible ? <p>{t("discover.gated")}</p> : (
+            openJobs.filter((job) => job.status === "open").length === 0 ? <p>{t("discover.empty")}</p> : (
+              <ul className="agency-list">
+                {openJobs.filter((job) => job.status === "open").map((job) => {
+                  const application = applications.find((item) => item.job === job.id && item.status !== "withdrawn");
+                  const city = job.city_name_en || job.city_name_bg || job.city_slug || "Sofia";
+                  const zone = job.zone_name_en || job.zone_name_bg;
+                  return <li key={job.id}>
+                    <span>{t("discover.availability", { city, zone: zone ? ` · ${zone}` : "" })}</span>
+                    <small>{formatSofiaDateTime(job.scheduled_start)}</small>
+                    {job.proposed_price ? <small>{job.proposed_price} {job.currency}</small> : null}
+                    {application ? <small>{t("discover.applied")}</small> : <button type="button" disabled={saving || !job.can_apply} onClick={() => applyToOpenJob(job.id)}>{t("discover.apply")}</button>}
+                  </li>;
+                })}
+              </ul>
+            )
+          )}
+        </section>
+      )}
+
       {tab === "work" && <section className="agency-panel" role="tabpanel"><h1>{t("work.title")}</h1>{!readiness?.marketplace_eligible ? <p>{t("work.gated")}</p> : <>{applications.length === 0 ? <p>{t("work.empty")}</p> : <ul className="agency-list">{applications.filter((application) => application.status === "pending").map((application) => <li key={application.id}><span>{t("work.application", { id: application.id, job: application.job })}</span><select aria-label={t("work.memberChoice")} value={memberChoice[application.id] || String(application.proposed_member || "")} onChange={(event) => setMemberChoice((choices) => ({ ...choices, [application.id]: event.target.value }))}><option value="">{t("work.chooseMember")}</option>{activeMembers.map((member) => <option key={member.id} value={member.cleaner}>{member.cleaner_name}</option>)}</select><button type="button" disabled={saving || !(memberChoice[application.id] || application.proposed_member)} onClick={() => void action(`/api/marketplace/applications/${application.id}/select-member/`, { member_id: Number(memberChoice[application.id] || application.proposed_member) })}>{t("work.select")}</button></li>)}</ul>}</>}</section>}
 
-      {tab === "assignments" && <section className="agency-panel" role="tabpanel"><h1>{t("assignments.title")}</h1>{assignments.filter((item) => item.job_status !== "completed" && item.job_status !== "cancelled").map((assignment) => <article className="agency-assignment" key={assignment.id}><h2>{assignment.job_title || t("assignments.job", { id: assignment.job })}</h2><p>{assignment.assigned_member_name || t("assignments.noMember")}</p><RecoveryActions jobId={assignment.job} actions={assignment.available_actions} onComplete={() => void load()} /></article>)}</section>}
+      {tab === "assignments" && <section className="agency-panel" role="tabpanel"><h1>{t("assignments.title")}</h1>{assignments.filter((item) => item.job_status !== "completed" && item.job_status !== "cancelled").map((assignment) => <article className="agency-assignment" key={assignment.id}><h2>{assignment.job_title || t("assignments.job", { id: assignment.job })}</h2><p>{assignment.assigned_member_name || t("assignments.noMember")}</p>{assignment.available_actions?.includes("cancel") ? <button type="button" onClick={() => setCancelJobTarget(assignment)}>{t("assignments.cancel")}</button> : null}<RecoveryActions jobId={assignment.job} actions={assignment.available_actions} onComplete={() => void load()} /></article>)}</section>}
 
-      {tab === "history" && <section className="agency-panel" role="tabpanel"><h1>{t("history.title")}</h1><ul className="agency-list">{assignments.filter((item) => item.job_status === "completed" || item.job_status === "cancelled").map((assignment) => <li key={assignment.id}><span>{assignment.job_title || t("assignments.job", { id: assignment.job })}</span><small>{assignment.job_status}</small></li>)}</ul></section>}
+      {tab === "history" && <section className="agency-panel" role="tabpanel"><h1>{t("history.title")}</h1><ul className="agency-list">{assignments.filter((item) => item.job_status === "completed" || item.job_status === "cancelled").map((assignment) => <li key={assignment.id}><span>{assignment.job_title || t("assignments.job", { id: assignment.job })}</span><small>{assignment.job_status}</small>{assignment.job_status === "cancelled" ? <RecoveryActions jobId={assignment.job} actions={assignment.available_actions} onComplete={() => void load()} /> : null}</li>)}</ul></section>}
     </div>
+    {cancelJobTarget ? <CancelJobDialog jobId={cancelJobTarget.job} jobTitle={cancelJobTarget.job_title || t("assignments.job", { id: cancelJobTarget.job })} onClose={() => setCancelJobTarget(null)} onCancelled={() => load()} /> : null}
   </main>;
 }

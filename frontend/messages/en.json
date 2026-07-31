@@ -1277,7 +1277,12 @@
     "rescheduleTitle": "Propose a new time",
     "incidentTitle": "Report attendance incident",
     "replacementTitle": "Request a replacement",
-    "disputeTitle": "File a private dispute"
+    "disputeTitle": "File a private dispute",
+    "authorizationTitle": "Authorize replacement",
+    "authorizationDescription": "Only you can authorize a successor for this cancelled job.",
+    "authorize": "Authorize replacement",
+    "decline": "Decline replacement",
+    "authorizationError": "The replacement request could not be updated."
     ,"queueTitle": "Recovery queue"
     ,"queueSummary": "{replacements} replacements awaiting host authority · {disputes} open disputes · {incidents} recent incidents"
     ,"disputeQueueItem": "Dispute #{id} · job #{job} · {category}"
@@ -1305,14 +1310,15 @@
     "logout": "Log out",
     "yes": "Yes",
     "no": "No",
-    "tabs": {"label": "Agency workspace sections", "overview": "Overview", "profile": "Profile", "members": "Members", "invitations": "Invitations", "work": "Work", "assignments": "Assignments", "history": "History"},
+    "tabs": {"label": "Agency workspace sections", "overview": "Overview", "profile": "Profile", "members": "Members", "invitations": "Invitations", "discover": "Find work", "work": "Work", "assignments": "Assignments", "history": "History"},
     "overview": {"title": "Agency readiness", "ready": "Your agency can take on new marketplace work.", "notReady": "Complete the readiness steps before taking on new work.", "profile": "Profile complete", "eligibleMembers": "Eligible active members"},
     "blockers": {"account_not_eligible": "Your account is not active and approved.", "contact_not_verified": "Complete contact verification.", "profile_incomplete": "Add a public agency name, Sofia, and at least one service area.", "no_eligible_active_member": "Add at least one active, marketplace-eligible cleaner member."},
     "profile": {"title": "Public agency profile", "name": "Public agency name", "city": "Service city", "areas": "Sofia service areas (comma separated)", "description": "Description (optional)", "save": "Save profile"},
     "members": {"title": "Members", "empty": "No members yet. Invite a registered cleaner from the safe directory.", "unnamed": "Marketplace cleaner", "eligible": "Eligible for new work", "inactive": "Not eligible for new work", "revoke": "Revoke"},
     "invitations": {"title": "Invitations", "safeDirectory": "Invite only registered, marketplace-eligible cleaners. Contact details are never shown here.", "invite": "Invite", "revoke": "Revoke invitation", "resend": "Resend invitation"},
+    "discover": {"title": "Open work", "gated": "Complete agency readiness before applying to marketplace work.", "empty": "No open work is visible right now.", "availability": "Cleaning opportunity · {city}{zone}", "apply": "Apply", "applied": "Application submitted"},
     "work": {"title": "Applications and offers", "gated": "This section unlocks when agency readiness is complete.", "empty": "There are no pending applications or offers.", "application": "Application #{id} for job #{job}", "memberChoice": "Selected member", "chooseMember": "Choose an eligible member", "select": "Select member"},
-    "assignments": {"title": "Assignments and recovery", "job": "Job #{id}", "noMember": "No assigned member"},
+    "assignments": {"title": "Assignments and recovery", "job": "Job #{id}", "noMember": "No assigned member", "cancel": "Cancel job"},
     "history": {"title": "History"},
     "notice": {"updated": "The agency workspace was updated.", "profileSaved": "Agency profile saved."},
     "errors": {"action": "The agency action could not be completed.", "profile": "The agency profile could not be saved.", "unavailable": "The agency workspace is unavailable."}

@@ -7,6 +7,7 @@ from unittest import skipUnless
 
 from django.db import connection, connections, close_old_connections
 from django.test import TestCase, TransactionTestCase, override_settings
+from django.utils.dateparse import parse_datetime
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -329,6 +330,28 @@ class AgencyRecoveryParityTests(TestCase):
         self.assertEqual(response.data["release_request_id"], release.id)
         release.refresh_from_db()
         self.assertIsNotNone(release.replacement_request_id)
+
+    def test_host_job_response_exposes_only_its_pending_replacement_request(self):
+        incident = self._cancel_and_report_incident()
+        replacement = create_replacement_request(
+            job=self.job,
+            incident=incident,
+            actor=self.agency_user,
+        )
+
+        self.client.force_authenticate(self.host)
+        response = self.client.get(f"/api/marketplace/jobs/{self.job.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        pending = response.data["pending_replacement_request"]
+        self.assertEqual(pending["id"], replacement.id)
+        self.assertEqual(pending["status"], ReplacementRequest.Status.PENDING_HOST_AUTHORIZATION)
+        self.assertEqual(parse_datetime(pending["expires_at"]), replacement.expires_at)
+
+        self.client.force_authenticate(self.agency_user)
+        response = self.client.get(f"/api/marketplace/jobs/{self.job.id}/")
+
+        self.assertEqual(response.status_code, 404)
 
 
 @skipUnless(connection.vendor == "postgresql", "PostgreSQL recovery locking verification")

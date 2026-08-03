@@ -25,6 +25,13 @@ state belongs in [TGN.md](TGN.md), Stage 1 work in
 [docs/STAGE_1_SOFIA_PILOT_PLAN.md](docs/STAGE_1_SOFIA_PILOT_PLAN.md), and
 implementation proof in `docs/testing/`.
 
+**Azure deployment preparation:** the approved cloud target is one Ubuntu Azure
+VM with Caddy as the sole public entry point. No cloud deployment has occurred.
+The remaining pre-deployment evidence is tracked in
+[AZURE_VM_REMAINING_STEPS.md](AZURE_VM_REMAINING_STEPS.md); detailed design is
+in [docs/deployment/](docs/deployment/). Command-level deployment instructions
+are intentionally deferred until explicitly requested.
+
 Codex repository navigation now uses CodeGraph as described in
 [AGENTS.md](AGENTS.md#codegraph-workflow-canonical). The local index is
 machine-specific and should be checked/refreshed at session start; it does not

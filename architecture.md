@@ -515,11 +515,16 @@ Before extraction, communicate across modules with explicit domain events such a
 
 ## Infrastructure Direction
 
-Target EU managed cloud infrastructure:
+Stage 1 pilot deployment target: one Ubuntu LTS Azure VM with a static public
+IP. Caddy is the only public container (ports 80/443); Next.js, Django,
+Celery, PostgreSQL, and Redis stay on the private Docker network. PostgreSQL,
+media, and Caddy state use persistent storage; Azure Blob backups and a
+disposable restore test are required before release. Managed PostgreSQL, Redis,
+Front Door/WAF, and AKS are explicitly out of scope for this pilot.
+
+Future EU managed-cloud direction, if later approved:
 
 - Containerized backend and worker deployments.
-- Managed PostgreSQL with automated backups.
-- Managed Redis.
 - Managed object storage (planned for uploaded photos/documents).
 - HTTP request logs accept only `req_` plus 32 lowercase hexadecimal characters
   as request IDs and record resolver endpoint templates instead of raw paths,

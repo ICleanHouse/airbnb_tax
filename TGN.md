@@ -926,6 +926,15 @@ Django settings.py defaults    (lowest priority)
 `DATABASE_URL` must be **absent or commented out** in local `.env`.
 Docker passes it via `env_file:` with the `db` hostname valid inside the container network.
 
+### Stage 1 deployment boundary
+
+The approved cloud target is a single Ubuntu Azure VM. Caddy is the sole
+public entry point; PostgreSQL, Redis, Django, Celery, and Next.js remain on
+the private Docker network. This target has not been deployed. See
+[Azure VM deployment plan](docs/deployment/AZURE_VM_DEPLOYMENT_PLAN.md) and
+[remaining steps](AZURE_VM_REMAINING_STEPS.md) for the readiness evidence;
+they intentionally omit the future command-level deployment procedure.
+
 ---
 
 ## 9. Implementation State Heatmap

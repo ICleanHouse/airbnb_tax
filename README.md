@@ -16,7 +16,10 @@ The MVP focuses on job posting, monthly cleaning batches, Airbnb iCal imports, c
 - `BUSINESS.md`: business strategy, target market, monetization hypotheses, risks, and open questions.
 - `architecture.md`: technical architecture and domain boundaries.
 - `DEV.md`: development setup and operating guide.
-- `DEPLOY.md`: production-style Docker hosting, Windows firewall, and router forwarding guide.
+- `DEPLOY.md`: local Windows/Docker production-style hosting reference.
+- [Master remaining tasks](MASTER_REMAINING_TASKS.md): one checklist across Stage 1 and Azure preparation.
+- [Azure VM remaining steps](AZURE_VM_REMAINING_STEPS.md): concise pre-deployment gate for the approved Azure pilot target.
+- [Azure VM plan](docs/deployment/AZURE_VM_DEPLOYMENT_PLAN.md): target architecture and required readiness evidence.
 - `AGENT.md`: instructions for AI and developer agents.
 - `AGENTS.md`: Codex entrypoint and the canonical CodeGraph development
   workflow. Verify a local index with `codegraph status .`; see that guide for
@@ -54,7 +57,11 @@ Default URLs:
 
 Production-style local hosting is defined in `docker-compose.prod.yml` with Caddy as the only public entrypoint on ports `80` and `443`. It keeps PostgreSQL, Redis, Django, Celery, and Next.js on Docker's private network.
 
-See `DEPLOY.md` for the full Docker Desktop, Windows firewall, router forwarding, and verification steps.
+See `DEPLOY.md` for the local Windows/Docker reference. The Azure pilot target
+and its pre-deployment gate are documented in
+`docs/deployment/AZURE_VM_DEPLOYMENT_PLAN.md` and
+`AZURE_VM_REMAINING_STEPS.md`; deployment instructions are intentionally
+deferred until explicitly requested.
 
 ## Current Implementation Status
 

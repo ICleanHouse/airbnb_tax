@@ -1,10 +1,20 @@
-# Production Hosting On This Machine
+# Local Production-Style Hosting Reference
 
 ## Restart Handoff
 
 See `CURRENT_PROGRESS.md` for the current production-hosting and local-development resume point.
 
-This deployment runs the app with Docker Compose and exposes only the reverse proxy on host ports `80` and `443`.
+This document preserves the existing Windows/Docker Desktop reference workflow
+for local or LAN production-style testing. It is **not** the approved cloud
+deployment path and must not be treated as Azure deployment instructions.
+
+The Stage 1 cloud target is a single Ubuntu Azure VM. Its preparation scope and
+remaining evidence are in [docs/deployment/AZURE_VM_DEPLOYMENT_PLAN.md](docs/deployment/AZURE_VM_DEPLOYMENT_PLAN.md)
+and [AZURE_VM_REMAINING_STEPS.md](AZURE_VM_REMAINING_STEPS.md). The actual Azure
+command sequence will be added only when explicitly requested.
+
+This local reference runs the app with Docker Compose and exposes only the
+reverse proxy on host ports `80` and `443`.
 
 ## 1. Install prerequisites
 

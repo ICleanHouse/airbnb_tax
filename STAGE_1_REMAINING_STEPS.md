@@ -42,8 +42,8 @@ applicable Gate A–D work has passed.
 | --- | --- | --- |
 | S1-R01 | Publish reviewed BG/EN privacy, terms, cookie, verification, processor, research/pilot, retention, deletion, support, and incident disclosures. | All required policy surfaces are live and reviewed. |
 | S1-R02 | Publish monitored support channel/hours; create restricted tracker and runbooks; rehearse critical runbooks. | Support operation is usable and rehearsed. |
-| S1-R03 | Deploy domain/TLS, production secrets, private PostgreSQL/Redis networking, protected admin, throttles/headers/scans, persistent media, and deployment docs. Run the Celery worker as an unprivileged user. | Secure pilot environment is live. |
-| S1-R04 | Configure encrypted point-in-time database recovery and media backups; prove clean restore and release rollback. | Restore and rollback evidence passes. |
+| S1-R03 | Prepare the Azure VM target: domain/TLS, production secrets, private PostgreSQL/Redis networking, protected admin, throttles/headers/scans, persistent media, and deployment evidence. Run Celery unprivileged. See [Azure VM remaining steps](AZURE_VM_REMAINING_STEPS.md). | Secure pilot environment is live. |
+| S1-R04 | Configure encrypted database recovery and media backups; prove clean restore and release rollback. See [Azure backup/restore requirements](docs/deployment/AZURE_VM_BACKUP_RESTORE.md). | Restore and rollback evidence passes. |
 | S1-R05 | Enable sanitized browser/Django/Celery errors, readiness/worker signals, external alerts, TLS/backup/notification monitoring, and request-ID tracing. | Operational observability is active. |
 | S1-Q01 | Re-baseline event and metric dictionary for the 90-day product-led model: lineage, match mode, exclusions, operator time, consent, and raw counts. | Approved measurable evidence contract. |
 | S1-Q02 | Map backend evidence to the full matrix; add missing authorization, lifecycle, concurrency, reset/throttle, time, audit, and isolation tests. | Backend matrix passes. |

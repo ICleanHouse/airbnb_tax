@@ -267,8 +267,11 @@ Primary Stage 1 success signal:
 - Role-ready activated users, separated by hosts, cleaners, and agencies.
 - A role-ready account has verified email and phone, an active approved account,
   and complete role-specific onboarding. Hosts additionally need a complete
-  Sofia property; cleaners need service area and availability; agencies need a
-  complete service profile and at least one separately role-ready active member.
+  Sofia property; cleaners need a service area and concierge availability
+  confirmation during supply activation; agencies need a complete service
+  profile and at least one separately role-ready active member. Concierge
+  confirmation is not a persisted profile field or a real-time availability
+  guarantee.
 - Registered users and the pending/approved/rejected/suspended funnel remain
   acquisition and diagnostics measures, not the North Star.
 

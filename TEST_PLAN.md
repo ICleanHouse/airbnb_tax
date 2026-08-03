@@ -91,7 +91,10 @@ Obvious missing coverage:
 - Cleaner verification admin mutation through `CleanerProfileViewSet.perform_update`; only the lower-level field guard is testable because `POST /api/accounts/cleaners/{id}/verify/` is documented as not built.
 - Permission classes in `accounts/permissions.py`, especially `IsVerifiedCleaner` and `IsApprovedAccount`.
 - Email-code expiry, reused token, wrong email/token, disabled verification, and duplicate email validation around `SignupEmailVerification` and `SignupSerializer`.
-- Required cleaner signup fields in `TGN.md` include work preference and at least one preferred time slot, but `SignupSerializer.validate` currently enforces birth date, sex, and native language only. Tests should document the intended contract before any implementation change.
+- S1-E04 deliberately keeps work preference, preferred time slots, and recurring
+  availability out of cleaner signup/profile data. Add a regression only if an
+  approved end-to-end contract introduces those fields; until then, tests must
+  not require or silently reintroduce them.
 - Agency invitation negative paths: expired invitation, mismatched email/phone, duplicate pending invitation, non-cleaner accept, inactive/revoked member access.
 - Profile endpoint object ownership for host, cleaner, and agency profile viewsets.
 - CSRF endpoint and session cookie behavior for `CsrfTokenView`, `LoginView`, and `LogoutView`.
@@ -209,6 +212,8 @@ S1-E04 resolved gaps (2026-07-15):
   for a concrete delegated member.
 - Agency delegation reloads and locks the member, profile, and active
   membership before checking direct and delegated assignment occupancy.
+- Accepted assigned-job reschedules lock the concrete worker and revalidate the
+  proposed interval before changing the schedule.
 - Half-open overlap behavior, cancellation release, completed scheduled
   intervals, stale inputs, Europe/Sofia/UTC conversion, DST fallback, exact
   non-sensitive 409 responses, and PostgreSQL concurrent acceptance are covered

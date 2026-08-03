@@ -557,7 +557,13 @@ instructions, coordinates, host identity, and free text.
 - Progress starts at `Choose account type`, not during credentials or email confirmation.
 - Cleaner flow after role selection: personal information → location/service areas → native language → experience → introduction → profile photo → final `POST /api/accounts/signup/`.
 - Host/agency flow after role selection: location/service areas → final `POST /api/accounts/signup/`.
-- Cleaner required fields: birth date proving age 18+, sex, native language, experience level, work preference, and at least one preferred time slot.
+- Cleaner required fields: birth date proving age 18+, sex, native language,
+  experience level, city/service areas, and the documented profile fields. Do
+  not add work-preference, preferred-slot, or recurring-availability fields to
+  signup or the profile without an approved end-to-end contract. S1-O03 supply
+  activation uses operator-confirmed two-week availability, capacity,
+  travel/notice limits, and urgent-contact preference; later matching depends on
+  the cleaner's response.
 - UI-only Google and Apple buttons are present but not connected to OAuth.
 - When changing signup for Cleaner, Host, or Agency, update frontend state/payloads, backend models, migrations, serializer validation, profile serializers, admin/profile visibility when needed, and tests together.
 

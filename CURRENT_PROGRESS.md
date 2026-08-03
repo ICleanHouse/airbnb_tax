@@ -16,8 +16,8 @@ Implementation note (2026-07-27): S1-D05 now has a target-bound invitation
 contract, agency readiness projection, member-bound new assignments,
 agency-accountable recovery, `/agency` workspace/routing, and agency-safe
 notifications. It is not a live-release completion: S1-E02 phone verification,
-cleaner availability, browser E2E, and an explicitly approved live Resend
-acceptance smoke still gate launch. See
+S1-O03 operator-confirmed supply availability, browser E2E, and an explicitly
+approved live Resend acceptance smoke still gate launch. See
 [S1-D05 full agency parity](docs/S1_D05_FULL_AGENCY_PARITY.md).
 
 This is a concise resume point, not a historical changelog. Detailed domain

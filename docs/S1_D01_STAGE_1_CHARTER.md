@@ -60,8 +60,10 @@ be linked to the release evidence.
   an active approved account, and complete role-specific onboarding.
 - A role-ready host has a complete Sofia profile and at least one complete Sofia
   property. A role-ready cleaner has a complete profile, service area, and
-  availability. A role-ready agency has a complete profile/service area and at
-  least one separately role-ready active member cleaner.
+  S1-O03 concierge availability confirmation during supply activation. This is
+  not a persisted profile field or a real-time availability guarantee. A
+  role-ready agency has a complete profile/service area and at least one
+  separately role-ready active member cleaner.
 - At full marketplace launch, every eligible Sofia job is available under the
   existing role, privacy, status, timing, and object-authorization rules. There
   is no invite-only job cohort and no operator-release requirement.
@@ -118,4 +120,3 @@ implementation.
 
 Approved by: **Project owner**  
 Decision date: **2026-07-23**
-

@@ -103,15 +103,20 @@ PostgreSQL volume was not modified or deleted.
 
 ## Scope boundaries and status
 
-Assigned-job rescheduling and emergency-replacement acceptance services are not
-implemented. When those workflows are introduced, their mutation services must
-lock the concrete worker and call the same overlap check in the transaction
-that changes or creates the assignment. This is a future integration contract,
-not an unfinished S1-E04 implementation.
+Assigned-job rescheduling is implemented and revalidates the concrete worker's
+schedule in the transaction that changes the schedule. Replacement
+authorization creates a linked successor; any later assignment uses the normal
+protected assignment paths. Future assignment-producing workflows must lock the
+concrete worker and call the same overlap check in the transaction that changes
+the schedule or creates the assignment.
 
-The availability/preferred-slot documentation mismatch and removed availability
-fields remain unchanged for a separate owner decision. They are independent of
-the hard assignment-overlap invariant.
+The availability/preferred-slot documentation decision is resolved: work
+preference, preferred time slots, and recurring availability remain removed and
+are not persisted, exposed, or required at signup or profile editing. S1-O03
+supply activation uses operator confirmation of two-week availability, capacity,
+travel/notice limits, and urgent-contact preference; later matching depends on
+the cleaner's response. This concierge control is independent of the
+hard-assignment-overlap invariant.
 
 S1-E04 is **Done**: application acceptance, direct-offer acceptance, and
 agency-member delegation are protected; the one-assignment-per-job database

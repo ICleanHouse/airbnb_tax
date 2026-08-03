@@ -50,7 +50,7 @@ state and the next action visible.
 | 3 | Complete contact verification under S1-D02 | In progress | The target maturity audit and batches are refreshed; select the EEA SMS provider/privacy/rate-limit contract, then execute Batches 1–6. |
 | 4 | Remove sensitive signup persistence | Done; ongoing regression duty | Keep the browser-storage and telemetry allowlist tests. |
 | 5 | Repair anonymous conversion and role routing | Done | Safe localized return targets, guest Connect recovery, account-state routing, notification-link validation, deterministic browser fixtures, and the full verification matrix passed. |
-| 6 | Enforce authoritative assignment-overlap protection | Done for implemented assignment paths | Resolve the separate availability/work-preference documentation drift and reuse the overlap service in future reschedule/replacement assignment paths. |
+| 6 | Enforce authoritative assignment-overlap protection | Done | Preserve the hard-overlap regression coverage; S1-O03/S1-D05 own concierge supply-availability readiness. Reuse the overlap service in future assignment-producing paths. |
 | 7 | Add history-preserving lifecycle/recovery | Implementation verified; controlled rollout activation remains | Agency recovery parity and delegated-member review routing have PostgreSQL evidence; activate only after target-environment migrations and the controlled flag. |
 | 8 | Disable calendar URL import and validate enabled uploads | Done | Keep URL fetching absent and preserve upload-security regression coverage. |
 | 9 | Govern exact maps/geocoding through the owned API boundary | In progress | Approve Geoapify/privacy/budget terms, update the privacy notice, and capture an authenticated browser network trace. |
@@ -79,7 +79,7 @@ state and the next action visible.
 | S1-E01 | Minimize public marketplace data and remove leakage | Done | Maintain serializer/media allowlists and recursive privacy tests. |
 | S1-E02 | Implement contact-based verification completion | In progress; target audit refreshed | Select/approve the EEA SMS provider and exact caps, then implement the six batches in the refreshed maturity audit. |
 | S1-E03 | Remove sensitive signup persistence | Done | Maintain storage, browser-history, logging, telemetry, and refresh-recovery regression tests. |
-| S1-E04 | Prevent overlapping cleaner assignments | Done for hard-overlap contract; availability follow-up open | Resolve the work-preference/availability documentation drift and keep operator-confirmed availability for the concierge cohort. |
+| S1-E04 | Prevent overlapping cleaner assignments | Done | Preserve the hard-overlap contract. S1-O03/S1-D05 own operator-confirmed concierge supply-availability readiness. |
 | S1-E05 | Add history-preserving failure and recovery workflows | Implementation verified; controlled rollout activation remains | Preserve the recovery PostgreSQL proof and enable the flag only after target-environment migrations. |
 | S1-E06 | Complete the reliability notification loop | In progress; live Resend acceptance pending | PostgreSQL concurrency, Redis/Celery, local delivery, retryable failure, and terminal-alert behavior are evidenced; run the explicitly approved Resend acceptance smoke. |
 | S1-E07 | Repair conversion and role routing | Done | Full Django (472 tests) and seeded Playwright (10 tests, no skips) evidence passed. See `docs/testing/s1_e07_conversion_routing.tdd.md`. |
@@ -358,7 +358,7 @@ The following are not optional Stage 1 design choices:
 | Anonymous visitor | Public landing, approximate demand, public cleaner profile, lead/waitlist | Understand the offer and begin a safe role-specific journey |
 | Pending user | Role dashboard activation/status surface | Complete onboarding and understand what remains locked |
 | Approved host | Host dashboard | Create properties/jobs, review eligible applicants, assign one cleaner, coordinate, cancel/reschedule through policy, and review |
-| Approved marketplace-eligible cleaner | Cleaner dashboard | Manage availability, discover eligible work, apply/accept, coordinate, complete, report failure, and review |
+| Approved marketplace-eligible cleaner | Cleaner dashboard | Complete the operator-assisted S1-O03 availability confirmation during supply activation, discover eligible work, apply/accept, coordinate, complete, report failure, and review |
 | Role-ready agency | Full agency workspace | Manage profile, members, eligible jobs, applications/offers, assignments, immutable member delegation, notifications, and history-preserving recovery |
 | Platform admin/operator | Admin and support surfaces | Reconcile exceptional accounts, reject/suspend/restore access under S1-D02, inspect history, support recovery, resolve disputes, and measure the pilot; there is no manual identity or quality-vetting gate |
 | Research participant | External consented research process | Provide evidence without being silently added to marketing or pilot cohorts |
@@ -401,8 +401,10 @@ Stage 1 requires the following implementation-facing contracts:
 - Authenticated job-detail responses scoped by role, status, eligibility,
   ownership, and assignment.
 - Admin-only account and verification transition services.
-- An authoritative overlap check at every assignment-producing transition,
-  using operator-confirmed availability during the concierge pilot.
+- An authoritative overlap check at every assignment-producing transition.
+  S1-O03 separately uses operator-confirmed availability during concierge
+  supply activation; it is not a persisted profile field or a real-time
+  availability guarantee.
 - Explicit cancellation, reschedule, incident/dispute, and replacement actions
   rather than unrestricted job mutation.
 - Privacy-reviewed lead capture that is distinct from CleaningJob—either a
@@ -768,7 +770,8 @@ field/access allowlist for each audience.
 member-selection, immutable member-bound assignment, agency recovery,
 notification-routing, signup and `/agency` workspace slices are implemented.
 Agency recovery now has real PostgreSQL concurrency evidence. Do not mark this
-launch gate complete until S1-E02, availability, notification runtime and
+launch gate complete until S1-E02, S1-O03 operator-confirmed supply
+availability, notification runtime and
 browser/accessibility evidence pass, and the target environment has applied its
 migrations before enabling the controlled recovery flag; see
 [S1-D05 full agency parity](S1_D05_FULL_AGENCY_PARITY.md).
@@ -1012,16 +1015,17 @@ Acceptance criteria:
 
 Required work:
 
-Availability follow-up (kept separate from hard assignment-overlap
-enforcement):
+Availability decision (separate from hard assignment-overlap enforcement):
 
-- [ ] Resolve the documented drift between required work preferences/preferred
-      time slots and the migration that removed cleaner availability.
-- [ ] Use operator-confirmed current availability for the concierge cohort.
-- [ ] Restore the minimum documented work-preference/preferred-slot fields or
-      obtain owner approval to update the higher-priority domain documentation.
-      A full recurring-availability calendar and blockout UI are not a Stage 1
-      requirement.
+- [x] Higher-priority documentation confirms that work preference, preferred
+      time slots, and recurring availability remain removed. They are not
+      persisted, exposed, or required during signup or profile editing.
+- [x] S1-O03 supply activation uses operator confirmation of a cleaner's
+      two-week availability, capacity, travel/notice limits, and urgent-contact
+      preference. Subsequent matching depends on the cleaner's response.
+- [x] A full recurring-availability calendar, blockout UI, and availability
+      matching filter are not Stage 1 requirements. They require a separate
+      approved end-to-end contract.
 
 Implemented hard-overlap contract:
 
@@ -1042,11 +1046,12 @@ Implemented hard-overlap contract:
       PostgreSQL query-plan evidence.
 - [x] Test Europe/Sofia and UTC handling, including a daylight-saving boundary.
 
-Assigned-job rescheduling and emergency-replacement acceptance services do not
-exist yet. When introduced under their own workflow work, they must lock the
-concrete cleaner and call the same authoritative overlap check in the
-transaction that changes the schedule or produces the replacement assignment.
-Their absence is not an unfinished S1-E04 implementation.
+Assigned-job rescheduling is implemented and revalidates the concrete worker's
+schedule in the transaction that changes the schedule. Replacement
+authorization creates a linked successor; any later assignment uses the normal
+protected assignment paths. Future assignment-producing workflows must lock the
+concrete cleaner and call the same authoritative overlap check. This does not
+expand S1-E04 beyond its completed hard-overlap contract.
 
 Acceptance criteria:
 
@@ -1351,7 +1356,8 @@ Acceptance criteria:
 - [ ] Give cleaners an activation checklist:
   - email confirmed;
   - required profile complete;
-  - service area and availability complete;
+  - service area complete and S1-O03 concierge availability confirmed during
+    supply activation;
   - account approval state;
   - verification state;
   - expected review timing;
@@ -1634,7 +1640,7 @@ Acceptance criteria:
       property, job, application, assignment, conversation, review, calendar,
       notification, and any enabled media route.
 - [ ] Private property/media authorization for any media retained in Stage 1.
-- [ ] Availability and overlap checks.
+- [ ] S1-O03 operator-confirmation evidence and assignment-overlap checks.
 - [ ] Concurrent acceptance and replacement races on PostgreSQL.
 - [ ] Cancellation, reschedule, no-show, dispute, and replacement transitions.
 - [ ] Turnover-lineage/R17 behavior: immutable original attempt, host-authorized
@@ -1878,7 +1884,9 @@ Required before an agency enters the pilot.
 Before a cleaner enters the active pilot pool:
 
 - [ ] Complete required profile and exact service zones.
-- [ ] Confirm two-week availability.
+- [ ] Confirm two-week availability with the operator during supply activation;
+      later matching depends on the cleaner's response rather than a persisted
+      availability field.
 - [ ] State notice window, travel limits, and capacity.
 - [ ] Complete a product walkthrough/test scenario.
 - [ ] Confirm urgent-contact preference.
@@ -2039,7 +2047,7 @@ the first live job and do not move them after seeing results.
 | Role activation rate | Role-ready activated users / non-test accounts in the same role that were eligible to activate during the observation window; show pre-launch and post-launch account cohorts separately |
 | Evaluable standard turnover | A genuine turnover lineage in the selected cluster whose first exposed attempt is frozen as eligible at least the owner-approved minimum notice before start (recommended: 48 hours). A withdrawal/material change before supply exposure may be excluded/superseded with reason; after exposure the original attempt remains recorded and a changed request becomes a linked attempt without creating a second volume denominator |
 | Urgent turnover | A genuine turnover whose first exposed attempt is below the minimum-notice threshold; report it as a separate cohort and never use it to lower the standard-turnover denominator |
-| Qualified response | A response from an active marketplace-eligible in-area cleaner whose recorded availability/travel limits fit the job, through one recorded match mode |
+| Qualified response | A response through one recorded match mode from an active marketplace-eligible in-area cleaner whose S1-O03 activation-confirmed travel/notice limits fit the job; the response itself confirms current availability for that match |
 | Match mode | Record outreach events, `first_qualified_response_mode`, and `assignment_source` as `organic_application`, `host_direct_offer`, or `operator_assisted`. Organic means no targeted host/operator outreach occurred before that response; assisted/direct results are not organic liquidity |
 | Qualified-response rate | Evaluable standard turnover lineages receiving a qualified response within 24 hours of first supply exposure / evaluable standard turnover lineages |
 | Organic qualified-application rate | Evaluable standard turnover lineages receiving an `organic_application` within 24 hours of first supply exposure / evaluable standard turnover lineages |
@@ -2052,7 +2060,7 @@ the first live job and do not move them after seeing results.
 | Recovery rate | At-risk turnover lineages covered by a linked replacement job before required start / at-risk turnover lineages. With zero at-risk lineages, the result is `Not observed`, never 100% |
 | Matured host | A role-ready host who reached a first operationally successful job early enough to receive 30 complete observation days before the Stage 1 readout |
 | Repeat-host rate | Matured hosts who intentionally publish a new genuine job after their first operational-success timestamp and within the following 30 days / all matured hosts. Pre-existing drafts, monthly-batch jobs, imports, or other jobs created before first success do not count as repeat behavior |
-| Active eligible supply | Email-and-phone-verified marketplace-eligible cleaners and role-ready agency members with current availability who respond during the observation window |
+| Active eligible supply | Email-and-phone-verified marketplace-eligible cleaners and role-ready agency members with S1-O03 activation-confirmed availability who respond during the observation window; this is not a real-time availability representation |
 | District coverage | Active district/time bands with at least two total eligible activated cleaners (one potential assignee plus one distinct potential backup) / all active district/time bands |
 | Recurring operator effort per success | Total recurring operator minutes across all evaluable standard turnover lineages—including unfilled, cancelled, failed, and recovery work—/ operationally successful lineages |
 | Per-turnover operator effort | Median and maximum recurring operator minutes across all evaluable standard turnover lineages |

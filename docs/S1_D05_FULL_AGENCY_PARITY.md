@@ -2,8 +2,8 @@
 
 **Implementation decision:** 2026-07-27  
 **Status:** implemented in code; ADR-0003 adds open-live recovery and group
-reviews. Launch evidence remains gated by S1-E02 phone
-verification, cleaner-availability work, PostgreSQL concurrency proof, and
+reviews. Launch evidence remains gated by S1-E02 phone verification, S1-O03
+operator-confirmed supply availability, PostgreSQL concurrency proof, and
 notification runtime smoke.
 
 ## Boundary
@@ -61,4 +61,6 @@ schedule conflicts use 409. Relevant codes include
   versus selection/acceptance, and concrete-worker overlap.
 - Redis/Celery/provider notification smoke and delivery evidence.
 - Full authenticated browser journeys and accessibility checks.
-- S1-E02 and cleaner-availability launch gates.
+- S1-E02 and S1-O03 operator-confirmed supply-availability launch gates. This
+  concierge activation control does not add persisted cleaner availability or
+  work-preference fields.

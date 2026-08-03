@@ -175,7 +175,14 @@ AuditLog ──[references]────────► (any entity — polymorph
   `marketplace_eligible`, and `fully_verified` are distinct. The last always
   requires both timestamps; email-only access is not identity verification.
 - Public signup is a single React wizard at `/signup`; old signup step URLs redirect back to it.
-- Cleaner signup payloads must include birth date, sex, native language, experience level, work preference, and at least one preferred time slot. S1-E02 must add private birth date to host and agency-representative signup without public exposure.
+- Cleaner signup payloads must include birth date, sex, native language,
+  experience level, city/service areas, and the documented profile fields. Work
+  preference, preferred time slots, and recurring availability are not persisted,
+  exposed, or required at signup. During S1-O03 supply activation, an operator
+  confirms the cleaner's two-week availability, capacity, travel/notice limits,
+  and urgent-contact preference; later matching depends on the cleaner's
+  response. S1-E02 must add private birth date to host and agency-representative
+  signup without public exposure.
 - Any changed signup field for Cleaner, Host, or Agency must be reflected in database fields, migrations, serializers, frontend payloads, and tests.
 
 ### 2b. Cleaner Verification Status

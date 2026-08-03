@@ -61,10 +61,7 @@ flowchart TD
         AGE_CHECK -->|Yes| LOCATION[Select city and service areas]
         LOCATION --> LANGUAGE[Select native language]
         LANGUAGE --> EXPERIENCE[Select cleaning experience level]
-        EXPERIENCE --> AVAILABILITY[Select work preference and preferred time slots]
-        AVAILABILITY --> WEEKLY[Optionally add weekly availability]
-
-        WEEKLY --> REVIEW_SIGNUP[Review collected signup data]
+        EXPERIENCE --> REVIEW_SIGNUP[Review collected signup data]
         REVIEW_SIGNUP --> CREATE_ACCOUNT[Submit final cleaner signup]
 
         CREATE_ACCOUNT --> SIGNUP_RESULT{Account created?}
@@ -123,6 +120,11 @@ flowchart TD
         VERIFICATION_GATE -->|Rejected| VERIFICATION_REJECTED[Verification rejected]
         VERIFICATION_GATE -->|Suspended| VERIFICATION_SUSPENDED[Cleaner verification suspended]
 
+        OPERATOR_AVAILABILITY["S1-O03: operator confirms two-week availability, capacity, travel/notice limits and urgent-contact preference before the active pilot pool"]
+        CLEANER_RESPONSE[Later matching depends on the cleaner's response]
+        MARKETPLACE_ACCESS -. concierge activation .-> OPERATOR_AVAILABILITY
+        OPERATOR_AVAILABILITY --> CLEANER_RESPONSE
+
         UNVERIFIED_ACCOUNT --> APPLY_BLOCKED_VERIFY[Can view jobs but cannot apply]
         UNVERIFIED_ACCOUNT --> WAIT_VERIFY[Wait for admin verification]
         WAIT_VERIFY --> VERIFICATION_GATE
@@ -168,8 +170,7 @@ flowchart TD
         PROFILE_SECTION --> PROFILE_IMAGE[Upload or replace profile image]
         PROFILE_SECTION --> LOCATION_PROFILE[Edit city and service districts]
         PROFILE_SECTION --> LANGUAGES_PROFILE[Edit native and other languages]
-        PROFILE_SECTION --> EXPERIENCE_PROFILE[Edit experience and work preferences]
-        PROFILE_SECTION --> AVAILABILITY_PROFILE[Edit preferred times and weekly availability]
+        PROFILE_SECTION --> EXPERIENCE_PROFILE[Edit experience]
         PROFILE_SECTION --> TRANSPORT_PROFILE[Edit driving licence and own-car information]
         PROFILE_SECTION --> EXTRA_SERVICES[Edit extra services offered]
         PROFILE_SECTION --> BIO_PROFILE[Edit bio and personal description]
@@ -194,7 +195,6 @@ flowchart TD
         LANGUAGE_ACTION -->|Done| PROFILE_CHANGES
 
         EXPERIENCE_PROFILE --> PROFILE_CHANGES
-        AVAILABILITY_PROFILE --> PROFILE_CHANGES
         TRANSPORT_PROFILE --> PROFILE_CHANGES
         EXTRA_SERVICES --> PROFILE_CHANGES
         BIO_PROFILE --> PROFILE_CHANGES
@@ -470,7 +470,7 @@ Cleaner verification restrictions.
 Login, logout and session behavior.
 Cleaner profile editing and image cropping.
 City and district management.
-Languages, experience, transport, availability and extra services.
+Languages, experience, transport, and extra services.
 Open-job discovery and calendar conflicts.
 Applying, withdrawing, rejection and acceptance.
 Assignment creation and cleaning completion.

@@ -54,10 +54,10 @@
         <mxCell id="c_language" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Select native language" vertex="1">
           <mxGeometry height="70" width="210" x="320" y="460" as="geometry" />
         </mxCell>
-        <mxCell id="c_experience" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Enter experience and work preference" vertex="1">
+        <mxCell id="c_experience" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Enter experience level" vertex="1">
           <mxGeometry height="70" width="210" x="590" y="460" as="geometry" />
         </mxCell>
-        <mxCell id="c_availability" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Set preferred times and optional weekly availability" vertex="1">
+        <mxCell id="c_availability" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="S1-O03 operator confirms two-week availability for the active pilot pool" vertex="1">
           <mxGeometry height="70" width="210" x="890" y="460" as="geometry" />
         </mxCell>
         <mxCell id="c_create" parent="sec_0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Create account" vertex="1">
@@ -105,7 +105,7 @@
         <mxCell id="c_languages" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Manage native and other languages" vertex="1">
           <mxGeometry height="70" width="210" x="770" y="40" as="geometry" />
         </mxCell>
-        <mxCell id="c_preferences" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Edit experience, availability, transport and extra services" vertex="1">
+        <mxCell id="c_preferences" parent="sec_2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Edit experience, transport and extra services" vertex="1">
           <mxGeometry height="70" width="210" x="20" y="160" as="geometry" />
         </mxCell>
         <mxCell id="c_profilesave" parent="sec_2" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Save profile changes" vertex="1">
@@ -272,10 +272,10 @@
         <mxCell id="e17" edge="1" parent="1" source="c_language" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_experience">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e18" edge="1" parent="1" source="c_experience" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_availability">
+        <mxCell id="e18" edge="1" parent="1" source="c_experience" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_create">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e19" edge="1" parent="1" source="c_availability" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_create">
+        <mxCell id="e19" edge="1" parent="1" source="c_verifygate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_availability">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e20" edge="1" parent="1" source="c_create" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" target="c_accountgate" value="Success">

@@ -117,8 +117,10 @@ Future extraction into microservices should be possible without rewriting core b
   profile, target-bound invitations, roster, member selection, assignments,
   recovery, and history). Agency recovery parity has real PostgreSQL evidence;
   the target environment still needs the controlled recovery flag enabled after
-  its migrations are applied. S1-E02, availability, notification runtime, and
-  broader browser/accessibility evidence remain launch blockers.
+  its migrations are applied. S1-E02, S1-O03 operator-confirmed supply
+  availability, notification runtime, and broader browser/accessibility evidence
+  remain launch blockers. Availability is a concierge activation control, not a
+  persisted cleaner profile field or a real-time availability guarantee.
 - Applications review panel inside the host dashboard (host sees applications per job, accepts one).
 - S1-D02 completion: EEA phone OTP, all-role private birth-date handling,
   contact-change recovery, phone reservation/transfer, owner-admin restoration,

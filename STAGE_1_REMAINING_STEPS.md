@@ -12,7 +12,7 @@ applicable Gate A–D work has passed.
 
 | ID | Remaining step | Dependency / exit condition |
 | --- | --- | --- |
-| S1-D05 | Complete the remaining agency launch evidence: phone-ready roles, availability, notification runtime, browser/accessibility journeys, and controlled recovery activation. | Full launch-critical agency path passes end to end. |
+| S1-D05 | Complete the remaining agency launch evidence: phone-ready roles, S1-O03 operator-confirmed supply availability, notification runtime, browser/accessibility journeys, and controlled recovery activation. | Full launch-critical agency path passes end to end. |
 | S1-E02 | Approve an EEA SMS provider and limits; implement phone OTP, unique-number handling, private 18+ date handling, contact-change recovery, owner-admin restoration, seven-day pending expiry/cleanup, and the scoped badge. | Every role requires confirmed email, EEA phone, and private 18+ result before live access. |
 | S1-E06 | Run an explicitly approved live Resend acceptance smoke using the configured provider. | Mark done only after provider acceptance; PostgreSQL, Redis/Celery, local success, retryable failure, and terminal-alert evidence already pass. |
 | S1-E08 | Complete the account-recovery/deletion runtime evidence matrix. | Recovery, closure/anonymization, and their runtime proofs meet the approved policy. |
@@ -32,8 +32,8 @@ applicable Gate A–D work has passed.
 
 - S1-E01: retain public-data/media allowlists and recursive privacy tests.
 - S1-E03: retain signup browser-storage and telemetry allowlist tests.
-- S1-E04: resolve the documented availability/work-preference drift and keep
-  operator-confirmed availability for the concierge cohort.
+- S1-E04: retain hard-overlap regression coverage. S1-O03/S1-D05 own the
+  operator-confirmed supply-availability launch gate for the concierge cohort.
 - S1-E09: keep calendar URL fetching disabled and upload-security tests active.
 
 ## Gate C — release, support, and verification

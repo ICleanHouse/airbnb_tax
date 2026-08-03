@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import AgencyMembership, AgencyProfile, CleanerProfile, HostProfile, User
+from apps.feedback.models import ReviewGroup
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob, FavouriteCleaner
 from apps.marketplace.tests.factories import create_cleaning_job_record
 from apps.properties.models import Property
@@ -147,6 +148,13 @@ class ReviewScenarioMixin:
             cleaner_completed_at=completed_at,
             host_completed_at=completed_at,
         )
+        if assigned_member is not None:
+            ReviewGroup.objects.create(
+                job=agency_application.job,
+                host=self.host,
+                agency=self.agency_user,
+                delegated_member=assigned_member,
+            )
         return agency_application.job, assignment
 
     def make_active_member(self, agency: AgencyProfile, cleaner: User) -> AgencyMembership:

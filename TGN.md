@@ -257,12 +257,13 @@ AuditLog ──[references]────────► (any entity — polymorph
 - Competing applications are rejected when one is accepted.
 - **Completion is a single step by the assigned cleaner (or an admin)** — there is no separate host confirmation. Marking done sets `completed_at` and flips the job to `completed` immediately; `cleaner_completed_at`/`host_completed_at` are both stamped at that moment. Cleaner completion is time-gated to after `scheduled_start`.
 - Reviews are allowed only after `completed` with `assignment.completed_at` set
-  and are **double-blind**. The review participants are the host and the
-  concrete worker: `Assignment.assigned_member` for a delegated agency
-  assignment, otherwise `Assignment.cleaner`. The agency account is not a
-  personal-review participant after delegation. Historical `ReviewGroup` data
-  remains immutable for compatibility; new delegated completions create the
-  same two directed reviews as direct work.
+  and are **double-blind**. Direct and undelegated agency work uses the host
+  and assigned cleaner. A delegated-agency completion creates an immutable
+  `ReviewGroup` snapshot of host, agency, and `Assignment.assigned_member`;
+  each participant may review each other participant (six directed reviews),
+  which reveal only to those three participants after all six submit or the
+  review window closes. Group-review records never enter public review or
+  rating projections.
 - Disputes are orthogonal case records, not job statuses. The dispute workflow
   is a later S1-E05 batch and cannot change completion, reviews, or ratings.
 
@@ -955,7 +956,7 @@ Quick reference: what is fully done, what is partial, what is missing.
 | Physical job deletion replacement (stable 409) | ✅ Complete (S1-E05 Batch 2) |
 | Account-deletion active blocker/history support route | ✅ Complete (S1-E05 Batch 2) |
 | Agency-backed recovery parity | ✅ Implemented and PostgreSQL-verified; controlled rollout activation remains |
-| Delegated completion/review recipient routing | ✅ Complete — host and concrete delegated member only |
+| Delegated completion/review recipient routing | ✅ Complete — immutable host/agency/delegated-member group |
 | Two-way double-blind reviews + revealed-only rating update | ✅ Complete |
 | In-app notification records | ✅ Complete |
 | Calendar conflict API | ✅ Complete |

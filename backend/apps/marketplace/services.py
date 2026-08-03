@@ -30,6 +30,7 @@ from apps.marketplace.models import (
     TurnoverLineage,
 )
 from apps.marketplace.participants import resolve_review_participants
+from apps.feedback.services import ensure_review_group_for_completed_assignment
 from apps.marketplace.selectors import valid_future_marketplace_jobs
 from apps.notifications.services import NotificationEventRequest, emit_notification_event
 
@@ -1511,6 +1512,7 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
 
     participants = resolve_review_participants(job=job, assignment=assignment)
     actual_worker = participants.concrete_worker
+    review_group = ensure_review_group_for_completed_assignment(job=job, assignment=assignment)
     _emit_notification(
         event_type="job.completed", recipient=job.host,
         occurrence_key=f"job-completed:{job.id}:{assignment.completed_at.isoformat()}",
@@ -1525,23 +1527,36 @@ def complete_job(*, job: CleaningJob, completed_by: User, request=None) -> Clean
             source_entity_type="CleaningJob", source_entity_id=job.id,
             request=request, section="assignments",
         )
-    review_recipients = (
-        (participants.host, actual_worker.id),
-        (actual_worker, participants.host.id),
-    )
-    for recipient, reviewee_id in review_recipients:
-        _emit_notification(
-            event_type="review.requested", recipient=recipient,
-            occurrence_key=f"review-request:{job.id}:{reviewee_id}:{assignment.completed_at.isoformat()}",
-            source_entity_type="CleaningJob", source_entity_id=job.id,
-            request=request,
-            destination=(
-                f"/host?reviewJob={job.id}"
-                if recipient.id == participants.host.id
-                else f"/cleaner?reviewJob={job.id}"
-            ),
-            metadata={"job_id": job.id, "reviewee_id": reviewee_id},
+    if review_group is not None:
+        for recipient, destination in (
+            (review_group.host, f"/host?reviewJob={job.id}"),
+            (review_group.agency, f"/agency?reviewJob={job.id}"),
+            (review_group.delegated_member, f"/cleaner?reviewJob={job.id}"),
+        ):
+            _emit_notification(
+                event_type="review.group_requested", recipient=recipient,
+                occurrence_key=f"review-group-request:{review_group.id}:{recipient.id}:{assignment.completed_at.isoformat()}",
+                source_entity_type="ReviewGroup", source_entity_id=review_group.id,
+                request=request, destination=destination,
+            )
+    else:
+        review_recipients = (
+            (participants.host, actual_worker.id),
+            (actual_worker, participants.host.id),
         )
+        for recipient, reviewee_id in review_recipients:
+            _emit_notification(
+                event_type="review.requested", recipient=recipient,
+                occurrence_key=f"review-request:{job.id}:{reviewee_id}:{assignment.completed_at.isoformat()}",
+                source_entity_type="CleaningJob", source_entity_id=job.id,
+                request=request,
+                destination=(
+                    f"/host?reviewJob={job.id}"
+                    if recipient.id == participants.host.id
+                    else f"/cleaner?reviewJob={job.id}"
+                ),
+                metadata={"job_id": job.id, "reviewee_id": reviewee_id},
+            )
 
     write_audit_log(
         actor=completed_by,

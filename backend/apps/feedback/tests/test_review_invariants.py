@@ -287,26 +287,27 @@ class AgencyReviewParticipantTests(ReviewScenarioMixin, TestCase):
         self.cleaner = self.member
         self.job, self.assignment = self.create_agency_job(assigned_member=self.member)
 
-    def test_host_reviews_actual_assigned_member_for_agency_delegated_job(self):
+    def test_host_can_review_the_actual_assigned_member_for_agency_delegated_job(self):
         review = submit_review(job=self.job, reviewer=self.host, reviewee=self.member, rating=5)
 
         self.assertEqual(review.reviewee, self.member)
 
-    def test_assigned_member_reviews_host_for_agency_delegated_job(self):
+    def test_assigned_member_can_review_host_for_agency_delegated_job(self):
         review = submit_review(job=self.job, reviewer=self.member, reviewee=self.host, rating=4)
 
         self.assertEqual(review.reviewer, self.member)
         self.assertEqual(review.reviewee, self.host)
 
-    def test_agency_account_is_not_a_review_participant_after_member_delegation(self):
-        cases = [
-            ("host-to-agency", self.host, self.agency_user),
-            ("agency-to-host", self.agency_user, self.host),
-        ]
-        for label, reviewer, reviewee in cases:
-            with self.subTest(label=label):
-                with self.assertRaises(FeedbackError):
-                    submit_review(job=self.job, reviewer=reviewer, reviewee=reviewee, rating=5)
+    def test_agency_account_is_a_review_group_participant_after_member_delegation(self):
+        host_review = submit_review(
+            job=self.job, reviewer=self.host, reviewee=self.agency_user, rating=5
+        )
+        agency_review = submit_review(
+            job=self.job, reviewer=self.agency_user, reviewee=self.host, rating=5
+        )
+
+        self.assertEqual(host_review.reviewee, self.agency_user)
+        self.assertEqual(agency_review.reviewer, self.agency_user)
 
     def test_agency_account_is_review_participant_before_member_delegation(self):
         undelegated_job, _assignment = self.create_agency_job(assigned_member=None)
@@ -337,11 +338,11 @@ class AgencyReviewParticipantTests(ReviewScenarioMixin, TestCase):
 
         self.assertEqual(Review.objects.count(), 0)
 
-    def test_delegated_member_can_review_only_the_host(self):
+    def test_delegated_member_can_review_the_host_or_assigned_agency_only(self):
         for reviewee in [self.agency_user, self.non_assigned_member, self.former_member, self.host]:
             with self.subTest(reviewee=reviewee.username):
                 response = self.api_post_review(self.member, job=self.job, reviewee=reviewee)
-                if reviewee == self.host:
+                if reviewee in {self.host, self.agency_user}:
                     self.assertEqual(response.status_code, 201)
                     Review.objects.all().delete()
                 else:

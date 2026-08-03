@@ -6,7 +6,7 @@ from django.db import transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from apps.feedback.models import Review
+from apps.feedback.models import Review, ReviewGroup
 from apps.feedback.services import FeedbackError, submit_review
 from apps.feedback.tests._review_test_utils import ReviewScenarioMixin
 from apps.marketplace.models import Assignment, CleanerApplication, CleaningJob
@@ -49,60 +49,36 @@ class DelegatedAgencyCompletionNotificationTests(ReviewScenarioMixin, TestCase):
             application=self.application,
         )
 
-    def test_completion_routes_two_review_requests_to_host_and_delegated_member(self):
+    def test_completion_creates_group_and_routes_review_requests_to_all_participants(self):
         self.job = complete_job(job=self.job, completed_by=self.member)
 
         self.job.refresh_from_db()
         self.assignment.refresh_from_db()
         self.assertEqual(self.job.status, CleaningJob.Status.COMPLETED)
         self.assertEqual(self.assignment.assigned_member_id, self.member.id)
-        requests = Notification.objects.filter(notification_type="review.requested")
-        self.assertEqual(set(requests.values_list("user_id", flat=True)), {self.host.id, self.member.id})
-        self.assertFalse(
-            Notification.objects.filter(
-                user=self.agency_user,
-                notification_type="review.requested",
-            ).exists()
-        )
-        host_request = requests.get(user=self.host)
-        member_request = requests.get(user=self.member)
-        self.assertEqual(
-            host_request.metadata,
-            {
-                "destination": f"/host?reviewJob={self.job.id}",
-                "job_id": self.job.id,
-                "reviewee_id": self.member.id,
-            },
-        )
-        self.assertEqual(
-            member_request.metadata,
-            {
-                "destination": f"/cleaner?reviewJob={self.job.id}",
-                "job_id": self.job.id,
-                "reviewee_id": self.host.id,
-            },
-        )
+        group = ReviewGroup.objects.get(job=self.job)
+        self.assertEqual(group.participant_ids, (self.host.id, self.agency_user.id, self.member.id))
+        requests = Notification.objects.filter(notification_type="review.group_requested")
+        self.assertEqual(set(requests.values_list("user_id", flat=True)), {self.host.id, self.agency_user.id, self.member.id})
+        self.assertEqual(requests.get(user=self.host).metadata, {"destination": f"/host?reviewJob={self.job.id}"})
+        self.assertEqual(requests.get(user=self.agency_user).metadata, {"destination": f"/agency?reviewJob={self.job.id}"})
+        self.assertEqual(requests.get(user=self.member).metadata, {"destination": f"/cleaner?reviewJob={self.job.id}"})
 
-    def test_only_host_and_delegated_member_can_submit_the_two_reviews(self):
+    def test_all_three_group_participants_can_submit_reviews_for_each_counterpart(self):
         self.job = complete_job(job=self.job, completed_by=self.member)
-        host_review = submit_review(
-            job=self.job, reviewer=self.host, reviewee=self.member, rating=5
+        review_pairs = (
+            (self.host, self.agency_user), (self.host, self.member),
+            (self.agency_user, self.host), (self.agency_user, self.member),
+            (self.member, self.host), (self.member, self.agency_user),
         )
-        member_review = submit_review(
-            job=self.job, reviewer=self.member, reviewee=self.host, rating=4
-        )
+        for reviewer, reviewee in review_pairs:
+            submit_review(job=self.job, reviewer=reviewer, reviewee=reviewee, rating=5)
 
         self.assertEqual(
             set(Review.objects.filter(job=self.job).values_list("reviewer_id", "reviewee_id")),
-            {(self.host.id, self.member.id), (self.member.id, self.host.id)},
+            {(reviewer.id, reviewee.id) for reviewer, reviewee in review_pairs},
         )
-        self.assertEqual(host_review.reviewee_id, self.member.id)
-        self.assertEqual(member_review.reviewee_id, self.host.id)
-        for reviewer, reviewee in (
-            (self.agency_user, self.host),
-            (self.host, self.agency_user),
-            (self.other_member, self.host),
-        ):
+        for reviewer, reviewee in ((self.other_member, self.host),):
             with self.subTest(reviewer=reviewer.username, reviewee=reviewee.username):
                 with self.assertRaises(FeedbackError):
                     submit_review(

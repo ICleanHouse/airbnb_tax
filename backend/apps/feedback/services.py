@@ -61,8 +61,39 @@ def revealed_group_reviews(user: User):
 
 
 def _review_participant_ids(job: CleaningJob, assignment) -> set[int]:
+    group = getattr(job, "review_group", None)
+    if group is not None:
+        return set(group.participant_ids)
     participants = resolve_review_participants(job=job, assignment=assignment)
     return {participants.host.id, participants.concrete_worker.id}
+
+
+def ensure_review_group_for_completed_assignment(*, job: CleaningJob, assignment) -> ReviewGroup | None:
+    """Create the immutable three-party snapshot for delegated agency work.
+
+    This is called inside the marketplace completion transaction, so the
+    participant snapshot is committed with the completed attempt and can never
+    be changed by later agency delegation activity.
+    """
+    participants = resolve_review_participants(job=job, assignment=assignment)
+    if participants.agency is None:
+        return None
+
+    group, _created = ReviewGroup.objects.get_or_create(
+        job=job,
+        defaults={
+            "host": participants.host,
+            "agency": participants.agency,
+            "delegated_member": participants.concrete_worker,
+        },
+    )
+    if group.participant_ids != (
+        participants.host.id,
+        participants.agency.id,
+        participants.concrete_worker.id,
+    ):
+        raise FeedbackError("Delegated review-group participants do not match the completed assignment.")
+    return group
 
 
 @transaction.atomic
@@ -92,6 +123,7 @@ def submit_review(
     ):
         raise FeedbackError("The review window for this job has closed.")
 
+    group = getattr(job, "review_group", None)
     involved_user_ids = _review_participant_ids(job, assignment)
     if reviewer.id not in involved_user_ids or reviewee.id not in involved_user_ids:
         raise FeedbackError("Only users involved in the job can review each other.")
@@ -106,6 +138,7 @@ def submit_review(
         with transaction.atomic():
             review = Review.objects.create(
                 job=job,
+                group=group,
                 reviewer=reviewer,
                 reviewee=reviewee,
                 rating=rating,
@@ -123,13 +156,34 @@ def submit_review(
         is_private_issue=False,
     ).first()
 
-    # Ratings reflect only revealed reviews, so recompute both directions in case
-    # this submission completed a pair (only cleaners carry a rating).
+    # Ratings reflect only revealed public two-party reviews. Delegated
+    # ReviewGroup records remain private to their three participants.
     refresh_cleaner_rating(reviewee)
     refresh_cleaner_rating(reviewer)
 
     if is_private_issue:
         pass
+    elif group is not None:
+        public_review_count = group.reviews.filter(is_private_issue=False).count()
+        if public_review_count == 6:
+            for recipient in (group.host, group.agency, group.delegated_member):
+                emit_notification_event(
+                    NotificationEventRequest(
+                        event_type="review.group_revealed",
+                        recipient_id=recipient.id,
+                        occurrence_key=f"review-group-revealed:{group.id}:{recipient.id}",
+                        destination=(
+                            f"/host?reviewJob={job.id}"
+                            if recipient.id == group.host_id
+                            else f"/agency?reviewJob={job.id}"
+                            if recipient.id == group.agency_id
+                            else f"/cleaner?reviewJob={job.id}"
+                        ),
+                        source_entity_type="ReviewGroup",
+                        source_entity_id=str(group.id),
+                        request_id=getattr(request, "request_id", "") if request else "",
+                    )
+                )
     elif counterpart is not None:
         # Both reviews now exist — they become visible to each other.
         for recipient in (reviewer, reviewee):
@@ -185,8 +239,9 @@ def refresh_cleaner_rating(user: User) -> None:
     except CleanerProfile.DoesNotExist:
         return
 
-    # Only revealed reviews count toward the public rating (double-blind).
-    aggregate = revealed_received_reviews(user).aggregate(average=Avg("rating"))
+    # Group-review records remain private to their three participants and do
+    # not influence the public cleaner-rating projection.
+    aggregate = revealed_received_reviews(user).filter(group__isnull=True).aggregate(average=Avg("rating"))
     completed_count = (
         user.cleaning_assignments.filter(job__status=CleaningJob.Status.COMPLETED).count()
         + user.agency_assigned_cleanings.filter(

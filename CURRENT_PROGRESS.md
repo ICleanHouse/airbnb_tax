@@ -47,10 +47,11 @@ change product or release authority.
   [approved S1-D02 policy](docs/S1_D02_CONTACT_ELIGIBILITY_POLICY.md).
 - **S1-E05 — Implementation verified; controlled rollout activation remains.**
   Direct and agency-backed recovery preserve source history and create one
-  host-authorized successor in the same lineage. Delegated completion and
-  reviews resolve the concrete member, never the agency account. The source
-  assignment/member/application remain unchanged; normal reassignment stays
-  rejected. Evidence: [agency recovery parity](docs/testing/s1_e05_agency_recovery_parity.tdd.md)
+  host-authorized successor in the same lineage. A completed delegated-agency
+  attempt snapshots host, agency, and concrete delegated member in an immutable
+  `ReviewGroup`; the six directed group reviews remain private and reveal only
+  to those participants. The source assignment/member/application remain
+  unchanged; normal reassignment stays rejected. Evidence: [agency recovery parity](docs/testing/s1_e05_agency_recovery_parity.tdd.md)
   and [direct recovery workflows](docs/testing/s1_e05_recovery_workflows.tdd.md).
 - **S1-E10 — In progress; implementation complete.** The Geoapify-backed
   private geocoding API now includes its 24-hour HMAC-keyed normalized-result

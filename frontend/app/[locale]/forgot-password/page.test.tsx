@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ForgotPasswordPage from "./page";
 
@@ -16,6 +16,8 @@ vi.mock("next-intl", () => ({
 vi.mock("../../../lib/api", () => ({ apiFetch: apiFetchMock }));
 
 describe("ForgotPasswordPage", () => {
+  beforeEach(() => apiFetchMock.mockReset());
+
   it("shows generic confirmation without exposing the submitted address", async () => {
     const user = userEvent.setup();
     apiFetchMock.mockResolvedValue(new Response(JSON.stringify({ detail: "generic" }), { status: 200 }));
@@ -27,6 +29,19 @@ describe("ForgotPasswordPage", () => {
     expect(await screen.findByText("request.success")).toBeInTheDocument();
     expect(screen.queryByText("person@example.test")).not.toBeInTheDocument();
     expect(apiFetchMock).toHaveBeenCalledWith("/api/accounts/password-reset/request/", expect.objectContaining({ method: "POST" }));
+    expect(screen.getByRole("heading")).toHaveFocus();
+  });
+
+  it("shows an accessible generic transport failure without retaining the address", async () => {
+    const user = userEvent.setup();
+    apiFetchMock.mockResolvedValue(new Response(null, { status: 503 }));
+    render(<ForgotPasswordPage />);
+
+    await user.type(screen.getByLabelText("emailLabel"), "person@example.test");
+    await user.click(screen.getByRole("button", { name: "request.submit" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("request.error");
+    expect(screen.queryByText("person@example.test")).not.toBeInTheDocument();
     expect(screen.getByRole("heading")).toHaveFocus();
   });
 });

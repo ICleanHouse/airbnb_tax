@@ -83,7 +83,7 @@ state and the next action visible.
 | S1-E05 | Add history-preserving failure and recovery workflows | Implementation verified; controlled rollout activation remains | Preserve the recovery PostgreSQL proof and enable the flag only after target-environment migrations. |
 | S1-E06 | Complete the reliability notification loop | In progress; live Resend acceptance pending | PostgreSQL concurrency, Redis/Celery, local delivery, retryable failure, and terminal-alert behavior are evidenced; run the explicitly approved Resend acceptance smoke. |
 | S1-E07 | Repair conversion and role routing | Done | Full Django (472 tests) and seeded Playwright (10 tests, no skips) evidence passed. See `docs/testing/s1_e07_conversion_routing.tdd.md`. |
-| S1-E08 | Add account recovery and safe account deletion | Partially complete | Password recovery and S1-D04 closure/anonymization foundations are implemented; complete runtime evidence remains required. See `docs/testing/s1_e08_account_recovery.tdd.md`. |
+| S1-E08 | Add account recovery and safe account deletion | Done | PostgreSQL 16/Redis runtime matrix, full backend suite, and full frontend suite passed. See `docs/testing/s1_e08_account_recovery_deletion.tdd.md`. |
 | S1-E09 | Secure or disable calendar URL import and uploads | Done with URL import disabled | Keep URL fetch absent; retain bounded ICS/image validation and privacy tests. |
 | S1-E10 | Govern maps, geocoding, and exact location | In progress; implementation complete | Keep provider traffic disabled until the production secret-store alert email and other validated server-only settings are configured; manual fallback remains available. |
 | S1-UX01 | Build a safe conversion-complete landing page | Not started | Implement Sofia-specific value/actions, honest verification/coverage, privacy-safe lead capture, text alternative, and policy/support links. |
@@ -562,7 +562,7 @@ it is done. Allowed statuses are **Not started**, **In progress**, **Blocked**,
 | S1-E05 | Must-have | Project owner | S1-D03 and recovery ADR | Implementation verified; controlled rollout activation remains | 2026-07-30 | [Accepted recovery ADR](adr/0001-turnover-lineage-recovery.md); [agency parity evidence](testing/s1_e05_agency_recovery_parity.tdd.md); [Batch 2 implementation evidence](testing/s1_e05_lifecycle_foundation.tdd.md); [Direct recovery workflow evidence](testing/s1_e05_recovery_workflows.tdd.md) |
 | S1-E06 | Must-have; reminders may be operator-assisted | Project owner | S1-D03 | In progress — live Resend acceptance pending | 2026-07-30 | [Evidence](testing/s1_e06_notification_reliability.tdd.md) |
 | S1-E07 | Must-have | Project owner | S1-D05 | Done | 2026-07-28 | [TDD evidence](testing/s1_e07_conversion_routing.tdd.md) |
-| S1-E08 | Must-have | Project owner | S1-D03/D04 | Partially complete | 2026-07-28 | [TDD evidence](testing/s1_e08_account_recovery.tdd.md); S1-D04 decision remains required. |
+| S1-E08 | Must-have | Project owner | S1-D03/D04 | Done | 2026-08-03 | [Runtime evidence](testing/s1_e08_account_recovery_deletion.tdd.md); S1-D04 is approved. |
 | S1-E09 | Must-have | Project owner | S1-D04 | Done | 2026-07-20 | [Calendar/upload security TDD evidence](testing/s1_e09_upload_security.tdd.md) |
 | S1-E10 | Must-have | Project owner | S1-D04 and provider decision | In progress; implementation complete | 2026-07-29 | [Backend geocoding TDD evidence](testing/s1_e10_geocoding_backend.tdd.md); restricted authenticated trace and owner approval record passed; production secret-store configuration still gates provider enablement. |
 | S1-UX01 | Must-have | Project owner | S1-D04/D05 | Not started |  |  |
@@ -1184,15 +1184,15 @@ Acceptance criteria:
 
 ### S1-E08 — Add account recovery and safe account deletion
 
-- [ ] Add localized Forgot password and reset-password screens.
-- [ ] Use an expiring, one-use reset token.
-- [ ] Rate-limit reset requests and avoid account enumeration.
-- [ ] Notify users of a completed password reset.
-- [ ] Provide a tested operator fallback.
-- [ ] Prevent self-service deletion while future/active assignments, unresolved
+- [x] Add localized Forgot password and reset-password screens.
+- [x] Use an expiring, one-use reset token.
+- [x] Rate-limit reset requests and avoid account enumeration.
+- [x] Notify users of a completed password reset.
+- [x] Provide a tested operator fallback.
+- [x] Prevent self-service deletion while future/active assignments, unresolved
       disputes, or required support history exist.
-- [ ] Route blocked deletion through an explicit cancellation/support workflow.
-- [ ] Apply the approved retention/anonymization policy to historical records.
+- [x] Route blocked deletion through an explicit cancellation/support workflow.
+- [x] Apply the approved retention/anonymization policy to historical records.
 
 Acceptance criteria:
 
@@ -1200,6 +1200,8 @@ Acceptance criteria:
 - Password-reset responses do not reveal whether an email exists.
 - Account deletion cannot silently remove another participant’s live
   marketplace record.
+- Runtime verification is complete on PostgreSQL 16 and Redis; see
+  [S1-E08 evidence](testing/s1_e08_account_recovery_deletion.tdd.md).
 
 ### S1-E09 — Secure or disable calendar URL import and file uploads
 
